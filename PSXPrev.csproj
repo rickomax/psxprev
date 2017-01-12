@@ -1,0 +1,140 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{FE8FC1C6-321C-4C5C-9861-3203B18C6E78}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>PSXPrev</RootNamespace>
+    <AssemblyName>PSXPrev</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>Danieledesantis-Playstation-Flat-Playstation-square-dark.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="OpenTK">
+      <HintPath>packages\OpenTK.2.0.0\lib\net20\OpenTK.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenTK.GLControl">
+      <HintPath>packages\OpenTK.GLControl.1.1.2349.61993\lib\NET40\OpenTK.GLControl.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Classes\BoundingBox\BoundingBox.cs" />
+    <Compile Include="Classes\Entities\EntityBase.cs" />
+    <Compile Include="Classes\Line\Line.cs" />
+    <Compile Include="Classes\Line\LineMesh.cs" />
+    <Compile Include="Classes\Batchers\LineBatch.cs" />
+    <Compile Include="Classes\Exporters\MtlExporter.cs" />
+    <Compile Include="Classes\Exporters\PlyExporter.cs" />
+    <Compile Include="Classes\Parsers\PMDParser.cs" />
+    <Compile Include="Classes\Parsers\RETIMParser.cs" />
+    <Compile Include="Classes\Texture\Texture.cs" />
+    <Compile Include="Classes\Color\Color.cs" />
+    <Compile Include="Classes\FileUtils\FileReader.cs" />
+    <Compile Include="Classes\Utils\Logger.cs" />
+    <Compile Include="Classes\FileUtils\ManifestResourceLoader.cs" />
+    <Compile Include="Classes\Entities\RootEntity.cs" />
+    <Compile Include="Classes\Utils\GeomUtils.cs" />
+    <Compile Include="Classes\Mesh\Mesh.cs" />
+    <Compile Include="Classes\Batchers\MeshBatch.cs" />
+    <Compile Include="Classes\Entities\ModelEntity.cs" />
+    <Compile Include="Classes\Exporters\ObjExporter.cs" />
+    <Compile Include="Classes\Exporters\PngExporter.cs" />
+    <Compile Include="Classes\Parsers\PXLParser.cs" />
+    <Compile Include="Classes\Texture\TextureBinder.cs" />
+    <Compile Include="Classes\Extensions\TreeViewExtensions.cs" />
+    <Compile Include="Classes\Mesh\Triangle.cs" />
+    <Compile Include="Classes\Utils\DialogUtils.cs" />
+    <Compile Include="Forms\DialogForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\DialogForm.Designer.cs">
+      <DependentUpon>DialogForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\PreviewForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\PreviewForm.Designer.cs">
+      <DependentUpon>PreviewForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\StubForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\StubForm.Designer.cs">
+      <DependentUpon>StubForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Classes\Scene\Scene.cs" />
+    <Compile Include="Classes\Parsers\TIMParser.cs" />
+    <Compile Include="Classes\Parsers\TMDParser.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+    <EmbeddedResource Include="Forms\DialogForm.resx">
+      <DependentUpon>DialogForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\StubForm.resx">
+      <DependentUpon>StubForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Shaders\Shader.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Shaders\Shader.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <None Include="OpenTK.dll.config" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Forms\PreviewForm.resx">
+      <DependentUpon>PreviewForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Danieledesantis-Playstation-Flat-Playstation-square-dark.ico" />
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
