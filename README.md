@@ -5,10 +5,10 @@ This tool uses:<br>
 OpenTK - https://github.com/opentk/opentk<br>
 Daniele de Santis Playstation Icons - http://www.danieledesantis.net/<br><br>
 You'll need to run it:<br>
-An OpenGL 2.0 compatible video card<br>
+An OpenGL 3.0 compatible video card<br>
 .NET Framework 4.5<br>
-Treat it as an experimental release and use this tool as your own risk!<br><br>
-The tool can use a big ammount of memory to scan the files, so, be careful.<br>
+Treat it as an experimental release and use this tool as your own risk!<br>
+(The tool can use a big ammount of memory to scan the files, so, be careful.)<br>
 
 Usage:<br>
 PSXPrev folder [filter] [-tmd] [-pmd] [-tim] [-retim] [-tod] [-hmdmodels] [-log] [-noverbose]<br>
