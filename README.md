@@ -9,7 +9,6 @@ An OpenGL 3.0 compatible video card<br>
 .NET Framework 4.5<br>
 Treat it as an experimental release and use this tool as your own risk!<br>
 (The tool can use a big ammount of memory to scan the files, so, be careful.)<br>
-
 Usage:<br>
 PSXPrev folder [filter] [-tmd] [-pmd] [-tim] [-retim] [-tod] [-hmdmodels] [-log] [-noverbose]<br>
 <ul>
@@ -24,7 +23,6 @@ PSXPrev folder [filter] [-tmd] [-pmd] [-tim] [-retim] [-tod] [-hmdmodels] [-log]
 <li>log - add this parameter to generate a scanning log text file</li>
 <li>noverbose - add this parameter to dont show log on the console window</li>
 </ul>
-
 A console window will appear, the application will scan each byte of the files inside the folder/filter you specified trying to find the files types you specified, so, it can take a bit of time for this process to end.<br><br>
 After the scan has been completed, a new window will open, with the tabs:<br>
 Models: This is where you see the models that has been found on the scan<br>
