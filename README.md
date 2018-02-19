@@ -40,7 +40,7 @@ The two 3D exportable file formats has disadvantages, .OBJ files cannot have ver
 The tool will only find files that are explicitly conformant to <br>
 the file formats it's looking for. Any compressed file cannot be scanned.
 
-License (BSD License 2.0):<br>
+<b>License (BSD License 2.0):</b><br>
 Copyright (c) 2018, Ricardo Reis<br>
 All rights reserved.<br><br>
 
@@ -54,7 +54,6 @@ modification, are permitted provided that the following conditions are met:<br>
     * Neither the name of the <organization> nor the<br>
       names of its contributors may be used to endorse or promote products<br>
       derived from this software without specific prior written permission.<br><br>
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND<br>
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED<br>
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE<br>
