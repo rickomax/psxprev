@@ -20,7 +20,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+    <WarningLevel>1</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -52,32 +52,41 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Classes\BoundingBox\BoundingBox.cs" />
-    <Compile Include="Classes\Entities\EntityBase.cs" />
-    <Compile Include="Classes\Line\Line.cs" />
-    <Compile Include="Classes\Line\LineMesh.cs" />
-    <Compile Include="Classes\Batchers\LineBatch.cs" />
-    <Compile Include="Classes\Exporters\MtlExporter.cs" />
-    <Compile Include="Classes\Exporters\PlyExporter.cs" />
-    <Compile Include="Classes\Parsers\PMDParser.cs" />
-    <Compile Include="Classes\Parsers\RETIMParser.cs" />
-    <Compile Include="Classes\Texture\Texture.cs" />
-    <Compile Include="Classes\Color\Color.cs" />
-    <Compile Include="Classes\FileUtils\FileReader.cs" />
-    <Compile Include="Classes\Utils\Logger.cs" />
-    <Compile Include="Classes\FileUtils\ManifestResourceLoader.cs" />
-    <Compile Include="Classes\Entities\RootEntity.cs" />
-    <Compile Include="Classes\Utils\GeomUtils.cs" />
-    <Compile Include="Classes\Mesh\Mesh.cs" />
-    <Compile Include="Classes\Batchers\MeshBatch.cs" />
-    <Compile Include="Classes\Entities\ModelEntity.cs" />
-    <Compile Include="Classes\Exporters\ObjExporter.cs" />
-    <Compile Include="Classes\Exporters\PngExporter.cs" />
-    <Compile Include="Classes\Parsers\PXLParser.cs" />
-    <Compile Include="Classes\Texture\TextureBinder.cs" />
-    <Compile Include="Classes\Extensions\TreeViewExtensions.cs" />
-    <Compile Include="Classes\Mesh\Triangle.cs" />
-    <Compile Include="Classes\Utils\DialogUtils.cs" />
+    <Compile Include="Classes\Animation.cs" />
+    <Compile Include="Classes\AnimationBatch.cs" />
+    <Compile Include="Classes\AnimationFrame.cs" />
+    <Compile Include="Classes\AnimationObject.cs" />
+    <Compile Include="Classes\BoundingBox.cs" />
+    <Compile Include="Classes\collada_schema_1_4.cs" />
+    <Compile Include="Classes\DaeExporter.cs" />
+    <Compile Include="Classes\EntityBase.cs" />
+    <Compile Include="Classes\HMDParser.cs" />
+    <Compile Include="Classes\Line.cs" />
+    <Compile Include="Classes\LineMesh.cs" />
+    <Compile Include="Classes\LineBatch.cs" />
+    <Compile Include="Classes\MissingTriangle.cs" />
+    <Compile Include="Classes\MtlExporter.cs" />
+    <Compile Include="Classes\PlyExporter.cs" />
+    <Compile Include="Classes\PMDParser.cs" />
+    <Compile Include="Classes\RETIMParser.cs" />
+    <Compile Include="Classes\Texture.cs" />
+    <Compile Include="Classes\Color.cs" />
+    <Compile Include="Classes\FileReader.cs" />
+    <Compile Include="Classes\Logger.cs" />
+    <Compile Include="Classes\ManifestResourceLoader.cs" />
+    <Compile Include="Classes\RootEntity.cs" />
+    <Compile Include="Classes\GeomUtils.cs" />
+    <Compile Include="Classes\Mesh.cs" />
+    <Compile Include="Classes\MeshBatch.cs" />
+    <Compile Include="Classes\ModelEntity.cs" />
+    <Compile Include="Classes\ObjExporter.cs" />
+    <Compile Include="Classes\PngExporter.cs" />
+    <Compile Include="Classes\PXLParser.cs" />
+    <Compile Include="Classes\TextureBinder.cs" />
+    <Compile Include="Classes\TODParser.cs" />
+    <Compile Include="Classes\TreeViewExtensions.cs" />
+    <Compile Include="Classes\Triangle.cs" />
+    <Compile Include="Classes\Utils.cs" />
     <Compile Include="Forms\DialogForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -98,9 +107,9 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Classes\Scene\Scene.cs" />
-    <Compile Include="Classes\Parsers\TIMParser.cs" />
-    <Compile Include="Classes\Parsers\TMDParser.cs" />
+    <Compile Include="Classes\Scene.cs" />
+    <Compile Include="Classes\TIMParser.cs" />
+    <Compile Include="Classes\TMDParser.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -122,13 +131,11 @@
   <ItemGroup>
     <EmbeddedResource Include="Forms\PreviewForm.resx">
       <DependentUpon>PreviewForm.cs</DependentUpon>
-      <SubType>Designer</SubType>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <Content Include="Danieledesantis-Playstation-Flat-Playstation-square-dark.ico" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

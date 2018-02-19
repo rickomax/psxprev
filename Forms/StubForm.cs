@@ -47,7 +47,7 @@ namespace PSXPrev.Forms
            //                 {
            //                     Command =
            //                         glm.translate(new mat4(s), new vec3(tx, ty, tz)) *
-           //                         GeomUtils.CreateR(new vec3(rx * DialogUtils.Deg2Rad, ry * DialogUtils.Deg2Rad, rz * DialogUtils.Deg2Rad)),
+           //                         GeomUtils.CreateR(new vec3(rx * Utils.Deg2Rad, ry * Utils.Deg2Rad, rz * Utils.Deg2Rad)),
            //                     Type = CommandType.Matrix
            //                 });
            //             break;

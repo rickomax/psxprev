@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+  <metadata>
+    <id>OpenTK</id>
+    <version>2.0.0</version>
+    <title>OpenTK</title>
+    <authors>The Open Toolkit Team</authors>
+    <owners>The Open Toolkit Team</owners>
+    <licenseUrl>http://github.com/opentk/opentk/blob/master/License.txt</licenseUrl>
+    <projectUrl>https://www.opentk.github.io/</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/opentk/opentk/master/docs/files/img/logo.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>The Open Toolkit is set of fast, low-level C# bindings for OpenGL, OpenGL ES and OpenAL. It runs on all major platforms and powers hundreds of apps, games and scientific research.
+OpenTK provides several utility libraries, including a math/linear algebra package, a windowing system, and input handling.</description>
+    <summary>A set of fast, low-level C# bindings for OpenGL, OpenGL ES and OpenAL.</summary>
+    <releaseNotes>* Moved to new FAKE/Paket based build system
+	* Removed superfluous release configurations
+	* Numerous other fixes and enhancements</releaseNotes>
+    <copyright>Copyright (c) 2006 - 2016 The Open Toolkit</copyright>
+    <tags>OpenTK OpenGL OpenAL OpenCL C# F# VB .Net Mono Graphics Game Scientific Science 3D 2D Math Input Gamepad Joystick</tags>
+  </metadata>
+</package>
