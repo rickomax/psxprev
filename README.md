@@ -2,8 +2,7 @@
 PSXPREV - Playstation (PSX) File Previewer/Extractor<br><br>
 PsxPrev, a TMD/PMD/TIM PlayStation file scanner.<br><br>
 This tool uses:<br>
-GLMNet - https://github.com/dwmkerr/glmnet<br>
-SharpGL - https://github.com/dwmkerr/sharpgl<br>
+OpenTK - https://github.com/opentk/opentk<br>
 Daniele de Santis Playstation Icons - http://www.danieledesantis.net/<br><br>
 You'll need to run it:<br>
 An OpenGL 2.0 compatible video card<br>
