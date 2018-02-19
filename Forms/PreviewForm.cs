@@ -6,7 +6,7 @@ using System.Threading;
 using System.Timers;
 using System.Windows.Forms;
 using OpenTK;
-using PSXPrev.Classes;
+
 using Timer = System.Timers.Timer;
 
 namespace PSXPrev

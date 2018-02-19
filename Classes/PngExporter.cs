@@ -1,6 +1,6 @@
 ﻿using System.Drawing;
 using System.Drawing.Imaging;
-using PSXPrev.Classes;
+
 
 namespace PSXPrev
 {

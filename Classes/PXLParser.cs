@@ -5,7 +5,7 @@ using System.IO;
 
 namespace PSXPrev
 {
-    public class PXLParser {
+   public class PXLParser {
    // {
    //     private readonly Logger _logger;
    //

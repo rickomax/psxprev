@@ -53,11 +53,10 @@ namespace PSXPrev
         private RootEntity ParseHMDEntities(BinaryReader reader)
         {
             var rootEntity = new RootEntity();
-            var modelEntities = new List<ModelEntity>();
             var mapFlag = reader.ReadUInt32();
             var primitiveHeaderTop = reader.ReadUInt32() * 4;
-            //ReadPrimitiveHeaderPointer(reader, primitiveHeaderPointer);
             var blockCount = reader.ReadUInt32();
+            var modelEntities = new List<ModelEntity>();
             for (var i = 0; i < blockCount; i++)
             {
                 var primitiveSetTop = reader.ReadUInt32() * 4;
@@ -67,50 +66,113 @@ namespace PSXPrev
                 }
                 var blockTop = reader.BaseStream.Position;
                 reader.BaseStream.Seek(_offset + primitiveSetTop, SeekOrigin.Begin);
-                var nextPrimitivePointer = reader.ReadUInt32() * 4;
-                var primitiveHeaderPointer = reader.ReadUInt32() * 4;
-                var typeCountMapped = reader.ReadUInt32();
-                var mapped = typeCountMapped >> 0x1F & 0x1;
-                var typeCount = typeCountMapped & 0x1F;
-                for (var j = 0; j < typeCount; j++)
-                {
-                    var primitiveType = reader.ReadUInt16();
-                    var dataType = reader.ReadUInt16();
-                    var developerId = (dataType & 0xF000) >> 0xC;
-                    var category = (dataType & 0xF00) >> 0x8;  //0: Polygon data 1: Shared polygon data 2: Image data 3: Animation data 4: MIMe data 5: Ground dat      
-                    var driver = dataType & 0xFF;
-                    var dataCountAndSize = reader.ReadUInt32();
-                    var flag = (dataCountAndSize & 0x80000000) >> 0x1F;
-                    var dataCount = (dataCountAndSize & 0x3FFF0000) >> 0x10;
-                    var dataSize = dataCountAndSize & 0xFFFF;
-                    var polygonIndex = reader.ReadUInt32() * 4;
-                    if (category == 0)
-                    {
-                        var modelEntity = ProcessNonSharedPrimitiveData(reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, dataCount);
-                        modelEntities.Add(modelEntity);
-                    }
-                    //var dataPointer = reader.ReadUInt32() * 4;
-                }
+                ProccessPrimitive(reader, modelEntities, i);
                 reader.BaseStream.Seek(blockTop, SeekOrigin.Begin);
             }
-            //var coordinateCount = reader.ReadUInt32();
-            //for (var i = 0; i < coordinateCount; i++)
-            //{
-            //
-            //}
+            var coordCount = reader.ReadUInt32();
+            for (var c = 0; c < coordCount; c++)
+            {
+                Matrix4 worldMatrix = ReadCoord(reader);
+                modelEntities[c].WorldMatrix = worldMatrix;
+            }
             rootEntity.ChildEntities = modelEntities.ToArray();
             rootEntity.ComputeBounds();
             return rootEntity;
         }
 
-        private ModelEntity ProcessNonSharedPrimitiveData(BinaryReader reader, int driver, int primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount)
+        private Matrix4 ReadCoord(BinaryReader reader)
+        {
+            var flag = reader.ReadUInt32();
+            var worldMatrix = ReadMatrix(reader);
+            var workMatrix = ReadMatrix(reader);
+            short rx, ry, rz;
+            rx = reader.ReadInt16();
+            ry = reader.ReadInt16();
+            rz = reader.ReadInt16();
+            var code = reader.ReadInt16();
+            var super = reader.ReadUInt32() * 4;
+            if (super != 0)
+            {
+                var top = reader.BaseStream.Position;
+                reader.BaseStream.Seek(_offset + super, SeekOrigin.Begin);
+                var superMatrix = ReadCoord(reader);
+                reader.BaseStream.Seek(top, SeekOrigin.Begin);
+                return superMatrix * worldMatrix;
+            }
+            return worldMatrix;
+        }
+
+        private static Matrix4 ReadMatrix(BinaryReader reader)
+        {
+            float r00 = reader.ReadInt16() / 4096f;
+            float r01 = reader.ReadInt16() / 4096f;
+            float r02 = reader.ReadInt16() / 4096f;
+
+            float r10 = reader.ReadInt16() / 4096f;
+            float r11 = reader.ReadInt16() / 4096f;
+            float r12 = reader.ReadInt16() / 4096f;
+
+            float r20 = reader.ReadInt16() / 4096f;
+            float r21 = reader.ReadInt16() / 4096f;
+            float r22 = reader.ReadInt16() / 4096f;
+
+            var x = reader.ReadInt32() / 4096f;
+            var y = reader.ReadInt32() / 4096f;
+            var z = reader.ReadInt32() / 4096f;
+            var matrix = new Matrix4(
+                new Vector4(r00, r10, r20, 0f),
+                new Vector4(r01, r11, r21, 0f),
+                new Vector4(r02, r12, r22, 0f),
+                new Vector4(x, y, z, 1f)
+            );
+            return matrix;
+        }
+
+        private void ProccessPrimitive(BinaryReader reader, List<ModelEntity> modelEntities, int modelIndex)
         {
             var triangles = new List<Triangle>();
+            var nextPrimitivePointer = reader.ReadUInt32() * 4;
+            var primitiveHeaderPointer = reader.ReadUInt32() * 4;
+            var typeCountMapped = reader.ReadUInt32();
+            var mapped = typeCountMapped >> 0x1F & 0x1;
+            var typeCount = typeCountMapped & 0x1F;
+            for (var j = 0; j < typeCount; j++)
+            {
+                var primitiveType = reader.ReadUInt16();
+                var dataType = reader.ReadUInt16();
+                var developerId = (dataType & 0xF000) >> 0xC;
+                var category = (dataType & 0xF00) >> 0x8;  //0: Polygon data 1: Shared polygon data 2: Image data 3: Animation data 4: MIMe data 5: Ground dat      
+                var driver = dataType & 0xFF;
+                var dataCountAndSize = reader.ReadUInt32();
+                var flag = (dataCountAndSize & 0x80000000) >> 0x1F;
+                var dataCount = (dataCountAndSize & 0x3FFF0000) >> 0x10;
+                var dataSize = dataCountAndSize & 0xFFFF;
+                var polygonIndex = reader.ReadUInt32() * 4;
+                if (category == 0)
+                {
+                    ProcessNonSharedPrimitiveData(triangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, dataCount);
+                }
+            }
+            var modelEntity = new ModelEntity();
+            modelEntity.Triangles = triangles.ToArray();
+            modelEntity.HasColors = true;
+            modelEntity.HasNormals = true;
+            modelEntity.HasUvs = false;
+            modelEntities.Add(modelEntity);
+            if (nextPrimitivePointer < 1000)
+            {
+                reader.BaseStream.Seek(_offset + nextPrimitivePointer, SeekOrigin.Begin);
+                ProccessPrimitive(reader, modelEntities, modelIndex);
+            }
+        }
+
+        private void ProcessNonSharedPrimitiveData(List<Triangle> triangles, BinaryReader reader, int driver, int primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount)
+        {
             var primitiveDataTop = reader.BaseStream.Position;
             reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
 
-            var nonSharedHeaderSize = reader.ReadUInt32();
-          
+            var headerSize = reader.ReadUInt32();
+
             var headerTop = reader.BaseStream.Position;
             var dataTopMapped = reader.ReadInt32();
             var dataMapped = (dataTopMapped & 0x80000000) >> 0x1F;
@@ -131,30 +193,31 @@ namespace PSXPrev
             reader.BaseStream.Seek(_offset + dataTop + polygonIndex, SeekOrigin.Begin);
             for (var j = 0; j < dataCount; j++)
             {
+                Triangle triangle1;
+                Triangle triangle2;
                 switch (primitiveType)
                 {
                     case 0x00000008: //0x00000008; DRV(0)|PRIM_TYPE(TRI); GsUF3
-                        Triangle triangle = ReadGsUF3(reader, vertTop, normTop);
-                        triangles.Add(triangle);
+                        triangle1 = ReadGsUF3(reader, vertTop, normTop);
+                        if (triangle1 == null)
+                        {
+                            goto EndModel;
+                        }
+                        triangles.Add(triangle1);
                         break;
                     case 0x00000010: //  0x00000010; DRV(0) | PRIM_TYPE(QUAD); GsUF4
-                        Triangle triangle1;
-                        Triangle triangle2;
                         ReadGsUF4(reader, vertTop, normTop, out triangle1, out triangle2);
+                        if (triangle1 == null || triangle2 == null)
+                        {
+                            goto EndModel;
+                        }
                         triangles.Add(triangle1);
                         triangles.Add(triangle2);
                         break;
                 }
             }
-
+            EndModel:
             reader.BaseStream.Seek(primitiveDataTop, SeekOrigin.Begin);
-            var modelEntity = new ModelEntity();
-            modelEntity.Triangles = triangles.ToArray();
-            modelEntity.HasColors = true;
-            modelEntity.HasNormals = true;
-            modelEntity.HasUvs = false;
-            modelEntity.ComputeBounds();
-            return modelEntity;
         }
 
         private Triangle ReadGsUF3(BinaryReader reader, int vertTop, int normTop)
@@ -209,7 +272,7 @@ namespace PSXPrev
             var vi2 = reader.ReadUInt16();
             short vx2, vy2, vz2;
             ReadXYZ(reader, vertTop, vi2, out vx2, out vy2, out vz2);
-            
+
             var vi3 = reader.ReadUInt16();
             short vx3, vy3, vz3;
             ReadXYZ(reader, vertTop, vi3, out vx3, out vy3, out vz3);

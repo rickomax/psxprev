@@ -1,6 +1,7 @@
+using OpenTK;
 using System.Globalization;
 using System.IO;
-using PSXPrev.Classes;
+
 
 namespace PSXPrev
 {
@@ -38,9 +39,9 @@ namespace PSXPrev
                         {
                             var triangle = model.Triangles[k];
 
-                            var v0 = triangle.Vertices[0];
-                            var v1 = triangle.Vertices[1];
-                            var v2 = triangle.Vertices[2];
+                            var v0 = model.WorldMatrix * new Vector4(triangle.Vertices[0]);
+                            var v1 = model.WorldMatrix * new Vector4(triangle.Vertices[1]);
+                            var v2 = model.WorldMatrix * new Vector4(triangle.Vertices[2]);
 
                             var uv0 = triangle.Uv[0];
                             var uv1 = triangle.Uv[1];

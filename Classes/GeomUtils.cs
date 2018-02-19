@@ -1,7 +1,7 @@
 using System;
 using System.Text;
 using OpenTK;
-using PSXPrev.Classes;
+
 
 namespace PSXPrev
 {

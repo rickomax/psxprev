@@ -3,7 +3,7 @@ using System.Text;
 using OpenTK;
 using PSXPrev.Forms;
 
-namespace PSXPrev.Classes
+namespace PSXPrev
 {
     public class Utils
     {

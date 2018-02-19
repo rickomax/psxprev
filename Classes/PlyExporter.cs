@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using OpenTK;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using PSXPrev.Classes;
+
 
 namespace PSXPrev
 {
@@ -69,7 +70,7 @@ namespace PSXPrev
                     var triangles = model.Triangles;
                     foreach (var triangle in triangles)
                     {
-                        var vertex0 = triangle.Vertices[0];
+                        var vertex0 = model.WorldMatrix * new Vector4(triangle.Vertices[0]);
                         var normal0 = triangle.Normals[0];
                         var uv0 = triangle.Uv[0];
                         var color0 = triangle.Colors[0];

@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 using OpenTK;
-using PSXPrev.Classes;
+
 
 namespace PSXPrev
 {
@@ -36,6 +36,7 @@ namespace PSXPrev
         public ModelEntity()
         {
             Visible = true;
+            WorldMatrix = Matrix4.Identity;
         }
 
         public override void ComputeBounds()
@@ -46,7 +47,7 @@ namespace PSXPrev
             {
                 foreach (var vertex in triangle.Vertices)
                 {
-                    bounds.AddPoint(vertex);
+                    bounds.AddPoint((WorldMatrix * new Vector4(vertex)).Xyz);
                 }
             }
             Bounds3D = bounds;

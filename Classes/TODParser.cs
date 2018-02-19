@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using OpenTK;
-using PSXPrev.Classes;
+
 
 namespace PSXPrev
 {
@@ -153,17 +153,17 @@ namespace PSXPrev
                             }
                             break;
                         case 0x04:
-                            float r00 = reader.ReadInt16();
-                            float r01 = reader.ReadInt16();
-                            float r02 = reader.ReadInt16();
+                            float r00 = reader.ReadInt16() / 4096f;
+                            float r01 = reader.ReadInt16() / 4096f;
+                            float r02 = reader.ReadInt16() / 4096f;
 
-                            float r10 = reader.ReadInt16();
-                            float r11 = reader.ReadInt16();
-                            float r12 = reader.ReadInt16();
+                            float r10 = reader.ReadInt16()/ 4096f;
+                            float r11 = reader.ReadInt16()/ 4096f;
+                            float r12 = reader.ReadInt16() / 4096f;
 
-                            float r20 = reader.ReadInt16();
-                            float r21 = reader.ReadInt16();
-                            float r22 = reader.ReadInt16();
+                            float r20 = reader.ReadInt16()/ 4096f;
+                            float r21 = reader.ReadInt16()/ 4096f;
+                            float r22 = reader.ReadInt16() / 4096f;
 
                             reader.ReadInt16();
 

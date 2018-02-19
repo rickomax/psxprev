@@ -1,7 +1,7 @@
 ﻿using System;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
-using PSXPrev.Classes;
+
 
 namespace PSXPrev
 {

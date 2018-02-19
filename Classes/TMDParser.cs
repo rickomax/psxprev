@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using PSXPrev.Classes;
+
 using OpenTK;
 
 namespace PSXPrev
@@ -1074,15 +1074,12 @@ namespace PSXPrev
                         var model = new ModelEntity
                         {
                             Triangles = triangles.ToArray(),
-                            //MissingTriangles = missingTriangles.ToArray(),
                             HasNormals = hasNormals,
                             HasColors = hasColors,
                             HasUvs = hasUvs,
                             TexturePage = key,
-                            Visible = true,
-                            WorldMatrix = Matrix4.Identity
+                            Visible = true
                         };
-                        //model.ComputeBounds();
                         models.Add(model);
                     }
                 }

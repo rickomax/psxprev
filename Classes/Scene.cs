@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
-using PSXPrev.Classes;
+
 
 namespace PSXPrev
 {
@@ -279,10 +279,10 @@ namespace PSXPrev
             DistanceToFitBounds(bounds);
         }
 
-        public void FocusOnHeight(float height)
-        {
-            DistanceToFitHeight(height);
-        }
+        //public void FocusOnHeight(float height)
+        //{
+        //    DistanceToFitHeight(height);
+        //}
 
         public void UpdateTexture(Bitmap textureBitmap, int texturePage)
         {
@@ -292,17 +292,18 @@ namespace PSXPrev
         public void DistanceToFitBounds(BoundingBox bounds)
         {
             var center = CameraCenter;
-            var boundSphereRadius = bounds.Corners.Select(x => GeomUtils.VecDistance(x, center)).Max();
-            var camDistance = boundSphereRadius / 2.0f / (float)Math.Tan(CameraFOVRads / 2.0f) * 2f;
-            _cameraDistanceIncrement = camDistance * 0.25f;
-            CameraDistance = camDistance;
+            var radius = bounds.Magnitude;
+            var distance = radius / (float)Math.Sin(CameraFOVRads * 0.5f) + 0.1f;
+            //var camDistance = boundSphereRadius / 2.0f / (float)Math.Tan(CameraFOVRads / 2.0f) * 2f;
+            _cameraDistanceIncrement = distance * 0.25f;
+            CameraDistance = distance;
         }
 
-        public void DistanceToFitHeight(float height)
-        {
-            var camDistance = (height / 2.0f) / (float)Math.Tan(CameraFOVRads / 2.0f) * 2f;
-            _cameraDistanceIncrement = camDistance * 0.25f;
-            CameraDistance = camDistance;
-        }
+        //public void DistanceToFitHeight(float height)
+        //{
+        //    var camDistance = (height / 2.0f) / (float)Math.Tan(CameraFOVRads / 2.0f) * 2f;
+        //    _cameraDistanceIncrement = camDistance * 0.25f;
+        //    CameraDistance = camDistance;
+        //}
     }
 }

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using System.IO;
-using PSXPrev.Classes;
+
 
 namespace PSXPrev
 {

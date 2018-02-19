@@ -2,7 +2,7 @@
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 
-namespace PSXPrev.Classes
+namespace PSXPrev
 {
     public class LineBatch
     {

@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Windows.Forms;
 
-namespace PSXPrev.Classes
+namespace PSXPrev
 {
     public class EntityBase
     {

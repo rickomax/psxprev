@@ -5,7 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Windows.Forms;
-using PSXPrev.Classes;
+
 using PSXPrev.Forms;
 
 namespace PSXPrev
@@ -62,7 +62,7 @@ namespace PSXPrev
                     case "-tod":
                         checkTod = true;
                         break;
-                    case "-hmdnodels":
+                    case "-hmdmodels":
                         checkHmdModels = true;
                         break;
                     case "-log":

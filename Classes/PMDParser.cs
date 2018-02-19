@@ -67,11 +67,7 @@ namespace PSXPrev
             var models = new List<ModelEntity>();
             for (var o = 0; o < nObj; o++)
             {
-                var model = new ModelEntity
-                {
-                    Visible = true,
-                    WorldMatrix = Matrix4.Identity
-                };
+                var model = new ModelEntity();
                 var triangles = new List<Triangle>();
                 var nPointers = reader.ReadUInt32();
                 if (nPointers < 1 || nPointers > 4000)
