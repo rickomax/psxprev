@@ -15,6 +15,7 @@ Usage:<br>
 PSXPrev folder [filter] [-tmd] [-pmd] [-tim] [-retim] [-tod] [-hmdmodels] [-log] [-noverbose]<br>
 <ul>
 <li>folder - folder where are the files to be scanned (recursively scan)</li>
+<li>filter - use this parameter to specify a filter of files to be scanned (eg: *.tod)</li>
 <li>tmd - add this parameter to scan for tmd models</li>
 <li>pmd - add this parameter to scan for pmd models</li>
 <li>tim - add this parameter to scan for tim textures</li>
