@@ -30,7 +30,8 @@ A console window will appear, the application will scan each byte of the files i
 After the scan has been completed, a new window will open, with the tabs:<br>
 Models: This is where you see the models that has been found on the scan<br>
 Textures: This is where you see the textures that has been found on the scan<br>
-VRAM Preview: This is where you have a replica of PSX Video RAM, which consist of 32 256x256 textures. You can use these pages to compose the final textures applied to the models.<br><br>
+VRAM Preview: This is where you have a replica of PSX Video RAM, which consist of 32 256x256 textures. You can use these pages to compose the final textures applied to the models.<br>
+Animations: This is a working in progress panel where you have animation list and controls, and a field to assign a loded entity to the animation preview.<br><br>
 Usage tips:<br>
 To Apply a Texture to a Model, first you have to look at the VRAM Page property of the Model you want to apply the Texture.After that have to draw the textures (at the VRAM Tab, called Draw to VRAM) on the desired VRAM Page (which is pre-defined in the Texture Properties area). After that, if you come back to the Model Tab, you may see your Model textured, if it has Uvs property enabled (True).<br>
 To Export a Model or Multiple Models,  tick their checkboxes at the Model Tab, click at Export Selected button, select the desired Output Format and the Output Folder. (Textures and materials will be automatically exported)<br>
