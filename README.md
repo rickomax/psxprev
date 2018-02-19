@@ -35,8 +35,7 @@ To Export a Model or Multiple Models,  tick their checkboxes at the Model Tab, c
 To Export a Texture or Multiple Textures, select them at the Texture Tab, click at Export Selected button and select the desired Output Folder.<br><br>
 Known issues/limitations:<br>
 The two 3D exportable file formats has disadvantages, .OBJ files cannot have vertex color information, and .PLY files will group all the sub-models in one single model. I'm looking for a better format for the exporter. An experimental .OBJ exporter option with Vertex Color is available.<br>
-The tool will only find files that are explicitly conformant to <br><br>
-the file formats it's looking for. Any compressed file cannot be scanned.<br>
+The tool will only find files that are explicitly conformant to the file formats it's looking for. Any compressed file cannot be scanned.<br>
 <b>License (BSD License 2.0):</b><br>
 Copyright (c) 2018, Ricardo Reis<br>
 All rights reserved.<br><br>
