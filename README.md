@@ -1,6 +1,7 @@
 # psxprev
 PSXPREV - Playstation (PSX) File Previewer/Extractor<br><br>
 PsxPrev, a TMD/PMD/TIM PlayStation file scanner.<br><br>
+![Sample](https://ricardoreis.net/wp-content/uploads/2017/05/lod2.png)
 This tool uses:<br>
 OpenTK - https://github.com/opentk/opentk<br>
 Daniele de Santis Playstation Icons - http://www.danieledesantis.net/<br><br>
