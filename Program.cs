@@ -142,7 +142,7 @@ namespace PSXPrev
                 LargestCurrentFilePosition = filePos;
             }
             var perc = (double)LargestCurrentFilePosition / LargestFileLength;
-            PreviewForm.UpdateProgress((int)perc, 100, false, message);
+            PreviewForm.UpdateProgress((int)(perc * 100), 100, false, message);
         }
 
         private static void ScanFiles(List<RootEntity> allEntities, List<Texture> allTextures, List<Animation> allAnimations, string path, string filter, bool checkTmd, bool checkPmd, bool checkTim, bool checkAll, bool reTIM, bool checkTod, bool checkHmdModels, PreviewForm previewForm)

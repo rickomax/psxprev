@@ -105,8 +105,6 @@ namespace PSXPrev
 
         public void UpdateRootEntities(List<RootEntity> entities)
         {
-            lock (_userInterface)
-            {
                 for (var i = 0; i < entities.Count; ++i)
                 {
                     var entity = entities[i];
@@ -116,15 +114,10 @@ namespace PSXPrev
                         EntityAdded(entity);
                     }
                 }
-            }
         }
-
-        private object _userInterface = new object();
-
+        
         public void UpdateTextures(List<Texture> textures)
         {
-            lock (_userInterface)
-            {
                 for (var i = 0; i < textures.Count; ++i)
                 {
                     var texture = textures[i];
@@ -135,13 +128,10 @@ namespace PSXPrev
                         TextureAdded(texture, textureIndex);
                     }
                 }
-            }
         }
 
         public void UpdateAnimations(List<Animation> animations)
         {
-            lock (_userInterface)
-            {
                 for (var i = 0; i < animations.Count; ++i)
                 {
                     var animation = animations[i];
@@ -151,7 +141,6 @@ namespace PSXPrev
                         AnimationAdded(animation);
                     }
                 }
-            }
         }
 
         public System.Drawing.Color SceneBackColor
@@ -777,6 +766,7 @@ namespace PSXPrev
             {
                 this.progressBar1.Minimum = 0;
                 this.progressBar1.Maximum = max;
+                this.progressBar1.Value = value;
                 this.progressBar1.Enabled = !complete;
                 this.label1.Text = message;
             }
