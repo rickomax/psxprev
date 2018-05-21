@@ -61,6 +61,7 @@
     <Compile Include="Classes\collada_schema_1_4.cs" />
     <Compile Include="Classes\DaeExporter.cs" />
     <Compile Include="Classes\EntityBase.cs" />
+    <Compile Include="Classes\FInt.cs" />
     <Compile Include="Classes\HMDParser.cs" />
     <Compile Include="Classes\Line.cs" />
     <Compile Include="Classes\LineMesh.cs" />
@@ -111,6 +112,11 @@
     <Compile Include="Classes\Scene.cs" />
     <Compile Include="Classes\TIMParser.cs" />
     <Compile Include="Classes\TMDParser.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -120,6 +126,10 @@
     <EmbeddedResource Include="Forms\StubForm.resx">
       <DependentUpon>StubForm.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
     <EmbeddedResource Include="Shaders\Shader.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </EmbeddedResource>
@@ -128,6 +138,7 @@
     </EmbeddedResource>
     <None Include="OpenTK.dll.config" />
     <None Include="packages.config" />
+    <None Include="run.cmd" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Forms\PreviewForm.resx">

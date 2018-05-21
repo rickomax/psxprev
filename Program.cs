@@ -7,12 +7,17 @@ using System.Threading;
 using System.Windows.Forms;
 
 using PSXPrev.Forms;
+using System.Threading.Tasks;
+using System.Text;
 
 namespace PSXPrev
 {
     public class Program
     {
         public static Logger Logger;
+        public static PreviewForm PreviewForm;
+        public static long LargestFileLength = 0;
+        public static long LargestCurrentFilePosition = 0;
 
         static void Main(string[] args)
         {
@@ -93,118 +98,174 @@ namespace PSXPrev
             var allEntities = new List<RootEntity>();
             var allTextures = new List<Texture>();
             var allAnimations = new List<Animation>();
+            PreviewForm = new PreviewForm((form) =>
+            {
+                form.UpdateAnimations(allAnimations);
+                form.UpdateRootEntities(allEntities);
+                form.UpdateTextures(allTextures);
+            }, debug);
+
+            var t = new Thread(new ThreadStart(delegate
+            {
+                Application.EnableVisualStyles();
+                Application.Run(PreviewForm);
+            }));
+            
+            t.SetApartmentState(ApartmentState.STA);
+            t.Start();
 
             try
             {
                 Logger.WriteLine("");
                 Logger.WriteLine("Scan begin {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
 
-                ScanFiles(allEntities, allTextures, allAnimations, path, filter, checkTmd, checkPmd, checkTim, checkAll, retim, checkTod, checkHmdModels);
+                ScanFiles(allEntities, allTextures, allAnimations, path, filter, checkTmd, checkPmd, checkTim, checkAll, retim, checkTod, checkHmdModels, PreviewForm);
 
                 Logger.WriteLine("");
                 Logger.WriteLine("Scan End {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
                 Logger.WriteLine("Found {0} Models", allEntities.Count);
                 Logger.WriteLine("Found {0} Textures", allTextures.Count);
                 Logger.WriteLine("Found {0} Animations", allAnimations.Count);
+
+                PreviewForm.UpdateProgress(0, 0, true, $"{allEntities.Count} Models, {allTextures.Count} Textures, {allAnimations.Count} Animations Found");
             }
             catch (Exception exp)
             {
                 Logger.WriteLine(exp);
             }
-
-
-            if (allEntities.Count > 0 || allTextures.Count > 0 || allAnimations.Count > 0)
-            {
-                var entities = allEntities.ToArray();
-                var textures = allTextures.ToArray();
-                var animations = allAnimations.ToArray();
-
-                var t = new Thread(new ThreadStart(delegate
-                {
-                    Application.EnableVisualStyles();
-                    Application.Run(new PreviewForm(entities, textures, animations, debug));
-                }));
-                t.SetApartmentState(ApartmentState.STA);
-                t.Start();
-            }
         }
 
-        private static void ScanFiles(List<RootEntity> allEntities, List<Texture> allTextures, List<Animation> allAnimations, string path, string filter, bool checkTmd, bool checkPmd, bool checkTim, bool checkAll, bool reTIM, bool checkTod, bool checkHmdModels)
+        private static void UpdateProgress(long filePos, string message)
         {
+            if(filePos > LargestCurrentFilePosition)
+            {
+                LargestCurrentFilePosition = filePos;
+            }
+            var perc = (double)LargestCurrentFilePosition / LargestFileLength;
+            PreviewForm.UpdateProgress((int)perc, 100, false, message);
+        }
+
+        private static void ScanFiles(List<RootEntity> allEntities, List<Texture> allTextures, List<Animation> allAnimations, string path, string filter, bool checkTmd, bool checkPmd, bool checkTim, bool checkAll, bool reTIM, bool checkTod, bool checkHmdModels, PreviewForm previewForm)
+        {
+            var parsers = new List<Action<BinaryReader, string>>();
+            if (checkAll || checkTim)
+            {
+                parsers.Add((binaryReader, fileTitle) =>
+                {
+                    var timParser = new TIMParser((todEntity, fp) =>
+                    {
+                        allTextures.Add(todEntity);
+                        UpdateProgress(fp, $"Found Texture {todEntity.Width}x{todEntity.Height} {todEntity.Bpp}bpp");
+                        PreviewForm.ReloadItems();
+                    });
+                    Logger.WriteLine("");
+                    Logger.WriteLine("Scanning for TIM Images at file {0}", fileTitle);
+                    timParser.LookForTim(binaryReader, fileTitle);
+                });
+            }
+
+            if (checkAll || reTIM)
+            {
+                parsers.Add((binaryReader, fileTitle) =>
+                {
+                    var reTimParser = new RETIMParser();
+                    Logger.WriteLine("");
+                    Logger.WriteLine("Scanning for TIM Images at file {0}", fileTitle);
+                    var timTextures = reTimParser.LookForTim(binaryReader, fileTitle);
+                    allTextures.AddRange(timTextures);
+                });
+            }
+
+            if (checkAll || checkTmd)
+            {
+                parsers.Add((binaryReader, fileTitle) =>
+                {
+                    var tmdParser = new TMDParser((tmdEntity, fp) =>
+                    {
+                        allEntities.Add(tmdEntity);
+                        UpdateProgress(fp, $"Found Model with {tmdEntity.ChildCount} objects");
+                        PreviewForm.ReloadItems();
+                    });
+                    Logger.WriteLine("");
+                    Logger.WriteLine("Scanning for TMD Models at file {0}", fileTitle);
+                    tmdParser.LookForTmd(binaryReader, fileTitle);
+                });
+            }
+
+            if (checkAll || checkPmd)
+            {
+                parsers.Add((binaryReader, fileTitle) =>
+                {
+                    var pmdParser = new PMDParser();
+                    Logger.WriteLine("");
+                    Logger.WriteLine("Scanning for PMD Models at file {0}", fileTitle);
+                    var pmdEntities = pmdParser.LookForPMD(binaryReader, fileTitle);
+                    allEntities.AddRange(pmdEntities);
+                });
+            }
+
+            if (checkAll || checkTod)
+            {
+                parsers.Add((binaryReader, fileTitle) =>
+                {
+                    var todParser = new TODParser((todEntity, fp) =>
+                    {
+                        allAnimations.Add(todEntity);
+                        UpdateProgress(fp, $"Found Animation with {todEntity.ObjectCount} objects and {todEntity.FrameCount} frames");
+                        PreviewForm.ReloadItems();
+                    });
+                    Logger.WriteLine("");
+                    Logger.WriteLine("Scanning for TOD Animations at file {0}", fileTitle);
+                    todParser.LookForTOD(binaryReader, fileTitle);
+                });
+            }
+
+            if (checkAll || checkHmdModels)
+            {
+                parsers.Add((binaryReader, fileTitle) =>
+                {
+                    var hmdParser = new HMDParser();
+                    Logger.WriteLine("");
+                    Logger.WriteLine("Scanning for HMD Models at file {0}", fileTitle);
+                    var hmdEntities = hmdParser.LookForHMDEntities(binaryReader, fileTitle);
+                    allEntities.AddRange(hmdEntities);
+                });
+            }
+
             var files = Directory.GetFiles(path, filter);
             foreach (var file in files)
             {
-                using (var fileReader = new FileReader())
+                Parallel.ForEach(parsers, (parser) =>
                 {
-                    try
+                    using (FileStream fs = File.Open(file, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
-                        fileReader.OpenFile(file);
-                        var fileTitle = file.Substring(file.LastIndexOf('\\') + 1);
-                        if (checkAll || checkTim)
+                        using (BufferedStream bs = new BufferedStream(fs))
                         {
-                            var timParser = new TIMParser();
-                            Logger.WriteLine("");
-                            Logger.WriteLine("Scanning for TIM Images at file {0}", file);
-                            var timTextures = timParser.LookForTim(fileReader.Reader, fileTitle);
-                            allTextures.AddRange(timTextures);
-                        }
-
-                        if (checkAll || reTIM)
-                        {
-                            var reTimParser = new RETIMParser();
-                            Logger.WriteLine("");
-                            Logger.WriteLine("Scanning for TIM Images at file {0}", file);
-                            var timTextures = reTimParser.LookForTim(fileReader.Reader, fileTitle);
-                            allTextures.AddRange(timTextures);
-                        }
-
-                        if (checkAll || checkTmd)
-                        {
-                            var tmdParser = new TMDParser();
-                            Logger.WriteLine("");
-                            Logger.WriteLine("Scanning for TMD Models at file {0}", file);
-                            var tmdEntities = tmdParser.LookForTmd(fileReader.Reader, fileTitle);
-                            allEntities.AddRange(tmdEntities);
-                        }
-
-                        if (checkAll || checkPmd)
-                        {
-                            var pmdParser = new PMDParser();
-                            Logger.WriteLine("");
-                            Logger.WriteLine("Scanning for PMD Models at file {0}", file);
-                            var pmdEntities = pmdParser.LookForPMD(fileReader.Reader, fileTitle);
-                            allEntities.AddRange(pmdEntities);
-                        }
-
-                        if (checkAll || checkTod)
-                        {
-                            var todParser = new TODParser();
-                            Logger.WriteLine("");
-                            Logger.WriteLine("Scanning for TOD Animations at file {0}", file);
-                            var todAnimations = todParser.LookForTOD(fileReader.Reader, fileTitle);
-                            allAnimations.AddRange(todAnimations);
-                        }
-
-                        if (checkAll || checkHmdModels)
-                        {
-                            var hmdParser = new HMDParser();
-                            Logger.WriteLine("");
-                            Logger.WriteLine("Scanning for HMD Models at file {0}", file);
-                            var hmdEntities = hmdParser.LookForHMDEntities(fileReader.Reader, fileTitle);
-                            allEntities.AddRange(hmdEntities);
+                            using (var binaryReader = new BinaryReader(bs, Encoding.BigEndianUnicode))
+                            {
+                                try
+                                {
+                                    if(fs.Length > LargestFileLength)
+                                    {
+                                        LargestFileLength = fs.Length;
+                                    }
+                                    var fileTitle = file.Substring(file.LastIndexOf('\\') + 1);
+                                    parser(binaryReader, fileTitle);
+                                }
+                                catch (Exception exp)
+                                {
+                                    Logger.WriteLine(exp);
+                                }
+                            }
                         }
                     }
-                    catch (Exception exp)
-                    {
-                        Logger.WriteLine(exp);
-                    }
-                }
+                });
             }
 
             var directories = Directory.GetDirectories(path);
             foreach (var directory in directories)
             {
-                ScanFiles(allEntities, allTextures, allAnimations, directory, filter, checkTmd, checkPmd, checkTim, checkAll, reTIM, checkTod, checkHmdModels);
+                ScanFiles(allEntities, allTextures, allAnimations, directory, filter, checkTmd, checkPmd, checkTim, checkAll, reTIM, checkTod, checkHmdModels, previewForm);
             }
         }
 
