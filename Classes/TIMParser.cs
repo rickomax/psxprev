@@ -10,6 +10,12 @@ namespace PSXPrev
     public class TIMParser
     {
         private long _offset;
+        private Action<Texture, long> entityAddedAction;
+
+        public TIMParser(Action<Texture, long> entityAdded)
+        {
+            entityAddedAction = entityAdded;
+        }
 
         public Texture[] LookForTim(BinaryReader reader, string fileTitle)
         {
@@ -39,6 +45,7 @@ namespace PSXPrev
                             {
                                 texture.TextureName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
                                 textures.Add(texture);
+                                entityAddedAction(texture, reader.BaseStream.Position);
                                 Program.Logger.WriteLine("Found TIM Image at offset {0:X}", _offset);
                             }
                         }

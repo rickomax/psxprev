@@ -10,6 +10,12 @@ namespace PSXPrev
     public class TODParser
     {
         private long _offset;
+        private Action<Animation, long> entityAddedAction;
+
+        public TODParser(Action<Animation, long> entityAdded)
+        {
+            entityAddedAction = entityAdded;
+        }
 
         public Animation[] LookForTOD(BinaryReader reader, string fileTitle)
         {
@@ -35,6 +41,7 @@ namespace PSXPrev
                         {
                             animation.AnimationName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
                             animations.Add(animation);
+                            entityAddedAction(animation, reader.BaseStream.Position);
                             Program.Logger.WriteLine("Found TOD Animation at offset {0:X}", _offset);
                         }
                     }

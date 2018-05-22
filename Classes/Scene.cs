@@ -13,8 +13,8 @@ namespace PSXPrev
     {
         public const float CameraFOV = 60.0f;
         public const float CameraFOVRads = CameraFOV * ((float)Math.PI * 2f) / 360f;
-        public const float CameraFarClip = 50000f;
-        public const float CameraMinDistance = 1f;
+        public const float CameraFarClip = float.MaxValue;
+        public const float CameraMinDistance = 0.01f;
         public const float MouseSensivity = 0.0035f;
         public const float MaxCameraPitch = 0.9f;
 
