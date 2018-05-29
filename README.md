@@ -4,6 +4,7 @@ PsxPrev, a TMD/PMD/TIM PlayStation file scanner.<br><br>
 ![Sample](https://ricardoreis.net/wp-content/uploads/2017/05/lod2.png)
 This tool uses:<br>
 OpenTK - https://github.com/opentk/opentk<br>
+DiscUtils - https://github.com/DiscUtils/DiscUtils<br>
 Daniele de Santis Playstation Icons - http://www.danieledesantis.net/<br><br>
 You'll need to run it:<br>
 An OpenGL 3.0 compatible video card<br>
@@ -11,14 +12,15 @@ An OpenGL 3.0 compatible video card<br>
 Treat it as an experimental release and use this tool as your own risk!<br>
 (The tool can use a big ammount of memory to scan the files, so, be careful.)<br>
 Usage:<br>
-PSXPrev folder [filter] [-tmd] [-pmd] [-tim] [-retim] [-tod] [-hmdmodels] [-log] [-noverbose]<br>
+PSXPrev folder [filter] [-tmd] [-tmdAlt] [-pmd] [-tim] [-timAlt] [-tod] [-hmdmodels] [-log] [-noverbose]<br>
 <ul>
 <li>folder - folder where are the files to be scanned (recursively scan)</li>
 <li>filter - use this parameter to specify a filter of files to be scanned (eg: *.tod)</li>
 <li>tmd - add this parameter to scan for tmd models</li>
+<li>tmd - add this parameter to scan for tmd models using an alternative parser</li>
 <li>pmd - add this parameter to scan for pmd models</li>
 <li>tim - add this parameter to scan for tim textures</li>
-<li>retim - add this parameter to scan for resident evil specific tim textures</li>
+<li>timAlt - add this parameter to scan for tim textures using an alternative parser</li>
 <li>tod - add this paramete rto scan for tod animations</li>
 <li>hmdmodels - add this parameter to scan for hmd models (wip)</li>
 <li>log - add this parameter to generate a scanning log text file</li>
