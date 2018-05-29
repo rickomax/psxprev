@@ -17,7 +17,7 @@ PSXPrev folder/iso [filter] [-tmd] [-tmdAlt] [-pmd] [-tim] [-timAlt] [-tod] [-hm
 <li>folder/iso - folder where are the files to be scanned or an ISO file path to scan the ISO contents</li>
 <li>filter - use this parameter to specify a filter of files to be scanned (eg: *.tod)</li>
 <li>tmd - add this parameter to scan for tmd models</li>
-<li>tmd - add this parameter to scan for tmd models using an alternative parser</li>
+<li>tmdAlt - add this parameter to scan for tmd models using an alternative parser</li>
 <li>pmd - add this parameter to scan for pmd models</li>
 <li>tim - add this parameter to scan for tim textures</li>
 <li>timAlt - add this parameter to scan for tim textures using an alternative parser</li>
