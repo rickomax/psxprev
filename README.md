@@ -12,9 +12,9 @@ An OpenGL 3.0 compatible video card<br>
 Treat it as an experimental release and use this tool as your own risk!<br>
 (The tool can use a big ammount of memory to scan the files, so, be careful.)<br>
 Usage:<br>
-PSXPrev folder [filter] [-tmd] [-tmdAlt] [-pmd] [-tim] [-timAlt] [-tod] [-hmdmodels] [-log] [-noverbose]<br>
+PSXPrev folder/iso [filter] [-tmd] [-tmdAlt] [-pmd] [-tim] [-timAlt] [-tod] [-hmdmodels] [-log] [-noverbose]<br>
 <ul>
-<li>folder - folder where are the files to be scanned (recursively scan)</li>
+<li>folder/iso - folder where are the files to be scanned or an ISO file path to scan the ISO contents</li>
 <li>filter - use this parameter to specify a filter of files to be scanned (eg: *.tod)</li>
 <li>tmd - add this parameter to scan for tmd models</li>
 <li>tmd - add this parameter to scan for tmd models using an alternative parser</li>
