@@ -14,7 +14,7 @@ namespace PSXPrev
     public partial class PreviewForm : Form
     {
         private Timer _animateTimer;
-        public List<Animation> _animations;
+        private List<Animation> _animations;
         private Animation _curAnimation;
         private int _curAnimationFrame;
         private Action<PreviewForm> _refreshAction;
@@ -28,12 +28,12 @@ namespace PSXPrev
         private GLControl _openTkControl;
         private bool _playing;
         private Timer _redrawTimer;
-        public List<RootEntity> _rootEntities;
+        private List<RootEntity> _rootEntities;
 
         private Scene _scene;
 
         //private int _selectedTriangle;
-        public List<Texture> _textures;
+        private List<Texture> _textures;
 
         private Texture[] _vramPage;
 
@@ -760,15 +760,15 @@ namespace PSXPrev
                     UpdateProgress(a, b, c, d)
                 );
 
-                Invoke(invokeAction, new object[] { value, max, complete, message });
+                Invoke(invokeAction, value, max, complete, message);
             }
             else
             {
-                this.progressBar1.Minimum = 0;
-                this.progressBar1.Maximum = max;
-                this.progressBar1.Value = value;
-                this.progressBar1.Enabled = !complete;
-                this.label1.Text = message;
+                toolStripProgressBar1.Minimum = 0;
+                toolStripProgressBar1.Maximum = max;
+                toolStripProgressBar1.Value = value;
+                toolStripProgressBar1.Enabled = !complete;
+                toolStripStatusLabel1.Text = message;
             }
         }
 

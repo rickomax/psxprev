@@ -1,104 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 using OpenTK;
-using PSXPrev.Classes;
 
 namespace PSXPrev
 {
-    public class TMDPacketStructureColumn
-    {
-        public bool IsPadding { get; set; }
-        public bool IsVertex { get => Name.StartsWith("VERT"); }
-        public bool IsNormal { get => Name.StartsWith("NORM"); }
-        public bool IsColor { get => Name[0] == 'R' || Name[0] == 'G' || Name[0] == 'B'; }
-        public bool IsTexcoord { get => Name[0] == 'S' || Name[0] == 'T'; }
-
-        public string Name { get; set; }
-        public int Length { get; set; }
-
-        public TMDPacketStructureColumn(string name, int length, int? expectedValue = null)
-        {
-            Name = name;
-            Length = length;
-            if (name == "_")
-            {
-                IsPadding = true;
-            }
-        }
-
-        public static implicit operator TMDPacketStructureColumn(string meta)
-        {
-            var props = meta.Split('-');
-            var name = props[0];
-            var length = int.Parse(props[1]);
-            return new TMDPacketStructureColumn(name, length);
-        }
-    }
-
-    public class TMDPacketStructure
-    {
-        public string Primitive { get; set; }
-        public string Classification { get; set; }
-        public List<TMDPacketStructureColumn> Structure { get; set; }
-
-        public int TotalColumns
-        {
-            get
-            {
-                return Structure.Sum(x => x.Length);
-            }
-        }
-
-        public override string ToString()
-        {
-            var map = "---------------------------------\n";
-            var rows = TotalColumns / 4;
-            var columnIndex = 0;
-            var structureIndex = 0;
-            var carry = 0;
-            for (var i = 0; i < rows; ++i)
-            {
-                var jmpStruct = 0;
-                map += "|";
-                var cols = string.Empty;
-                for (var j = structureIndex; j < structureIndex + 4; ++j)
-                {
-                    var col = Structure[j];
-                    cols = $"{(col.IsPadding ? string.Empty : col.Name)}{new String('\t', col.Length)}| " + cols;
-                    columnIndex += col.Length;
-                    jmpStruct++;
-                    if (columnIndex >= 4)
-                    {
-                        break;
-                    }
-                }
-                map += cols;
-                columnIndex = 0;
-                structureIndex += jmpStruct;
-                map += "\n---------------------------------\n";
-            }
-
-            var body = $"Primitive: {Primitive}\n" +
-                $"Classification: {Classification}\n" +
-                map;
-            return body;
-        }
-    }
-
     public class TMDParser
     {
         private long _offset;
+
         private Action<RootEntity, long> entityAddedAction;
 
-        public TMDParser(Action<RootEntity, long> entityAdded)
+        public TMDParser(Action<RootEntity, long> entityAddedAction)
         {
-            entityAddedAction = entityAdded;
+            this.entityAddedAction = entityAddedAction;
         }
 
-        public RootEntity[] LookForTmd(BinaryReader reader, string fileTitle)
+        public void LookForTmd(BinaryReader reader, string fileTitle)
         {
             if (reader == null)
             {
@@ -107,21 +26,21 @@ namespace PSXPrev
 
             reader.BaseStream.Seek(0, SeekOrigin.Begin);
 
-            var entities = new List<RootEntity>();
+            //var entities = new List<RootEntity>();
 
             while (reader.BaseStream.CanRead)
             {
-                _offset = reader.BaseStream.Position;
                 try
                 {
+                    _offset = reader.BaseStream.Position;
                     var version = reader.ReadUInt32();
                     if (version == 0x00000041)
                     {
-                        var entity = ParseTmd(reader, _offset);
+                        var entity = ParseTmd(reader);
                         if (entity != null)
                         {
                             entity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            entities.Add(entity);
+                            //entities.Add(entity);
                             entityAddedAction(entity, reader.BaseStream.Position);
                             Program.Logger.WriteLine("Found TMD Model at offset {0:X}", _offset);
                         }
@@ -138,15 +57,13 @@ namespace PSXPrev
                         //reader.BaseStream.Seek(checkOffset + 1, SeekOrigin.Begin);
                     }
                     Program.Logger.WriteLine(exp);
-                } finally
-                {
-                    reader.BaseStream.Seek(_offset + 1, SeekOrigin.Begin);
                 }
+                //Debug.WriteLine(checkOffset);
+                reader.BaseStream.Seek(_offset + 1, SeekOrigin.Begin);
             }
-            return entities.ToArray();
         }
 
-        private RootEntity ParseTmd(BinaryReader reader, long startAddress)
+        private RootEntity ParseTmd(BinaryReader reader)
         {
             var flags = reader.ReadUInt32();
             if (flags != 0 && flags != 1)
@@ -198,11 +115,6 @@ namespace PSXPrev
             for (int o = 0; o < objBlocks.Length; o++)
             {
                 var objBlock = objBlocks[o];
-                var scale = (float)Math.Pow(objBlock.Scale, 2);
-                if(scale == 0)
-                {
-                    scale = 1;
-                }
 
                 var vertices = new Vector3[objBlock.NVert];
                 reader.BaseStream.Seek(objBlock.VertTop, SeekOrigin.Begin);
@@ -214,9 +126,9 @@ namespace PSXPrev
                     var pad = reader.ReadInt16();
                     var vertex = new Vector3
                     {
-                        X = (float)vx * scale,
-                        Y = (float)vy * scale,
-                        Z = (float)vz * scale
+                        X = vx,
+                        Y = vy,
+                        Z = vz
                     };
                     vertices[v] = vertex;
                 }
@@ -225,15 +137,15 @@ namespace PSXPrev
                 reader.BaseStream.Seek(objBlock.NormalTop, SeekOrigin.Begin);
                 for (var n = 0; n < objBlock.NNormal; n++)
                 {
-                    var nx = FInt.Create(reader.ReadInt16());
-                    var ny = FInt.Create(reader.ReadInt16());
-                    var nz = FInt.Create(reader.ReadInt16());
-                    var pad = FInt.Create(reader.ReadInt16());
+                    var nx = reader.ReadInt16();
+                    var ny = reader.ReadInt16();
+                    var nz = reader.ReadInt16();
+                    var pad = reader.ReadInt16();
                     var normal = new Vector3
                     {
-                        X = (float)nx.ToDouble(),
-                        Y = (float)nx.ToDouble(),
-                        Z = (float)nx.ToDouble()
+                        X = nx == 0 ? nx : nx / 4096f,
+                        Y = ny == 0 ? ny : ny / 4096f,
+                        Z = nz == 0 ? nz : nz / 4096f
                     };
                     normals[n] = normal;
                 }
@@ -248,10 +160,916 @@ namespace PSXPrev
                 reader.BaseStream.Seek(objBlock.PrimitiveTop, SeekOrigin.Begin);
                 for (var p = 0; p < objBlock.NPrimitive; p++)
                 {
-                    var res = ReadPrimitive(reader, groupedTriangles, vertices, normals);
-                    if (res.HasValue && !res.Value)
+                    var olen = reader.ReadByte();
+                    var ilen = reader.ReadByte();
+                    var flag = reader.ReadByte();
+                    var mode = reader.ReadByte();
+                    //var option = (mode & 0x1F);
+
+                    var offset = reader.BaseStream.Position;
+
+                    if (olen == 0x04 && ilen == 0x03 && mode == 0x20)
+                    //3 SIDED, FLAT SHADING, FLAT PIGMENT TMD_P_F3
                     {
-                        break;
+                        //Program.Logger.WriteLine("3 SIDED, FLAT SHADING, FLAT PIGMENT");
+
+                        var r = reader.ReadByte();
+                        var g = reader.ReadByte();
+                        var b = reader.ReadByte();
+                        var pmode = reader.ReadByte();
+                        if (pmode != mode)
+                        {
+                            return null;
+                        }
+                        var normal0 = reader.ReadUInt16();
+                        var vertex0 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+
+                        var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_F3, vertices, normals,
+                            vertex0, vertex1, vertex2, normal0,
+                            normal0, normal0, r, g, b, r, g, b, r, g, b, 0, 0, 0, 0, 0, 0);
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | false;
+                        hasUvs = hasUvs | false;
+
+                        if (triangle == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle, 5);
+                    }
+                    else if (olen == 0x06 && ilen == 0x04 && mode == 0x30)
+                    //3 SIDED, GOURAUD SHADING, FLAT PIGMENT TMD_P_G3
+                    {
+                        //Program.Logger.WriteLine("3 SIDED, GOURAUD SHADING, FLAT PIGMENT");
+
+                        var r = reader.ReadByte();
+                        var g = reader.ReadByte();
+                        var b = reader.ReadByte();
+                        var mode2 = reader.ReadByte();
+                        if (mode2 != mode)
+                        {
+                            return null;
+                        }
+                        var normal0 = reader.ReadUInt16();
+                        var vertex0 = reader.ReadUInt16();
+                        var normal1 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var normal2 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+
+                        var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_G3, vertices, normals,
+                            vertex0, vertex1, vertex2,
+                            normal0, normal1, normal2, r, g, b, r, g, b, r, g, b, 0, 0, 0, 0, 0, 0);
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | true;
+                        hasUvs = hasUvs | false;
+
+                        if (triangle == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle, 5);
+                    }
+                    else if (olen == 0x06 && ilen == 0x05 && mode == 0x20)
+                    //3 SIDED, FLAT SHADING, GRADIENT PIGMENT TMD_P_F3G
+                    {
+                        //Program.Logger.WriteLine("3 SIDED, FLAT SHADING, GRADIENT PIGMENT");
+
+                        var r0 = reader.ReadByte();
+                        var g0 = reader.ReadByte();
+                        var b0 = reader.ReadByte();
+                        var mode2 = reader.ReadByte();
+                        if (mode2 != mode)
+                        {
+                            return null;
+                        }
+                        var r1 = reader.ReadByte();
+                        var g1 = reader.ReadByte();
+                        var b1 = reader.ReadByte();
+                        var pad1 = reader.ReadByte();
+                        var r2 = reader.ReadByte();
+                        var g2 = reader.ReadByte();
+                        var b2 = reader.ReadByte();
+                        var pad2 = reader.ReadByte();
+                        var normal0 = reader.ReadUInt16();
+                        var vertex0 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+
+                        var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_F3G, vertices, normals,
+                            vertex0, vertex1, vertex2,
+                            normal0, normal0, normal0, r0, g0, b0, r1, g1, b1, r2, g2, b2, 0, 0, 0, 0, 0, 0);
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | true;
+                        hasUvs = hasUvs | false;
+
+                        if (triangle == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle, 5);
+                    }
+                    else if (olen == 0x06 && ilen == 0x06 && mode == 0x30)
+                    //3 SIDED, GOURAUD SHADING, GRADIENT PIGMENT TMD_P_G3G
+                    {
+                        //Program.Logger.WriteLine("3 SIDED, GOURAUD SHADING, GRADIENT PIGMENT");
+
+                        var r0 = reader.ReadByte();
+                        var g0 = reader.ReadByte();
+                        var b0 = reader.ReadByte();
+                        var mode2 = reader.ReadByte();
+                        if (mode2 != mode)
+                        {
+                            return null;
+                        }
+                        var r1 = reader.ReadByte();
+                        var g1 = reader.ReadByte();
+                        var b1 = reader.ReadByte();
+                        var pad1 = reader.ReadByte();
+                        var r2 = reader.ReadByte();
+                        var g2 = reader.ReadByte();
+                        var b2 = reader.ReadByte();
+                        var pad2 = reader.ReadByte();
+                        var normal0 = reader.ReadUInt16();
+                        var vertex0 = reader.ReadUInt16();
+                        var normal1 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var normal2 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+
+                        var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_G3G, vertices, normals,
+                            vertex0, vertex1,
+                            vertex2, normal0, normal1, normal2, r0, g0, b0, r1, g1, b1, r2, g2, b2, 0, 0, 0,
+                            0, 0, 0);
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | true;
+                        hasUvs = hasUvs | false;
+
+                        if (triangle == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle, 5);
+                    }
+                    else if (olen == 0x07 && ilen == 0x05 && mode == 0x24)
+                    //3 SIDED, TEXTURED, FLAT SHADING, NO PIGMENT TMD_P_TF3
+                    {
+                        //Program.Logger.WriteLine("3 SIDED, TEXTURED, FLAT SHADING, NO PIGMENT");
+
+                        var u0 = reader.ReadByte();
+                        var v0 = reader.ReadByte();
+                        var cba = reader.ReadUInt16();
+                        var u1 = reader.ReadByte();
+                        var v1 = reader.ReadByte();
+                        var tsb = reader.ReadUInt16();
+                        var tPage = tsb & 0x1F;
+                        var u2 = reader.ReadByte();
+                        var v2 = reader.ReadByte();
+                        var pad1 = reader.ReadByte();
+                        var pad2 = reader.ReadByte();
+                        var normal = reader.ReadUInt16();
+                        var vertex0 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+
+                        var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_TF3, vertices, normals,
+                            vertex0, vertex1,
+                            vertex2, normal, normal, normal, 128, 128, 128, 128, 128, 128, 128, 128, 128, u0, v0, u1, v1,
+                            u2, v2);
+
+                        hasColors = hasColors | false;
+                        hasNormals = hasNormals | true;
+                        hasUvs = hasUvs | false;
+
+                        if (triangle == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle, tPage);
+                    }
+                    else if (olen == 0x9 && ilen == 0x06 && mode == 0x34)
+                    //3 SIDED, TEXTURED, GOURAUD SHADING, NO PIGMENT TMD_P_TG3
+                    {
+                        //Program.Logger.WriteLine("3 SIDED, TEXTURED, GOURAUD SHADING, NO PIGMENT");
+
+                        var u0 = reader.ReadByte();
+                        var v0 = reader.ReadByte();
+                        var cba = reader.ReadUInt16();
+                        var u1 = reader.ReadByte();
+                        var v1 = reader.ReadByte();
+                        var tsb = reader.ReadUInt16();
+                        var tPage = tsb & 0x1F;
+                        var u2 = reader.ReadByte();
+                        var v2 = reader.ReadByte();
+                        var pad1 = reader.ReadByte();
+                        var pad2 = reader.ReadByte();
+                        var normal0 = reader.ReadUInt16();
+                        var vertex0 = reader.ReadUInt16();
+                        var normal1 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var normal2 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+
+                        var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_TG3, vertices, normals,
+                            vertex0,
+                            vertex1, vertex2, normal0, normal1, normal2, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+                            u0, v0, u1, v1, u2, v2);
+
+                        hasColors = hasColors | false;
+                        hasNormals = hasNormals | true;
+                        hasUvs = hasUvs | true;
+
+                        if (triangle == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle, tPage);
+                    }
+                    else if (olen == 0x04 && ilen == 0x03 && mode == 0x21)
+                    //3 SIDED, NO SHADING, FLAT PIGMENT TMD_P_NF3
+                    {
+                        //Program.Logger.WriteLine("3 SIDED, NO SHADING, FLAT PIGMENT");
+
+                        var r = reader.ReadByte();
+                        var g = reader.ReadByte();
+                        var b = reader.ReadByte();
+                        var mode2 = reader.ReadByte();
+                        if (mode2 != mode)
+                        {
+                            return null;
+                        }
+                        var vertex0 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+                        var pad = reader.ReadUInt16();
+
+                        var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_NF3, vertices, normals,
+                            vertex0,
+                            vertex1, vertex2, 0, 0, 0, r, g, b, r, g, b, r, g, b, 0, 0, 0, 0, 0,
+                            0);
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | false;
+                        hasUvs = hasUvs | false;
+
+                        if (triangle == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle, 5);
+                    }
+                    else if (olen == 0x06 && ilen == 0x05 && mode == 0x31)
+                    //3 SIDED, NO SHADING, GRADIENT PIGMENT TMD_P_NG3
+                    {
+                        //Program.Logger.WriteLine("3 SIDED, NO SHADING, GRADIENT PIGMENT");
+
+                        var r0 = reader.ReadByte();
+                        var g0 = reader.ReadByte();
+                        var b0 = reader.ReadByte();
+                        var mode2 = reader.ReadByte();
+                        if (mode2 != mode)
+                        {
+                            return null;
+                        }
+                        var r1 = reader.ReadByte();
+                        var g1 = reader.ReadByte();
+                        var b1 = reader.ReadByte();
+                        var pad1 = reader.ReadByte();
+                        var r2 = reader.ReadByte();
+                        var g2 = reader.ReadByte();
+                        var b2 = reader.ReadByte();
+                        var pad2 = reader.ReadByte();
+                        var vertex0 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+                        var pad = reader.ReadUInt16();
+
+                        var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_NG3, vertices, normals,
+                            vertex0,
+                            vertex1, vertex2, 0, 0, 0, r0, g0, b0, r1, g1, b1, r2, g2, b2, 0,
+                            0, 0, 0, 0, 0);
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | false;
+                        hasUvs = hasUvs | false;
+
+                        if (triangle == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle, 5);
+                    }
+                    else if (olen == 0x07 && ilen == 0x06 && mode == 0x25)
+                    //3 SIDED, TEXTURED, NO SHADING, FLAT PIGMENT TMD_P_TNF3
+                    {
+                        //Program.Logger.WriteLine("3 SIDED, TEXTURED, NO SHADING, FLAT PIGMENT");
+
+                        var u0 = reader.ReadByte();
+                        var v0 = reader.ReadByte();
+                        var cba = reader.ReadUInt16();
+                        var u1 = reader.ReadByte();
+                        var v1 = reader.ReadByte();
+                        var tsb = reader.ReadUInt16();
+                        var tPage = tsb & 0x1F;
+                        var u2 = reader.ReadByte();
+                        var v2 = reader.ReadByte();
+                        var pad1 = reader.ReadByte();
+                        var pad2 = reader.ReadByte();
+                        var r = reader.ReadByte();
+                        var g = reader.ReadByte();
+                        var b = reader.ReadByte();
+                        var pad3 = reader.ReadByte();
+                        var vertex0 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+                        var pad = reader.ReadUInt16();
+
+                        var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_TNF3, vertices, normals,
+                            vertex0, vertex1, vertex2, 0, 0, 0, r, g, b, r, g, b, r, g,
+                            b, u0, v0, u1, v1, u2, v2);
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | false;
+                        hasUvs = hasUvs | true;
+
+                        if (triangle == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle, tPage);
+                    }
+                    else if (olen == 0x9 && ilen == 0x08 && mode == 0x35)
+                    //3 SIDED, TEXTURED, NO SHADING, GRADIENT PIGMENT TMD_P_TNG3
+                    {
+                        //Program.Logger.WriteLine("3 SIDED, TEXTURED, NO SHADING, GRADIENT PIGMENT");
+
+                        var u0 = reader.ReadByte();
+                        var v0 = reader.ReadByte();
+                        var cba = reader.ReadUInt16();
+                        var u1 = reader.ReadByte();
+                        var v1 = reader.ReadByte();
+                        var tsb = reader.ReadUInt16();
+                        var tPage = tsb & 0x1F;
+                        var u2 = reader.ReadByte();
+                        var v2 = reader.ReadByte();
+                        var pad1 = reader.ReadUInt16();
+                        var r0 = reader.ReadByte();
+                        var g0 = reader.ReadByte();
+                        var b0 = reader.ReadByte();
+                        var pad2 = reader.ReadByte();
+                        var r1 = reader.ReadByte();
+                        var g1 = reader.ReadByte();
+                        var b1 = reader.ReadByte();
+                        var pad3 = reader.ReadByte();
+                        var r2 = reader.ReadByte();
+                        var g2 = reader.ReadByte();
+                        var b2 = reader.ReadByte();
+                        var pad4 = reader.ReadByte();
+                        var vertex0 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+                        var pad = reader.ReadUInt16();
+
+                        var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_TNG3, vertices, normals,
+                            vertex0, vertex1, vertex2, 0, 0, 0, r0, g0, b0, r1, g1,
+                            b1, r2, g2, b2, u0, v0, u1, v1, u2, v2);
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | false;
+                        hasUvs = hasUvs | true;
+
+                        if (triangle == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle, tPage);
+                    }
+                    else if (olen == 0x05 && ilen == 0x04 && mode == 0x28)
+                    //4 SIDED, Flat, No-Texture (solid) TMD_P_F4
+                    {
+                        //Program.Logger.WriteLine("4 SIDED, Flat, No-Texture (solid)");
+
+                        var r = reader.ReadByte();
+                        var g = reader.ReadByte();
+                        var b = reader.ReadByte();
+                        var pmode = reader.ReadByte();
+                        if (pmode != mode)
+                        {
+                            return null;
+                        }
+                        var normal0 = reader.ReadUInt16();
+                        var vertex0 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+                        var vertex3 = reader.ReadUInt16();
+                        var pad = reader.ReadUInt16();
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | true;
+                        hasUvs = hasUvs | false;
+
+                        var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_F4, vertices, normals,
+                            vertex0, vertex1, vertex2, normal0,
+                            normal0, normal0, r, g, b, r, g, b, r, g, b, 0, 0, 0, 0, 0, 0);
+
+                        if (triangle1 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle1, 5);
+
+                        var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_F4, vertices, normals,
+                            vertex1, vertex3, vertex2, normal0,
+                            normal0, normal0, r, g, b, r, g, b, r, g, b, 0, 0, 0, 0, 0, 0);
+                        if (triangle2 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle2, 5);
+                    }
+                    else if (olen == 0x08 && ilen == 0x05 && mode == 0x38)
+                    //4 SIDED, Gouraud, No-Texture (solid) TMD_P_G4
+                    {
+                        //Program.Logger.WriteLine("4 SIDED, Gouraud, No-Texture (solid)");
+
+                        var r = reader.ReadByte();
+                        var g = reader.ReadByte();
+                        var b = reader.ReadByte();
+                        var mode2 = reader.ReadByte();
+                        if (mode2 != mode)
+                        {
+                            return null;
+                        }
+                        var normal0 = reader.ReadUInt16();
+                        var vertex0 = reader.ReadUInt16();
+                        var normal1 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var normal2 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+                        var normal3 = reader.ReadUInt16();
+                        var vertex3 = reader.ReadUInt16();
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | true;
+                        hasUvs = hasUvs | false;
+
+                        var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_G4, vertices, normals,
+                            vertex0, vertex1, vertex2,
+                            normal0, normal1, normal2, r, g, b, r, g, b, r, g, b, 0, 0, 0, 0, 0, 0);
+                        if (triangle1 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle1, 5);
+
+                        var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_G4, vertices, normals,
+                            vertex1, vertex3, vertex2,
+                            normal1, normal3, normal2, r, g, b, r, g, b, r, g, b, 0, 0, 0, 0, 0, 0);
+                        if (triangle2 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle2, 5);
+                    }
+                    else if (olen == 0x08 && ilen == 0x08 && mode == 0x38)
+                    //4 SIDED, Gouraud, No-Texture (gradation) TMD_P_G4G
+                    {
+                        //Program.Logger.WriteLine("4 SIDED, Gouraud, No-Texture (gradation)");
+
+                        var r0 = reader.ReadByte();
+                        var g0 = reader.ReadByte();
+                        var b0 = reader.ReadByte();
+                        var mode2 = reader.ReadByte();
+                        if (mode2 != mode)
+                        {
+                            return null;
+                        }
+                        var r1 = reader.ReadByte();
+                        var g1 = reader.ReadByte();
+                        var b1 = reader.ReadByte();
+                        var pad1 = reader.ReadByte();
+                        var r2 = reader.ReadByte();
+                        var g2 = reader.ReadByte();
+                        var b2 = reader.ReadByte();
+                        var pad2 = reader.ReadByte();
+                        var r3 = reader.ReadByte();
+                        var g3 = reader.ReadByte();
+                        var b3 = reader.ReadByte();
+                        var pad3 = reader.ReadByte();
+                        var normal0 = reader.ReadUInt16();
+                        var vertex0 = reader.ReadUInt16();
+                        var normal1 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var normal2 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+                        var normal3 = reader.ReadUInt16();
+                        var vertex3 = reader.ReadUInt16();
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | true;
+                        hasUvs = hasUvs | false;
+
+                        var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_G4G, vertices, normals,
+                            vertex0, vertex1, vertex2,
+                            normal0, normal1, normal2, r0, g0, b0, r1, g1, b1, r2, g2, b2, 0, 0, 0, 0, 0, 0);
+                        if (triangle1 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle1, 5);
+
+                        var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_G4G, vertices, normals,
+                            vertex1, vertex3, vertex2,
+                            normal1, normal3, normal2, r1, g1, b1, r3, g3, b3, r2, g2, b2, 0, 0, 0, 0, 0, 0);
+                        if (triangle2 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle2, 5);
+                    }
+                    else if (olen == 0x08 && ilen == 0x07 && mode == 0x28)
+                    //4 SIDED, Flat, No-Texture (gradation) TMD_P_F4G
+                    {
+                        //Program.Logger.WriteLine("4 SIDED, Flat, No-Texture (gradation)");
+
+                        var r0 = reader.ReadByte();
+                        var g0 = reader.ReadByte();
+                        var b0 = reader.ReadByte();
+                        var mode2 = reader.ReadByte();
+                        if (mode2 != mode)
+                        {
+                            return null;
+                        }
+
+                        var r1 = reader.ReadByte();
+                        var g1 = reader.ReadByte();
+                        var b1 = reader.ReadByte();
+                        var pad1 = reader.ReadByte();
+
+                        var r2 = reader.ReadByte();
+                        var g2 = reader.ReadByte();
+                        var b2 = reader.ReadByte();
+                        var pad2 = reader.ReadByte();
+
+                        var r3 = reader.ReadByte();
+                        var g3 = reader.ReadByte();
+                        var b3 = reader.ReadByte();
+                        var pad3 = reader.ReadByte();
+
+                        var normal0 = reader.ReadUInt16();
+                        var vertex0 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+                        var vertex3 = reader.ReadUInt16();
+                        var pad = reader.ReadUInt16();
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | true;
+                        hasUvs = hasUvs | false;
+
+                        var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_F4G, vertices, normals,
+                            vertex0, vertex1, vertex2, normal0, normal0, normal0, r0, g0, b0, r1, g1,
+                            b1, r2, g2, b2, 0, 0, 0, 0, 0, 0);
+                        if (triangle1 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle1, 5);
+
+                        var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_F4G, vertices, normals,
+                            vertex1, vertex3, vertex2, normal0, normal0, normal0, r1, g1, b1, r3, g3,
+                            b3, r2, g2, b2, 0, 0, 0, 0, 0, 0);
+                        if (triangle2 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle2, 5);
+                    }
+                    else if (olen == 0x09 && ilen == 0x07 && mode == 0x2c)
+                    //4 SIDED, Flat, Texture TMD_P_TF4
+                    {
+                        //Program.Logger.WriteLine("4 SIDED, Flat, Texture");
+
+                        var u0 = reader.ReadByte();
+                        var v0 = reader.ReadByte();
+                        var cba = reader.ReadUInt16();
+                        var u1 = reader.ReadByte();
+                        var v1 = reader.ReadByte();
+                        var tsb = reader.ReadUInt16();
+                        var tPage = tsb & 0x1F;
+                        var u2 = reader.ReadByte();
+                        var v2 = reader.ReadByte();
+                        var pad1 = reader.ReadByte();
+                        var pad2 = reader.ReadByte();
+                        var u3 = reader.ReadByte();
+                        var v3 = reader.ReadByte();
+                        var pad3 = reader.ReadByte();
+                        var pad4 = reader.ReadByte();
+                        var normal0 = reader.ReadUInt16();
+                        var vertex0 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+                        var vertex3 = reader.ReadUInt16();
+                        var pad5 = reader.ReadUInt16();
+
+                        hasColors = hasColors | false;
+                        hasNormals = hasNormals | true;
+                        hasUvs = hasUvs | true;
+
+                        var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_TF4, vertices, normals,
+                            vertex0, vertex1, vertex2, normal0, normal0, normal0, 128, 128, 128, 128, 128, 128, 128, 128,
+                            128, u0, v0, u1, v1, u2, v2);
+                        if (triangle1 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle1, tPage);
+
+                        var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_TF4, vertices, normals,
+                            vertex1, vertex3, vertex2, normal0, normal0, normal0, 128, 128, 128, 128, 128, 128, 128, 128,
+                            128, u1, v1, u3, v3, u2, v2);
+                        if (triangle2 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle2, tPage);
+                    }
+                    else if (olen == 0x0c && ilen == 0x08 && mode == 0x3c)
+                    //4 SIDED, Goraund, Texture TMD_P_TG4
+                    {
+                        //Program.Logger.WriteLine("4 SIDED, Goraund, Texture");
+
+                        var u0 = reader.ReadByte();
+                        var v0 = reader.ReadByte();
+                        var cba = reader.ReadUInt16();
+                        var u1 = reader.ReadByte();
+                        var v1 = reader.ReadByte();
+                        var tsb = reader.ReadUInt16();
+                        var tPage = tsb & 0x1F;
+                        var u2 = reader.ReadByte();
+                        var v2 = reader.ReadByte();
+                        var pad1 = reader.ReadByte();
+                        var pad2 = reader.ReadByte();
+                        var u3 = reader.ReadByte();
+                        var v3 = reader.ReadByte();
+                        var pad3 = reader.ReadByte();
+                        var pad4 = reader.ReadByte();
+                        var normal0 = reader.ReadUInt16();
+                        var vertex0 = reader.ReadUInt16();
+                        var normal1 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var normal2 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+                        var normal3 = reader.ReadUInt16();
+                        var vertex3 = reader.ReadUInt16();
+
+                        hasColors = hasColors | false;
+                        hasNormals = hasNormals | true;
+                        hasUvs = hasUvs | true;
+
+                        var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_TG4, vertices, normals,
+                            vertex0, vertex1, vertex2, normal0, normal1, normal2, 128, 128, 128, 128, 128, 128, 128, 128,
+                            128, u0, v0, u1, v1, u2, v2);
+                        if (triangle1 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle1, tPage);
+
+                        var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_TG4, vertices, normals,
+                            vertex1, vertex3, vertex2, normal1, normal3, normal2, 128, 128, 128, 128, 128, 128, 128, 128,
+                            128, u1, v1, u3, v3, u2, v2);
+                        if (triangle2 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle2, tPage);
+                    }
+                    else if (olen == 0x05 && ilen == 0x03 && mode == 0x29)
+                    //4 SIDED, Flat, No-Texture TMD_P_NF4
+                    {
+                        //Program.Logger.WriteLine("4 SIDED, Flat, No-Texture");
+
+                        var r = reader.ReadByte();
+                        var g = reader.ReadByte();
+                        var b = reader.ReadByte();
+                        var pmode = reader.ReadByte();
+                        if (pmode != mode)
+                        {
+                            return null;
+                        }
+                        var vertex0 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+                        var vertex3 = reader.ReadUInt16();
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | false;
+                        hasUvs = hasUvs | false;
+
+                        var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_NF4, vertices, normals,
+                            vertex0, vertex1, vertex2, 0,
+                            0, 0, r, g, b, r, g, b, r, g, b, 0, 0, 0, 0, 0, 0);
+                        if (triangle1 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle1, 5);
+
+                        var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_NF4, vertices, normals,
+                            vertex1, vertex3, vertex2, 0,
+                            0, 0, r, g, b, r, g, b, r, g, b, 0, 0, 0, 0, 0, 0);
+                        if (triangle2 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle2, 5);
+                    }
+                    else if (olen == 0x08 && ilen == 0x06 && mode == 0x39)
+                    //4 SIDED, Gradation, No-Texture TMD_P_NG4
+                    {
+                        //Program.Logger.WriteLine("4 SIDED, Gradation, No-Texture"); 
+
+                        var r0 = reader.ReadByte();
+                        var g0 = reader.ReadByte();
+                        var b0 = reader.ReadByte();
+                        var mode2 = reader.ReadByte();
+                        if (mode2 != mode)
+                        {
+                            return null;
+                        }
+                        var r1 = reader.ReadByte();
+                        var g1 = reader.ReadByte();
+                        var b1 = reader.ReadByte();
+                        var pad1 = reader.ReadByte();
+                        var r2 = reader.ReadByte();
+                        var g2 = reader.ReadByte();
+                        var b2 = reader.ReadByte();
+                        var pad2 = reader.ReadByte();
+                        var r3 = reader.ReadByte();
+                        var g3 = reader.ReadByte();
+                        var b3 = reader.ReadByte();
+                        var pad3 = reader.ReadByte();
+                        var vertex0 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+                        var vertex3 = reader.ReadUInt16();
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | false;
+                        hasUvs = hasUvs | false;
+
+                        var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_NG4, vertices, normals,
+                            vertex0, vertex1, vertex2,
+                            0, 0, 0, r0, g0, b0, r1, g1, b1, r2, g2, b2, 0, 0, 0, 0, 0, 0);
+                        if (triangle1 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle1, 5);
+
+                        var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_NG4, vertices, normals,
+                            vertex1, vertex3, vertex2,
+                            0, 0, 0, r1, g1, b1, r3, g3, b3, r2, g2, b2, 0, 0, 0, 0, 0, 0);
+                        if (triangle2 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle2, 5);
+                    }
+                    else if (olen == 0x09 && ilen == 0x07 && mode == 0x2d)
+                    //4 SIDED, Flat, Texture TMD_P_TNF4
+                    {
+                        //Program.Logger.WriteLine("4 SIDED, Flat, Texture");
+
+                        var u0 = reader.ReadByte();
+                        var v0 = reader.ReadByte();
+                        var cba = reader.ReadUInt16();
+                        var u1 = reader.ReadByte();
+                        var v1 = reader.ReadByte();
+                        var tsb = reader.ReadUInt16();
+                        var tPage = tsb & 0x1F;
+                        var u2 = reader.ReadByte();
+                        var v2 = reader.ReadByte();
+                        var pad1 = reader.ReadByte();
+                        var pad2 = reader.ReadByte();
+                        var u3 = reader.ReadByte();
+                        var v3 = reader.ReadByte();
+                        var pad3 = reader.ReadByte();
+                        var pad4 = reader.ReadByte();
+                        var r = reader.ReadByte();
+                        var g = reader.ReadByte();
+                        var b = reader.ReadByte();
+                        var pad5 = reader.ReadByte();
+                        var vertex0 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+                        var vertex3 = reader.ReadUInt16();
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | false;
+                        hasUvs = hasUvs | true;
+
+                        var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_TNF4, vertices, normals,
+                            vertex0, vertex1, vertex2, 0, 0, 0, r, g, b, r, g,
+                            b, r, g, b, u0, v0, u1, v1, u2, v2);
+                        if (triangle1 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle1, tPage);
+
+                        var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_TNF4, vertices, normals,
+                            vertex1, vertex3, vertex2, 0, 0, 0, r, g, b, r, g,
+                            b, r, g, b, u1, v1, u3, v3, u2, v2);
+                        if (triangle2 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle2, tPage);
+                    }
+                    else if (olen == 0x0c && ilen == 0x0a && mode == 0x3d)
+                    //4 SIDED, Gradation, Texture TMD_P_TNG4
+                    {
+                        //Program.Logger.WriteLine("4 SIDED, Gradation, Texture");
+
+                        var u0 = reader.ReadByte();
+                        var v0 = reader.ReadByte();
+                        var cba = reader.ReadUInt16();
+                        var u1 = reader.ReadByte();
+                        var v1 = reader.ReadByte();
+                        var tsb = reader.ReadUInt16();
+                        var tPage = tsb & 0x1F;
+                        var u2 = reader.ReadByte();
+                        var v2 = reader.ReadByte();
+                        var pad1 = reader.ReadByte();
+                        var pad2 = reader.ReadByte();
+                        var u3 = reader.ReadByte();
+                        var v3 = reader.ReadByte();
+                        var pad3 = reader.ReadByte();
+                        var pad4 = reader.ReadByte();
+                        var r0 = reader.ReadByte();
+                        var g0 = reader.ReadByte();
+                        var b0 = reader.ReadByte();
+                        var pad5 = reader.ReadByte();
+                        var r1 = reader.ReadByte();
+                        var g1 = reader.ReadByte();
+                        var b1 = reader.ReadByte();
+                        var pad6 = reader.ReadByte();
+                        var r2 = reader.ReadByte();
+                        var g2 = reader.ReadByte();
+                        var b2 = reader.ReadByte();
+                        var pad7 = reader.ReadByte();
+                        var r3 = reader.ReadByte();
+                        var g3 = reader.ReadByte();
+                        var b3 = reader.ReadByte();
+                        var pad8 = reader.ReadByte();
+                        var vertex0 = reader.ReadUInt16();
+                        var vertex1 = reader.ReadUInt16();
+                        var vertex2 = reader.ReadUInt16();
+                        var vertex3 = reader.ReadUInt16();
+
+                        hasColors = hasColors | true;
+                        hasNormals = hasNormals | false;
+                        hasUvs = hasUvs | true;
+
+                        var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_TNG4, vertices, normals,
+                            vertex0, vertex1, vertex2, 0, 0, 0, r0, g0, b0, r1, g1,
+                            b1, r2, g2, b2, u0, v0, u1, v1, u2, v2);
+                        if (triangle1 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle1, tPage);
+
+                        var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.TMD_P_TNG4, vertices, normals,
+                            vertex1, vertex3, vertex2, 0, 0, 0, r1, g1, b1, r3, g3,
+                            b3, r2, g2, b2, u1, v1, u3, v3, u2, v2);
+                        if (triangle2 == null)
+                        {
+                            goto EndModel;
+                        }
+                        AddTriangle(groupedTriangles, triangle2, tPage);
+                    }
+                    else
+                    {
+                        //missingTriangles.Add(new MissingTriangle
+                        //{
+                        //    Olen = olen,
+                        //    Ilen = ilen,
+                        //    Flags = flags,
+                        //    Mode = mode
+                        //});
+                        Program.Logger.WriteLine("Unknown primitive: olen:{0:X}, ilen:{1:X}, mode:{2:X}, flags:{3:X}",
+                            olen, ilen, mode, flags);
+                        reader.BaseStream.Seek(offset + (ilen * 4), SeekOrigin.Begin);
+                        //goto EndModel;
                     }
                 }
 
@@ -263,7 +1081,6 @@ namespace PSXPrev
                         var model = new ModelEntity
                         {
                             Triangles = triangles.ToArray(),
-                            RelativeAddresses = flags == 0,
                             HasNormals = hasNormals,
                             HasColors = hasColors,
                             HasUvs = hasUvs,
@@ -288,150 +1105,6 @@ namespace PSXPrev
             return null;
         }
 
-        private TMDPacketStructure CreatePolygonPacketStructure(byte flag, byte mode)
-        {
-            var option = (mode & 0x1F);
-            var flagMode = option | (((short)flag) << 8);
-
-            var lgtBit = ((flag >> 0) & 0x01) == 0;
-            var bckfceBit = ((flag >> 1) & 0x01) == 1;
-            var grdBit = ((flag >> 2) & 0x01) == 1;
-            var unk0Bit = ((flag >> 3) & 0x01) == 1;
-            var unk1Bit = ((flag >> 4) & 0x01) == 0;
-            var unk2Bit = ((flag >> 5) & 0x01) == 0;
-
-            var tgeBit = ((option >> 0) & 0x01) == 0;
-            var abeBit = ((option >> 1) & 0x01) == 1;
-            var tmeBit = ((option >> 2) & 0x01) == 1;
-            var isqBit = ((option >> 3) & 0x01) == 1;
-            var iipBit = ((option >> 4) & 0x01) == 1;
-            var code = ((mode >> 5) & 0x03);
-
-            var hasLight = lgtBit;
-            var isFlat = !iipBit;
-            var isGouraud = iipBit;
-            var hasTexture = tmeBit;
-            var hasGradation = grdBit;
-            var isSolid = !grdBit;
-            var hasColors = (!hasTexture && hasLight) || (!hasLight && !hasTexture);
-
-            var descr = $"{(isFlat ? "Flat" : "Gouraud")}, {(hasTexture ? "Texture" : "No-Texture")} {((!hasColors ? "" : (isSolid ? "(solid)" : "(gradation)")))}";
-            var sects = new List<string>();
-
-            var packet = new List<TMDPacketStructureColumn>();
-            var numVerts = isqBit ? 4 : 3;
-            if (hasTexture)
-            {
-                for (var i = 0; i < numVerts; ++i)
-                {
-                    packet.Add($"S{i}-1"); packet.Add($"T{i}-1");
-                    if (i == 0) { packet.Add($"CBA-2"); }
-                    else if (i == 1) { packet.Add($"TSB-2"); }
-                    else { packet.Add($"_-1"); packet.Add($"_-1"); }
-                }
-            }
-            if (hasColors)
-            {
-                for (var i = 0; i < numVerts; ++i)
-                {
-                    if (hasGradation || (isSolid && i == 0))
-                    {
-                        packet.Add($"R{i}-1"); packet.Add($"G{i}-1"); packet.Add($"B{i}-1");
-                        if (i == 0)
-                        {
-                            packet.Add($"MODE-1");
-                        }
-                        else
-                        {
-                            packet.Add($"_-1");
-                        }
-                    }
-                }
-            }
-            for (var i = 0; i < numVerts; ++i)
-            {
-                if (hasLight)
-                {
-                    if ((isFlat && i == 0) || isGouraud) { packet.Add($"NORM{i}-2"); }
-                }
-                packet.Add($"VERT{i}-2");
-            }
-
-            var modBytes = packet.Sum(x => x.Length) % 4;
-            if (modBytes != 0)
-            {
-                var padding = 4 - modBytes;
-                packet.Add($"_-{padding}");
-            }
-            var primitiveType = $"{numVerts} Vertex Polygon with {(hasLight ? "Light" : "No Light")} Source Calculation";
-
-            return new TMDPacketStructure
-            {
-                Primitive = primitiveType,
-                Classification = descr.Trim(),
-                Structure = packet
-            };
-        }
-        
-        private Dictionary<string, object> ExtractColumnsFromReader(BinaryReader reader, TMDPacketStructure packet, byte mode, Vector3[] vertices, Vector3[] normals)
-        {
-            var columns = new Dictionary<string, object>();
-            var pad = 0;
-            for (var i = 0; i < packet.Structure.Count; ++i)
-            {
-                var col = packet.Structure[i];
-                var key = col.IsPadding ? $"PAD{pad++}" : col.Name;
-                var val = (col.Length == 2) ? (object)reader.ReadUInt16() : (object)reader.ReadByte();
-                columns[key] = val;
-                if (col.IsVertex)
-                {
-                    if ((ushort)val >= vertices.Length)
-                    {
-                        return null;
-                    }
-                }
-                if (col.IsNormal)
-                {
-                    if ((ushort)val >= normals.Length)
-                    {
-                        return null;
-                    }
-                }
-            }
-            if (columns.ContainsKey("MODE") && (byte)columns["MODE"] != mode)
-            {
-                return null;
-            }
-            return columns;
-        }
-
-        private bool? ReadPrimitive(BinaryReader reader, Dictionary<int, List<Triangle>> groupedTriangles, Vector3[] vertices, Vector3[] normals)
-        {
-            var olen = reader.ReadByte();
-            var ilen = reader.ReadByte();
-            var flag = reader.ReadByte();
-            var mode = reader.ReadByte();
-            var offset = reader.BaseStream.Position;
-            var code = ((mode >> 5) & 0x03);
-
-            var hasPrimitive = false;
-
-            if(code == 1)
-            {
-                var pakStruc = CreatePolygonPacketStructure(flag, mode);
-                var columns = ExtractColumnsFromReader(reader, pakStruc, mode, vertices, normals);
-                if (columns != null)
-                {
-                    AddTrianglesToGroup(groupedTriangles, columns, vertices, normals);
-                }
-                hasPrimitive = true;
-            }
-
-            reader.BaseStream.Seek(offset + (ilen * 4), SeekOrigin.Begin);
-
-            return hasPrimitive;
-        }
-
         private void AddTriangle(Dictionary<int, List<Triangle>> groupedTriangles, Triangle triangle, int p)
         {
             List<Triangle> triangles;
@@ -447,115 +1120,113 @@ namespace PSXPrev
             triangles.Add(triangle);
         }
 
-        private void AddTrianglesToGroup(Dictionary<int, List<Triangle>> group, Dictionary<string, object> columns, Vector3[] vertices, Vector3[] normals)
+        private Triangle TriangleFromPrimitive(Triangle.PrimitiveTypeEnum primitiveType, Vector3[] vertices, Vector3[] normals, ushort vertex0, ushort vertex1,
+            ushort vertex2, ushort normal0, ushort normal1, ushort normal2, byte r0, byte g0, byte b0, byte r1, byte g1,
+            byte b1, byte r2, byte g2, byte b2, byte u0, byte v0, byte u1, byte v1, byte u2, byte v2)
         {
-            var colors = new List<Color>();
-            var texcoords = new List<Vector3>();
-            var norms = new List<Vector3>();
-            var verts = new List<Vector3>();
-            for (var i = 0; i < 4; ++i)
+            if (vertex0 >= vertices.Length)
             {
-                if (columns.ContainsKey($"S{i}"))
-                {
-                    var s = ((float)(byte)columns[$"S{i}"]) / 256.0f;
-                    var t = ((float)(byte)columns[$"T{i}"]) / 256.0f;
-                    texcoords.Add(new Vector3 { X = s, Y = t });
-                }
-                if (columns.ContainsKey($"R{i}"))
-                {
-                    var r = ((float)(byte)columns[$"R{i}"]) / 256.0f;
-                    var g = ((float)(byte)columns[$"G{i}"]) / 256.0f;
-                    var b = ((float)(byte)columns[$"B{i}"]) / 256.0f;
-                    colors.Add(new Color { R = r, G = g, B = b });
-                }
-                if (columns.ContainsKey($"NORM{i}"))
-                {
-                    var nidx = (ushort)columns[$"NORM{i}"];
-                    var norm = normals[nidx];
-                    norms.Add(new Vector3 { X = norm.X, Y = norm.Y, Z = norm.Z });
-                }
-                if (columns.ContainsKey($"VERT{i}"))
-                {
-                    var nidx = (ushort)columns[$"VERT{i}"];
-                    var vert = vertices[nidx];
-                    verts.Add(new Vector3 { X = vert.X, Y = vert.Y, Z = vert.Z });
-                }
+                return null;
             }
 
-            var tPage = 0;
-            if (columns.ContainsKey("TSB"))
+            if (normal0 >= normals.Length || normal1 >= normals.Length || normal2 >= normals.Length)
             {
-                tPage = (ushort)columns["TSB"] & 0x1F;
+                return null;
             }
 
-            var defaultColor = new Color { R = 1, G = 1, B = 1 };
-            var defaultTexcoord = new Vector3 { X = 0, Y = 0 };
-            var defaultNormal = new Vector3 { X = 0, Y = 0, Z = 0 };
-            var triColors = new[] { defaultColor, defaultColor, defaultColor };
-            var triNormals = new[] { defaultNormal, defaultNormal, defaultNormal };
-            var triVerts = new[] { verts[0 % verts.Count], verts[1 % verts.Count], verts[2 % verts.Count] };
-            var triTexcoords = new[] { defaultTexcoord, defaultTexcoord, defaultTexcoord };
-            if (colors.Count > 0)
+            var ver1 = new Vector3
             {
-                triColors = new[] { colors[0 % colors.Count], colors[1 % colors.Count], colors[2 % colors.Count] };
-            }
-            if (norms.Count > 0)
+                X = vertices[vertex0].X,
+                Y = vertices[vertex0].Y,
+                Z = vertices[vertex0].Z,
+            };
+
+            var ver2 = new Vector3
             {
-                triNormals = new[] { norms[0 % norms.Count], norms[1 % norms.Count], norms[2 % norms.Count] };
-            }
-            if (texcoords.Count > 0)
+                X = vertices[vertex1].X,
+                Y = vertices[vertex1].Y,
+                Z = vertices[vertex1].Z,
+            };
+
+            var ver3 = new Vector3
             {
-                triTexcoords = new[] { texcoords[0 % texcoords.Count], texcoords[1 % texcoords.Count], texcoords[2 % texcoords.Count] };
-            }
+                X = vertices[vertex2].X,
+                Y = vertices[vertex2].Y,
+                Z = vertices[vertex2].Z,
+            };
+
             var triangle = new Triangle
             {
-                PrimitiveType = Triangle.PrimitiveTypeEnum.GsUF3,
-                Colors = triColors,
-                Normals = triNormals,
-                Vertices = triVerts,
-                Uv = triTexcoords
+                PrimitiveType = primitiveType,
+                Colors = new[]
+                {
+                    new Color
+                    {
+                        R = r0/256f,
+                        G = g0/256f,
+                        B = b0/256f
+                    },
+                    new Color
+                    {
+                        R = r1/256f,
+                        G = g1/256f,
+                        B = b1/256f
+                    },
+                    new Color
+                    {
+                        R = r2/256f,
+                        G = g2/256f,
+                        B = b2/256f
+                    }
+                },
+                Normals = new[]
+                {
+                    new Vector3
+                    {
+                        X = normals[normal0].X,
+                        Y = normals[normal0].Y,
+                        Z = normals[normal0].Z
+                    },
+                    new Vector3
+                    {
+                        X = normals[normal1].X,
+                        Y = normals[normal1].Y,
+                        Z = normals[normal1].Z
+                    },
+                    new Vector3
+                    {
+                        X = normals[normal2].X,
+                        Y = normals[normal2].Y,
+                        Z = normals[normal2].Z
+                    }
+                },
+                Vertices = new[]
+                {
+                    ver1,
+                    ver2,
+                    ver3
+                },
+                Uv = new[]
+                {
+                    new Vector3
+                    {
+                        X = u0/256f,
+                        Y = v0/256f
+                    },
+                    new Vector3
+                    {
+                        X = u1/256f,
+                        Y = v1/256f
+                    },
+                    new Vector3
+                    {
+                        X = u2/256f,
+                        Y = v2/256f
+                    }
+                }
             };
-            AddTriangle(group, triangle, tPage);
 
-            if (verts.Count > 3)
-            {
-                triColors = new[] { defaultColor, defaultColor, defaultColor };
-                triNormals = new[] { defaultNormal, defaultNormal, defaultNormal };
-                triVerts = new[] { verts[1 % verts.Count], verts[3 % verts.Count], verts[2 % verts.Count] };
-                triTexcoords = new[] { defaultTexcoord, defaultTexcoord, defaultTexcoord };
-                if (colors.Count > 0)
-                {
-                    triColors = new[] { colors[1 % colors.Count], colors[3 % colors.Count], colors[2 % colors.Count] };
-                }
-                if (norms.Count > 0)
-                {
-                    triNormals = new[] { norms[1 % norms.Count], norms[3 % norms.Count], norms[2 % norms.Count] };
-                }
-                if (texcoords.Count > 0)
-                {
-                    triTexcoords = new[] { texcoords[1 % texcoords.Count], texcoords[3 % texcoords.Count], texcoords[2 % texcoords.Count] };
-                }
-                triangle = new Triangle
-                {
-                    PrimitiveType = Triangle.PrimitiveTypeEnum.GsUF3,
-                    Colors = triColors,
-                    Normals = triNormals,
-                    Vertices = triVerts,
-                    Uv = triTexcoords
-                };
-                AddTriangle(group, triangle, tPage);
-            }
+            return triangle;
         }
-    }
-
-    internal class ObjBlock
-    {
-        public uint VertTop;
-        public uint NVert;
-        public uint NormalTop;
-        public uint NNormal;
-        public uint PrimitiveTop;
-        public uint NPrimitive;
-        public int Scale;
     }
 }

@@ -4,6 +4,6 @@
     <ProjectView>ProjectFiles</ProjectView>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
-    <StartArguments>"C:\jpsxdec_v0-99-7_rev3397\DAT" "%2a.%2a"</StartArguments>
+    <StartArguments>"F:\BKP\backup\2015-03-20\Desktop\epsxe\isos\X-Men - Mutant Academy %28Track 01%29.iso" "%2a.%2a" -tmdAlt -tmd</StartArguments>
   </PropertyGroup>
 </Project>
