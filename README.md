@@ -1,4 +1,4 @@
-# psxprev
+# psxprev - async version
 PSXPREV - Playstation (PSX) File Previewer/Extractor<br><br>
 PsxPrev, a TMD/PMD/TIM PlayStation file scanner.<br><br>
 ![Sample](https://ricardoreis.net/wp-content/uploads/2017/05/lod2.png)

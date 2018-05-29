@@ -9,7 +9,15 @@ namespace PSXPrev
     {
         private long _offset;
 
-        public RootEntity[] LookForHMDEntities(BinaryReader reader, string fileTitle)
+        private Action<RootEntity, long> entityAddedAction;
+
+        public HMDParser(Action<RootEntity, long> entityAddedAction)
+        {
+            this.entityAddedAction = entityAddedAction;
+        }
+
+
+        public void LookForHMDEntities(BinaryReader reader, string fileTitle)
         {
             if (reader == null)
             {
@@ -18,7 +26,7 @@ namespace PSXPrev
 
             reader.BaseStream.Seek(0, SeekOrigin.Begin);
 
-            var entities = new List<RootEntity>();
+            //var entities = new List<RootEntity>();
 
             while (reader.BaseStream.CanRead)
             {
@@ -32,7 +40,8 @@ namespace PSXPrev
                         if (entity != null)
                         {
                             entity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            entities.Add(entity);
+                            //entities.Add(entity);
+                            entityAddedAction(entity, reader.BaseStream.Position);
                             Program.Logger.WriteLine("Found HMD Model at offset {0:X}", _offset);
                         }
                     }
@@ -47,7 +56,6 @@ namespace PSXPrev
                 }
                 reader.BaseStream.Seek(_offset + 1, SeekOrigin.Begin);
             }
-            return entities.ToArray();
         }
 
         private RootEntity ParseHMDEntities(BinaryReader reader)

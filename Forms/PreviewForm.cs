@@ -14,9 +14,10 @@ namespace PSXPrev
     public partial class PreviewForm : Form
     {
         private Timer _animateTimer;
-        private Animation[] _animations;
+        private List<Animation> _animations;
         private Animation _curAnimation;
         private int _curAnimationFrame;
+        private Action<PreviewForm> _refreshAction;
 
         private bool _inAnimationTab;
 
@@ -27,22 +28,119 @@ namespace PSXPrev
         private GLControl _openTkControl;
         private bool _playing;
         private Timer _redrawTimer;
-        private RootEntity[] _rootEntities;
+        private List<RootEntity> _rootEntities;
 
         private Scene _scene;
 
         //private int _selectedTriangle;
-        private Texture[] _textures;
+        private List<Texture> _textures;
 
         private Texture[] _vramPage;
 
-        public PreviewForm(RootEntity[] rootEntities, Texture[] textures, Animation[] animations, bool debug)
+        public PreviewForm(Action<PreviewForm> refreshAction, bool debug)
         {
+            _refreshAction = refreshAction;
+
+            _animations = new List<Animation>();
+            _textures = new List<Texture>();
+            _rootEntities = new List<RootEntity>();
+
             SetupCulture();
-            SetupInternals(rootEntities, textures, animations);
+            refreshAction(this);
+
+            SetupInternals();
+
+            Toolkit.Init();
+
             InitializeComponent();
             SetupControls();
             //ResetSelectedTriangle();
+        }
+
+        private void EntityAdded(RootEntity entity)
+        {
+            // set textures for preview
+            foreach (var entityBase in entity.ChildEntities)
+            {
+                var model = (ModelEntity)entityBase;
+                model.Texture = _vramPage[model.TexturePage];
+            }
+
+            entitiesTreeView.BeginUpdate();
+            var entityNode = entitiesTreeView.Nodes.Add(entity.EntityName);
+            animationEntityComboBox.Items.Add(entity);
+            for (var m = 0; m < entity.ChildEntities.Length; m++)
+            {
+                // var model = (ModelEntity) entity.ChildEntities[m];
+                var modelNode = new TreeNode("Sub-Model " + m);
+                entityNode.Nodes.Add(modelNode);
+                modelNode.HideCheckBox();
+                modelNode.HideCheckBox();
+                //if (_debug)
+                //    for (var t = 0; t < model.Triangles.Length; t++)
+                //    {
+                //        var triangleNode = new TreeNode("Triangle " + t);
+                //        modelNode.Nodes.Add(triangleNode);
+                //        triangleNode.HideCheckBox();
+                //        triangleNode.HideCheckBox();
+                //    }
+            }
+            entitiesTreeView.EndUpdate();
+        }
+
+        private void TextureAdded(Texture texture, int index)
+        {
+            thumbsImageList.Images.Add(texture.Bitmap);
+            texturesListView.Items.Add(texture.TextureName, index);
+        }
+
+        private void AnimationAdded(Animation animation)
+        {
+            animationsTreeView.BeginUpdate();
+            var animationNode = new TreeNode(animation.AnimationName) { Tag = animation };
+            animationsTreeView.Nodes.Add(animationNode);
+            AddAnimationObject(animation.RootAnimationObject, animationNode);
+            animationsTreeView.EndUpdate();
+        }
+
+        public void UpdateRootEntities(List<RootEntity> entities)
+        {
+                for (var i = 0; i < entities.Count; ++i)
+                {
+                    var entity = entities[i];
+                    if (!_rootEntities.Contains(entity))
+                    {
+                        _rootEntities.Add(entity);
+                        EntityAdded(entity);
+                    }
+                }
+        }
+        
+        public void UpdateTextures(List<Texture> textures)
+        {
+                for (var i = 0; i < textures.Count; ++i)
+                {
+                    var texture = textures[i];
+                    if (!_textures.Contains(texture))
+                    {
+                        _textures.Add(texture);
+                        var textureIndex = _textures.IndexOf(texture);
+                        TextureAdded(texture, textureIndex);
+                    }
+                }
+        }
+
+        public void UpdateAnimations(List<Animation> animations)
+        {
+                for (var i = 0; i < animations.Count; ++i)
+                {
+                    var animation = animations[i];
+                    if (!_animations.Contains(animation))
+                    {
+                        _animations.Add(animation);
+                        AnimationAdded(animation);
+                    }
+                }
         }
 
         public System.Drawing.Color SceneBackColor
@@ -68,17 +166,11 @@ namespace PSXPrev
             Thread.CurrentThread.CurrentCulture = customCulture;
         }
 
-        private void SetupInternals(RootEntity[] rootEntities, Texture[] textures, Animation[] animations)
+        private void SetupInternals()
         {
-            _rootEntities = rootEntities;
-            _textures = textures;
-            _animations = animations;
-
             _vramPage = new Texture[32];
             //_debug = debug;
             _scene = new Scene();
-
-            Toolkit.Init();
         }
 
         private void SetupControls()
@@ -124,54 +216,29 @@ namespace PSXPrev
 
         private void SetupTextures()
         {
-            for (var index = 0; index < _textures.Length; index++)
+            for (var index = 0; index < _textures.Count; index++)
             {
                 var texture = _textures[index];
-                thumbsImageList.Images.Add(texture.Bitmap);
-                texturesListView.Items.Add(texture.TextureName, index);
+                TextureAdded(texture, index);
             }
         }
 
         private void SetupEntities()
         {
-            animationEntityComboBox.Items.Clear();
-            entitiesTreeView.BeginUpdate();
-            for (var e = 0; e < _rootEntities.Length; e++)
+            for (var e = 0; e < _rootEntities.Count; e++)
             {
                 var entity = _rootEntities[e];
-                var entityNode = entitiesTreeView.Nodes.Add(entity.EntityName);
-                animationEntityComboBox.Items.Add(entity);
-                for (var m = 0; m < entity.ChildEntities.Length; m++)
-                {
-                    // var model = (ModelEntity) entity.ChildEntities[m];
-                    var modelNode = new TreeNode("Sub-Model " + m);
-                    entityNode.Nodes.Add(modelNode);
-                    modelNode.HideCheckBox();
-                    modelNode.HideCheckBox();
-                    //if (_debug)
-                    //    for (var t = 0; t < model.Triangles.Length; t++)
-                    //    {
-                    //        var triangleNode = new TreeNode("Triangle " + t);
-                    //        modelNode.Nodes.Add(triangleNode);
-                    //        triangleNode.HideCheckBox();
-                    //        triangleNode.HideCheckBox();
-                    //    }
-                }
+                EntityAdded(entity);
             }
-            entitiesTreeView.EndUpdate();
         }
 
         private void SetupAnimations()
         {
-            animationsTreeView.BeginUpdate();
-            for (var a = 0; a < _animations.Length; a++)
+            for (var a = 0; a < _animations.Count; a++)
             {
                 var animation = _animations[a];
-                var animationNode = new TreeNode(animation.AnimationName) {Tag = animation};
-                animationsTreeView.Nodes.Add(animationNode);
-                AddAnimationObject(animation.RootAnimationObject, animationNode);
+                AnimationAdded(animation);
             }
-            animationsTreeView.EndUpdate();
         }
 
         private void AddAnimationObject(AnimationObject parent, TreeNode parentNode)
@@ -198,12 +265,6 @@ namespace PSXPrev
                 graphics.Clear(System.Drawing.Color.White);
                 _vramPage[i] = texture;
                 _scene.UpdateTexture(textureBitmap, i);
-            }
-            foreach (var entity in _rootEntities)
-            foreach (var entityBase in entity.ChildEntities)
-            {
-                var model = (ModelEntity) entityBase;
-                model.Texture = _vramPage[model.TexturePage];
             }
         }
 
@@ -585,9 +646,9 @@ namespace PSXPrev
         {
             SetupScene();
             SetupColors();
+            SetupVram();
             SetupEntities();
             SetupTextures();
-            SetupVram();
             SetupAnimations();
         }
 
@@ -689,6 +750,40 @@ namespace PSXPrev
         private void animationTrackBar_Scroll(object sender, EventArgs e)
         {
             _curAnimationFrame = animationTrackBar.Value;
+        }
+        
+        public void UpdateProgress(int value, int max, bool complete, string message)
+        {
+            if (InvokeRequired)
+            {
+                var invokeAction = new Action<int, int, bool, string>((a, b, c, d) =>
+                    UpdateProgress(a, b, c, d)
+                );
+
+                Invoke(invokeAction, value, max, complete, message);
+            }
+            else
+            {
+                toolStripProgressBar1.Minimum = 0;
+                toolStripProgressBar1.Maximum = max;
+                toolStripProgressBar1.Value = value;
+                toolStripProgressBar1.Enabled = !complete;
+                toolStripStatusLabel1.Text = message;
+            }
+        }
+
+        public void ReloadItems()
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(ReloadItems));
+            }
+            else
+            {
+                _refreshAction(this);
+
+                Redraw();
+            }
         }
     }
 }

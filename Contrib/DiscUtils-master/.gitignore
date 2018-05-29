@@ -1,0 +1,15 @@
+bin/
+obj/
+Buildlog-*\.txt
+
+*.suo
+*.user
+*.lock.json
+LaunchSettings.json
+
+.vs/
+Nuget/
+packages/
+
+# Tests
+Tests/LibraryTests/TestResults/

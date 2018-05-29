@@ -20,7 +20,13 @@ namespace PSXPrev
 
         [ReadOnly(true), DisplayName("Uvs")]
         public bool HasUvs { get; set; }
-        
+
+        [ReadOnly(true)]
+        public bool RelativeAddresses { get; set; }
+
+        [ReadOnly(true), DisplayName("Total Triangles")]
+        public int TrianglesCount { get => Triangles.Length; }
+
         [Browsable(false)]
         public Triangle[] Triangles { get; set; }
 

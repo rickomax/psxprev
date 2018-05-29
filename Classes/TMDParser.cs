@@ -10,7 +10,14 @@ namespace PSXPrev
     {
         private long _offset;
 
-        public RootEntity[] LookForTmd(BinaryReader reader, string fileTitle)
+        private Action<RootEntity, long> entityAddedAction;
+
+        public TMDParser(Action<RootEntity, long> entityAddedAction)
+        {
+            this.entityAddedAction = entityAddedAction;
+        }
+
+        public void LookForTmd(BinaryReader reader, string fileTitle)
         {
             if (reader == null)
             {
@@ -19,7 +26,7 @@ namespace PSXPrev
 
             reader.BaseStream.Seek(0, SeekOrigin.Begin);
 
-            var entities = new List<RootEntity>();
+            //var entities = new List<RootEntity>();
 
             while (reader.BaseStream.CanRead)
             {
@@ -33,7 +40,8 @@ namespace PSXPrev
                         if (entity != null)
                         {
                             entity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            entities.Add(entity);
+                            //entities.Add(entity);
+                            entityAddedAction(entity, reader.BaseStream.Position);
                             Program.Logger.WriteLine("Found TMD Model at offset {0:X}", _offset);
                         }
                     }
@@ -53,7 +61,6 @@ namespace PSXPrev
                 //Debug.WriteLine(checkOffset);
                 reader.BaseStream.Seek(_offset + 1, SeekOrigin.Begin);
             }
-            return entities.ToArray();
         }
 
         private RootEntity ParseTmd(BinaryReader reader)
@@ -88,9 +95,9 @@ namespace PSXPrev
 
                 if (flags == 0)
                 {
-                    vertTop += (uint) objOffset;
-                    normalTop += (uint) objOffset;
-                    primitiveTop += (uint) objOffset;
+                    vertTop += (uint)objOffset;
+                    normalTop += (uint)objOffset;
+                    primitiveTop += (uint)objOffset;
                 }
 
                 objBlocks[o] = new ObjBlock
@@ -136,9 +143,9 @@ namespace PSXPrev
                     var pad = reader.ReadInt16();
                     var normal = new Vector3
                     {
-                        X = nx == 0 ? nx : nx/4096f,
-                        Y = ny == 0 ? ny : ny/4096f,
-                        Z = nz == 0 ? nz : nz/4096f
+                        X = nx == 0 ? nx : nx / 4096f,
+                        Y = ny == 0 ? ny : ny / 4096f,
+                        Z = nz == 0 ? nz : nz / 4096f
                     };
                     normals[n] = normal;
                 }
@@ -162,7 +169,7 @@ namespace PSXPrev
                     var offset = reader.BaseStream.Position;
 
                     if (olen == 0x04 && ilen == 0x03 && mode == 0x20)
-                        //3 SIDED, FLAT SHADING, FLAT PIGMENT TMD_P_F3
+                    //3 SIDED, FLAT SHADING, FLAT PIGMENT TMD_P_F3
                     {
                         //Program.Logger.WriteLine("3 SIDED, FLAT SHADING, FLAT PIGMENT");
 
@@ -194,7 +201,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle, 5);
                     }
                     else if (olen == 0x06 && ilen == 0x04 && mode == 0x30)
-                        //3 SIDED, GOURAUD SHADING, FLAT PIGMENT TMD_P_G3
+                    //3 SIDED, GOURAUD SHADING, FLAT PIGMENT TMD_P_G3
                     {
                         //Program.Logger.WriteLine("3 SIDED, GOURAUD SHADING, FLAT PIGMENT");
 
@@ -228,7 +235,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle, 5);
                     }
                     else if (olen == 0x06 && ilen == 0x05 && mode == 0x20)
-                        //3 SIDED, FLAT SHADING, GRADIENT PIGMENT TMD_P_F3G
+                    //3 SIDED, FLAT SHADING, GRADIENT PIGMENT TMD_P_F3G
                     {
                         //Program.Logger.WriteLine("3 SIDED, FLAT SHADING, GRADIENT PIGMENT");
 
@@ -268,7 +275,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle, 5);
                     }
                     else if (olen == 0x06 && ilen == 0x06 && mode == 0x30)
-                        //3 SIDED, GOURAUD SHADING, GRADIENT PIGMENT TMD_P_G3G
+                    //3 SIDED, GOURAUD SHADING, GRADIENT PIGMENT TMD_P_G3G
                     {
                         //Program.Logger.WriteLine("3 SIDED, GOURAUD SHADING, GRADIENT PIGMENT");
 
@@ -311,7 +318,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle, 5);
                     }
                     else if (olen == 0x07 && ilen == 0x05 && mode == 0x24)
-                        //3 SIDED, TEXTURED, FLAT SHADING, NO PIGMENT TMD_P_TF3
+                    //3 SIDED, TEXTURED, FLAT SHADING, NO PIGMENT TMD_P_TF3
                     {
                         //Program.Logger.WriteLine("3 SIDED, TEXTURED, FLAT SHADING, NO PIGMENT");
 
@@ -347,7 +354,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle, tPage);
                     }
                     else if (olen == 0x9 && ilen == 0x06 && mode == 0x34)
-                        //3 SIDED, TEXTURED, GOURAUD SHADING, NO PIGMENT TMD_P_TG3
+                    //3 SIDED, TEXTURED, GOURAUD SHADING, NO PIGMENT TMD_P_TG3
                     {
                         //Program.Logger.WriteLine("3 SIDED, TEXTURED, GOURAUD SHADING, NO PIGMENT");
 
@@ -385,7 +392,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle, tPage);
                     }
                     else if (olen == 0x04 && ilen == 0x03 && mode == 0x21)
-                        //3 SIDED, NO SHADING, FLAT PIGMENT TMD_P_NF3
+                    //3 SIDED, NO SHADING, FLAT PIGMENT TMD_P_NF3
                     {
                         //Program.Logger.WriteLine("3 SIDED, NO SHADING, FLAT PIGMENT");
 
@@ -418,7 +425,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle, 5);
                     }
                     else if (olen == 0x06 && ilen == 0x05 && mode == 0x31)
-                        //3 SIDED, NO SHADING, GRADIENT PIGMENT TMD_P_NG3
+                    //3 SIDED, NO SHADING, GRADIENT PIGMENT TMD_P_NG3
                     {
                         //Program.Logger.WriteLine("3 SIDED, NO SHADING, GRADIENT PIGMENT");
 
@@ -459,7 +466,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle, 5);
                     }
                     else if (olen == 0x07 && ilen == 0x06 && mode == 0x25)
-                        //3 SIDED, TEXTURED, NO SHADING, FLAT PIGMENT TMD_P_TNF3
+                    //3 SIDED, TEXTURED, NO SHADING, FLAT PIGMENT TMD_P_TNF3
                     {
                         //Program.Logger.WriteLine("3 SIDED, TEXTURED, NO SHADING, FLAT PIGMENT");
 
@@ -498,7 +505,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle, tPage);
                     }
                     else if (olen == 0x9 && ilen == 0x08 && mode == 0x35)
-                        //3 SIDED, TEXTURED, NO SHADING, GRADIENT PIGMENT TMD_P_TNG3
+                    //3 SIDED, TEXTURED, NO SHADING, GRADIENT PIGMENT TMD_P_TNG3
                     {
                         //Program.Logger.WriteLine("3 SIDED, TEXTURED, NO SHADING, GRADIENT PIGMENT");
 
@@ -544,7 +551,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle, tPage);
                     }
                     else if (olen == 0x05 && ilen == 0x04 && mode == 0x28)
-                        //4 SIDED, Flat, No-Texture (solid) TMD_P_F4
+                    //4 SIDED, Flat, No-Texture (solid) TMD_P_F4
                     {
                         //Program.Logger.WriteLine("4 SIDED, Flat, No-Texture (solid)");
 
@@ -587,7 +594,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle2, 5);
                     }
                     else if (olen == 0x08 && ilen == 0x05 && mode == 0x38)
-                        //4 SIDED, Gouraud, No-Texture (solid) TMD_P_G4
+                    //4 SIDED, Gouraud, No-Texture (solid) TMD_P_G4
                     {
                         //Program.Logger.WriteLine("4 SIDED, Gouraud, No-Texture (solid)");
 
@@ -631,7 +638,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle2, 5);
                     }
                     else if (olen == 0x08 && ilen == 0x08 && mode == 0x38)
-                        //4 SIDED, Gouraud, No-Texture (gradation) TMD_P_G4G
+                    //4 SIDED, Gouraud, No-Texture (gradation) TMD_P_G4G
                     {
                         //Program.Logger.WriteLine("4 SIDED, Gouraud, No-Texture (gradation)");
 
@@ -687,7 +694,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle2, 5);
                     }
                     else if (olen == 0x08 && ilen == 0x07 && mode == 0x28)
-                        //4 SIDED, Flat, No-Texture (gradation) TMD_P_F4G
+                    //4 SIDED, Flat, No-Texture (gradation) TMD_P_F4G
                     {
                         //Program.Logger.WriteLine("4 SIDED, Flat, No-Texture (gradation)");
 
@@ -745,7 +752,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle2, 5);
                     }
                     else if (olen == 0x09 && ilen == 0x07 && mode == 0x2c)
-                        //4 SIDED, Flat, Texture TMD_P_TF4
+                    //4 SIDED, Flat, Texture TMD_P_TF4
                     {
                         //Program.Logger.WriteLine("4 SIDED, Flat, Texture");
 
@@ -794,7 +801,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle2, tPage);
                     }
                     else if (olen == 0x0c && ilen == 0x08 && mode == 0x3c)
-                        //4 SIDED, Goraund, Texture TMD_P_TG4
+                    //4 SIDED, Goraund, Texture TMD_P_TG4
                     {
                         //Program.Logger.WriteLine("4 SIDED, Goraund, Texture");
 
@@ -845,7 +852,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle2, tPage);
                     }
                     else if (olen == 0x05 && ilen == 0x03 && mode == 0x29)
-                        //4 SIDED, Flat, No-Texture TMD_P_NF4
+                    //4 SIDED, Flat, No-Texture TMD_P_NF4
                     {
                         //Program.Logger.WriteLine("4 SIDED, Flat, No-Texture");
 
@@ -885,7 +892,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle2, 5);
                     }
                     else if (olen == 0x08 && ilen == 0x06 && mode == 0x39)
-                        //4 SIDED, Gradation, No-Texture TMD_P_NG4
+                    //4 SIDED, Gradation, No-Texture TMD_P_NG4
                     {
                         //Program.Logger.WriteLine("4 SIDED, Gradation, No-Texture"); 
 
@@ -937,7 +944,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle2, 5);
                     }
                     else if (olen == 0x09 && ilen == 0x07 && mode == 0x2d)
-                        //4 SIDED, Flat, Texture TMD_P_TNF4
+                    //4 SIDED, Flat, Texture TMD_P_TNF4
                     {
                         //Program.Logger.WriteLine("4 SIDED, Flat, Texture");
 
@@ -988,7 +995,7 @@ namespace PSXPrev
                         AddTriangle(groupedTriangles, triangle2, tPage);
                     }
                     else if (olen == 0x0c && ilen == 0x0a && mode == 0x3d)
-                        //4 SIDED, Gradation, Texture TMD_P_TNG4
+                    //4 SIDED, Gradation, Texture TMD_P_TNG4
                     {
                         //Program.Logger.WriteLine("4 SIDED, Gradation, Texture");
 
@@ -1061,7 +1068,7 @@ namespace PSXPrev
                         //});
                         Program.Logger.WriteLine("Unknown primitive: olen:{0:X}, ilen:{1:X}, mode:{2:X}, flags:{3:X}",
                             olen, ilen, mode, flags);
-                        reader.BaseStream.Seek(offset + (ilen*4), SeekOrigin.Begin);
+                        reader.BaseStream.Seek(offset + (ilen * 4), SeekOrigin.Begin);
                         //goto EndModel;
                     }
                 }
@@ -1090,7 +1097,7 @@ namespace PSXPrev
             {
                 var entity = new RootEntity
                 {
-                    ChildEntities = (EntityBase[]) models.ToArray()
+                    ChildEntities = (EntityBase[])models.ToArray()
                 };
                 entity.ComputeBounds();
                 return entity;
@@ -1098,7 +1105,7 @@ namespace PSXPrev
             return null;
         }
 
-    private void AddTriangle(Dictionary<int, List<Triangle>> groupedTriangles, Triangle triangle, int p)
+        private void AddTriangle(Dictionary<int, List<Triangle>> groupedTriangles, Triangle triangle, int p)
         {
             List<Triangle> triangles;
             if (groupedTriangles.ContainsKey(p))
@@ -1221,16 +1228,5 @@ namespace PSXPrev
 
             return triangle;
         }
-    }
-
-    internal class ObjBlock
-    {
-        public uint VertTop;
-        public uint NVert;
-        public uint NormalTop;
-        public uint NNormal;
-        public uint PrimitiveTop;
-        public uint NPrimitive;
-        public int Scale;
     }
 }

@@ -36,6 +36,15 @@
     </ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="DiscUtils.Core">
+      <HintPath>Contrib\DiscUtils-master\Library\DiscUtils.Iso9660\bin\Release\net45\DiscUtils.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="DiscUtils.Iso9660">
+      <HintPath>Contrib\DiscUtils-master\Library\DiscUtils.Iso9660\bin\Release\net45\DiscUtils.Iso9660.dll</HintPath>
+    </Reference>
+    <Reference Include="DiscUtils.Streams">
+      <HintPath>Contrib\DiscUtils-master\Library\DiscUtils.Iso9660\bin\Release\net45\DiscUtils.Streams.dll</HintPath>
+    </Reference>
     <Reference Include="OpenTK">
       <HintPath>packages\OpenTK.2.0.0\lib\net20\OpenTK.dll</HintPath>
     </Reference>
@@ -61,15 +70,17 @@
     <Compile Include="Classes\collada_schema_1_4.cs" />
     <Compile Include="Classes\DaeExporter.cs" />
     <Compile Include="Classes\EntityBase.cs" />
+    <Compile Include="Classes\FInt.cs" />
     <Compile Include="Classes\HMDParser.cs" />
     <Compile Include="Classes\Line.cs" />
     <Compile Include="Classes\LineMesh.cs" />
     <Compile Include="Classes\LineBatch.cs" />
     <Compile Include="Classes\MissingTriangle.cs" />
     <Compile Include="Classes\MtlExporter.cs" />
+    <Compile Include="Classes\ObjBlock.cs" />
     <Compile Include="Classes\PlyExporter.cs" />
     <Compile Include="Classes\PMDParser.cs" />
-    <Compile Include="Classes\RETIMParser.cs" />
+    <Compile Include="Classes\TIMParser.cs" />
     <Compile Include="Classes\Texture.cs" />
     <Compile Include="Classes\Color.cs" />
     <Compile Include="Classes\FileReader.cs" />
@@ -84,6 +95,7 @@
     <Compile Include="Classes\PngExporter.cs" />
     <Compile Include="Classes\PXLParser.cs" />
     <Compile Include="Classes\TextureBinder.cs" />
+    <Compile Include="Classes\TMDParser.cs" />
     <Compile Include="Classes\TODParser.cs" />
     <Compile Include="Classes\TreeViewExtensions.cs" />
     <Compile Include="Classes\Triangle.cs" />
@@ -100,25 +112,25 @@
     <Compile Include="Forms\PreviewForm.Designer.cs">
       <DependentUpon>PreviewForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\StubForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\StubForm.Designer.cs">
-      <DependentUpon>StubForm.cs</DependentUpon>
-    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Classes\Scene.cs" />
-    <Compile Include="Classes\TIMParser.cs" />
-    <Compile Include="Classes\TMDParser.cs" />
+    <Compile Include="Classes\TIMParserAlternative.cs" />
+    <Compile Include="Classes\TMDParserAlternative.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
     <EmbeddedResource Include="Forms\DialogForm.resx">
       <DependentUpon>DialogForm.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\StubForm.resx">
-      <DependentUpon>StubForm.cs</DependentUpon>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
     <EmbeddedResource Include="Shaders\Shader.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

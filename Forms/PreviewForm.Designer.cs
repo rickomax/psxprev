@@ -50,6 +50,7 @@
             this.vramComboBox = new System.Windows.Forms.ComboBox();
             this.vramPagePictureBox = new System.Windows.Forms.PictureBox();
             this.animationsTabPage = new System.Windows.Forms.TabPage();
+            this.animationEntityComboBox = new System.Windows.Forms.ComboBox();
             this.animationPlayButton = new System.Windows.Forms.Button();
             this.animationPropertyGrid = new System.Windows.Forms.PropertyGrid();
             this.animationsTreeView = new System.Windows.Forms.TreeView();
@@ -72,7 +73,10 @@
             this.clearAllPagesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.animationsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.animationTrackBar = new System.Windows.Forms.TrackBar();
-            this.animationEntityComboBox = new System.Windows.Forms.ComboBox();
+            this.label2 = new System.Windows.Forms.Label();
+            this.statusStrip1 = new System.Windows.Forms.StatusStrip();
+            this.toolStripProgressBar1 = new System.Windows.Forms.ToolStripProgressBar();
+            this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
             this.entitiesTabPage.SuspendLayout();
             this.menusTabControl.SuspendLayout();
             this.bitmapsTabPage.SuspendLayout();
@@ -84,6 +88,7 @@
             this.cmsModelExport.SuspendLayout();
             this.mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.animationTrackBar)).BeginInit();
+            this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
             // entitiesTabPage
@@ -326,6 +331,14 @@
             this.animationsTabPage.Text = "Animations";
             this.animationsTabPage.UseVisualStyleBackColor = true;
             // 
+            // animationEntityComboBox
+            // 
+            this.animationEntityComboBox.FormattingEnabled = true;
+            this.animationEntityComboBox.Location = new System.Drawing.Point(1, 385);
+            this.animationEntityComboBox.Name = "animationEntityComboBox";
+            this.animationEntityComboBox.Size = new System.Drawing.Size(175, 21);
+            this.animationEntityComboBox.TabIndex = 17;
+            // 
             // animationPlayButton
             // 
             this.animationPlayButton.Enabled = false;
@@ -513,19 +526,44 @@
             this.animationTrackBar.TabIndex = 6;
             this.animationTrackBar.Scroll += new System.EventHandler(this.animationTrackBar_Scroll);
             // 
-            // animationEntityComboBox
+            // label2
             // 
-            this.animationEntityComboBox.FormattingEnabled = true;
-            this.animationEntityComboBox.Location = new System.Drawing.Point(1, 385);
-            this.animationEntityComboBox.Name = "animationEntityComboBox";
-            this.animationEntityComboBox.Size = new System.Drawing.Size(175, 21);
-            this.animationEntityComboBox.TabIndex = 17;
+            this.label2.AutoSize = true;
+            this.label2.Location = new System.Drawing.Point(12, 663);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(93, 13);
+            this.label2.TabIndex = 9;
+            this.label2.Text = "Animation Tracker";
+            // 
+            // statusStrip1
+            // 
+            this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripProgressBar1,
+            this.toolStripStatusLabel1});
+            this.statusStrip1.Location = new System.Drawing.Point(0, 752);
+            this.statusStrip1.Name = "statusStrip1";
+            this.statusStrip1.Size = new System.Drawing.Size(948, 22);
+            this.statusStrip1.TabIndex = 10;
+            this.statusStrip1.Text = "statusStrip1";
+            // 
+            // toolStripProgressBar1
+            // 
+            this.toolStripProgressBar1.Name = "toolStripProgressBar1";
+            this.toolStripProgressBar1.Size = new System.Drawing.Size(100, 16);
+            // 
+            // toolStripStatusLabel1
+            // 
+            this.toolStripStatusLabel1.Name = "toolStripStatusLabel1";
+            this.toolStripStatusLabel1.Size = new System.Drawing.Size(48, 17);
+            this.toolStripStatusLabel1.Text = "Waiting";
             // 
             // PreviewForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(948, 774);
+            this.Controls.Add(this.statusStrip1);
+            this.Controls.Add(this.label2);
             this.Controls.Add(this.animationTrackBar);
             this.Controls.Add(this.mainMenuStrip);
             this.Controls.Add(this.menusTabControl);
@@ -536,7 +574,7 @@
             this.Name = "PreviewForm";
             this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "PSXPrev Alpha 0.7";
+            this.Text = "PSXPrev Alpha 0.8";
             this.Load += new System.EventHandler(this.previewForm_Load);
             this.entitiesTabPage.ResumeLayout(false);
             this.menusTabControl.ResumeLayout(false);
@@ -552,6 +590,8 @@
             this.mainMenuStrip.ResumeLayout(false);
             this.mainMenuStrip.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.animationTrackBar)).EndInit();
+            this.statusStrip1.ResumeLayout(false);
+            this.statusStrip1.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -601,5 +641,9 @@
         private System.Windows.Forms.Button animationPlayButton;
         private System.Windows.Forms.TrackBar animationTrackBar;
         private System.Windows.Forms.ComboBox animationEntityComboBox;
+        private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.StatusStrip statusStrip1;
+        private System.Windows.Forms.ToolStripProgressBar toolStripProgressBar1;
+        private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;
     }
 }
