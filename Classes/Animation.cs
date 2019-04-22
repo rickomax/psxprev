@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Drawing.Design;
 
 namespace PSXPrev
 {
@@ -15,6 +16,10 @@ namespace PSXPrev
 
         [DisplayName("Children"), ReadOnly(true)]
         public int ObjectCount { get; set; }
+
+        [DisplayName("Preview Model")]
+        [Editor(typeof(RootEntitySelectorEditor), typeof(UITypeEditor))]
+        public RootEntity RootEntity { get; set; }
 
         [Browsable(false)]
         public AnimationObject RootAnimationObject { get; set; }

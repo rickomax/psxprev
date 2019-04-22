@@ -18,50 +18,64 @@ namespace PSXPrev
     {
         public static Logger Logger;
         public static PreviewForm PreviewForm;
+        public static LauncherForm LauncherForm;
+
+        public static bool Scanning { get; private set; }
+        public static List<RootEntity> AllEntities { get; private set; }
+        public static List<Texture> AllTextures { get; private set; }
+        public static List<Animation> AllAnimations { get; private set; }
+
         public static long LargestFileLength = 0;
         public static long LargestCurrentFilePosition = 0;
-        private static bool checkAll;
-        private static string path;
-        private static bool checkTmd;
-        private static bool checkTmdAlt;
-        private static bool checkTim;
-        private static bool checkTimAlt;
-        private static bool checkPmd;
-        private static bool checkTod;
-        private static bool checkHmdModels;
-        private static bool log;
-        private static bool noVerbose;
-        private static bool debug;
-        private static string filter;
-        private static List<RootEntity> allEntities;
-        private static List<Texture> allTextures;
-        private static List<Animation> allAnimations;
+        private static bool _checkAll;
+        private static string _path;
+        private static bool _checkTmd;
+        private static bool _checkTmdAlt;
+        private static bool _checkTim;
+        private static bool _checkTimAlt;
+        private static bool _checkPmd;
+        private static bool _checkTod;
+        private static bool _checkHmdModels;
+        private static bool _log;
+        private static bool _noVerbose;
+        private static bool _debug;
+        private static string _filter;
 
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             if (args.Length == 0)
             {
                 Console.WriteLine("Usage PSXPrev folder filter(optional) -tmd(optional) -tmdAlt(optional) -pmd(optional) -tim(optional) -timAlt(optional) -tod(optional) -hmdmodels(optional) -log(optional) -noverbose(optional)");
+                LauncherForm = new LauncherForm();
+                var thread = new Thread(new ThreadStart(delegate
+                {
+                    Application.EnableVisualStyles();
+                    Application.Run(LauncherForm);
+                }));
+                thread.SetApartmentState(ApartmentState.STA);
+                thread.Start();
                 return;
             }
 
-            path = args[0];
+            var path = args[0];
             if (!Directory.Exists(path) && !File.Exists(path))
             {
                 Logger.WriteLine("Directory/File not found");
                 return;
             }
 
-           checkTmd = false;
-           checkTmdAlt = false;
-           checkTim = false;
-           checkTimAlt = false;
-           checkPmd = false;
-           checkTod = false;
-           checkHmdModels = false;
-           log = false;
-           noVerbose = false;
-           debug = false;
+            var filter = args.Length > 1 ? args[1] : "*.*";
+
+            var checkTmd = false;
+            var checkTmdAlt = false;
+            var checkTim = false;
+            var checkTimAlt = false;
+            var checkPmd = false;
+            var checkTod = false;
+            var checkHmdModels = false;
+            var log = false;
+            var noVerbose = false;
+            var debug = false;
 
             for (var a = 2; a < args.Length; a++)
             {
@@ -100,20 +114,43 @@ namespace PSXPrev
                 }
             }
 
+            DoScan(path, filter, checkTmd, checkTmdAlt, checkTim, checkTimAlt, checkPmd, checkTod, checkHmdModels, log, noVerbose, debug);
+        }
+
+        internal static void DoScan(string path, string filter, bool checkTmd, bool checkTmdAlt, bool checkTim, bool checkTimAlt, bool checkPmd, bool checkTod, bool checkHmdModels, bool log, bool noVerbose, bool debug)
+        {
+            if (!Directory.Exists(path) && !File.Exists(path))
+            {
+                Logger.WriteLine("Directory/File not found");
+                return;
+            }
+
+            Scanning = true;
+
             Logger = new Logger(log, noVerbose);
 
-            checkAll = !(checkTmd || checkTmdAlt || checkTim || checkTimAlt || checkPmd || checkTod || checkHmdModels);
+            _checkAll = !(checkTmd || checkTmdAlt || checkTim || checkTimAlt || checkPmd || checkTod || checkHmdModels);
+            _path = path;
+            _filter = filter;
+            _checkTmd = checkTmd;
+            _checkTmdAlt = checkTmdAlt;
+            _checkTim = checkTim;
+            _checkTimAlt = checkTimAlt;
+            _checkPmd = checkPmd;
+            _checkTod = checkTod;
+            _checkHmdModels = checkHmdModels;
+            _log = log;
+            _noVerbose = noVerbose;
+            _debug = debug;
 
-            filter = args.Length > 1 ? args[1] : "*.*";
-
-            allEntities = new List<RootEntity>();
-            allTextures = new List<Texture>();
-            allAnimations = new List<Animation>();
+            AllEntities = new List<RootEntity>();
+            AllTextures = new List<Texture>();
+            AllAnimations = new List<Animation>();
             PreviewForm = new PreviewForm((form) =>
             {
-                form.UpdateAnimations(allAnimations);
-                form.UpdateRootEntities(allEntities);
-                form.UpdateTextures(allTextures);
+                form.UpdateAnimations(AllAnimations);
+                form.UpdateRootEntities(AllEntities);
+                form.UpdateTextures(AllTextures);
             }, debug);
 
             var t = new Thread(new ThreadStart(delegate
@@ -134,16 +171,18 @@ namespace PSXPrev
 
                 Logger.WriteLine("");
                 Logger.WriteLine("Scan End {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
-                Logger.WriteLine("Found {0} Models", allEntities.Count);
-                Logger.WriteLine("Found {0} Textures", allTextures.Count);
-                Logger.WriteLine("Found {0} Animations", allAnimations.Count);
+                Logger.WriteLine("Found {0} Models", AllEntities.Count);
+                Logger.WriteLine("Found {0} Textures", AllTextures.Count);
+                Logger.WriteLine("Found {0} Animations", AllAnimations.Count);
 
-                PreviewForm.UpdateProgress(0, 0, true, $"{allEntities.Count} Models, {allTextures.Count} Textures, {allAnimations.Count} Animations Found");
+                PreviewForm.UpdateProgress(0, 0, true, $"{AllEntities.Count} Models, {AllTextures.Count} Textures, {AllAnimations.Count} Animations Found");
             }
             catch (Exception exp)
             {
                 Logger.WriteLine(exp);
             }
+
+            Scanning = false;
         }
 
         private static void UpdateProgress(long filePos, string message)
@@ -160,13 +199,13 @@ namespace PSXPrev
         {
             var parsers = new List<Action<BinaryReader, string>>();
 
-            if (checkAll || checkTim)
+            if (_checkAll || _checkTim)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var timParser = new TIMParser((tmdEntity, fp) =>
                     {
-                        allTextures.Add(tmdEntity);
+                        AllTextures.Add(tmdEntity);
                         UpdateProgress(fp, $"Found Texture {tmdEntity.Width}x{tmdEntity.Height} {tmdEntity.Bpp}bpp");
                         PreviewForm.ReloadItems();
                     });
@@ -176,13 +215,13 @@ namespace PSXPrev
                 });
             }
 
-            if (checkTimAlt)
+            if (_checkTimAlt)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
-                    var timParser = new TIMParserAlternative((tmdEntity, fp) =>
+                    var timParser = new TIMParserOld((tmdEntity, fp) =>
                     {
-                        allTextures.Add(tmdEntity);
+                        AllTextures.Add(tmdEntity);
                         UpdateProgress(fp, $"Found Texture {tmdEntity.Width}x{tmdEntity.Height} {tmdEntity.Bpp}bpp");
                         PreviewForm.ReloadItems();
                     });
@@ -192,13 +231,13 @@ namespace PSXPrev
                 });
             }
 
-            if (checkAll || checkTmd)
+            if (_checkAll || _checkTmd)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var tmdParser = new TMDParser((tmdEntity, fp) =>
                     {
-                        allEntities.Add(tmdEntity);
+                        AllEntities.Add(tmdEntity);
                         UpdateProgress(fp, $"Found Model with {tmdEntity.ChildCount} objects");
                         PreviewForm.ReloadItems();
                     });
@@ -208,13 +247,13 @@ namespace PSXPrev
                 });
             }
 
-            if (checkTmdAlt)
+            if (_checkTmdAlt)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var tmdParser = new TMDParserAlternative((tmdEntity, fp) =>
                     {
-                        allEntities.Add(tmdEntity);
+                        AllEntities.Add(tmdEntity);
                         UpdateProgress(fp, $"Found Model with {tmdEntity.ChildCount} objects");
                         PreviewForm.ReloadItems();
                     });
@@ -224,13 +263,13 @@ namespace PSXPrev
                 });
             }
 
-            if (checkAll || checkPmd)
+            if (_checkAll || _checkPmd)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var pmdParser = new PMDParser((pmdEntity, fp) =>
                     {
-                        allEntities.Add(pmdEntity);
+                        AllEntities.Add(pmdEntity);
                         UpdateProgress(fp, $"Found Model with {pmdEntity.ChildCount} objects");
                         PreviewForm.ReloadItems();
                     });
@@ -240,13 +279,13 @@ namespace PSXPrev
                 });
             }
 
-            if (checkAll || checkTod)
+            if (_checkAll || _checkTod)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var todParser = new TODParser((todEntity, fp) =>
                     {
-                        allAnimations.Add(todEntity);
+                        AllAnimations.Add(todEntity);
                         UpdateProgress(fp, $"Found Animation with {todEntity.ObjectCount} objects and {todEntity.FrameCount} frames");
                         PreviewForm.ReloadItems();
                     });
@@ -256,13 +295,13 @@ namespace PSXPrev
                 });
             }
 
-            if (checkHmdModels)
+            if (_checkHmdModels)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var hmdParser = new HMDParser((hmdEntity, fp) =>
                     {
-                        allEntities.Add(hmdEntity);
+                        AllEntities.Add(hmdEntity);
                         UpdateProgress(fp, $"Found Model with {hmdEntity.ChildCount} objects");
                         PreviewForm.ReloadItems();
                     });
@@ -272,12 +311,12 @@ namespace PSXPrev
                 });
             }
 
-            if (path.ToLowerInvariant().EndsWith(".iso"))
+            if (_path.ToLowerInvariant().EndsWith(".iso"))
             {
-                using (var isoStream = File.Open(path, FileMode.Open))
+                using (var isoStream = File.Open(_path, FileMode.Open))
                 {
                     var cdReader = new CDReader(isoStream, true);
-                    var files = cdReader.GetFiles("", filter ?? "*.*", SearchOption.AllDirectories);
+                    var files = cdReader.GetFiles("", _filter ?? "*.*", SearchOption.AllDirectories);
                     foreach (var file in files)
                     {
                         if (file.ToLowerInvariant().Contains(".str;"))
@@ -298,7 +337,7 @@ namespace PSXPrev
             }
             else
             {
-                ProcessFiles(path, filter, parsers);
+                ProcessFiles(_path, _filter, parsers);
             }
         }
 

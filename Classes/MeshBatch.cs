@@ -135,6 +135,10 @@ namespace PSXPrev
                 }
             }
             var mesh = GetMesh(index);
+            if (mesh == null)
+            {
+                return;
+            }
             mesh.WorldMatrix = matrix;
             mesh.Texture = _scene.TextureBinder.GetTexture(0);
             mesh.SetData(numTriangles * 3, positionList, normalList, colorList, uvList);
@@ -185,6 +189,10 @@ namespace PSXPrev
                 }
             }
             var mesh = GetMesh(index);
+            if (mesh == null)
+            {
+                return;
+            }
             mesh.WorldMatrix = matrix ?? modelEntity.WorldMatrix;
             mesh.Visible = modelEntity.Visible;
             mesh.SetData(numTriangles * 3, positionList, normalList, colorList, uvList);
@@ -218,6 +226,10 @@ namespace PSXPrev
 
         private Mesh GetMesh(int index)
         {
+            if (index >= _meshes.Length)
+            {
+                return null;
+            }
             if (_meshes[index] == null)
             {
                 _meshes[index] = new Mesh(_ids[index]);

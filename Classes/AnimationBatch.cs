@@ -22,13 +22,13 @@ namespace PSXPrev
             //_scene.LineBatch.Reset();
         }
 
-        public void SetupAnimationFrame(int frame, EntityBase selectedEntity = null)
+        public void SetupAnimationFrame(int frame)
         {
             _animationProcessIndex = 0;
-            ProcessAnimationObject(_animation.RootAnimationObject, frame, null, selectedEntity);
+            ProcessAnimationObject(_animation.RootAnimationObject, frame, null);
         }
 
-        private void ProcessAnimationObject(AnimationObject animationObject, int frameIndex, Matrix4? parentMatrix, EntityBase selectedEntity = null)
+        private void ProcessAnimationObject(AnimationObject animationObject, int frameIndex, Matrix4? parentMatrix)
         {
             var animationFrames = animationObject.AnimationFrames;
             var totalFrames = animationFrames.Count;
@@ -101,19 +101,19 @@ namespace PSXPrev
                 worldMatrix = localMatrix;
             }
 
-            if (selectedEntity != null)
+            if (_animation.RootEntity != null)
             {
-                var childEntitiets = selectedEntity.ChildEntities;
-                if (animationObject.TMDID > 0 && animationObject.TMDID <= childEntitiets.Length)
+                var childEntities = _animation.RootEntity.ChildEntities;
+                if (animationObject.TMDID > 0 && animationObject.TMDID <= childEntities.Length)
                 {
-                    var model = (ModelEntity) childEntitiets[animationObject.TMDID - 1];
+                    var model = (ModelEntity) childEntities[animationObject.TMDID - 1];
                     _scene.MeshBatch.BindModelBatch(model, _animationProcessIndex++, worldMatrix);
                 }
             }
 
             foreach (var childObject in animationObject.Children)
             {
-                ProcessAnimationObject(childObject, frameIndex, worldMatrix, selectedEntity);
+                ProcessAnimationObject(childObject, frameIndex, worldMatrix);
             }
         }
     }

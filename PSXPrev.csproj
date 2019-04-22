@@ -80,7 +80,7 @@
     <Compile Include="Classes\ObjBlock.cs" />
     <Compile Include="Classes\PlyExporter.cs" />
     <Compile Include="Classes\PMDParser.cs" />
-    <Compile Include="Classes\TIMParser.cs" />
+    <Compile Include="Classes\TIMParserOld.cs" />
     <Compile Include="Classes\Texture.cs" />
     <Compile Include="Classes\Color.cs" />
     <Compile Include="Classes\FileReader.cs" />
@@ -96,6 +96,7 @@
     <Compile Include="Classes\PXLParser.cs" />
     <Compile Include="Classes\TextureBinder.cs" />
     <Compile Include="Classes\TMDParser.cs" />
+    <Compile Include="Classes\RootEntitySelectorEditor.cs" />
     <Compile Include="Classes\TODParser.cs" />
     <Compile Include="Classes\TreeViewExtensions.cs" />
     <Compile Include="Classes\Triangle.cs" />
@@ -106,16 +107,28 @@
     <Compile Include="Forms\DialogForm.Designer.cs">
       <DependentUpon>DialogForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\LauncherForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\LauncherForm.Designer.cs">
+      <DependentUpon>LauncherForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="Forms\PreviewForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\PreviewForm.Designer.cs">
       <DependentUpon>PreviewForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\SelectTMDForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\SelectTMDForm.Designer.cs">
+      <DependentUpon>SelectTMDForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Classes\Scene.cs" />
-    <Compile Include="Classes\TIMParserAlternative.cs" />
+    <Compile Include="Classes\TIMParser.cs" />
     <Compile Include="Classes\TMDParserAlternative.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -127,6 +140,12 @@
     <None Include="App.config" />
     <EmbeddedResource Include="Forms\DialogForm.resx">
       <DependentUpon>DialogForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\LauncherForm.resx">
+      <DependentUpon>LauncherForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\SelectTMDForm.resx">
+      <DependentUpon>SelectTMDForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>

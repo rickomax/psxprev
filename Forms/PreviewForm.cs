@@ -105,42 +105,42 @@ namespace PSXPrev
 
         public void UpdateRootEntities(List<RootEntity> entities)
         {
-                for (var i = 0; i < entities.Count; ++i)
+            for (var i = 0; i < entities.Count; ++i)
+            {
+                var entity = entities[i];
+                if (!_rootEntities.Contains(entity))
                 {
-                    var entity = entities[i];
-                    if (!_rootEntities.Contains(entity))
-                    {
-                        _rootEntities.Add(entity);
-                        EntityAdded(entity);
-                    }
+                    _rootEntities.Add(entity);
+                    EntityAdded(entity);
                 }
+            }
         }
-        
+
         public void UpdateTextures(List<Texture> textures)
         {
-                for (var i = 0; i < textures.Count; ++i)
+            for (var i = 0; i < textures.Count; ++i)
+            {
+                var texture = textures[i];
+                if (!_textures.Contains(texture))
                 {
-                    var texture = textures[i];
-                    if (!_textures.Contains(texture))
-                    {
-                        _textures.Add(texture);
-                        var textureIndex = _textures.IndexOf(texture);
-                        TextureAdded(texture, textureIndex);
-                    }
+                    _textures.Add(texture);
+                    var textureIndex = _textures.IndexOf(texture);
+                    TextureAdded(texture, textureIndex);
                 }
+            }
         }
 
         public void UpdateAnimations(List<Animation> animations)
         {
-                for (var i = 0; i < animations.Count; ++i)
+            for (var i = 0; i < animations.Count; ++i)
+            {
+                var animation = animations[i];
+                if (!_animations.Contains(animation))
                 {
-                    var animation = animations[i];
-                    if (!_animations.Contains(animation))
-                    {
-                        _animations.Add(animation);
-                        AnimationAdded(animation);
-                    }
+                    _animations.Add(animation);
+                    AnimationAdded(animation);
                 }
+            }
         }
 
         public System.Drawing.Color SceneBackColor
@@ -161,7 +161,7 @@ namespace PSXPrev
 
         private void SetupCulture()
         {
-            var customCulture = (CultureInfo) Thread.CurrentThread.CurrentCulture.Clone();
+            var customCulture = (CultureInfo)Thread.CurrentThread.CurrentCulture.Clone();
             customCulture.NumberFormat.NumberDecimalSeparator = ".";
             Thread.CurrentThread.CurrentCulture = customCulture;
         }
@@ -194,7 +194,9 @@ namespace PSXPrev
         private void _openTkControl_Paint(object sender, PaintEventArgs e)
         {
             if (_inAnimationTab && _curAnimation != null)
-                LoadAnimFrame();
+            {
+                _scene.AnimationBatch.SetupAnimationFrame(_curAnimationFrame);
+            }
             _scene.Draw();
             _openTkControl.SwapBuffers();
         }
@@ -247,7 +249,7 @@ namespace PSXPrev
             for (var o = 0; o < animationObjects.Count; o++)
             {
                 var animationObject = animationObjects[o];
-                var animationObjectNode = new TreeNode("Animation-Object " + o) {Tag = animationObject};
+                var animationObjectNode = new TreeNode("Animation-Object " + o) { Tag = animationObject };
                 parentNode.Nodes.Add(animationObjectNode);
                 animationObjectNode.HideCheckBox();
                 animationObjectNode.HideCheckBox();
@@ -310,7 +312,7 @@ namespace PSXPrev
 
         private DialogResult ShowEntityFolderSelect(out string path)
         {
-            var fbd = new FolderBrowserDialog {Description = "Select the output folder"};
+            var fbd = new FolderBrowserDialog { Description = "Select the output folder" };
             var result = fbd.ShowDialog();
             path = fbd.SelectedPath;
             return result;
@@ -330,7 +332,7 @@ namespace PSXPrev
                 MessageBox.Show("Select the textures to export first");
                 return;
             }
-            var fbd = new FolderBrowserDialog {Description = "Select the output folder"};
+            var fbd = new FolderBrowserDialog { Description = "Select the output folder" };
             if (fbd.ShowDialog() == DialogResult.OK)
             {
                 var selectedTextures = new Texture[selectedCount];
@@ -413,7 +415,7 @@ namespace PSXPrev
             if (entityIndex == null)
                 index = entitiesTreeView.SelectedNode.Index;
             else
-                index = (int) entityIndex;
+                index = (int)entityIndex;
             if (index < 0)
                 return null;
             var entity = _rootEntities[index];
@@ -438,7 +440,7 @@ namespace PSXPrev
             }
             if (childIndex < 0)
                 return null;
-            var model = (ModelEntity) _rootEntities[parentIndex].ChildEntities[childIndex];
+            var model = (ModelEntity)_rootEntities[parentIndex].ChildEntities[childIndex];
             model.TexturePage = Math.Min(31, Math.Max(0, model.TexturePage));
             return model;
         }
@@ -483,7 +485,7 @@ namespace PSXPrev
             var nodeIndex = selectedNode.Index;
             if (nodeLevel == 0)
             {
-                var entity = (RootEntity) SelectModelOrEntity(nodeIndex, nodeLevel, false);
+                var entity = (RootEntity)SelectModelOrEntity(nodeIndex, nodeLevel, false);
                 selectedNode.Text = entity.EntityName;
             }
         }
@@ -628,20 +630,6 @@ namespace PSXPrev
             MessageBox.Show("Pages cleared");
         }
 
-        private void LoadAnimFrame()
-        {
-            EntityBase selectedEntity;
-            if (_inAnimationTab && animationEntityComboBox.SelectedItem != null)
-            {
-                selectedEntity = (EntityBase)animationEntityComboBox.SelectedItem;
-            }
-            else
-            {
-                selectedEntity = null;
-            }
-            _scene.AnimationBatch.SetupAnimationFrame(_curAnimationFrame, selectedEntity);
-        }
-
         private void openTKControl_Load(object sender, EventArgs e)
         {
             SetupScene();
@@ -693,8 +681,6 @@ namespace PSXPrev
                 _curAnimation = null;
                 _curAnimationFrame = 0;
                 animationPlayButton.Enabled = false;
-                animationTrackBar.Maximum = 0;
-                animationTrackBar.Enabled = false;
                 return;
             }
             Animation animation;
@@ -702,11 +688,11 @@ namespace PSXPrev
             animationPropertyGrid.SelectedObject = result;
             if (animationsTreeView.SelectedNode.Level == 0)
             {
-                animation = (Animation) result;
+                animation = (Animation)result;
             }
             else
             {
-                var animationObject = (AnimationObject) selectedNode.Tag;
+                var animationObject = (AnimationObject)selectedNode.Tag;
                 animation = animationObject.Animation;
                 UnselectAllAnimationObjects(animation.RootAnimationObject);
                 animationObject.IsSelected = true;
@@ -714,8 +700,6 @@ namespace PSXPrev
             _curAnimation = animation;
             _curAnimationFrame = 0;
             animationPlayButton.Enabled = true;
-            animationTrackBar.Maximum = (int) _curAnimation.FrameCount;
-            animationTrackBar.Enabled = true;
             _scene.AnimationBatch.SetupAnimationBatch(_curAnimation);
         }
 
@@ -747,11 +731,6 @@ namespace PSXPrev
             }
         }
 
-        private void animationTrackBar_Scroll(object sender, EventArgs e)
-        {
-            _curAnimationFrame = animationTrackBar.Value;
-        }
-        
         public void UpdateProgress(int value, int max, bool complete, string message)
         {
             if (InvokeRequired)

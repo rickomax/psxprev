@@ -33,23 +33,24 @@ namespace PSXPrev
                 try
                 {
                     _offset = reader.BaseStream.Position;
-                    var id = reader.ReadUInt32();
+
+                    var id = reader.ReadUInt16();
                     if (id == 0x10)
                     {
-                        var foundTextures = ParseRETim(reader);
-                        if (foundTextures != null)
+                        var version = reader.ReadUInt16();
+                        if (version == 0x00)
                         {
-                            for (var t = 0; t < foundTextures.Length; t++)
+                            var texture = ParseTim(reader);
+                            if (texture != null)
                             {
-                                var texture = foundTextures[t];
-                                texture.TextureName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset + "_" + t : string.Empty);
-                                texture.TexturePage = t;
+                                texture.TextureName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
                                 //textures.Add(texture);
                                 entityAddedAction(texture, reader.BaseStream.Position);
                                 Program.Logger.WriteLine("Found TIM Image at offset {0:X}", _offset);
                             }
                         }
                     }
+
                 }
                 catch (Exception exp)
                 {
@@ -63,203 +64,233 @@ namespace PSXPrev
             }
         }
 
-        private Texture[] ParseRETim(BinaryReader reader)
+        private Texture ParseTim(BinaryReader reader)
         {
-            //Texture texture;
-            //Bitmap bitmap;
+            Texture texture = null;
+            Bitmap bitmap;
+
+            var palette = new System.Drawing.Color[] { };
 
             var flag = reader.ReadUInt32();
-            var offset = reader.ReadUInt32();
-            var clutDx = reader.ReadUInt16();
-            var clutDy = reader.ReadUInt16();
-            var colorCount = reader.ReadUInt16();
-            if (colorCount > 256)
+            var pmode = (flag & 0x7);
+            if (pmode > 4)
             {
                 return null;
             }
-            var paletteCount = reader.ReadUInt16();
-            if (paletteCount > 256)
+            
+            var cf = (flag & 0x8) >> 3;
+            if (cf > 1)
             {
                 return null;
             }
 
-            var palettes = new System.Drawing.Color[paletteCount][];
-            var numTextures = paletteCount == 0 ? 1 : paletteCount;
-            var textures = new Texture[numTextures];
-            //var usingPalette = new System.Drawing.Color[] { };
-
-            if (flag == 0x08 || flag == 0x09)
+            if (pmode < 2 && cf != 1)
             {
-                for (var p = 0; p < paletteCount; p++)
+                return null;
+            }
+
+            if (cf == 1)
+            {
+                var clutBnum = reader.ReadUInt32();
+                var clutDx = reader.ReadUInt16();
+                var clutDy = reader.ReadUInt16();
+                var clutWidth = reader.ReadUInt16();
+                var clutHeight = reader.ReadUInt16();
+
+                if (clutWidth == 0 || clutHeight == 0 || clutWidth > 256 || clutHeight > 256)
                 {
-                    System.Drawing.Color[] palette;
-                    if (flag == 0x08)
-                    {
-                        // 4-bit CLUT
-                        palette = new System.Drawing.Color[colorCount];
-                        for (var c = 0; c < colorCount; c++)
+                    return null;
+                }
+
+                switch (pmode)
+                {
+                    case 0: // 4-bit CLUT
+                        palette = new System.Drawing.Color[16];
+                        for (var c = 0; c < 16; c++)
                         {
                             var clut = reader.ReadUInt16();
                             var r = (clut & 0x1F);
                             var g = (clut & 0x3E0) >> 5;
                             var b = (clut & 0x7C00) >> 10;
                             var a = (clut & 0x8000) >> 15;
-                            var color = System.Drawing.Color.FromArgb(255, r * 8, g * 8, b * 8);
+                            System.Drawing.Color color = System.Drawing.Color.FromArgb(255, r*8, g*8, b*8);
                             palette[c] = color;
                         }
-                    }
-                    else
-                    { // 8-bit CLUT
-                        palette = new System.Drawing.Color[colorCount];
-                        for (var c = 0; c < colorCount; c++)
+                        break;
+                    case 1: // 8-bit CLUT
+                        palette = new System.Drawing.Color[256];
+                        for (var c = 0; c < 256; c++)
                         {
                             var clut = reader.ReadUInt16();
                             var r = (clut & 0x1F);
                             var g = (clut & 0x3E0) >> 5;
                             var b = (clut & 0x7C00) >> 10;
                             var a = (clut & 0x8000) >> 15;
-                            var color = System.Drawing.Color.FromArgb(255, r * 8, g * 8, b * 8);
+                            System.Drawing.Color color = System.Drawing.Color.FromArgb(255, r*8, g*8, b*8);
                             palette[c] = color;
                         }
-                    }
-                    palettes[p] = palette;
+                        break;
                 }
             }
-            //else if (flag != 0x02)
-            //{
-            //    return null;
-            //}
 
-            reader.BaseStream.Position = _offset + offset + 16;
 
+            var imgBnum = reader.ReadUInt32();
+            var imgDx = reader.ReadUInt16();
+            var imgDy = reader.ReadUInt16();
             var imgWidth = reader.ReadUInt16();
             var imgHeight = reader.ReadUInt16();
 
-            if (imgWidth == 0 || imgHeight == 0 || imgWidth > 2000 || imgHeight > 2000)
+            if (imgWidth == 0 || imgHeight == 0 || imgWidth > 1024 || imgHeight > 1024)
             {
                 return null;
             }
 
-            //reader.BaseStream.Position = _offset + offset;
+            int texturePage = imgDx / 64;
+            if (texturePage > 32)
+            {
+                return null;
+            }
+            int textureOffset = texturePage * 64;
 
+            int textureX;
+            ushort textureY;
             int textureWidth;
             ushort textureHeight;
             int textureBpp;
-            int textureDivision;
-            int textureOffset;
-            int xOffset;
-            Bitmap bitmap;
 
-            if (flag == 0x08)
+            switch (pmode)
             {
-                //4bpp
-                textureWidth = imgWidth * 4;
-                textureHeight = imgHeight;
-                textureBpp = 4;
-                for (var i = 0; i < numTextures; i++)
-                {
-                    textures[i] = new Texture(textureWidth / numTextures, textureHeight, 0, 0, textureBpp, 0);
-                }
-                textureDivision = imgWidth / paletteCount;
-
-                for (var y = 0; y < imgHeight; y++)
-                {
-                    for (var x = 0; x < imgWidth; x++)
+                case 0: //4bpp
+                    textureX = (imgDx - textureOffset) * 4;
+                    textureY = imgDy;
+                    textureWidth = imgWidth * 4;
+                    textureHeight = imgHeight;
+                    textureBpp = 4;
+                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, texturePage);
+                    bitmap = texture.Bitmap;
+                    for (var y = 0; y < imgHeight; y++)
                     {
-                        var paletteOffset = x > 0 ? x / textureDivision : 0;
-                        var color = reader.ReadUInt16();
-                        var index1 = (color & 0xF);
-                        var index2 = (color & 0xF0) >> 4;
-                        var index3 = (color & 0xF00) >> 8;
-                        var index4 = (color & 0xF000) >> 12;
-
-                        if (index1 >= palettes[paletteOffset].Length || index2 >= palettes[paletteOffset].Length ||
-                            index3 >= palettes[paletteOffset].Length || index4 >= palettes[paletteOffset].Length)
+                        for (var x = 0; x < imgWidth; x++)
                         {
-                            return null;
+                            var color = reader.ReadUInt16();
+                            var index1 = (color & 0xF);
+                            var index2 = (color & 0xF0) >> 4;
+                            var index3 = (color & 0xF00) >> 8;
+                            var index4 = (color & 0xF000) >> 12;
+
+                            if (index1 >= palette.Length || index2 >= palette.Length || index3 >= palette.Length || index4 >= palette.Length)
+                            {
+                                return null;
+                            }
+
+                            var color1 = palette[index1];
+                            var color2 = palette[index2];
+                            var color3 = palette[index3];
+                            var color4 = palette[index4];
+
+                            bitmap.SetPixel(x * 4, y, color1);
+                            bitmap.SetPixel((x * 4) + 1, y, color2);
+                            bitmap.SetPixel((x * 4) + 2, y, color3);
+                            bitmap.SetPixel((x * 4) + 3, y, color4);
                         }
-
-                        var color1 = palettes[paletteOffset][index1];
-                        var color2 = palettes[paletteOffset][index2];
-                        var color3 = palettes[paletteOffset][index3];
-                        var color4 = palettes[paletteOffset][index4];
-
-                        bitmap = textures[paletteOffset].Bitmap;
-                        textureOffset = paletteOffset*textureDivision*4;
-                        xOffset = x*4;
-
-                        bitmap.SetPixel(xOffset - textureOffset, y, color1);
-                        bitmap.SetPixel(xOffset + 1 - textureOffset, y, color2);
-                        bitmap.SetPixel(xOffset + 2 - textureOffset, y, color3);
-                        bitmap.SetPixel(xOffset + 3 - textureOffset, y, color4);
                     }
-                }
-            }
-            else if (flag == 0x09)
-            {
-                //8bpp 
-                textureWidth = imgWidth * 2;
-                textureHeight = imgHeight;
-                textureBpp = 8;
-                for (var i = 0; i < numTextures; i++)
-                {
-                    textures[i] = new Texture(textureWidth / numTextures, textureHeight, 0, 0, textureBpp, 0);
-                }
-                textureDivision = imgWidth / paletteCount;
+                    break;
+                case 1: //8bpp
+                    texturePage = imgDx / 64;
+                    textureOffset = texturePage * 64;
+                    textureX = (imgDx - textureOffset) * 2;
+                    textureY = imgDy;
+                    textureWidth = imgWidth * 2;
+                    textureHeight = imgHeight;
+                    textureBpp = 8;
+                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, texturePage);
+                    bitmap = texture.Bitmap;
 
-                for (var y = 0; y < imgHeight; y++)
-                {
-                    for (var x = 0; x < imgWidth; x++)
+                    for (var y = 0; y < imgHeight; y++)
                     {
-                        var paletteOffset = x > 0 ? x / textureDivision : 0;
-                        var color = reader.ReadUInt16();
-                        var index1 = (color & 0xFF);
-                        var index2 = (color & 0xFF00) >> 8;
-
-                        if (index1 >= palettes[paletteOffset].Length || index2 >= palettes[paletteOffset].Length)
+                        for (var x = 0; x < imgWidth; x++)
                         {
-                            return null;
+                            var color = reader.ReadUInt16();
+                            var index1 = (color & 0xFF);
+                            var index2 = (color & 0xFF00) >> 8;
+
+                            if (index1 >= palette.Length || index2 >= palette.Length)
+                            {
+                                return null;
+                            }
+
+                            var color1 = palette[index1];
+                            var color2 = palette[index2];
+
+                            bitmap.SetPixel(x * 2, y, color1);
+                            bitmap.SetPixel((x * 2) + 1, y, color2);
                         }
-
-                        var color1 = palettes[paletteOffset][index1];
-                        var color2 = palettes[paletteOffset][index2];
-
-                        bitmap = textures[paletteOffset].Bitmap;
-                        textureOffset = paletteOffset * textureDivision * 2;
-                        xOffset = x * 2;
-
-                        bitmap.SetPixel(xOffset - textureOffset, y, color1);
-                        bitmap.SetPixel(xOffset + 1 - textureOffset, y, color2);
                     }
-                }
-            }
-            else
-            {
-                //16bpp
-                textureWidth = imgWidth;
-                textureHeight = imgHeight;
-                textureBpp = 16;
-                textures[0] = new Texture(textureWidth, textureHeight, 0, 0, textureBpp, 0);
-                bitmap = textures[0].Bitmap;
+                    break;
+                case 2: //16bpp
+                    textureX = (imgDx - textureOffset);
+                    textureY = imgDy;
+                    textureWidth = imgWidth;
+                    textureHeight = imgHeight;
+                    textureBpp = 16;
+                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, texturePage);
+                    bitmap = texture.Bitmap;
 
-                for (var y = 0; y < imgHeight; y++)
-                {
-                    for (var x = 0; x < imgWidth; x++)
+                    for (var y = 0; y < imgHeight; y++)
                     {
-                        var data1 = reader.ReadUInt16();
-                        var r0 = (data1 & 0x1F);
-                        var g0 = (data1 & 0x3E0) >> 5;
-                        var b0 = (data1 & 0x7C00) >> 10;
-                        var a0 = (data1 & 0x8000) >> 11;
+                        for (var x = 0; x < imgWidth; x++)
+                        {
+                            var data1 = reader.ReadUInt16();
+                            var r0 = (data1 & 0x1F);
+                            var g0 = (data1 & 0x3E0) >> 5;
+                            var b0 = (data1 & 0x7C00) >> 10;
+                            var a0 = (data1 & 0x8000) >> 11;
 
-                        var color1 = System.Drawing.Color.FromArgb(255, r0 * 8, g0 * 8, b0 * 8);
+                            var color1 = System.Drawing.Color.FromArgb(255, r0 * 8, g0 * 8, b0 * 8);
 
-                        bitmap.SetPixel(x, y, color1);
+                            bitmap.SetPixel(x, y, color1);
+                        }
                     }
-                }
+
+                    break;
+                case 3: //24bpp
+                    textureX = (imgDx - textureOffset);
+                    textureY = imgDy;
+                    textureWidth = imgWidth;
+                    textureHeight = imgHeight;
+                    textureBpp = 24;
+                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, texturePage);
+                    bitmap = texture.Bitmap;
+
+                    for (var y = 0; y < imgHeight; y++)
+                    {
+                        for (var x = 0; x < imgWidth - 1; x++)
+                        {
+                            var data1 = reader.ReadUInt16();
+                            var r0 = (data1 & 0xFF);
+                            var g0 = (data1 & 0xFF00) >> 8;
+
+                            var data2 = reader.ReadUInt16();
+                            var b0 = (data2 & 0xFF);
+                            var r1 = (data2 & 0xFF00) >> 8;
+
+                            var data3 = reader.ReadUInt16();
+                            var g1 = (data3 & 0xFF);
+                            var b1 = (data3 & 0xFF00) >> 8;
+
+                            var color1 = System.Drawing.Color.FromArgb(255, r0 * 8, g0 * 8, b0 * 8);
+                            var color2 = System.Drawing.Color.FromArgb(255, r1 * 8, g1 * 8, b1 * 8);
+
+                            bitmap.SetPixel((x * 2), y, color1);
+                            bitmap.SetPixel((x * 2) + 1, y, color2);
+                        }
+                    }
+                    break;
+                case 4:
+                    break;
             }
 
-            return textures;
+            return texture;
         }
     }
 }

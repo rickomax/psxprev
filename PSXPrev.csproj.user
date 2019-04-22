@@ -4,6 +4,7 @@
     <ProjectView>ProjectFiles</ProjectView>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
-    <StartArguments>"F:\BKP\backup\2015-03-20\Desktop\epsxe\isos\X-Men - Mutant Academy %28Track 01%29.iso" "%2a.%2a" -tmdAlt -tmd</StartArguments>
+    <StartArguments>
+    </StartArguments>
   </PropertyGroup>
 </Project>
