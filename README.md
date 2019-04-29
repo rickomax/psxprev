@@ -26,7 +26,8 @@ PSXPrev folder/iso [filter] [-tmd] [-tmdAlt] [-pmd] [-tim] [-timAlt] [-tod] [-hm
 <li>log - add this parameter to generate a scanning log text file</li>
 <li>noverbose - add this parameter to dont show log on the console window</li>
 </ul>
-A console window will appear, the application will scan each byte of the files inside the folder/filter you specified trying to find the files types you specified, so, it can take a bit of time for this process to end.<br><br>
+If you don't pass any parameter, a launcher interface will be displayed.
+Otherwise, a console window will appear, the application will scan each byte of the files inside the folder/filter you specified trying to find the files types you specified, so, it can take a bit of time for this process to end.<br><br>
 After the scan has been completed, a new window will open, with the tabs:<br>
 Models: This is where you see the models that has been found on the scan<br>
 Textures: This is where you see the textures that has been found on the scan<br>
