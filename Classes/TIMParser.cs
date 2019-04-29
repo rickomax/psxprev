@@ -152,8 +152,16 @@ namespace PSXPrev
             }
             int textureOffset = texturePage * 64;
 
+
+            int texturePageY = imgDy / 256;
+            if (texturePageY > 2)
+            {
+                return null;
+            }
+            int textureOffsetY = texturePageY * 256;
+
             int textureX;
-            ushort textureY;
+            int textureY;
             int textureWidth;
             ushort textureHeight;
             int textureBpp;
@@ -162,7 +170,7 @@ namespace PSXPrev
             {
                 case 0: //4bpp
                     textureX = (imgDx - textureOffset) * 4;
-                    textureY = imgDy;
+                    textureY = (imgDy - textureOffsetY);
                     textureWidth = imgWidth * 4;
                     textureHeight = imgHeight;
                     textureBpp = 4;
@@ -199,7 +207,7 @@ namespace PSXPrev
                     texturePage = imgDx / 64;
                     textureOffset = texturePage * 64;
                     textureX = (imgDx - textureOffset) * 2;
-                    textureY = imgDy;
+                    textureY = (imgDy - textureOffsetY);
                     textureWidth = imgWidth * 2;
                     textureHeight = imgHeight;
                     textureBpp = 8;
@@ -229,7 +237,7 @@ namespace PSXPrev
                     break;
                 case 2: //16bpp
                     textureX = (imgDx - textureOffset);
-                    textureY = imgDy;
+                    textureY = (imgDy - textureOffsetY);
                     textureWidth = imgWidth;
                     textureHeight = imgHeight;
                     textureBpp = 16;
@@ -255,7 +263,7 @@ namespace PSXPrev
                     break;
                 case 3: //24bpp
                     textureX = (imgDx - textureOffset);
-                    textureY = imgDy;
+                    textureY = (imgDy - textureOffsetY);
                     textureWidth = imgWidth;
                     textureHeight = imgHeight;
                     textureBpp = 24;

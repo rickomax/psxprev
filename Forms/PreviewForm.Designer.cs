@@ -45,6 +45,7 @@
             this.texturePreviewPictureBox = new System.Windows.Forms.PictureBox();
             this.exportBitmapButton = new System.Windows.Forms.Button();
             this.vramTabPage = new System.Windows.Forms.TabPage();
+            this.showUVCheckBox = new System.Windows.Forms.CheckBox();
             this.btnClearPage = new System.Windows.Forms.Button();
             this.vramPageLabel = new System.Windows.Forms.Label();
             this.vramComboBox = new System.Windows.Forms.ComboBox();
@@ -233,6 +234,7 @@
             // 
             // vramTabPage
             // 
+            this.vramTabPage.Controls.Add(this.showUVCheckBox);
             this.vramTabPage.Controls.Add(this.btnClearPage);
             this.vramTabPage.Controls.Add(this.vramPageLabel);
             this.vramTabPage.Controls.Add(this.vramComboBox);
@@ -243,6 +245,19 @@
             this.vramTabPage.TabIndex = 2;
             this.vramTabPage.Text = "VRAM";
             this.vramTabPage.UseVisualStyleBackColor = true;
+            // 
+            // showUVCheckBox
+            // 
+            this.showUVCheckBox.AutoSize = true;
+            this.showUVCheckBox.Checked = true;
+            this.showUVCheckBox.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.showUVCheckBox.Location = new System.Drawing.Point(9, 310);
+            this.showUVCheckBox.Name = "showUVCheckBox";
+            this.showUVCheckBox.Size = new System.Drawing.Size(71, 17);
+            this.showUVCheckBox.TabIndex = 16;
+            this.showUVCheckBox.Text = "Show UV";
+            this.showUVCheckBox.UseVisualStyleBackColor = true;
+            this.showUVCheckBox.CheckedChanged += new System.EventHandler(this.showUVCheckBox_CheckedChanged);
             // 
             // btnClearPage
             // 
@@ -314,6 +329,7 @@
             this.vramPagePictureBox.Size = new System.Drawing.Size(256, 256);
             this.vramPagePictureBox.TabIndex = 9;
             this.vramPagePictureBox.TabStop = false;
+            this.vramPagePictureBox.Paint += new System.Windows.Forms.PaintEventHandler(this.vramPagePictureBox_Paint);
             // 
             // animationsTabPage
             // 
@@ -618,5 +634,6 @@
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripProgressBar toolStripProgressBar1;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;
+        private System.Windows.Forms.CheckBox showUVCheckBox;
     }
 }

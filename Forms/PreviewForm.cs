@@ -6,7 +6,7 @@ using System.Threading;
 using System.Timers;
 using System.Windows.Forms;
 using OpenTK;
-
+using PSXPrev.Forms;
 using Timer = System.Timers.Timer;
 
 namespace PSXPrev
@@ -36,6 +36,8 @@ namespace PSXPrev
         private List<Texture> _textures;
 
         private Texture[] _vramPage;
+
+        private bool _showUv = true;
 
         public PreviewForm(Action<PreviewForm> refreshAction, bool debug)
         {
@@ -425,6 +427,10 @@ namespace PSXPrev
         private ModelEntity GetSelectedModel(bool fromTriangle = false)
         {
             var selectedNode = entitiesTreeView.SelectedNode;
+            if (selectedNode == null)
+            {
+                return null;
+            }
             var parentNode = selectedNode.Parent;
             int childIndex;
             int parentIndex;
@@ -473,7 +479,9 @@ namespace PSXPrev
         {
             var index = vramComboBox.SelectedIndex;
             if (index > -1)
+            {
                 vramPagePictureBox.Image = _vramPage[index].Bitmap;
+            }
         }
 
         private void modelPropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
@@ -606,6 +614,27 @@ namespace PSXPrev
             texturePreviewPictureBox.Image = bitmap;
             texturePreviewPictureBox.Refresh();
             texturePropertyGrid.SelectedObject = texture;
+        }
+
+        private void DrawUV(EntityBase entity, Graphics graphics)
+        {
+            var modelEntity = entity as ModelEntity;
+            if (modelEntity != null && modelEntity.HasUvs)
+            {
+                foreach (var triangle in modelEntity.Triangles)
+                {
+                    graphics.DrawLine(Pens.Green, triangle.Uv[0].X * 255f, triangle.Uv[0].Y * 255f, triangle.Uv[1].X * 255f, triangle.Uv[1].Y * 255f);
+                    graphics.DrawLine(Pens.Green, triangle.Uv[1].X * 255f, triangle.Uv[1].Y * 255f, triangle.Uv[2].X * 255f, triangle.Uv[2].Y * 255f);
+                    graphics.DrawLine(Pens.Green, triangle.Uv[2].X * 255f, triangle.Uv[2].Y * 255f, triangle.Uv[0].X * 255f, triangle.Uv[0].Y * 255f);
+                }
+            }
+            if (entity.ChildEntities != null)
+            {
+                foreach (var subEntity in entity.ChildEntities)
+                {
+                    DrawUV(subEntity, graphics);
+                }
+            }
         }
 
         private void clearSearchToolStripMenuItem_Click(object sender, EventArgs e)
@@ -762,6 +791,20 @@ namespace PSXPrev
                 _refreshAction(this);
 
                 Redraw();
+            }
+        }
+
+        private void showUVCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            _showUv = showUVCheckBox.Checked;
+            vramPagePictureBox.Refresh();
+        }
+
+        private void vramPagePictureBox_Paint(object sender, PaintEventArgs e)
+        {
+            if (_showUv)
+            {
+                DrawUV(GetSelectedEntity() as EntityBase ?? GetSelectedModel() as EntityBase, e.Graphics);
             }
         }
     }
