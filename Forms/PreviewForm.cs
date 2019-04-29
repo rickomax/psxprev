@@ -808,7 +808,7 @@ namespace PSXPrev
         {
             if (_showUv)
             {
-                DrawUV(GetSelectedEntity() as EntityBase ?? GetSelectedModel() as EntityBase, e.Graphics);
+                DrawUV(GetSelectedEntity(), e.Graphics);
             }
         }
     }
