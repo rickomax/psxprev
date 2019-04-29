@@ -566,7 +566,7 @@
             this.Name = "PreviewForm";
             this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "PSXPrev Alpha 0.9";
+            this.Text = "PSXPrev Alpha 0.9.1";
             this.Load += new System.EventHandler(this.previewForm_Load);
             this.entitiesTabPage.ResumeLayout(false);
             this.menusTabControl.ResumeLayout(false);

@@ -618,6 +618,10 @@ namespace PSXPrev
 
         private void DrawUV(EntityBase entity, Graphics graphics)
         {
+            if (entity == null)
+            {
+                return;
+            }
             var modelEntity = entity as ModelEntity;
             if (modelEntity != null && modelEntity.HasUvs)
             {
