@@ -65,6 +65,7 @@ namespace PSXPrev
             foreach (var entityBase in entity.ChildEntities)
             {
                 var model = (ModelEntity)entityBase;
+                model.TexturePage = Math.Min(31, Math.Max(0, model.TexturePage));
                 model.Texture = _vramPage[model.TexturePage];
             }
 
@@ -447,7 +448,6 @@ namespace PSXPrev
             if (childIndex < 0)
                 return null;
             var model = (ModelEntity)_rootEntities[parentIndex].ChildEntities[childIndex];
-            model.TexturePage = Math.Min(31, Math.Max(0, model.TexturePage));
             return model;
         }
 
@@ -490,12 +490,22 @@ namespace PSXPrev
             if (selectedNode == null)
                 return;
             var nodeLevel = selectedNode.Level;
-            var nodeIndex = selectedNode.Index;
+            var nodeIndex = selectedNode.Level;
             if (nodeLevel == 0)
             {
-                var entity = (RootEntity)SelectModelOrEntity(nodeIndex, nodeLevel, false);
+                var entity = GetSelectedEntity();
                 selectedNode.Text = entity.EntityName;
             }
+            else
+            {
+                var model = GetSelectedModel();
+                if (model != null)
+                {
+                    model.TexturePage = Math.Min(31, Math.Max(0, model.TexturePage));
+                    model.Texture = _vramPage[model.TexturePage];
+                }
+            }
+            SelectModelOrEntity(nodeIndex, nodeLevel, false);
         }
 
         private void texturePropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
