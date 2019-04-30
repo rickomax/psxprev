@@ -9,7 +9,7 @@ namespace PSXPrev
     {
         private readonly StreamWriter _writer;
         private readonly int _modelIndex;
-        private readonly bool[] _exportedPages = new bool[31];
+        private readonly bool[] _exportedPages = new bool[32];
 
         public MtlExporter(int modelIndex, string selectedPath)
         {
