@@ -146,19 +146,20 @@ namespace PSXPrev
             }
 
             int texturePage = imgDx / 64;
-            if (texturePage > 32)
+            if (texturePage > 16)
             {
                 return null;
             }
             int textureOffset = texturePage * 64;
-
-
+            
             int texturePageY = imgDy / 256;
             if (texturePageY > 2)
             {
                 return null;
             }
             int textureOffsetY = texturePageY * 256;
+
+            int finalTexturePage = (texturePageY * 16) + texturePage;
 
             int textureX;
             int textureY;
@@ -174,7 +175,7 @@ namespace PSXPrev
                     textureWidth = imgWidth * 4;
                     textureHeight = imgHeight;
                     textureBpp = 4;
-                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, texturePage);
+                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, finalTexturePage);
                     bitmap = texture.Bitmap;
                     for (var y = 0; y < imgHeight; y++)
                     {
@@ -211,7 +212,7 @@ namespace PSXPrev
                     textureWidth = imgWidth * 2;
                     textureHeight = imgHeight;
                     textureBpp = 8;
-                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, texturePage);
+                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, finalTexturePage);
                     bitmap = texture.Bitmap;
 
                     for (var y = 0; y < imgHeight; y++)
@@ -241,7 +242,7 @@ namespace PSXPrev
                     textureWidth = imgWidth;
                     textureHeight = imgHeight;
                     textureBpp = 16;
-                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, texturePage);
+                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, finalTexturePage);
                     bitmap = texture.Bitmap;
 
                     for (var y = 0; y < imgHeight; y++)
@@ -267,7 +268,7 @@ namespace PSXPrev
                     textureWidth = imgWidth;
                     textureHeight = imgHeight;
                     textureBpp = 24;
-                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, texturePage);
+                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, finalTexturePage);
                     bitmap = texture.Bitmap;
 
                     for (var y = 0; y < imgHeight; y++)
