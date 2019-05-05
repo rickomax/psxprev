@@ -17,17 +17,14 @@ namespace PSXPrev
             var pngExporter = new PngExporter();
             for (var i = 0; i < entities.Length; i++)
             {
-                var lastIndex = 1;
                 var entity = entities[i];
                 var writer = new StreamWriter(selectedPath + "/obj" + i + ".obj");
                 writer.WriteLine("mtllib mtl{0}.mtl", i);
                 using (var mtlExporter = new MtlExporter(i, selectedPath))
                 {
-                    for (int j = 0; j < entity.ChildEntities.Length; j++)
+                    foreach (EntityBase childEntity in entity.ChildEntities)
                     {
-                        var model = (ModelEntity)entity.ChildEntities[j];
-                        writer.WriteLine("g group" + j);
-                        writer.WriteLine("usemtl mtl{0}", model.TexturePage);
+                        var model = childEntity as ModelEntity;
                         if (model.Texture != null)
                         {
                             if (mtlExporter.AddMaterial(model.Texture, model.TexturePage))
@@ -35,57 +32,61 @@ namespace PSXPrev
                                 pngExporter.Export(model.Texture, i, model.TexturePage, selectedPath);
                             }
                         }
-                        for (int k = 0; k < model.Triangles.Length; k++)
+                        foreach (var triangle in model.Triangles)
                         {
-                            var triangle = model.Triangles[k];
-
-                            var v0 = model.WorldMatrix * new Vector4(triangle.Vertices[0]);
-                            var v1 = model.WorldMatrix * new Vector4(triangle.Vertices[1]);
-                            var v2 = model.WorldMatrix * new Vector4(triangle.Vertices[2]);
-
-                            var uv0 = triangle.Uv[0];
-                            var uv1 = triangle.Uv[1];
-                            var uv2 = triangle.Uv[2];
-
-                            var n0 = triangle.Normals[0];
-                            var n1 = triangle.Normals[1];
-                            var n2 = triangle.Normals[2];
-
-                            var c0 = triangle.Colors[0];
-                            var c1 = triangle.Colors[1];
-                            var c2 = triangle.Colors[2];
-
                             var vertexColor0 = string.Empty;
                             var vertexColor1 = string.Empty;
                             var vertexColor2 = string.Empty;
+                            var c0 = triangle.Colors[0];
+                            var c1 = triangle.Colors[1];
+                            var c2 = triangle.Colors[2];
                             if (experimentalVertexColor)
                             {
-                                vertexColor0 = string.Format(" {0} {1} {2}", (c0.R).ToString(GeomUtils.FloatFormat), (c0.G).ToString(GeomUtils.FloatFormat), (c0.B).ToString(GeomUtils.FloatFormat));
-                                vertexColor1 = string.Format(" {0} {1} {2}", (c1.R).ToString(GeomUtils.FloatFormat), (c1.G).ToString(GeomUtils.FloatFormat), (c1.B).ToString(GeomUtils.FloatFormat));
-                                vertexColor2 = string.Format(" {0} {1} {2}", (c2.R).ToString(GeomUtils.FloatFormat), (c2.G).ToString(GeomUtils.FloatFormat), (c2.B).ToString(GeomUtils.FloatFormat));
+                                vertexColor0 = string.Format(" {0} {1} {2}", (c0.R).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (c0.G).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (c0.B).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture));
+                                vertexColor1 = string.Format(" {0} {1} {2}", (c1.R).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (c1.G).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (c1.B).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture));
+                                vertexColor2 = string.Format(" {0} {1} {2}", (c2.R).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (c2.G).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (c2.B).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture));
                             }
-
-                            writer.WriteLine("v {0} {1} {2}{3}", (-v0.X).ToString(GeomUtils.FloatFormat), (-v0.Y).ToString(GeomUtils.FloatFormat), (-v0.Z).ToString(GeomUtils.FloatFormat), vertexColor0);
-                            writer.WriteLine("vn {0} {1} {2}", (-n0.X).ToString(GeomUtils.FloatFormat), (-n0.Y).ToString(GeomUtils.FloatFormat), (-n0.Z).ToString(GeomUtils.FloatFormat));
-                            writer.WriteLine("vt {0} {1}", uv0.X.ToString(GeomUtils.FloatFormat), (1f - uv0.Y).ToString(GeomUtils.FloatFormat));
-
-                            writer.WriteLine("v {0} {1} {2}{3}", (-v1.X).ToString(GeomUtils.FloatFormat), (-v1.Y).ToString(GeomUtils.FloatFormat), (-v1.Z).ToString(GeomUtils.FloatFormat), vertexColor1);
-                            writer.WriteLine("vn {0} {1} {2}", (-n1.X).ToString(GeomUtils.FloatFormat), (-n1.Y).ToString(GeomUtils.FloatFormat), (-n1.Z).ToString(GeomUtils.FloatFormat));
-                            writer.WriteLine("vt {0} {1}", uv1.X.ToString(GeomUtils.FloatFormat), (1f - uv1.Y).ToString(GeomUtils.FloatFormat));
-
-                            writer.WriteLine("v {0} {1} {2}{3}", (-v2.X).ToString(GeomUtils.FloatFormat), (-v2.Y).ToString(GeomUtils.FloatFormat), (-v2.Z).ToString(GeomUtils.FloatFormat), vertexColor2);
-                            writer.WriteLine("vn {0} {1} {2}", (-n2.X).ToString(GeomUtils.FloatFormat), (-n2.Y).ToString(GeomUtils.FloatFormat), (-n2.Z).ToString(GeomUtils.FloatFormat));
-                            writer.WriteLine("vt {0} {1}", uv2.X.ToString(GeomUtils.FloatFormat), (1f - uv2.Y).ToString(GeomUtils.FloatFormat));
-
-                            writer.WriteLine("f {2}/{2}/{2} {1}/{1}/{1} {0}/{0}/{0}", lastIndex, lastIndex + 1, lastIndex + 2);
-
-                            lastIndex += 3;
+                            var v0 = model.WorldMatrix * new Vector4(triangle.Vertices[0]);
+                            var v1 = model.WorldMatrix * new Vector4(triangle.Vertices[1]);
+                            var v2 = model.WorldMatrix * new Vector4(triangle.Vertices[2]);
+                            writer.WriteLine("v {0} {1} {2} {3}", (v0.X).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (-v0.Y).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (-v0.Z).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), vertexColor0);
+                            writer.WriteLine("v {0} {1} {2} {3}", (v1.X).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (-v1.Y).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (-v1.Z).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), vertexColor1);
+                            writer.WriteLine("v {0} {1} {2} {3}", (v2.X).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (-v2.Y).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (-v2.Z).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), vertexColor2);
+                        }
+                        foreach (var triangle in model.Triangles)
+                        {
+                            var n0 = (model.WorldMatrix * new Vector4(triangle.Normals[0])).Normalized();
+                            var n1 = (model.WorldMatrix * new Vector4(triangle.Normals[1])).Normalized();
+                            var n2 = (model.WorldMatrix * new Vector4(triangle.Normals[2])).Normalized();
+                            writer.WriteLine("vn {0} {1} {2}", (n0.X).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (-n0.Y).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (-n0.Z).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture));
+                            writer.WriteLine("vn {0} {1} {2}", (n1.X).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (-n1.Y).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (-n1.Z).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture));
+                            writer.WriteLine("vn {0} {1} {2}", (n2.X).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (-n2.Y).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (-n2.Z).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture));
+                        }
+                        foreach (var triangle in model.Triangles)
+                        {
+                            var uv0 = triangle.Uv[0];
+                            var uv1 = triangle.Uv[1];
+                            var uv2 = triangle.Uv[2];
+                            writer.WriteLine("vt {0} {1}", uv0.X.ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (1f - uv0.Y).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture));
+                            writer.WriteLine("vt {0} {1}", uv1.X.ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (1f - uv1.Y).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture));
+                            writer.WriteLine("vt {0} {1}", uv2.X.ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture), (1f - uv2.Y).ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture));
+                        }
+                    }
+                    var baseIndex = 1;
+                    for (int j = 0; j < entity.ChildEntities.Length; j++)
+                    {
+                        var childEntity = entity.ChildEntities[j];
+                        var model = childEntity as ModelEntity;
+                        writer.WriteLine("g group" + j);
+                        writer.WriteLine("usemtl mtl{0}", model.TexturePage);
+                        for (var k = 0; k < model.Triangles.Length; k++)
+                        {
+                            writer.WriteLine("f {2}/{2}/{2} {1}/{1}/{1} {0}/{0}/{0}", baseIndex++, baseIndex++, baseIndex++);
                         }
                     }
                     writer.Close();
                 }
             }
-
         }
     }
 }

@@ -567,16 +567,16 @@ namespace PSXPrev
                     var objExporter = new ObjExporter();
                     objExporter.Export(entities, path, true);
                 }
-                if (e.ClickedItem == miPLY)
-                {
-                    var plyExporter = new PlyExporter();
-                    plyExporter.Export(entities, path);
-                }
-                if (e.ClickedItem == miDAE)
-                {
-                    var daeExporter = new DaeExporter();
-                    daeExporter.Export(entities, path);
-                }
+                //if (e.ClickedItem == miPLY)
+                //{
+                //    var plyExporter = new PlyExporter();
+                //    plyExporter.Export(entities, path);
+                //}
+                //if (e.ClickedItem == miDAE)
+                //{
+                //    var daeExporter = new DaeExporter();
+                //    daeExporter.Export(entities, path);
+                //}
                 MessageBox.Show("Models exported");
             }
         }

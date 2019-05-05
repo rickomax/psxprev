@@ -58,8 +58,6 @@
             this.cmsModelExport = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.miOBJ = new System.Windows.Forms.ToolStripMenuItem();
             this.miOBJVC = new System.Windows.Forms.ToolStripMenuItem();
-            this.miPLY = new System.Windows.Forms.ToolStripMenuItem();
-            this.miDAE = new System.Windows.Forms.ToolStripMenuItem();
             this.exportSelectedToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.mainMenuStrip = new System.Windows.Forms.MenuStrip();
             this.modelsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -388,13 +386,10 @@
             // 
             this.cmsModelExport.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.miOBJ,
-            this.miOBJVC,
-            this.miPLY,
-            this.miDAE});
+            this.miOBJVC});
             this.cmsModelExport.Name = "cmsModelExport";
-            this.cmsModelExport.OwnerItem = this.exportSelectedToolStripMenuItem;
             this.cmsModelExport.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
-            this.cmsModelExport.Size = new System.Drawing.Size(301, 92);
+            this.cmsModelExport.Size = new System.Drawing.Size(301, 48);
             this.cmsModelExport.ItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.cmsModelExport_ItemClicked);
             // 
             // miOBJ
@@ -409,24 +404,11 @@
             this.miOBJVC.Size = new System.Drawing.Size(300, 22);
             this.miOBJVC.Text = "Wavefront .OBJ (Experimental Vertex Color)";
             // 
-            // miPLY
-            // 
-            this.miPLY.Name = "miPLY";
-            this.miPLY.Size = new System.Drawing.Size(300, 22);
-            this.miPLY.Text = "Stanford .PLY (Accepts Vertex Color)";
-            // 
-            // miDAE
-            // 
-            this.miDAE.Name = "miDAE";
-            this.miDAE.Size = new System.Drawing.Size(300, 22);
-            this.miDAE.Text = "Collada .DAE";
-            this.miDAE.Visible = false;
-            // 
             // exportSelectedToolStripMenuItem
             // 
             this.exportSelectedToolStripMenuItem.DropDown = this.cmsModelExport;
             this.exportSelectedToolStripMenuItem.Name = "exportSelectedToolStripMenuItem";
-            this.exportSelectedToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.exportSelectedToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.exportSelectedToolStripMenuItem.Text = "Export Selected";
             // 
             // mainMenuStrip
@@ -457,7 +439,7 @@
             // 
             this.wireframeToolStripMenuItem.CheckOnClick = true;
             this.wireframeToolStripMenuItem.Name = "wireframeToolStripMenuItem";
-            this.wireframeToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.wireframeToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.wireframeToolStripMenuItem.Text = "Wireframe";
             this.wireframeToolStripMenuItem.CheckedChanged += new System.EventHandler(this.wireframeToolStripMenuItem_CheckedChanged);
             // 
@@ -608,8 +590,6 @@
         private System.Windows.Forms.Button btnClearPage;
         private System.Windows.Forms.ContextMenuStrip cmsModelExport;
         private System.Windows.Forms.ToolStripMenuItem miOBJ;
-        private System.Windows.Forms.ToolStripMenuItem miPLY;
-        private System.Windows.Forms.ToolStripMenuItem miDAE;
         private System.Windows.Forms.ToolStripMenuItem miOBJVC;
         private System.Windows.Forms.MenuStrip mainMenuStrip;
         private System.Windows.Forms.ToolStripMenuItem modelsToolStripMenuItem;
