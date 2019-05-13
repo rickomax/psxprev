@@ -1,12 +1,10 @@
 ﻿using System.ComponentModel;
 using System.Drawing;
-using System.Drawing.Design;
 
 namespace PSXPrev
 {
     public class Texture
     {
-
         public Texture(int width, int height, int x, int y, int bpp, int texturePage)
         {
             Bitmap = new Bitmap(width, height);
@@ -32,16 +30,10 @@ namespace PSXPrev
         public int Bpp { get; set; }
 
         [ReadOnly(true), DisplayName("Width")]
-        public int Width
-        {
-            get { return Bitmap.Width; }
-        }
+        public int Width => Bitmap.Width;
 
         [ReadOnly(true), DisplayName("Height")]
-        public int Height
-        {
-            get { return Bitmap.Height; }
-        }
+        public int Height => Bitmap.Height;
 
         [Browsable(false)]
         public Bitmap Bitmap { get; set; }

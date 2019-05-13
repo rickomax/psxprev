@@ -80,8 +80,12 @@ namespace PSXPrev
             var coordCount = reader.ReadUInt32();
             for (var c = 0; c < coordCount; c++)
             {
-                Matrix4 worldMatrix = ReadCoord(reader);
-                modelEntities[c].WorldMatrix = worldMatrix;
+                Matrix4 localMatrix = ReadCoord(reader);
+                modelEntities[c].LocalMatrix = localMatrix;
+            }
+            foreach (var modelEntity in modelEntities)
+            {
+                modelEntity.ParentEntity = rootEntity;
             }
             rootEntity.ChildEntities = modelEntities.ToArray();
             rootEntity.ComputeBounds();
@@ -443,23 +447,23 @@ namespace PSXPrev
                 Colors = new[]
                 {
                     new Color
-                    {
-                        R = r0/256f,
-                        G = g0/256f,
-                        B = b0/256f
-                    },
+                    (
+                        r0/256f,
+                        g0/256f,
+                        b0/256f
+                    ),
                     new Color
-                    {
-                        R = r1/256f,
-                        G = g1/256f,
-                        B = b1/256f
-                    },
+                    (
+                        r1/256f,
+                        g1/256f,
+                        b1/256f
+                    ),
                     new Color
-                    {
-                        R = r2/256f,
-                        G = g2/256f,
-                        B = b2/256f
-                    }
+                    (
+                        r2/256f,
+                        g2/256f,
+                        b2/256f
+                    )
                 },
                 Normals = new[]
                 {

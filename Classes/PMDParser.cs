@@ -154,18 +154,20 @@ namespace PSXPrev
                     }
                     reader.BaseStream.Seek(position + 4, SeekOrigin.Begin);
                 }
-            EndObject:
+                EndObject:
                 model.Triangles = triangles.ToArray();
                 models.Add(model);
             }
 
-        EndModel:
+            EndModel:
             if (models.Count > 0)
             {
-                var entity = new RootEntity
+                var entity = new RootEntity();
+                foreach (var model in models)
                 {
-                    ChildEntities = models.ToArray()
-                };
+                    model.ParentEntity = entity;
+                }
+                entity.ChildEntities = models.ToArray();
                 entity.ComputeBounds();
                 return entity;
             }
@@ -398,7 +400,7 @@ namespace PSXPrev
                 ReadSharedVertices(reader, vo1, out v1x, out v1y, out v1z);
                 ReadSharedVertices(reader, vo2, out v2x, out v2y, out v2z);
                 ReadSharedVertices(reader, vo3, out v3x, out v3y, out v3z);
-                reader.BaseStream.Position = position; 
+                reader.BaseStream.Position = position;
             }
             var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_ft4, false, false, null, null, 0, 0, 0, 0, 0,
                 0, r, g, b, r, g, b, r, g, b, u0, v0, u1, v1, u2, v2, v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
@@ -456,7 +458,7 @@ namespace PSXPrev
                 ReadSharedVertices(reader, vo3, out v3x, out v3y, out v3z);
                 reader.BaseStream.Position = position;
             }
-            
+
             var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_f4, false, false, null, null, 0, 0, 0, 0, 0,
                 0, r0, g0, b0, r0, g0, b0, r0, g0, b0, 0, 0, 0, 0, 0, 0, v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
             var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_f4, false, false, null, null, 0, 0, 0, 0, 0,
@@ -795,11 +797,11 @@ namespace PSXPrev
                     Z = p2z
                 };
                 ver3 = new Vector3
-               {
-                   X = p3x,
-                   Y = p3y,
-                   Z = p3z
-               };
+                {
+                    X = p3x,
+                    Y = p3y,
+                    Z = p3z
+                };
             }
 
             Vector3 nor1, nor2, nor3;
@@ -852,23 +854,23 @@ namespace PSXPrev
                 Colors = new[]
                 {
                     new Color
-                    {
-                        R = r0/256f,
-                        G = g0/256f,
-                        B = b0/256f
-                    },
+                    (
+                        r0/256f,
+                        g0/256f,
+                        b0/256f
+                    ),
                     new Color
-                    {
-                        R = r1/256f,
-                        G = g1/256f,
-                        B = b1/256f
-                    },
+                    (
+                         r1/256f,
+                         g1/256f,
+                         b1/256f
+                    ),
                     new Color
-                    {
-                        R = r2/256f,
-                        G = g2/256f,
-                        B = b2/256f
-                    }
+                    (
+                         r2/256f,
+                         g2/256f,
+                         b2/256f
+                    )
                 },
                 Normals = new[]
                 {

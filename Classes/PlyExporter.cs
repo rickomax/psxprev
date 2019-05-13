@@ -28,13 +28,13 @@ namespace PSXPrev
                 var numMaterials = 0;
                 foreach (var entityBase in entity.ChildEntities)
                 {
-                    var model = (ModelEntity) entityBase;
+                    var model = (ModelEntity)entityBase;
                     faceCount += model.Triangles.Count();
                     var texturePage = model.TexturePage;
                     if (!materialsDic.ContainsKey(texturePage))
                     {
                         materialsDic.Add(texturePage, numMaterials++);
-                        pngExporter.Export(model.Texture, i, texturePage, selectedPath);
+                        pngExporter.Export(model.Texture, texturePage, selectedPath);
                     }
                 }
                 var vertexCount = faceCount * 3;
@@ -55,23 +55,24 @@ namespace PSXPrev
                 writer.WriteLine("property list uint8 int32 vertex_indices");
                 writer.WriteLine("element material {0}", numMaterials);
                 writer.WriteLine("property uchar ambient_red");
-                writer.WriteLine("property uchar ambient_green"); 
+                writer.WriteLine("property uchar ambient_green");
                 writer.WriteLine("property uchar ambient_blue");
                 writer.WriteLine("property float32 ambient_coeff");
-                writer.WriteLine("property uchar diffuse_red");        
-                writer.WriteLine("property uchar diffuse_green"); 
+                writer.WriteLine("property uchar diffuse_red");
+                writer.WriteLine("property uchar diffuse_green");
                 writer.WriteLine("property uchar diffuse_blue");
                 writer.WriteLine("property float32 diffuse_coeff");
                 writer.WriteLine("end_header");
                 foreach (var entityBase in entity.ChildEntities)
                 {
-                    var model = (ModelEntity) entityBase;
+                    var model = (ModelEntity)entityBase;
                     var materialIndex = materialsDic[model.TexturePage];
                     var triangles = model.Triangles;
+                    var worldMatrix = model.WorldMatrix;
                     foreach (var triangle in triangles)
                     {
-                        var vertex0 = model.WorldMatrix * new Vector4(triangle.Vertices[0]);
-                        var normal0 = triangle.Normals[0];
+                        var vertex0 = Vector3.TransformPosition(triangle.Vertices[0], worldMatrix);
+                        var normal0 = Vector3.TransformNormal(triangle.Normals[0], worldMatrix);
                         var uv0 = triangle.Uv[0];
                         var color0 = triangle.Colors[0];
                         writer.WriteLine("{0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11}",
@@ -80,8 +81,8 @@ namespace PSXPrev
                             uv0.X.ToString(GeomUtils.FloatFormat), (1f - uv0.Y).ToString(GeomUtils.FloatFormat),
                             (color0.R * 255).ToString(GeomUtils.IntegerFormat), (color0.G * 255).ToString(GeomUtils.IntegerFormat), (color0.B * 255).ToString(GeomUtils.IntegerFormat),
                             materialIndex);
-                        var vertex1 = triangle.Vertices[1];
-                        var normal1 = triangle.Normals[1];
+                        var vertex1 = Vector3.TransformPosition(triangle.Vertices[1], worldMatrix);
+                        var normal1 = Vector3.TransformNormal(triangle.Normals[1], worldMatrix);
                         var uv1 = triangle.Uv[1];
                         var color1 = triangle.Colors[1];
                         writer.WriteLine("{0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11}",
@@ -91,8 +92,8 @@ namespace PSXPrev
                             (color1.R * 255).ToString(GeomUtils.IntegerFormat), (color1.G * 255).ToString(GeomUtils.IntegerFormat), (color1.B * 255).ToString(GeomUtils.IntegerFormat),
                             materialIndex
                             );
-                        var vertex2 = triangle.Vertices[2];
-                        var normal2 = triangle.Normals[2];
+                        var vertex2 = Vector3.TransformPosition(triangle.Vertices[2], worldMatrix);
+                        var normal2 = Vector3.TransformNormal(triangle.Normals[2], worldMatrix);
                         var uv2 = triangle.Uv[2];
                         var color2 = triangle.Colors[2];
                         writer.WriteLine("{0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11}",

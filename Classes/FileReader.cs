@@ -10,10 +10,7 @@ namespace PSXPrev
 
         public void Dispose()
         {
-            if (Reader != null)
-            {
-                Reader.Close();
-            }
+            Reader?.Close();
         }
 
         public void OpenFile(string filename)
@@ -22,7 +19,7 @@ namespace PSXPrev
             {
                 return;
             }
-            FileStream file = File.Open(filename, FileMode.Open);
+            var file = File.Open(filename, FileMode.Open);
             Reader = new BinaryReader(file, Encoding.ASCII);
         }
     }

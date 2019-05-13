@@ -1,92 +1,108 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Globalization;
-using System.Threading;
 using System.Timers;
 using System.Windows.Forms;
 using OpenTK;
-using PSXPrev.Forms;
 using Timer = System.Timers.Timer;
 
 namespace PSXPrev
 {
     public partial class PreviewForm : Form
     {
+        private enum MouseEventType
+        {
+            Down,
+            Up,
+            Move,
+            Wheel
+        }
+
+        private enum EntitySelectionSource
+        {
+            None,
+            TreeView,
+            Click
+        }
+
+        private const float MouseSensivity = 0.0035f;
+
+        private static Pen Black3Px = new Pen(System.Drawing.Color.Black, 3f);
+        private static Pen White1Px = new Pen(System.Drawing.Color.White, 1f);
+
         private Timer _animateTimer;
-        private List<Animation> _animations;
-        private Animation _curAnimation;
-        private int _curAnimationFrame;
-        private Action<PreviewForm> _refreshAction;
-
-        private bool _inAnimationTab;
-
-        //private bool _debug;
-        private float _lastMouseX;
-
-        private float _lastMouseY;
-        private GLControl _openTkControl;
-        private bool _playing;
         private Timer _redrawTimer;
-        private List<RootEntity> _rootEntities;
-
+        private readonly List<Animation> _animations;
+        private readonly Action<PreviewForm> _refreshAction;
+        private GLControl _openTkControl;
         private Scene _scene;
-
-        //private int _selectedTriangle;
-        private List<Texture> _textures;
-
+        private readonly List<RootEntity> _rootEntities;
+        private readonly List<Texture> _textures;
         private Texture[] _vramPage;
-
+        private Scene.GizmoId _selectedGizmo;
+        private EntitySelectionSource _selectionSource;
+        private bool _playing;
         private bool _showUv = true;
+        private bool _inAnimationTab;
+        private float _lastMouseX;
+        private float _lastMouseY;
+        private int _curAnimationFrame;
+        private Animation _curAnimation;
+        private AnimationObject _curAnimationObject;
+        private RootEntity _curEntity;
+        private ModelEntity _curModel;
 
-        public PreviewForm(Action<PreviewForm> refreshAction, bool debug)
+        private bool Playing
+        {
+            get => _playing;
+            set
+            {
+                _playing = value;
+                if (_playing)
+                {
+                    animationPlayButton.Text = "Stop Animation";
+                    _animateTimer.Start();
+                }
+                else
+                {
+                    animationPlayButton.Text = "Play Animation";
+                    _animateTimer.Stop();
+                }
+            }
+        }
+
+        public PreviewForm(Action<PreviewForm> refreshAction)
         {
             _refreshAction = refreshAction;
-
             _animations = new List<Animation>();
             _textures = new List<Texture>();
             _rootEntities = new List<RootEntity>();
-
-            SetupCulture();
+            _vramPage = new Texture[32];
+            _scene = new Scene();
             refreshAction(this);
-
-            SetupInternals();
-
             Toolkit.Init();
-
             InitializeComponent();
             SetupControls();
-            //ResetSelectedTriangle();
         }
 
         private void EntityAdded(RootEntity entity)
         {
-            // set textures for preview
             foreach (var entityBase in entity.ChildEntities)
             {
                 var model = (ModelEntity)entityBase;
                 model.TexturePage = Math.Min(31, Math.Max(0, model.TexturePage));
                 model.Texture = _vramPage[model.TexturePage];
             }
-
             entitiesTreeView.BeginUpdate();
             var entityNode = entitiesTreeView.Nodes.Add(entity.EntityName);
-            animationEntityComboBox.Items.Add(entity);
+            entityNode.Tag = entity;
             for (var m = 0; m < entity.ChildEntities.Length; m++)
             {
-                // var model = (ModelEntity) entity.ChildEntities[m];
-                var modelNode = new TreeNode("Sub-Model " + m);
+                var modelNode = new TreeNode("Sub-Model " + (m + 1));
+                modelNode.Tag = entity.ChildEntities[m];
                 entityNode.Nodes.Add(modelNode);
                 modelNode.HideCheckBox();
                 modelNode.HideCheckBox();
-                //if (_debug)
-                //    for (var t = 0; t < model.Triangles.Length; t++)
-                //    {
-                //        var triangleNode = new TreeNode("Triangle " + t);
-                //        modelNode.Nodes.Add(triangleNode);
-                //        triangleNode.HideCheckBox();
-                //        triangleNode.HideCheckBox();
-                //    }
             }
             entitiesTreeView.EndUpdate();
         }
@@ -100,7 +116,8 @@ namespace PSXPrev
         private void AnimationAdded(Animation animation)
         {
             animationsTreeView.BeginUpdate();
-            var animationNode = new TreeNode(animation.AnimationName) { Tag = animation };
+            var animationNode = new TreeNode(animation.AnimationName);
+            animationNode.Tag = animation;
             animationsTreeView.Nodes.Add(animationNode);
             AddAnimationObject(animation.RootAnimationObject, animationNode);
             animationsTreeView.EndUpdate();
@@ -108,72 +125,59 @@ namespace PSXPrev
 
         public void UpdateRootEntities(List<RootEntity> entities)
         {
-            for (var i = 0; i < entities.Count; ++i)
+            foreach (var entity in entities)
             {
-                var entity = entities[i];
-                if (!_rootEntities.Contains(entity))
+                if (_rootEntities.Contains(entity))
                 {
-                    _rootEntities.Add(entity);
-                    EntityAdded(entity);
+                    continue;
                 }
+                _rootEntities.Add(entity);
+                EntityAdded(entity);
             }
         }
 
         public void UpdateTextures(List<Texture> textures)
         {
-            for (var i = 0; i < textures.Count; ++i)
+            foreach (var texture in textures)
             {
-                var texture = textures[i];
-                if (!_textures.Contains(texture))
+                if (_textures.Contains(texture))
                 {
-                    _textures.Add(texture);
-                    var textureIndex = _textures.IndexOf(texture);
-                    TextureAdded(texture, textureIndex);
+                    continue;
                 }
+                _textures.Add(texture);
+                var textureIndex = _textures.IndexOf(texture);
+                TextureAdded(texture, textureIndex);
             }
         }
 
         public void UpdateAnimations(List<Animation> animations)
         {
-            for (var i = 0; i < animations.Count; ++i)
+            foreach (var animation in animations)
             {
-                var animation = animations[i];
-                if (!_animations.Contains(animation))
+                if (_animations.Contains(animation))
                 {
-                    _animations.Add(animation);
-                    AnimationAdded(animation);
+                    continue;
                 }
+                _animations.Add(animation);
+                AnimationAdded(animation);
             }
         }
 
-        public System.Drawing.Color SceneBackColor
+        private System.Drawing.Color SceneBackColor
         {
             set
             {
                 if (_scene == null)
-                    throw new Exception("Window must be initialized");
-
-                _scene.ClearColor = new Color
                 {
-                    R = value.R / 255f,
-                    G = value.G / 255f,
-                    B = value.B / 255f
-                };
+                    throw new Exception("Window must be initialized");
+                }
+                _scene.ClearColor = new Color
+                (
+                    value.R / 255f,
+                    value.G / 255f,
+                    value.B / 255f
+                );
             }
-        }
-
-        private void SetupCulture()
-        {
-            var customCulture = (CultureInfo)Thread.CurrentThread.CurrentCulture.Clone();
-            customCulture.NumberFormat.NumberDecimalSeparator = ".";
-            Thread.CurrentThread.CurrentCulture = customCulture;
-        }
-
-        private void SetupInternals()
-        {
-            _vramPage = new Texture[32];
-            //_debug = debug;
-            _scene = new Scene();
         }
 
         private void SetupControls()
@@ -188,8 +192,10 @@ namespace PSXPrev
                 VSync = true
             };
             _openTkControl.Load += openTKControl_Load;
-            _openTkControl.MouseWheel += openTkControl_MouseWhell;
-            _openTkControl.MouseMove += openTkControl_MouseEvent;
+            _openTkControl.MouseDown += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Down); };
+            _openTkControl.MouseUp += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Up); };
+            _openTkControl.MouseWheel += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Wheel); };
+            _openTkControl.MouseMove += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Move); };
             _openTkControl.Paint += _openTkControl_Paint;
             entitiesTabPage.Controls.Add(_openTkControl);
         }
@@ -198,16 +204,11 @@ namespace PSXPrev
         {
             if (_inAnimationTab && _curAnimation != null)
             {
-                _scene.AnimationBatch.SetupAnimationFrame(_curAnimationFrame);
+                _scene.AnimationBatch.SetupAnimationFrame(_curAnimationFrame, _curAnimationObject, _curEntity);
             }
             _scene.Draw();
             _openTkControl.SwapBuffers();
         }
-
-        //private void ResetSelectedTriangle()
-        //{
-        //    _selectedTriangle = int.MaxValue;
-        //}
 
         private void SetupScene()
         {
@@ -230,18 +231,16 @@ namespace PSXPrev
 
         private void SetupEntities()
         {
-            for (var e = 0; e < _rootEntities.Count; e++)
+            foreach (var entity in _rootEntities)
             {
-                var entity = _rootEntities[e];
                 EntityAdded(entity);
             }
         }
 
         private void SetupAnimations()
         {
-            for (var a = 0; a < _animations.Count; a++)
+            foreach (var animation in _animations)
             {
-                var animation = _animations[a];
                 AnimationAdded(animation);
             }
         }
@@ -252,10 +251,19 @@ namespace PSXPrev
             for (var o = 0; o < animationObjects.Count; o++)
             {
                 var animationObject = animationObjects[o];
-                var animationObjectNode = new TreeNode("Animation-Object " + o) { Tag = animationObject };
+                var animationObjectNode = new TreeNode("Animation-Object " + (o + 1));
+                animationObjectNode.Tag = animationObject;
                 parentNode.Nodes.Add(animationObjectNode);
                 animationObjectNode.HideCheckBox();
                 animationObjectNode.HideCheckBox();
+                //foreach (var animationFrame in animationObject.AnimationFrames)
+                //{
+                //    var animationFrameNode = new TreeNode("Frame " + animationFrame.Value.FrameTime);
+                //    animationFrameNode.Tag = animationFrame.Value;
+                //    // animationFrameNode.HideCheckBox();
+                //    //animationFrameNode.HideCheckBox();
+                //    animationObjectNode.Nodes.Add(animationFrameNode);
+                //}
                 AddAnimationObject(animationObject, animationObjectNode);
             }
         }
@@ -279,19 +287,34 @@ namespace PSXPrev
             _redrawTimer.Interval = 1f / 60f;
             _redrawTimer.Elapsed += _redrawTimer_Elapsed;
             _redrawTimer.Start();
-
             _animateTimer = new Timer();
-            _animateTimer.Interval = 1f / 60f;
             _animateTimer.Elapsed += _animateTimer_Elapsed;
         }
+
+        //private AnimationFrame GetSelectedAnimationFrame()
+        //{
+        //    var selectedNode = animationsTreeView.SelectedNode;
+        //    if (selectedNode != null)
+        //    {
+        //        var selectedAnimationFrame = selectedNode.Tag as AnimationFrame;
+        //        if (selectedAnimationFrame != null)
+        //        {
+        //            return selectedAnimationFrame;
+        //        }
+        //    }
+        //    return null;
+        //}
 
         private void _animateTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             if (_curAnimationFrame < _curAnimation.FrameCount)
+            {
                 _curAnimationFrame++;
+            }
             else
+            {
                 _curAnimationFrame = 0;
-            //animationTrackBar.Value = _curAnimationFrame;
+            }
         }
 
         private void _redrawTimer_Elapsed(object sender, ElapsedEventArgs e)
@@ -299,18 +322,18 @@ namespace PSXPrev
             Redraw();
         }
 
-        private RootEntity[] GetSelectectedEntities()
+        private RootEntity[] GetCheckedEntities()
         {
             var selectedEntities = new List<RootEntity>();
             for (var i = 0; i < entitiesTreeView.Nodes.Count; i++)
             {
                 var node = entitiesTreeView.Nodes[i];
                 if (node.Checked)
+                {
                     selectedEntities.Add(_rootEntities[i]);
+                }
             }
-            if (selectedEntities.Count == 0)
-                return null;
-            return selectedEntities.ToArray();
+            return selectedEntities.Count == 0 ? null : selectedEntities.ToArray();
         }
 
         private DialogResult ShowEntityFolderSelect(out string path)
@@ -336,28 +359,123 @@ namespace PSXPrev
                 return;
             }
             var fbd = new FolderBrowserDialog { Description = "Select the output folder" };
-            if (fbd.ShowDialog() == DialogResult.OK)
+            if (fbd.ShowDialog() != DialogResult.OK)
             {
-                var selectedTextures = new Texture[selectedCount];
-                for (var i = 0; i < selectedCount; i++)
-                    selectedTextures[i] = _textures[selectedIndices[i]];
-                var exporter = new PngExporter();
-                exporter.Export(selectedTextures, fbd.SelectedPath);
-                MessageBox.Show("Textures exported");
+                return;
             }
-        }
-
-        private void openTkControl_MouseWhell(object sender, MouseEventArgs e)
-        {
-            _scene.CameraDistance -= e.Delta * Scene.MouseSensivity * _scene.CameraDistanceIncrement;
-        }
-
-        private void openTkControl_MouseEvent(object sender, MouseEventArgs e)
-        {
-            if (e.Button == MouseButtons.Left)
+            var selectedTextures = new Texture[selectedCount];
+            for (var i = 0; i < selectedCount; i++)
             {
-                _scene.CameraYaw -= (e.X - _lastMouseX) * Scene.MouseSensivity;
-                _scene.CameraPitch += (e.Y - _lastMouseY) * Scene.MouseSensivity;
+                selectedTextures[i] = _textures[selectedIndices[i]];
+            }
+            var exporter = new PngExporter();
+            exporter.Export(selectedTextures, fbd.SelectedPath);
+            MessageBox.Show("Textures exported");
+        }
+
+        private void SelectEntity(RootEntity rootEntity)
+        {
+            _selectionSource = EntitySelectionSource.Click;
+            var rootIndex = _rootEntities.IndexOf(rootEntity);
+            entitiesTreeView.SelectedNode = entitiesTreeView.Nodes[rootIndex];
+        }
+
+        private void openTkControl_MouseEvent(MouseEventArgs e, MouseEventType t)
+        {
+            if (t == MouseEventType.Wheel)
+            {
+                _scene.CameraDistance -= e.Delta * MouseSensivity * _scene.CameraDistanceIncrement;
+                _scene.UpdateViewMatrix();
+                UpdateGizmos(_selectedGizmo, false);
+                return;
+            }
+            var selectedEntityBase = (EntityBase)_curEntity ?? _curModel;
+            var selectedGizmo = _selectedGizmo;
+            var deltaX = e.X - _lastMouseX;
+            var deltaY = e.Y - _lastMouseY;
+            var mouseLeft = e.Button == MouseButtons.Left;
+            var mouseMiddle = e.Button == MouseButtons.Middle;
+            var mouseRight = e.Button == MouseButtons.Right;
+            var controlWidth = _openTkControl.Size.Width;
+            var controlHeight = _openTkControl.Size.Height;
+            switch (_selectedGizmo)
+            {
+                case Scene.GizmoId.None:
+                    if (mouseLeft && t == MouseEventType.Down)
+                    {
+                        selectedGizmo = _scene.GetGizmoUnderPosition(e.Location.X, e.Location.Y, controlWidth, controlHeight, selectedEntityBase);
+                        if (selectedGizmo == Scene.GizmoId.None)
+                        {
+                            var checkedEntities = GetCheckedEntities();
+                            var newSelectedEntity = _scene.GetRootEntityUnderMouse(checkedEntities, _curEntity, e.Location.X, e.Location.Y, controlWidth, controlHeight);
+                            if (newSelectedEntity != null && newSelectedEntity != selectedEntityBase)
+                            {
+                                SelectEntity(newSelectedEntity);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var hasToUpdateViewMatrix = false;
+                        if (mouseRight && t == MouseEventType.Move)
+                        {
+                            _scene.CameraYaw -= deltaX * MouseSensivity;
+                            _scene.CameraPitch += deltaY * MouseSensivity;
+                            hasToUpdateViewMatrix = true;
+                        }
+                        if (mouseMiddle && t == MouseEventType.Move)
+                        {
+                            _scene.CameraX += deltaX * MouseSensivity * _scene.CameraPanIncrement;
+                            _scene.CameraY += deltaY * MouseSensivity * _scene.CameraPanIncrement;
+                            hasToUpdateViewMatrix = true;
+                        }
+                        if (hasToUpdateViewMatrix)
+                        {
+                            _scene.UpdateViewMatrix();
+                            UpdateGizmos(_selectedGizmo, false);
+                        }
+                    }
+                    break;
+                case Scene.GizmoId.XMover:
+                    if (mouseLeft && t == MouseEventType.Move && selectedEntityBase != null)
+                    {
+                        var offset = _scene.GetGizmoProjectionOffset(e.Location.X, e.Location.Y, controlWidth, controlHeight, selectedEntityBase, _scene.GetBestPlaneNormal(GeomUtils.ZVector, GeomUtils.YVector), GeomUtils.XVector);
+                        selectedEntityBase.PositionX += offset.X;
+                        UpdateSelectedEntity(false);
+                    }
+                    else
+                    {
+                        selectedGizmo = Scene.GizmoId.None;
+                    }
+                    break;
+                case Scene.GizmoId.YMover:
+                    if (mouseLeft && t == MouseEventType.Move && selectedEntityBase != null)
+                    {
+                        var offset = _scene.GetGizmoProjectionOffset(e.Location.X, e.Location.Y, controlWidth, controlHeight, selectedEntityBase, _scene.GetBestPlaneNormal(GeomUtils.ZVector, GeomUtils.XVector), GeomUtils.YVector);
+                        selectedEntityBase.PositionY += offset.Y;
+                        UpdateSelectedEntity(false);
+                    }
+                    else
+                    {
+                        selectedGizmo = Scene.GizmoId.None;
+                    }
+                    break;
+                case Scene.GizmoId.ZMover:
+                    if (mouseLeft && t == MouseEventType.Move && selectedEntityBase != null)
+                    {
+                        var offset = _scene.GetGizmoProjectionOffset(e.Location.X, e.Location.Y, controlWidth, controlHeight, selectedEntityBase, _scene.GetBestPlaneNormal(GeomUtils.YVector, GeomUtils.XVector), GeomUtils.ZVector);
+                        selectedEntityBase.PositionZ += offset.Z;
+                        UpdateSelectedEntity(false);
+                    }
+                    else
+                    {
+                        selectedGizmo = Scene.GizmoId.None;
+                    }
+                    break;
+            }
+            if (selectedGizmo != _selectedGizmo)
+            {
+                UpdateGizmos(selectedGizmo);
             }
             _lastMouseX = e.X;
             _lastMouseY = e.Y;
@@ -365,90 +483,92 @@ namespace PSXPrev
 
         private void entitiesTreeView_AfterSelect(object sender, TreeViewEventArgs e)
         {
-            var node = e.Node;
-            var nodeIndex = node.Index;
-            var nodeLevel = node.Level;
-            SelectModelOrEntity(nodeIndex, nodeLevel, true);
+            if (_selectionSource == EntitySelectionSource.None)
+            {
+                _selectionSource = EntitySelectionSource.TreeView;
+            }
+            var selectedNode = entitiesTreeView.SelectedNode;
+            if (selectedNode != null)
+            {
+                _curEntity = selectedNode.Tag as RootEntity;
+                _curModel = selectedNode.Tag as ModelEntity;
+            }
+            UpdateSelectedEntity();
         }
 
-        private object SelectModelOrEntity(int nodeIndex, int nodeLevel, bool focus)
+        private void UpdateGizmos(Scene.GizmoId selectedGizmo = Scene.GizmoId.None, bool updateMeshData = true)
         {
-            //_scene.LineBatch.Reset();
-            ModelEntity model;
-            switch (nodeLevel)
+            if (updateMeshData)
             {
-                case 0:
-                    var entity = GetSelectedEntity(nodeIndex);
-                    //ResetSelectedTriangle();
-                    _scene.MeshBatch.SetupEntityBatch(entity, focus);
-                    modelPropertyGrid.SelectedObject = entity;
-                    return entity;
-                case 1:
-                    model = GetSelectedModel();
-                    //ResetSelectedTriangle();
-                    _scene.MeshBatch.SetupModelBatch(model, focus);
-                    modelPropertyGrid.SelectedObject = model;
-                    return model;
-                case 2:
-                    model = GetSelectedModel(true);
-                    //_selectedTriangle = (ushort) nodeIndex;
-                    _scene.MeshBatch.SetupModelBatch(model);
-                    var triangle = model.Triangles[nodeIndex];
-                    modelPropertyGrid.SelectedObject = triangle;
-                    return model;
+                _scene.GizmosMeshBatch.Reset(3);
             }
-            return null;
+            var selectedEntityBase = (EntityBase)_curEntity ?? _curModel;
+            if (selectedEntityBase == null)
+            {
+                return;
+            }
+            var matrix = selectedEntityBase.WorldMatrix;
+            var scaleMatrix = _scene.GetGizmoScaleMatrix(matrix.ExtractTranslation());
+            var finalMatrix = scaleMatrix * matrix;
+            _scene.GizmosMeshBatch.BindCube(finalMatrix, selectedGizmo == Scene.GizmoId.XMover ? Color.White : Color.Red, Scene.XGizmoDimensions, Scene.XGizmoDimensions, 0, null, updateMeshData);
+            _scene.GizmosMeshBatch.BindCube(finalMatrix, selectedGizmo == Scene.GizmoId.YMover ? Color.White : Color.Green, Scene.YGizmoDimensions, Scene.YGizmoDimensions, 1, null, updateMeshData);
+            _scene.GizmosMeshBatch.BindCube(finalMatrix, selectedGizmo == Scene.GizmoId.ZMover ? Color.White : Color.Blue, Scene.ZGizmoDimensions, Scene.ZGizmoDimensions, 2, null, updateMeshData);
+            _selectedGizmo = selectedGizmo;
+        }
+
+        private void UpdateSelectedEntity(bool updateMeshData = true)
+        {
+            _scene.BoundsBatch.Reset();
+            _scene.SkeletonBatch.Reset();
+            var selectedEntityBase = (EntityBase)_curEntity ?? _curModel;
+            if (selectedEntityBase != null)
+            {
+                selectedEntityBase.ComputeBoundsRecursively();
+                modelPropertyGrid.SelectedObject = selectedEntityBase;
+                var checkedEntities = GetCheckedEntities();
+                _scene.BoundsBatch.SetupEntityBounds(selectedEntityBase);
+                _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, _curModel, _curEntity, _scene.TextureBinder, updateMeshData, _selectionSource == EntitySelectionSource.TreeView && _curModel == null);
+            }
+            else
+            {
+                modelPropertyGrid.SelectedObject = null;
+                _scene.MeshBatch.Reset(0);
+                _selectedGizmo = Scene.GizmoId.None;
+            }
+            UpdateGizmos(_selectedGizmo, updateMeshData);
+            _selectionSource = EntitySelectionSource.None;
+        }
+
+        private void UpdateSelectedAnimation()
+        {
+            var selectedObject = (object) _curAnimationObject ?? _curAnimation;
+            if (selectedObject == null)
+            {
+                return;
+            }
+            if (_curAnimation != null)
+            {
+                _curAnimationFrame = 0;
+                _animateTimer.Interval = 1f / _curAnimation.FPS;
+                animationPlayButton.Enabled = true;
+                Playing = false;
+            }
+            animationPropertyGrid.SelectedObject = selectedObject;
+            _scene.AnimationBatch.SetupAnimationBatch(_curAnimation);
         }
 
         private Texture GetSelectedTexture(int? index = null)
         {
             if (texturesListView.SelectedIndices.Count == 0)
+            {
                 return null;
+            }
             var textureIndex = index ?? texturesListView.SelectedIndices[0];
             if (textureIndex < 0)
+            {
                 return null;
+            }
             return _textures[textureIndex];
-        }
-
-        private RootEntity GetSelectedEntity(int? entityIndex = null)
-        {
-            int index;
-            if (entitiesTreeView.SelectedNode == null)
-                return null;
-            if (entityIndex == null)
-                index = entitiesTreeView.SelectedNode.Index;
-            else
-                index = (int)entityIndex;
-            if (index < 0)
-                return null;
-            var entity = _rootEntities[index];
-            return entity;
-        }
-
-        private ModelEntity GetSelectedModel(bool fromTriangle = false)
-        {
-            var selectedNode = entitiesTreeView.SelectedNode;
-            if (selectedNode == null)
-            {
-                return null;
-            }
-            var parentNode = selectedNode.Parent;
-            int childIndex;
-            int parentIndex;
-            if (!fromTriangle)
-            {
-                childIndex = selectedNode.Index;
-                parentIndex = parentNode.Index;
-            }
-            else
-            {
-                childIndex = parentNode.Index;
-                parentIndex = parentNode.Parent.Index;
-            }
-            if (childIndex < 0)
-                return null;
-            var model = (ModelEntity)_rootEntities[parentIndex].ChildEntities[childIndex];
-            return model;
         }
 
         private void drawToVRAMButton_Click(object sender, EventArgs e)
@@ -488,37 +608,38 @@ namespace PSXPrev
         {
             var selectedNode = entitiesTreeView.SelectedNode;
             if (selectedNode == null)
+            {
                 return;
-            var nodeLevel = selectedNode.Level;
-            var nodeIndex = selectedNode.Level;
-            if (nodeLevel == 0)
-            {
-                var entity = GetSelectedEntity();
-                selectedNode.Text = entity.EntityName;
             }
-            else
+            if (_curEntity != null)
             {
-                var model = GetSelectedModel();
-                if (model != null)
-                {
-                    model.TexturePage = Math.Min(31, Math.Max(0, model.TexturePage));
-                    model.Texture = _vramPage[model.TexturePage];
-                }
+                selectedNode.Text = _curEntity.EntityName;
             }
-            SelectModelOrEntity(nodeIndex, nodeLevel, false);
+            else if (_curModel != null)
+            {
+                _curModel.TexturePage = Math.Min(31, Math.Max(0, _curModel.TexturePage));
+                _curModel.Texture = _vramPage[_curModel.TexturePage];
+            }
+            UpdateSelectedEntity(false);
         }
 
         private void texturePropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
         {
             var selectedNodes = texturesListView.SelectedItems;
             if (selectedNodes.Count == 0)
+            {
                 return;
+            }
             var selectedNode = selectedNodes[0];
             if (selectedNode == null)
+            {
                 return;
+            }
             var texture = GetSelectedTexture();
             if (texture == null)
+            {
                 return;
+            }
             texture.X = Math.Min(255, Math.Max(0, texture.X));
             texture.Y = Math.Min(255, Math.Max(0, texture.Y));
             texture.TexturePage = Math.Min(31, Math.Max(0, texture.TexturePage));
@@ -548,7 +669,7 @@ namespace PSXPrev
 
         private void cmsModelExport_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
         {
-            var entities = GetSelectectedEntities();
+            var entities = GetCheckedEntities();
             if (entities == null)
             {
                 MessageBox.Show("Check the models to export first");
@@ -567,16 +688,16 @@ namespace PSXPrev
                     var objExporter = new ObjExporter();
                     objExporter.Export(entities, path, true);
                 }
-                //if (e.ClickedItem == miPLY)
-                //{
-                //    var plyExporter = new PlyExporter();
-                //    plyExporter.Export(entities, path);
-                //}
-                //if (e.ClickedItem == miDAE)
-                //{
-                //    var daeExporter = new DaeExporter();
-                //    daeExporter.Export(entities, path);
-                //}
+                if (e.ClickedItem == miOBJMerged)
+                {
+                    var objExporter = new ObjExporter();
+                    objExporter.Export(entities, path, false, true);
+                }
+                if (e.ClickedItem == miOBJVCMerged)
+                {
+                    var objExporter = new ObjExporter();
+                    objExporter.Export(entities, path, true, true);
+                }
                 MessageBox.Show("Models exported");
             }
         }
@@ -586,7 +707,9 @@ namespace PSXPrev
             var pageIndexString = Utils.ShowDialog("Find by Page", "Type the page number");
             int pageIndex;
             if (string.IsNullOrEmpty(pageIndexString))
+            {
                 return;
+            }
             if (!int.TryParse(pageIndexString, out pageIndex))
             {
                 MessageBox.Show("Invalid page number");
@@ -598,16 +721,14 @@ namespace PSXPrev
                 var item = texturesListView.Items[i];
                 item.Group = null;
                 var texture = _textures[i];
-                if (texture.TexturePage == pageIndex)
+                if (texture.TexturePage != pageIndex)
                 {
-                    item.Group = texturesListView.Groups[0];
-                    found++;
+                    continue;
                 }
+                item.Group = texturesListView.Groups[0];
+                found++;
             }
-            if (found > 0)
-                MessageBox.Show(string.Format("Found {0} itens", found));
-            else
-                MessageBox.Show("Nothing found");
+            MessageBox.Show(found > 0 ? $"Found {found} items" : "Nothing found");
         }
 
         private void texturesListView_SelectedIndexChanged(object sender, EventArgs e)
@@ -619,7 +740,9 @@ namespace PSXPrev
             }
             var texture = GetSelectedTexture();
             if (texture == null)
+            {
                 return;
+            }
             var bitmap = texture.Bitmap;
             texturePreviewPictureBox.Image = bitmap;
             texturePreviewPictureBox.Refresh();
@@ -632,22 +755,31 @@ namespace PSXPrev
             {
                 return;
             }
-            var modelEntity = entity as ModelEntity;
-            if (modelEntity != null && modelEntity.HasUvs)
+            if (entity is ModelEntity modelEntity && modelEntity.HasUvs)
             {
                 foreach (var triangle in modelEntity.Triangles)
                 {
-                    graphics.DrawLine(Pens.Green, triangle.Uv[0].X * 255f, triangle.Uv[0].Y * 255f, triangle.Uv[1].X * 255f, triangle.Uv[1].Y * 255f);
-                    graphics.DrawLine(Pens.Green, triangle.Uv[1].X * 255f, triangle.Uv[1].Y * 255f, triangle.Uv[2].X * 255f, triangle.Uv[2].Y * 255f);
-                    graphics.DrawLine(Pens.Green, triangle.Uv[2].X * 255f, triangle.Uv[2].Y * 255f, triangle.Uv[0].X * 255f, triangle.Uv[0].Y * 255f);
+                    graphics.DrawLine(Black3Px, triangle.Uv[0].X * 255f, triangle.Uv[0].Y * 255f, triangle.Uv[1].X * 255f, triangle.Uv[1].Y * 255f);
+                    graphics.DrawLine(Black3Px, triangle.Uv[1].X * 255f, triangle.Uv[1].Y * 255f, triangle.Uv[2].X * 255f, triangle.Uv[2].Y * 255f);
+                    graphics.DrawLine(Black3Px, triangle.Uv[2].X * 255f, triangle.Uv[2].Y * 255f, triangle.Uv[0].X * 255f, triangle.Uv[0].Y * 255f);
                 }
             }
-            if (entity.ChildEntities != null)
+            if (entity is ModelEntity modelEntity2 && modelEntity2.HasUvs)
             {
-                foreach (var subEntity in entity.ChildEntities)
+                foreach (var triangle in modelEntity2.Triangles)
                 {
-                    DrawUV(subEntity, graphics);
+                    graphics.DrawLine(White1Px, triangle.Uv[0].X * 255f, triangle.Uv[0].Y * 255f, triangle.Uv[1].X * 255f, triangle.Uv[1].Y * 255f);
+                    graphics.DrawLine(White1Px, triangle.Uv[1].X * 255f, triangle.Uv[1].Y * 255f, triangle.Uv[2].X * 255f, triangle.Uv[2].Y * 255f);
+                    graphics.DrawLine(White1Px, triangle.Uv[2].X * 255f, triangle.Uv[2].Y * 255f, triangle.Uv[0].X * 255f, triangle.Uv[0].Y * 255f);
                 }
+            }
+            if (entity.ChildEntities == null)
+            {
+                return;
+            }
+            foreach (var subEntity in entity.ChildEntities)
+            {
+                DrawUV(subEntity, graphics);
             }
         }
 
@@ -663,13 +795,15 @@ namespace PSXPrev
 
         private void wireframeToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
-            _scene.WireFrame = wireframeToolStripMenuItem.Checked;
+            _scene.Wireframe = wireframeToolStripMenuItem.Checked;
         }
 
         private void clearAllPagesToolStripMenuItem_Click(object sender, EventArgs e)
         {
             for (var i = 0; i < 32; i++)
+            {
                 ClearPage(i);
+            }
             MessageBox.Show("Pages cleared");
         }
 
@@ -700,9 +834,9 @@ namespace PSXPrev
                     break;
                 case 3:
                     _inAnimationTab = true;
-                    entitiesTreeView.SelectedNode = null;
                     _openTkControl.Parent = menusTabControl.TabPages[3];
                     _openTkControl.Show();
+                    UpdateSelectedAnimation();
                     break;
                 default:
                     _openTkControl.Parent = this;
@@ -713,75 +847,39 @@ namespace PSXPrev
 
         private void animationsTreeView_AfterSelect(object sender, TreeViewEventArgs e)
         {
-            SelectAnimationOrObject();
-        }
-
-        private void SelectAnimationOrObject()
-        {
             var selectedNode = animationsTreeView.SelectedNode;
             if (selectedNode == null)
             {
-                _curAnimation = null;
-                _curAnimationFrame = 0;
-                animationPlayButton.Enabled = false;
                 return;
             }
-            Animation animation;
-            var result = selectedNode.Tag;
-            animationPropertyGrid.SelectedObject = result;
-            if (animationsTreeView.SelectedNode.Level == 0)
+            if (selectedNode.Tag is Animation animation)
             {
-                animation = (Animation)result;
+                _curAnimation = animation;
+                _curAnimationObject = null;
             }
-            else
+            if (selectedNode.Tag is AnimationObject animationObject)
             {
-                var animationObject = (AnimationObject)selectedNode.Tag;
-                animation = animationObject.Animation;
-                UnselectAllAnimationObjects(animation.RootAnimationObject);
-                animationObject.IsSelected = true;
+                _curAnimation = animationObject.Animation;
+                _curAnimationObject = animationObject;
             }
-            _curAnimation = animation;
-            _curAnimationFrame = 0;
-            animationPlayButton.Enabled = true;
-            _scene.AnimationBatch.SetupAnimationBatch(_curAnimation);
-        }
-
-        private void UnselectAllAnimationObjects(AnimationObject rootAnimationObject)
-        {
-            foreach (var animationObject in rootAnimationObject.Children)
-            {
-                animationObject.IsSelected = false;
-                UnselectAllAnimationObjects(animationObject);
-            }
+            UpdateSelectedAnimation();
         }
 
         private void animationPropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
         {
-            SelectAnimationOrObject();
+            UpdateSelectedAnimation();
         }
 
         private void animationPlayButton_Click(object sender, EventArgs e)
         {
-            if (_playing)
-            {
-                _animateTimer.Stop();
-                _playing = false;
-            }
-            else
-            {
-                _animateTimer.Start();
-                _playing = true;
-            }
+            Playing = !Playing;
         }
 
         public void UpdateProgress(int value, int max, bool complete, string message)
         {
             if (InvokeRequired)
             {
-                var invokeAction = new Action<int, int, bool, string>((a, b, c, d) =>
-                    UpdateProgress(a, b, c, d)
-                );
-
+                var invokeAction = new Action<int, int, bool, string>(UpdateProgress);
                 Invoke(invokeAction, value, max, complete, message);
             }
             else
@@ -803,23 +901,55 @@ namespace PSXPrev
             else
             {
                 _refreshAction(this);
-
                 Redraw();
             }
         }
 
-        private void showUVCheckBox_CheckedChanged(object sender, EventArgs e)
+        private void vramPagePictureBox_Paint(object sender, PaintEventArgs e)
         {
-            _showUv = showUVCheckBox.Checked;
+            if (!_showUv)
+            {
+                return;
+            }
+            var checkedEntities = GetCheckedEntities();
+            if (checkedEntities != null)
+            {
+                foreach (var checkedEntity in checkedEntities)
+                {
+                    if (checkedEntity == _curEntity)
+                    {
+                        continue;
+                    }
+                    DrawUV(checkedEntity, e.Graphics);
+                }
+            }
+            DrawUV(_curEntity, e.Graphics);
+        }
+
+        private void entitiesTreeView_AfterCheck(object sender, TreeViewEventArgs e)
+        {
+            UpdateSelectedEntity();
+        }
+
+        private void showGizmosToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _scene.ShowGizmos = showGizmosToolStripMenuItem.Checked;
+        }
+
+        private void showBoundsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _scene.ShowBounds = showBoundsToolStripMenuItem.Checked;
+        }
+
+        private void showUVToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _showUv = showUVToolStripMenuItem.Checked;
             vramPagePictureBox.Refresh();
         }
 
-        private void vramPagePictureBox_Paint(object sender, PaintEventArgs e)
+        private void showSkeletonToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
-            if (_showUv)
-            {
-                DrawUV(GetSelectedEntity(), e.Graphics);
-            }
+            _scene.ShowSkeleton = showSkeletonToolStripMenuItem.Checked;
         }
     }
 }

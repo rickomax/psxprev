@@ -36,10 +36,9 @@ namespace PSXPrev
             _colorBuffer = _ids[1];
             _normalBuffer = _ids[2];
             _uvBuffer = _ids[3];
-            //_indexBuffer = _ids[4];
         }
 
-        public void Draw()
+        public void Draw(float width = 1f)
         {
             GL.BindVertexArray(_meshId);
 
@@ -59,13 +58,15 @@ namespace PSXPrev
             GL.EnableVertexAttribArray((uint)Scene.AttributeIndexUv);
             GL.VertexAttribPointer((uint)Scene.AttributeIndexUv, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
 
+            GL.LineWidth(width);
             GL.DrawArrays(PrimitiveType.Lines, 0, _numElements);
+            GL.LineWidth(1f);
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
             GL.BindVertexArray(0);
         }
 
-        public void SetData(int numElements, float[] positionList, float[] normalList, float[] colorList, float[] uvList)//, int[] indexList)
+        public void SetData(int numElements, float[] positionList, float[] normalList, float[] colorList, float[] uvList)
         {
             _numElements = numElements;
 
@@ -84,10 +85,6 @@ namespace PSXPrev
             GL.BindBuffer(BufferTarget.ArrayBuffer, _uvBuffer);
             BufferData(uvList);
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-
-            //GL.BindBuffer(BufferTarget.ArrayBuffer, _indexBuffer);
-            //BufferData(indexList);
-            //GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
         }
 
         //public void SetData(int numElements, float[] positionList)

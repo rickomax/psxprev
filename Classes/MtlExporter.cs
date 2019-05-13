@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Globalization;
 using System.IO;
-
 
 namespace PSXPrev
 {
@@ -11,13 +9,12 @@ namespace PSXPrev
         private readonly int _modelIndex;
         private readonly bool[] _exportedPages = new bool[32];
 
-        public MtlExporter(int modelIndex, string selectedPath)
+        public MtlExporter(string selectedPath, int modelIndex)
         {
-            _modelIndex = modelIndex;
-            _writer = new StreamWriter(selectedPath + "/mtl" + modelIndex + ".mtl");
+            _writer = new StreamWriter($"{selectedPath}/mtl{modelIndex}.mtl");
         }
 
-        public bool AddMaterial(Texture selectedTexture, int texturePage)
+        public bool AddMaterial(int texturePage)
         {
             if (_exportedPages[texturePage])
             {
@@ -30,7 +27,7 @@ namespace PSXPrev
             _writer.WriteLine("Ks 0.00000 0.00000 0.00000");
             _writer.WriteLine("d 1.00000");
             _writer.WriteLine("illum 0");
-            _writer.WriteLine("map_Kd {0}_{1}.png", _modelIndex, texturePage);
+            _writer.WriteLine("map_Kd {0}.png", texturePage);
             return true;
         }
 

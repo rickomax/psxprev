@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 
@@ -15,12 +16,12 @@ namespace PSXPrev
         public LineBatch()
         {
             _lines = new List<Line>(100);
-            Reset(1);
+            ResetMeshes(1);
         }
 
-        public void AddLine(Line line)
+        public void AddLine(Vector3 p1, Vector3 p2, Color color)
         {
-            _lines.Add(line);
+            _lines.Add(new Line(new Vector4(p1), new Vector4(p2), color));
         }
 
         public void Reset()
@@ -28,7 +29,7 @@ namespace PSXPrev
             _lines.Clear();
         }
 
-        public void SetupAndDraw(Matrix4 viewMatrix, Matrix4 projectionMatrix)
+        public void SetupAndDraw(Matrix4 viewMatrix, Matrix4 projectionMatrix, float width = 1f)
         {
             var numLines = _lines.Count;
             if (numLines == 0)
@@ -45,15 +46,15 @@ namespace PSXPrev
             for (var l = 0; l < numLines; l++)
             {
                 var line = _lines[l];
-                FillVertex(line.p1, ref baseIndex, ref positionList, ref normalList, ref colorList, ref uvList);
-                FillVertex(line.p2, ref baseIndex, ref positionList, ref normalList, ref colorList, ref uvList);
+                FillVertex(line.P1, line.Color, ref baseIndex, ref positionList, ref normalList, ref colorList, ref uvList);
+                FillVertex(line.P2, line.Color, ref baseIndex, ref positionList, ref normalList, ref colorList, ref uvList);
             }
             var lineMesh = GetLine(0);
             lineMesh.SetData(numPoints, positionList, normalList, colorList, uvList);
-            Draw(viewMatrix, projectionMatrix);
+            Draw(viewMatrix, projectionMatrix, width);
         }
 
-        private static void FillVertex(Vector4 position, ref int baseIndex, ref float[] positionList, ref float[] normalList, ref float[] colorList, ref float[] uvList)
+        private static void FillVertex(Vector4 position, Color color, ref int baseIndex, ref float[] positionList, ref float[] normalList, ref float[] colorList, ref float[] uvList)
         {
             var index1 = baseIndex++;
             var index2 = baseIndex++;
@@ -67,27 +68,23 @@ namespace PSXPrev
             normalList[index2] = 0f;
             normalList[index3] = 0f;
 
-            colorList[index1] = 1f;
-            colorList[index2] = 1f;
-            colorList[index3] = 1f;
+            colorList[index1] = color.R;
+            colorList[index2] = color.G;
+            colorList[index3] = color.B;
 
             uvList[index1] = 0f;
             uvList[index2] = 0f;
             uvList[index3] = 0f;
         }
 
-        private void Reset(int nLines)
+        private void ResetMeshes(int nLines)
         {
             IsValid = true;
             if (_linesMesh != null)
             {
                 foreach (var mesh in _linesMesh)
                 {
-                    if (mesh == null)
-                    {
-                        continue;
-                    }
-                    mesh.Delete();
+                    mesh?.Delete();
                 }
             }
             _linesMesh = new LineMesh[nLines];
@@ -104,23 +101,42 @@ namespace PSXPrev
             return _linesMesh[index];
         }
 
-        private void Draw(Matrix4 viewMatrix, Matrix4 projectionMatrix)
+        private void Draw(Matrix4 viewMatrix, Matrix4 projectionMatrix, float width = 1f)
         {
             if (!IsValid)
             {
                 return;
             }
-
             var line = _linesMesh[0];
             if (line == null)
             {
                 return;
             }
-
             var modelMatrix = Matrix4.Identity;
             var mvpMatrix = modelMatrix * viewMatrix * projectionMatrix;
             GL.UniformMatrix4(Scene.UniformIndexMVP, false, ref mvpMatrix);
-            line.Draw();
+            line.Draw(width);
+        }
+
+        public void SetupEntityBounds(EntityBase entity)
+        {
+            if (entity == null)
+            {
+                return;
+            }
+            var corners = entity.Bounds3D.Corners;
+            AddLine(corners[0], corners[2], Color.White);
+            AddLine(corners[2], corners[4], Color.White);
+            AddLine(corners[4], corners[1], Color.White);
+            AddLine(corners[1], corners[0], Color.White);
+            AddLine(corners[6], corners[7], Color.White);
+            AddLine(corners[7], corners[5], Color.White);
+            AddLine(corners[5], corners[3], Color.White);
+            AddLine(corners[3], corners[6], Color.White);
+            AddLine(corners[4], corners[7], Color.White);
+            AddLine(corners[6], corners[2], Color.White);
+            AddLine(corners[1], corners[5], Color.White);
+            AddLine(corners[3], corners[0], Color.White);
         }
     }
 }

@@ -45,23 +45,25 @@
             this.texturePreviewPictureBox = new System.Windows.Forms.PictureBox();
             this.exportBitmapButton = new System.Windows.Forms.Button();
             this.vramTabPage = new System.Windows.Forms.TabPage();
-            this.showUVCheckBox = new System.Windows.Forms.CheckBox();
             this.btnClearPage = new System.Windows.Forms.Button();
             this.vramPageLabel = new System.Windows.Forms.Label();
             this.vramComboBox = new System.Windows.Forms.ComboBox();
             this.vramPagePictureBox = new System.Windows.Forms.PictureBox();
             this.animationsTabPage = new System.Windows.Forms.TabPage();
-            this.animationEntityComboBox = new System.Windows.Forms.ComboBox();
             this.animationPlayButton = new System.Windows.Forms.Button();
             this.animationPropertyGrid = new System.Windows.Forms.PropertyGrid();
             this.animationsTreeView = new System.Windows.Forms.TreeView();
             this.cmsModelExport = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.miOBJ = new System.Windows.Forms.ToolStripMenuItem();
             this.miOBJVC = new System.Windows.Forms.ToolStripMenuItem();
+            this.miOBJMerged = new System.Windows.Forms.ToolStripMenuItem();
+            this.miOBJVCMerged = new System.Windows.Forms.ToolStripMenuItem();
             this.exportSelectedToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.mainMenuStrip = new System.Windows.Forms.MenuStrip();
             this.modelsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.wireframeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.showGizmosToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.showBoundsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.texturesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.exportSelectedToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.drawToVRAMToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -70,7 +72,9 @@
             this.vRAMToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.clearPageToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.clearAllPagesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.showUVToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.animationsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.showSkeletonToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.toolStripProgressBar1 = new System.Windows.Forms.ToolStripProgressBar();
             this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
@@ -119,6 +123,7 @@
             this.entitiesTreeView.Name = "entitiesTreeView";
             this.entitiesTreeView.Size = new System.Drawing.Size(175, 399);
             this.entitiesTreeView.TabIndex = 9;
+            this.entitiesTreeView.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.entitiesTreeView_AfterCheck);
             this.entitiesTreeView.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.entitiesTreeView_AfterSelect);
             // 
             // exportEntityButton
@@ -127,7 +132,7 @@
             this.exportEntityButton.Name = "exportEntityButton";
             this.exportEntityButton.Size = new System.Drawing.Size(177, 34);
             this.exportEntityButton.TabIndex = 8;
-            this.exportEntityButton.Text = "Export Selected";
+            this.exportEntityButton.Text = "Export Checked Models";
             this.exportEntityButton.UseVisualStyleBackColor = true;
             this.exportEntityButton.Click += new System.EventHandler(this.exportEntityButton_Click);
             // 
@@ -226,13 +231,12 @@
             this.exportBitmapButton.Name = "exportBitmapButton";
             this.exportBitmapButton.Size = new System.Drawing.Size(177, 34);
             this.exportBitmapButton.TabIndex = 9;
-            this.exportBitmapButton.Text = "Export Selected";
+            this.exportBitmapButton.Text = "Export Selected Textures";
             this.exportBitmapButton.UseVisualStyleBackColor = true;
             this.exportBitmapButton.Click += new System.EventHandler(this.exportBitmapButton_Click);
             // 
             // vramTabPage
             // 
-            this.vramTabPage.Controls.Add(this.showUVCheckBox);
             this.vramTabPage.Controls.Add(this.btnClearPage);
             this.vramTabPage.Controls.Add(this.vramPageLabel);
             this.vramTabPage.Controls.Add(this.vramComboBox);
@@ -243,19 +247,6 @@
             this.vramTabPage.TabIndex = 2;
             this.vramTabPage.Text = "VRAM";
             this.vramTabPage.UseVisualStyleBackColor = true;
-            // 
-            // showUVCheckBox
-            // 
-            this.showUVCheckBox.AutoSize = true;
-            this.showUVCheckBox.Checked = true;
-            this.showUVCheckBox.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.showUVCheckBox.Location = new System.Drawing.Point(9, 310);
-            this.showUVCheckBox.Name = "showUVCheckBox";
-            this.showUVCheckBox.Size = new System.Drawing.Size(71, 17);
-            this.showUVCheckBox.TabIndex = 16;
-            this.showUVCheckBox.Text = "Show UV";
-            this.showUVCheckBox.UseVisualStyleBackColor = true;
-            this.showUVCheckBox.CheckedChanged += new System.EventHandler(this.showUVCheckBox_CheckedChanged);
             // 
             // btnClearPage
             // 
@@ -331,7 +322,6 @@
             // 
             // animationsTabPage
             // 
-            this.animationsTabPage.Controls.Add(this.animationEntityComboBox);
             this.animationsTabPage.Controls.Add(this.animationPlayButton);
             this.animationsTabPage.Controls.Add(this.animationPropertyGrid);
             this.animationsTabPage.Controls.Add(this.animationsTreeView);
@@ -342,14 +332,6 @@
             this.animationsTabPage.Text = "Animations";
             this.animationsTabPage.UseVisualStyleBackColor = true;
             // 
-            // animationEntityComboBox
-            // 
-            this.animationEntityComboBox.FormattingEnabled = true;
-            this.animationEntityComboBox.Location = new System.Drawing.Point(1, 385);
-            this.animationEntityComboBox.Name = "animationEntityComboBox";
-            this.animationEntityComboBox.Size = new System.Drawing.Size(175, 21);
-            this.animationEntityComboBox.TabIndex = 17;
-            // 
             // animationPlayButton
             // 
             this.animationPlayButton.Enabled = false;
@@ -357,17 +339,17 @@
             this.animationPlayButton.Name = "animationPlayButton";
             this.animationPlayButton.Size = new System.Drawing.Size(177, 34);
             this.animationPlayButton.TabIndex = 16;
-            this.animationPlayButton.Text = "Play/Stop";
+            this.animationPlayButton.Text = "Play Animation";
             this.animationPlayButton.UseVisualStyleBackColor = true;
             this.animationPlayButton.Click += new System.EventHandler(this.animationPlayButton_Click);
             // 
             // animationPropertyGrid
             // 
             this.animationPropertyGrid.HelpVisible = false;
-            this.animationPropertyGrid.Location = new System.Drawing.Point(1, 412);
+            this.animationPropertyGrid.Location = new System.Drawing.Point(1, 399);
             this.animationPropertyGrid.Name = "animationPropertyGrid";
             this.animationPropertyGrid.PropertySort = System.Windows.Forms.PropertySort.NoSort;
-            this.animationPropertyGrid.Size = new System.Drawing.Size(175, 151);
+            this.animationPropertyGrid.Size = new System.Drawing.Size(175, 164);
             this.animationPropertyGrid.TabIndex = 15;
             this.animationPropertyGrid.ToolbarVisible = false;
             this.animationPropertyGrid.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.animationPropertyGrid_PropertyValueChanged);
@@ -378,7 +360,7 @@
             this.animationsTreeView.HideSelection = false;
             this.animationsTreeView.Location = new System.Drawing.Point(1, 3);
             this.animationsTreeView.Name = "animationsTreeView";
-            this.animationsTreeView.Size = new System.Drawing.Size(175, 376);
+            this.animationsTreeView.Size = new System.Drawing.Size(175, 390);
             this.animationsTreeView.TabIndex = 10;
             this.animationsTreeView.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.animationsTreeView_AfterSelect);
             // 
@@ -386,29 +368,44 @@
             // 
             this.cmsModelExport.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.miOBJ,
-            this.miOBJVC});
+            this.miOBJVC,
+            this.miOBJMerged,
+            this.miOBJVCMerged});
             this.cmsModelExport.Name = "cmsModelExport";
+            this.cmsModelExport.OwnerItem = this.exportSelectedToolStripMenuItem;
             this.cmsModelExport.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
-            this.cmsModelExport.Size = new System.Drawing.Size(301, 48);
+            this.cmsModelExport.Size = new System.Drawing.Size(347, 92);
             this.cmsModelExport.ItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.cmsModelExport_ItemClicked);
             // 
             // miOBJ
             // 
             this.miOBJ.Name = "miOBJ";
-            this.miOBJ.Size = new System.Drawing.Size(300, 22);
+            this.miOBJ.Size = new System.Drawing.Size(346, 22);
             this.miOBJ.Text = "Wavefront .OBJ (Accepts Groups)";
             // 
             // miOBJVC
             // 
             this.miOBJVC.Name = "miOBJVC";
-            this.miOBJVC.Size = new System.Drawing.Size(300, 22);
+            this.miOBJVC.Size = new System.Drawing.Size(346, 22);
             this.miOBJVC.Text = "Wavefront .OBJ (Experimental Vertex Color)";
+            // 
+            // miOBJMerged
+            // 
+            this.miOBJMerged.Name = "miOBJMerged";
+            this.miOBJMerged.Size = new System.Drawing.Size(346, 22);
+            this.miOBJMerged.Text = "Wavefront .OBJ (Merged-Accept Groups)";
+            // 
+            // miOBJVCMerged
+            // 
+            this.miOBJVCMerged.Name = "miOBJVCMerged";
+            this.miOBJVCMerged.Size = new System.Drawing.Size(346, 22);
+            this.miOBJVCMerged.Text = "Wavefront .OBJ (Merged-Experimental Vertex Color)";
             // 
             // exportSelectedToolStripMenuItem
             // 
             this.exportSelectedToolStripMenuItem.DropDown = this.cmsModelExport;
             this.exportSelectedToolStripMenuItem.Name = "exportSelectedToolStripMenuItem";
-            this.exportSelectedToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.exportSelectedToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
             this.exportSelectedToolStripMenuItem.Text = "Export Selected";
             // 
             // mainMenuStrip
@@ -430,7 +427,9 @@
             // 
             this.modelsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.exportSelectedToolStripMenuItem,
-            this.wireframeToolStripMenuItem});
+            this.wireframeToolStripMenuItem,
+            this.showGizmosToolStripMenuItem,
+            this.showBoundsToolStripMenuItem});
             this.modelsToolStripMenuItem.Name = "modelsToolStripMenuItem";
             this.modelsToolStripMenuItem.Size = new System.Drawing.Size(58, 20);
             this.modelsToolStripMenuItem.Text = "Models";
@@ -439,9 +438,29 @@
             // 
             this.wireframeToolStripMenuItem.CheckOnClick = true;
             this.wireframeToolStripMenuItem.Name = "wireframeToolStripMenuItem";
-            this.wireframeToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.wireframeToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
             this.wireframeToolStripMenuItem.Text = "Wireframe";
             this.wireframeToolStripMenuItem.CheckedChanged += new System.EventHandler(this.wireframeToolStripMenuItem_CheckedChanged);
+            // 
+            // showGizmosToolStripMenuItem
+            // 
+            this.showGizmosToolStripMenuItem.Checked = true;
+            this.showGizmosToolStripMenuItem.CheckOnClick = true;
+            this.showGizmosToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.showGizmosToolStripMenuItem.Name = "showGizmosToolStripMenuItem";
+            this.showGizmosToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.showGizmosToolStripMenuItem.Text = "Show Gizmos";
+            this.showGizmosToolStripMenuItem.Click += new System.EventHandler(this.showGizmosToolStripMenuItem_Click);
+            // 
+            // showBoundsToolStripMenuItem
+            // 
+            this.showBoundsToolStripMenuItem.Checked = true;
+            this.showBoundsToolStripMenuItem.CheckOnClick = true;
+            this.showBoundsToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.showBoundsToolStripMenuItem.Name = "showBoundsToolStripMenuItem";
+            this.showBoundsToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.showBoundsToolStripMenuItem.Text = "Show Bounds";
+            this.showBoundsToolStripMenuItem.Click += new System.EventHandler(this.showBoundsToolStripMenuItem_Click);
             // 
             // texturesToolStripMenuItem
             // 
@@ -486,7 +505,8 @@
             // 
             this.vRAMToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.clearPageToolStripMenuItem,
-            this.clearAllPagesToolStripMenuItem});
+            this.clearAllPagesToolStripMenuItem,
+            this.showUVToolStripMenuItem});
             this.vRAMToolStripMenuItem.Name = "vRAMToolStripMenuItem";
             this.vRAMToolStripMenuItem.Size = new System.Drawing.Size(52, 20);
             this.vRAMToolStripMenuItem.Text = "VRAM";
@@ -505,11 +525,29 @@
             this.clearAllPagesToolStripMenuItem.Text = "Clear All Pages";
             this.clearAllPagesToolStripMenuItem.Click += new System.EventHandler(this.clearAllPagesToolStripMenuItem_Click);
             // 
+            // showUVToolStripMenuItem
+            // 
+            this.showUVToolStripMenuItem.CheckOnClick = true;
+            this.showUVToolStripMenuItem.Name = "showUVToolStripMenuItem";
+            this.showUVToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.showUVToolStripMenuItem.Text = "Show UV";
+            this.showUVToolStripMenuItem.Click += new System.EventHandler(this.showUVToolStripMenuItem_Click);
+            // 
             // animationsToolStripMenuItem
             // 
+            this.animationsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.showSkeletonToolStripMenuItem});
             this.animationsToolStripMenuItem.Name = "animationsToolStripMenuItem";
             this.animationsToolStripMenuItem.Size = new System.Drawing.Size(80, 20);
             this.animationsToolStripMenuItem.Text = "Animations";
+            // 
+            // showSkeletonToolStripMenuItem
+            // 
+            this.showSkeletonToolStripMenuItem.CheckOnClick = true;
+            this.showSkeletonToolStripMenuItem.Name = "showSkeletonToolStripMenuItem";
+            this.showSkeletonToolStripMenuItem.Size = new System.Drawing.Size(151, 22);
+            this.showSkeletonToolStripMenuItem.Text = "Show Skeleton";
+            this.showSkeletonToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showSkeletonToolStripMenuItem_CheckedChanged);
             // 
             // statusStrip1
             // 
@@ -548,7 +586,7 @@
             this.Name = "PreviewForm";
             this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "PSXPrev Alpha 0.9.1";
+            this.Text = "PSXPrev Alpha 0.9.2";
             this.Load += new System.EventHandler(this.previewForm_Load);
             this.entitiesTabPage.ResumeLayout(false);
             this.menusTabControl.ResumeLayout(false);
@@ -610,10 +648,14 @@
         private System.Windows.Forms.PropertyGrid animationPropertyGrid;
         private System.Windows.Forms.TreeView animationsTreeView;
         private System.Windows.Forms.Button animationPlayButton;
-        private System.Windows.Forms.ComboBox animationEntityComboBox;
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripProgressBar toolStripProgressBar1;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;
-        private System.Windows.Forms.CheckBox showUVCheckBox;
+        private System.Windows.Forms.ToolStripMenuItem miOBJMerged;
+        private System.Windows.Forms.ToolStripMenuItem miOBJVCMerged;
+        private System.Windows.Forms.ToolStripMenuItem showGizmosToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem showBoundsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem showUVToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem showSkeletonToolStripMenuItem;
     }
 }

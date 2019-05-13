@@ -1,11 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.IO;
 using System.Windows.Forms;
 
 namespace PSXPrev.Forms
@@ -58,6 +52,12 @@ namespace PSXPrev.Forms
         private void ScanButton_Click(object sender, EventArgs e)
         {
             Program.DoScan(FilenameText.Text, FilterText.Text, TMDCheckBox.Checked, TMDAltCheckBox.Checked, TIMCheckBox.Checked, TIMAltCheckBox.Checked, PMDCheckBox.Checked, TODCheckBox.Checked, HMDModelsCheckBox.Checked, LogCheckBox.Checked, NoVerboseCheckBox.Checked, DebugCheckBox.Checked);
+            Close();
+        }
+
+        private void FilenameText_TextChanged(object sender, EventArgs e)
+        {
+            ScanButton.Enabled = File.Exists(FilenameText.Text) || Directory.Exists(FilenameText.Text);
         }
     }
 }

@@ -151,7 +151,7 @@ namespace PSXPrev
                 form.UpdateAnimations(AllAnimations);
                 form.UpdateRootEntities(AllEntities);
                 form.UpdateTextures(AllTextures);
-            }, debug);
+            });
 
             var t = new Thread(new ThreadStart(delegate
             {
@@ -328,12 +328,24 @@ namespace PSXPrev
                         {
                             foreach (var parser in parsers)
                             {
-                                var stream = fileInfo.OpenRead();
-                                ProcessFile(stream, file, parser);
+                                using (var stream = fileInfo.OpenRead())
+                                {
+                                    ProcessFile(stream, file, parser);
+                                }
                             }
                         }
                     }
                 }
+            }
+            else if (File.Exists(_path))
+            {
+                Parallel.ForEach(parsers, parser =>
+                {
+                    using (var fs = File.Open(_path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    {
+                        ProcessFile(fs, _path, parser);
+                    }
+                });
             }
             else
             {

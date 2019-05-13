@@ -1,10 +1,12 @@
-﻿using System.ComponentModel;
-
+﻿using System.Collections.Generic;
+using System.ComponentModel;
 
 namespace PSXPrev
 {
     public class RootEntity : EntityBase
     {
+        private readonly List<ModelEntity> _groupedModels = new List<ModelEntity>();
+
         [DisplayName("Name")]
         public string EntityName { get; set; }
 
@@ -14,11 +16,7 @@ namespace PSXPrev
             var bounds = new BoundingBox();
             foreach (var entity in ChildEntities)
             {
-                var corners = entity.Bounds3D.Corners;
-                foreach (var corner in corners)
-                {
-                    bounds.AddPoint(corner);
-                }
+                bounds.AddPoints(entity.Bounds3D.Corners);
             }
             Bounds3D = bounds;
         }
@@ -26,6 +24,20 @@ namespace PSXPrev
         public override string ToString()
         {
             return EntityName;
+        }
+
+        public List<ModelEntity> GetModelsWithTMDID(int id)
+        {
+            _groupedModels.Clear();
+            foreach (var entityBase in ChildEntities)
+            {
+                var model = (ModelEntity) entityBase;
+                if (model.TMDID == id)
+                {
+                    _groupedModels.Add(model);
+                }
+            }
+            return _groupedModels;
         }
     }
 }

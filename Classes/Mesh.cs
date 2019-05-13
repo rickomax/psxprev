@@ -10,7 +10,6 @@ namespace PSXPrev
         private const int BufferCount = 4;
 
         public Matrix4 WorldMatrix { get; set; }
-        public bool Visible { get; set; }
         public uint Texture { get; set; }
 
         private readonly uint _meshId;
@@ -20,7 +19,6 @@ namespace PSXPrev
         private uint _colorBuffer;
         private uint _normalBuffer;
         private uint _uvBuffer;
-        //private uint _indexBuffer;
 
         private readonly uint[] _ids;
 
@@ -29,7 +27,6 @@ namespace PSXPrev
             _meshId = meshId;
             _ids = new uint[BufferCount];
             WorldMatrix = Matrix4.Identity;
-            Visible = true;
             GenBuffer();
         }
 
@@ -45,10 +42,9 @@ namespace PSXPrev
             _colorBuffer = _ids[1];
             _normalBuffer = _ids[2];
             _uvBuffer = _ids[3];
-            //_indexBuffer = _ids[4];
         }
 
-        public void Draw(TextureBinder textureBinder)
+        public void Draw(TextureBinder textureBinder = null, bool wireframe = false)
         {
             GL.BindVertexArray(_meshId);
 
@@ -68,18 +64,16 @@ namespace PSXPrev
             GL.EnableVertexAttribArray((uint)Scene.AttributeIndexUv);
             GL.VertexAttribPointer((uint)Scene.AttributeIndexUv, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
 
-            //GL.BindBuffer(BufferTarget.ArrayBuffer, _indexBuffer);
-            //GL.EnableVertexAttribArray((uint)Scene.AttributeIndexIndex);
-            //GL.VertexAttribIPointer((uint)Scene.AttributeIndexIndex, 3, VertexAttribIntegerType.Int, 0, IntPtr.Zero);
-
-            if (Texture != 0)
+            if (textureBinder != null && Texture != 0)
             {
                 textureBinder.BindTexture(Texture);
             }
 
+            GL.PolygonMode(MaterialFace.FrontAndBack, wireframe ? PolygonMode.Line : PolygonMode.Fill);
             GL.DrawArrays(PrimitiveType.Triangles, 0, _numElements);
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
 
-            if (Texture != 0)
+            if (textureBinder != null && Texture != 0)
             {
                 textureBinder.Unbind();
             }
@@ -107,22 +101,18 @@ namespace PSXPrev
             GL.BindBuffer(BufferTarget.ArrayBuffer, _uvBuffer);
             BufferData(uvList);
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-
-            //GL.BindBuffer(BufferTarget.ArrayBuffer, _indexBuffer);
-            //BufferData(indexList);
-            //GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
         }
 
-        public void BufferData(float[] list)
+        private void BufferData(float[] list)
         {
             var size = (IntPtr)(list.Length * sizeof(float));
             GL.BufferData(BufferTarget.ArrayBuffer, size, list, BufferUsageHint.StaticDraw);
         }
 
-        public void BufferData(int[] list)
-        {
-            var size = (IntPtr)(list.Length * sizeof(int));
-            GL.BufferData(BufferTarget.ArrayBuffer, size, list, BufferUsageHint.StaticDraw);
-        }
+        //private void BufferData(int[] list)
+        //{
+        //    var size = (IntPtr)(list.Length * sizeof(int));
+        //    GL.BufferData(BufferTarget.ArrayBuffer, size, list, BufferUsageHint.StaticDraw);
+        //}
     }
 }

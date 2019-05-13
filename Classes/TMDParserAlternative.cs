@@ -138,7 +138,8 @@ namespace PSXPrev
                         //reader.BaseStream.Seek(checkOffset + 1, SeekOrigin.Begin);
                     }
                     Program.Logger.WriteLine(exp);
-                } finally
+                }
+                finally
                 {
                     reader.BaseStream.Seek(_offset + 1, SeekOrigin.Begin);
                 }
@@ -199,7 +200,7 @@ namespace PSXPrev
             {
                 var objBlock = objBlocks[o];
                 var scale = (float)Math.Pow(objBlock.Scale, 2);
-                if(scale == 0)
+                if (scale == 0)
                 {
                     scale = 1;
                 }
@@ -267,8 +268,7 @@ namespace PSXPrev
                             HasNormals = hasNormals,
                             HasColors = hasColors,
                             HasUvs = hasUvs,
-                            TexturePage = key,
-                            Visible = true
+                            TexturePage = key
                         };
                         models.Add(model);
                     }
@@ -278,10 +278,12 @@ namespace PSXPrev
             EndModel:
             if (models.Count > 0)
             {
-                var entity = new RootEntity
+                var entity = new RootEntity();
+                foreach (var model in models)
                 {
-                    ChildEntities = (EntityBase[])models.ToArray()
-                };
+                    model.ParentEntity = entity;
+                }
+                entity.ChildEntities = models.ToArray();
                 entity.ComputeBounds();
                 return entity;
             }
@@ -372,7 +374,7 @@ namespace PSXPrev
                 Structure = packet
             };
         }
-        
+
         private Dictionary<string, object> ExtractColumnsFromReader(BinaryReader reader, TMDPacketStructure packet, byte mode, Vector3[] vertices, Vector3[] normals)
         {
             var columns = new Dictionary<string, object>();
@@ -416,7 +418,7 @@ namespace PSXPrev
 
             var hasPrimitive = false;
 
-            if(code == 1)
+            if (code == 1)
             {
                 var pakStruc = CreatePolygonPacketStructure(flag, mode);
                 var columns = ExtractColumnsFromReader(reader, pakStruc, mode, vertices, normals);
@@ -466,7 +468,7 @@ namespace PSXPrev
                     var r = ((float)(byte)columns[$"R{i}"]) / 256.0f;
                     var g = ((float)(byte)columns[$"G{i}"]) / 256.0f;
                     var b = ((float)(byte)columns[$"B{i}"]) / 256.0f;
-                    colors.Add(new Color { R = r, G = g, B = b });
+                    colors.Add(new Color(r, g, b));
                 }
                 if (columns.ContainsKey($"NORM{i}"))
                 {
@@ -488,7 +490,7 @@ namespace PSXPrev
                 tPage = (ushort)columns["TSB"] & 0x1F;
             }
 
-            var defaultColor = new Color { R = 1, G = 1, B = 1 };
+            var defaultColor = new Color(1, 1, 1);
             var defaultTexcoord = new Vector3 { X = 0, Y = 0 };
             var defaultNormal = new Vector3 { X = 0, Y = 0, Z = 0 };
             var triColors = new[] { defaultColor, defaultColor, defaultColor };

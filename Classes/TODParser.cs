@@ -27,7 +27,7 @@ namespace PSXPrev
             reader.BaseStream.Seek(0, SeekOrigin.Begin);
 
             ;
-           //var animations = new List<Animation>();
+            //var animations = new List<Animation>();
 
             while (reader.BaseStream.CanRead)
             {
@@ -120,7 +120,7 @@ namespace PSXPrev
                                 var rx = (reader.ReadInt32() / 4096f) * GeomUtils.Deg2Rad;
                                 var ry = (reader.ReadInt32() / 4096f) * GeomUtils.Deg2Rad;
                                 var rz = (reader.ReadInt32() / 4096f) * GeomUtils.Deg2Rad;
-                                animationFrame.Rotation = new Vector3(rx, ry, rz);
+                                animationFrame.EulerRotation = new Vector3(rx, ry, rz);
                             }
                             if (scaling != 0x00)
                             {
@@ -138,38 +138,38 @@ namespace PSXPrev
                                 animationFrame.Translation = new Vector3(tx, ty, tz);
                             }
                             animationFrame.AbsoluteMatrix = matrixType == 0x00;
-                            if ((reader.BaseStream.Position - packetTop) / 4 != packetLength)
-                            {
-                                return null;
-                            }
+                            //if ((reader.BaseStream.Position - packetTop) / 4 != packetLength)
+                            //{
+                            //    return null;
+                            //}
                             break;
                         case 0x02: //TMD data ID
                             animationObject.TMDID = reader.ReadUInt16();
                             reader.ReadUInt16();
-                            if ((reader.BaseStream.Position - packetTop) / 4 != packetLength)
-                            {
-                                return null;
-                            }
+                            //if ((reader.BaseStream.Position - packetTop) / 4 != packetLength)
+                            //{
+                            //    return null;
+                            //}
                             break;
                         case 0x03: //Parent Object ID
                             animationObject.ParentID = reader.ReadUInt16();
                             reader.ReadUInt16();
-                            if ((reader.BaseStream.Position - packetTop) / 4 != packetLength)
-                            {
-                                return null;
-                            }
+                            //if ((reader.BaseStream.Position - packetTop) / 4 != packetLength)
+                            //{
+                            //    return null;
+                            //}
                             break;
                         case 0x04:
                             float r00 = reader.ReadInt16() / 4096f;
                             float r01 = reader.ReadInt16() / 4096f;
                             float r02 = reader.ReadInt16() / 4096f;
 
-                            float r10 = reader.ReadInt16()/ 4096f;
-                            float r11 = reader.ReadInt16()/ 4096f;
+                            float r10 = reader.ReadInt16() / 4096f;
+                            float r11 = reader.ReadInt16() / 4096f;
                             float r12 = reader.ReadInt16() / 4096f;
 
-                            float r20 = reader.ReadInt16()/ 4096f;
-                            float r21 = reader.ReadInt16()/ 4096f;
+                            float r20 = reader.ReadInt16() / 4096f;
+                            float r21 = reader.ReadInt16() / 4096f;
                             float r22 = reader.ReadInt16() / 4096f;
 
                             reader.ReadInt16();
@@ -178,17 +178,21 @@ namespace PSXPrev
                             var y = reader.ReadInt32();
                             var z = reader.ReadInt32();
 
-                            animationFrame.AbsoluteMatrix = true;
-                            animationFrame.Matrix = new Matrix4(new Matrix3(
-                                new Vector3(r00, r10, r20),
-                                new Vector3(r01, r11, r21),
-                                new Vector3(r02, r12, r22)
-                                ));
+                            var matrix = new Matrix3(
+                                new Vector3(r00, r01, r02),
+                                new Vector3(r10, r11, r12),
+                                new Vector3(r20, r21, r22)
+                                );
 
-                            if ((reader.BaseStream.Position - packetTop) / 4 != packetLength)
-                            {
-                                return null;
-                            }
+                            animationFrame.Translation = new Vector3(x,y,z);
+                            animationFrame.Rotation = matrix.ExtractRotation();
+                            animationFrame.Scale = matrix.ExtractScale();
+                            animationFrame.AbsoluteMatrix = true;
+
+                            //if ((reader.BaseStream.Position - packetTop) / 4 != packetLength)
+                            //{
+                            //    return null;
+                            //}
                             break;
                         //case 0x08: //object control
                         //    switch (flag)
@@ -208,7 +212,7 @@ namespace PSXPrev
 
             foreach (var animationObject in animationObjects.Values)
             {
-                if (animationObjects.ContainsKey(animationObject.ParentID))
+                if (animationObject.ParentID != 0 && animationObjects.ContainsKey(animationObject.ParentID))
                 {
                     var parent = animationObjects[animationObject.ParentID];
                     animationObject.Parent = parent;
@@ -221,7 +225,7 @@ namespace PSXPrev
             animation.RootAnimationObject = rootAnimationObject;
             animation.FrameCount = frameCount;
             animation.ObjectCount = animationObjects.Count;
-            animation.FPS = 1f / resolution;
+            animation.FPS = 1f / resolution * 60f;
             return animation;
         }
 
@@ -232,7 +236,7 @@ namespace PSXPrev
             {
                 return animationFrames[frameTime];
             }
-            var frame = new AnimationFrame { FrameTime = frameTime };
+            var frame = new AnimationFrame { FrameTime = frameTime, AnimationObject = animationObject };
             animationFrames.Add(frameTime, frame);
             return frame;
         }
@@ -243,7 +247,7 @@ namespace PSXPrev
             {
                 return animationObjects[objectId];
             }
-            var animationObject = new AnimationObject { Visible = true, Animation = animation };
+            var animationObject = new AnimationObject { Animation = animation, ID = objectId };
             animationObjects.Add(objectId, animationObject);
             return animationObject;
         }

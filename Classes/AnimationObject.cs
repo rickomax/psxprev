@@ -1,10 +1,5 @@
-using PSXPrev.Forms;
-using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing.Design;
-using System.Windows.Forms;
-using System.Windows.Forms.Design;
 
 namespace PSXPrev
 {
@@ -22,17 +17,14 @@ namespace PSXPrev
         [Browsable(false)]
         public Animation Animation { get; set; }
 
-        [DisplayName("Visible")]
-        public bool Visible { get; set; }
-
         [Browsable(false)]
         public int ParentID { get; set; }
 
-        [DisplayName("TMD ID")]
-        public int TMDID { get; set; }
+        [ReadOnly(true)]
+        public int ID { get; set; }
 
-        [Browsable(false)]
-        public bool IsSelected { get; set; }
+        [DisplayName("TMD ID")]
+        public int? TMDID { get; set; }
 
         public AnimationObject()
         {

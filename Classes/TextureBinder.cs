@@ -39,8 +39,6 @@ namespace PSXPrev
         {
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.BindTexture(TextureTarget.Texture2D, texture);
-            //GL.TexEnv(OpenGL.GL_TEXTURE_ENV, OpenGL.GL_COMBINE_RGB_ARB, OpenGL.GL_MODULATE);   //Modulate RGB with RGB
-            //shaderProgram.SetUniform1(GL, Scene.AttributeIndexTexture, texture);
             GL.Uniform1(Scene.AttributeIndexTexture, texture);
         }
 

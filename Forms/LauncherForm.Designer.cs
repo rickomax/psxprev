@@ -104,6 +104,7 @@
             this.FilenameText.Name = "FilenameText";
             this.FilenameText.Size = new System.Drawing.Size(360, 20);
             this.FilenameText.TabIndex = 0;
+            this.FilenameText.TextChanged += new System.EventHandler(this.FilenameText_TextChanged);
             // 
             // groupBox2
             // 
@@ -256,6 +257,7 @@
             // 
             // ScanButton
             // 
+            this.ScanButton.Enabled = false;
             this.ScanButton.Location = new System.Drawing.Point(297, 280);
             this.ScanButton.Name = "ScanButton";
             this.ScanButton.Size = new System.Drawing.Size(75, 23);
