@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.Text;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
@@ -64,7 +65,7 @@ namespace PSXPrev
         private Vector3 _rayOrigin;
         private Vector3 _rayTarget;
         private Vector3 _rayDirection;
-        private Vector3? _projected;
+        private Vector3? _intersected;
 
         private Color _clearColor;
         public Color ClearColor
@@ -256,41 +257,90 @@ namespace PSXPrev
             GL.UseProgram(0);
         }
 
-        public RootEntity GetRootEntityUnderMouse(RootEntity[] checkedEntities, RootEntity selectedEntity, int x, int y, float width, float height)
+        private List<EntityBase> _lastPickedEntities;
+        private int _lastPickedIndex;
+
+        public EntityBase GetEntityUnderMouse(RootEntity[] checkedEntities, EntityBase selectedRootEntity, EntityBase selectedEntity, int x, int y, float width, float height, bool selectRoot = false)
         {
             UpdatePicking(x, y, width, height);
-            var pickedEntities = new List<Tuple<float, RootEntity>>();
-            if (checkedEntities != null)
+            var pickedEntities = new List<EntityBase>();
+            if (!selectRoot)
             {
-                foreach (var entity in checkedEntities)
+                if (checkedEntities != null)
                 {
-                    if (entity == selectedEntity)
+                    foreach (var entity in checkedEntities)
                     {
-                        continue;
-                    }
-                    Vector3 boxMin;
-                    Vector3 boxMax;
-                    GeomUtils.GetBoxMinMax(entity.Bounds3D.Center, entity.Bounds3D.Extents, out boxMin, out boxMax);
-                    var intersectionDistance = GeomUtils.BoxIntersect(_rayOrigin, _rayDirection, boxMin, boxMax);
-                    if (intersectionDistance > 0f)
-                    {
-                        pickedEntities.Add(new Tuple<float, RootEntity>(intersectionDistance, entity));
+                        if (entity.ChildEntities != null)
+                            foreach (var subEntity in entity.ChildEntities)
+                            {
+                                CheckEntity(subEntity, pickedEntities);
+                            }
                     }
                 }
-            }
-            if (selectedEntity != null)
-            {
-                Vector3 boxMin;
-                Vector3 boxMax;
-                GeomUtils.GetBoxMinMax(selectedEntity.Bounds3D.Center, selectedEntity.Bounds3D.Extents, out boxMin, out boxMax);
-                var intersectionDistance = GeomUtils.BoxIntersect(_rayOrigin, _rayDirection, boxMin, boxMax);
-                if (intersectionDistance > 0f)
+                else if (selectedEntity != null)
                 {
-                    pickedEntities.Add(new Tuple<float, RootEntity>(intersectionDistance, selectedEntity));
+                    if (selectedEntity.ChildEntities != null)
+                        foreach (var subEntity in selectedEntity.ChildEntities)
+                        {
+                            CheckEntity(subEntity, pickedEntities);
+                        }
+                }
+                else
+                {
+                    if (selectedRootEntity?.ChildEntities != null)
+                        foreach (var subEntity in selectedRootEntity.ChildEntities)
+                        {
+                            CheckEntity(subEntity, pickedEntities);
+                        }
                 }
             }
-            pickedEntities.Sort((a, b) => a.Item1.CompareTo(b.Item1));
-            return pickedEntities.Count > 0 ? pickedEntities[0].Item2 : null;
+            pickedEntities.Sort((a, b) => a.IntersectionDistance.CompareTo(b.IntersectionDistance));
+            if (!ListsMatches(pickedEntities, _lastPickedEntities))
+            {
+                _lastPickedIndex = 0;
+            }
+            var pickedEntity = pickedEntities.Count > 0 ? pickedEntities[_lastPickedIndex] : null;
+            if (_lastPickedIndex < pickedEntities.Count - 1)
+            {
+                _lastPickedIndex++;
+            }
+            else
+            {
+                _lastPickedIndex = 0;
+            }
+            _lastPickedEntities = pickedEntities;
+            return pickedEntity;
+        }
+
+        private static bool ListsMatches<T>(List<T> a, List<T> b)
+        {
+            if (a == null || b == null)
+            {
+                return false;
+            }
+            if (a.Count != b.Count)
+            {
+                return false;
+            }
+            for (var i = 0; i < a.Count; i++)
+            {
+                if (!a[i].Equals(b[i]))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private void CheckEntity(EntityBase entity, List<EntityBase> pickedEntities)
+        {
+            GeomUtils.GetBoxMinMax(entity.Bounds3D.Center, entity.Bounds3D.Extents, out var boxMin, out var boxMax);
+            var intersectionDistance = GeomUtils.BoxIntersect(_rayOrigin, _rayDirection, boxMin, boxMax);
+            if (intersectionDistance > 0f)
+            {
+                entity.IntersectionDistance = intersectionDistance;
+                pickedEntities.Add(entity);
+            }
         }
 
         public Vector3 GetBestPlaneNormal(Vector3 a, Vector3 b)
@@ -326,30 +376,25 @@ namespace PSXPrev
             {
                 return GizmoId.None;
             }
-            _projected = null;
             if (selectedEntityBase != null)
             {
                 UpdatePicking(x, y, width, height);
                 var matrix = selectedEntityBase.WorldMatrix;
                 var scaleMatrix = GetGizmoScaleMatrix(matrix.ExtractTranslation());
                 var finalMatrix = scaleMatrix * matrix;
-                Vector3 xMin;
-                Vector3 xMax;
-                GeomUtils.GetBoxMinMax(XGizmoDimensions, XGizmoDimensions, out xMin, out xMax, finalMatrix);
+                GeomUtils.GetBoxMinMax(XGizmoDimensions, XGizmoDimensions, out var xMin, out var xMax, finalMatrix);
                 if (GeomUtils.BoxIntersect(_rayOrigin, _rayDirection, xMin, xMax) > 0f)
                 {
                     return GizmoId.XMover;
                 }
-                Vector3 yMin;
-                Vector3 yMax;
-                GeomUtils.GetBoxMinMax(YGizmoDimensions, YGizmoDimensions, out yMin, out yMax, finalMatrix);
+
+                GeomUtils.GetBoxMinMax(YGizmoDimensions, YGizmoDimensions, out var yMin, out var yMax, finalMatrix);
                 if (GeomUtils.BoxIntersect(_rayOrigin, _rayDirection, yMin, yMax) > 0f)
                 {
                     return GizmoId.YMover;
                 }
-                Vector3 zMin;
-                Vector3 zMax;
-                GeomUtils.GetBoxMinMax(ZGizmoDimensions, ZGizmoDimensions, out zMin, out zMax, finalMatrix);
+
+                GeomUtils.GetBoxMinMax(ZGizmoDimensions, ZGizmoDimensions, out var zMin, out var zMax, finalMatrix);
                 if (GeomUtils.BoxIntersect(_rayOrigin, _rayDirection, zMin, zMax) > 0f)
                 {
                     return GizmoId.ZMover;
@@ -363,18 +408,19 @@ namespace PSXPrev
             var worldMatrix = entityBase.WorldMatrix;
             var planeOrigin = worldMatrix.ExtractTranslation();
             UpdatePicking(x, y, width, height);
-            var projected = GeomUtils.PlaneIntersect(_rayOrigin, _rayDirection, planeOrigin, planeNormal).ProjectOnNormal(projectionNormal);
+            var intersected = GeomUtils.PlaneIntersect(_rayOrigin, _rayDirection, planeOrigin, planeNormal);
             Vector3 offset;
-            if (_projected != null)
+            if (_intersected != null)
             {
-                var previousProjected = _projected.Value;
-                offset = new Vector3((int)(projected.X - previousProjected.X), (int)(projected.Y - previousProjected.Y), (int)(projected.Z - previousProjected.Z));
+                var previousIntersected = _intersected.Value;
+                offset = new Vector3((int)(intersected.X - previousIntersected.X), (int)(intersected.Y - previousIntersected.Y), (int)(intersected.Z - previousIntersected.Z));
+                offset = offset.ProjectOnNormal(projectionNormal);
             }
             else
             {
                 offset = Vector3.Zero;
             }
-            _projected = projected;
+            _intersected = intersected;
             return Vector3.TransformVector(offset, worldMatrix.Inverted());
         }
 
@@ -397,6 +443,11 @@ namespace PSXPrev
         public Matrix4 GetGizmoScaleMatrix(Vector3 position)
         {
             return Matrix4.CreateScale(CameraDistanceFrom(position));
+        }
+
+        public void ResetIntersection()
+        {
+            _intersected = null;
         }
     }
 }

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <DialogItems>
+    <DialogItem>
+      <Text>Here is a brief PSXPrev tutorial.</Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+    <DialogItem>
+      <Text>First, open PSXPrev.exe</Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+    <DialogItem>
+      <Text>Then, select a folder, file or ISO file to scan</Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+    <DialogItem>
+      <Text>In this sample, I will scan a file from "Xena - Warrior Princess" that I know contains models and textures</Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+    <DialogItem>
+      <Text>Tick TMD and TIM to scan for models and textures</Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+    <DialogItem>
+      <Text>Wait the scan completion. This may take a while...</Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+    <DialogItem>
+      <Text>After the scan has been completed, you can select a model from the list to work with</Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+    <DialogItem>
+      <Text>Some models contains sub-models that should be aligned manually before exporting</Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+    <DialogItem>
+      <Text>If you want to view a root model or a series of root models in the viewport, select or tick them on the left list</Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+    <DialogItem>
+      <Text>I'm ticking the Xena model on the list</Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+    <DialogItem>
+      <Text>Go to the texture tabs and search the textures the model uses</Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+    <DialogItem>
+      <Text>I know Xena model is on the file offset 688128, so all the textures may be on near offsets of the same file</Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+    <DialogItem>
+      <Text>Shift+click to select a series of textures, then click "Draw to VRAM", so the textures will be available on the model viewport</Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+    <DialogItem>
+      <Text>From now on, you can manually move the body parts with the gizmos to adjust the model</Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+    <DialogItem>
+      <Text>After the model has been adjusted, you can export it on the "Models&gt;Export Selected" menu </Text>
+      <Position>CenterMiddle</Position>
+    </DialogItem>
+  </DialogItems>
+  <NextDialogKeyCode>F2</NextDialogKeyCode>
+  <PreviousDialogKeyCode>F3</PreviousDialogKeyCode>
+  <ToggleDialogKeyCode>F4</ToggleDialogKeyCode>
+  <ExitKey>F9</ExitKey>
+</Project>

@@ -372,40 +372,39 @@
             this.miOBJMerged,
             this.miOBJVCMerged});
             this.cmsModelExport.Name = "cmsModelExport";
-            this.cmsModelExport.OwnerItem = this.exportSelectedToolStripMenuItem;
             this.cmsModelExport.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
-            this.cmsModelExport.Size = new System.Drawing.Size(347, 92);
+            this.cmsModelExport.Size = new System.Drawing.Size(355, 92);
             this.cmsModelExport.ItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.cmsModelExport_ItemClicked);
             // 
             // miOBJ
             // 
             this.miOBJ.Name = "miOBJ";
-            this.miOBJ.Size = new System.Drawing.Size(346, 22);
-            this.miOBJ.Text = "Wavefront .OBJ (Accepts Groups)";
+            this.miOBJ.Size = new System.Drawing.Size(354, 22);
+            this.miOBJ.Text = "Wavefront .OBJ";
             // 
             // miOBJVC
             // 
             this.miOBJVC.Name = "miOBJVC";
-            this.miOBJVC.Size = new System.Drawing.Size(346, 22);
+            this.miOBJVC.Size = new System.Drawing.Size(354, 22);
             this.miOBJVC.Text = "Wavefront .OBJ (Experimental Vertex Color)";
             // 
             // miOBJMerged
             // 
             this.miOBJMerged.Name = "miOBJMerged";
-            this.miOBJMerged.Size = new System.Drawing.Size(346, 22);
-            this.miOBJMerged.Text = "Wavefront .OBJ (Merged-Accept Groups)";
+            this.miOBJMerged.Size = new System.Drawing.Size(354, 22);
+            this.miOBJMerged.Text = "Wavefront .OBJ - Merged";
             // 
             // miOBJVCMerged
             // 
             this.miOBJVCMerged.Name = "miOBJVCMerged";
-            this.miOBJVCMerged.Size = new System.Drawing.Size(346, 22);
-            this.miOBJVCMerged.Text = "Wavefront .OBJ (Merged-Experimental Vertex Color)";
+            this.miOBJVCMerged.Size = new System.Drawing.Size(354, 22);
+            this.miOBJVCMerged.Text = "Wavefront .OBJ - Merged (Experimental Vertex Color)";
             // 
             // exportSelectedToolStripMenuItem
             // 
             this.exportSelectedToolStripMenuItem.DropDown = this.cmsModelExport;
             this.exportSelectedToolStripMenuItem.Name = "exportSelectedToolStripMenuItem";
-            this.exportSelectedToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.exportSelectedToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.exportSelectedToolStripMenuItem.Text = "Export Selected";
             // 
             // mainMenuStrip
@@ -438,7 +437,7 @@
             // 
             this.wireframeToolStripMenuItem.CheckOnClick = true;
             this.wireframeToolStripMenuItem.Name = "wireframeToolStripMenuItem";
-            this.wireframeToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.wireframeToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.wireframeToolStripMenuItem.Text = "Wireframe";
             this.wireframeToolStripMenuItem.CheckedChanged += new System.EventHandler(this.wireframeToolStripMenuItem_CheckedChanged);
             // 
@@ -448,7 +447,7 @@
             this.showGizmosToolStripMenuItem.CheckOnClick = true;
             this.showGizmosToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.showGizmosToolStripMenuItem.Name = "showGizmosToolStripMenuItem";
-            this.showGizmosToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.showGizmosToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.showGizmosToolStripMenuItem.Text = "Show Gizmos";
             this.showGizmosToolStripMenuItem.Click += new System.EventHandler(this.showGizmosToolStripMenuItem_Click);
             // 
@@ -458,7 +457,7 @@
             this.showBoundsToolStripMenuItem.CheckOnClick = true;
             this.showBoundsToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.showBoundsToolStripMenuItem.Name = "showBoundsToolStripMenuItem";
-            this.showBoundsToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.showBoundsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.showBoundsToolStripMenuItem.Text = "Show Bounds";
             this.showBoundsToolStripMenuItem.Click += new System.EventHandler(this.showBoundsToolStripMenuItem_Click);
             // 
@@ -476,28 +475,28 @@
             // exportSelectedToolStripMenuItem1
             // 
             this.exportSelectedToolStripMenuItem1.Name = "exportSelectedToolStripMenuItem1";
-            this.exportSelectedToolStripMenuItem1.Size = new System.Drawing.Size(154, 22);
+            this.exportSelectedToolStripMenuItem1.Size = new System.Drawing.Size(155, 22);
             this.exportSelectedToolStripMenuItem1.Text = "Export Selected";
             this.exportSelectedToolStripMenuItem1.Click += new System.EventHandler(this.exportBitmapButton_Click);
             // 
             // drawToVRAMToolStripMenuItem
             // 
             this.drawToVRAMToolStripMenuItem.Name = "drawToVRAMToolStripMenuItem";
-            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(155, 22);
             this.drawToVRAMToolStripMenuItem.Text = "Draw to VRAM";
             this.drawToVRAMToolStripMenuItem.Click += new System.EventHandler(this.drawToVRAMButton_Click);
             // 
             // findByPageToolStripMenuItem
             // 
             this.findByPageToolStripMenuItem.Name = "findByPageToolStripMenuItem";
-            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(155, 22);
             this.findByPageToolStripMenuItem.Text = "Find by Page";
             this.findByPageToolStripMenuItem.Click += new System.EventHandler(this.findByPageToolStripMenuItem_Click);
             // 
             // clearSearchToolStripMenuItem
             // 
             this.clearSearchToolStripMenuItem.Name = "clearSearchToolStripMenuItem";
-            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(155, 22);
             this.clearSearchToolStripMenuItem.Text = "Clear Results";
             this.clearSearchToolStripMenuItem.Click += new System.EventHandler(this.clearSearchToolStripMenuItem_Click);
             // 
@@ -586,7 +585,7 @@
             this.Name = "PreviewForm";
             this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "PSXPrev Alpha 0.9.2";
+            this.Text = "PSXPrev Alpha 0.9.3";
             this.Load += new System.EventHandler(this.previewForm_Load);
             this.entitiesTabPage.ResumeLayout(false);
             this.menusTabControl.ResumeLayout(false);

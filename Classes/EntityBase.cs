@@ -6,6 +6,11 @@ namespace PSXPrev
 {
     public class EntityBase
     {
+        private EntityBase[] _childEntities;
+
+        [DisplayName("Name")]
+        public string EntityName { get; set; }
+        
         [ReadOnly(true), DisplayName("Bounds")]
         public BoundingBox Bounds3D { get; set; }
 
@@ -68,10 +73,24 @@ namespace PSXPrev
         public string ChildCount => ChildEntities == null ? "0" : ChildEntities.Length.ToString(CultureInfo.InvariantCulture);
 
         [Browsable(false)]
-        public EntityBase[] ChildEntities { get; set; }
+        public EntityBase[] ChildEntities
+        {
+            get => _childEntities;
+            set
+            {
+                for (var i = 0; i < value.Length; i++)
+                {
+                    value[i].EntityName = "Sub-Model " + i;
+                }
+                _childEntities = value;
+            }
+        }
 
         [Browsable(false)]
         public EntityBase ParentEntity { get; set; }
+
+        [Browsable(false)]
+        public float IntersectionDistance { get; set; }
 
         protected EntityBase()
         {
@@ -106,6 +125,11 @@ namespace PSXPrev
             var rotation = Matrix4.CreateFromQuaternion(LocalMatrix.ExtractRotation());
             var scale = Matrix4.CreateScale(LocalMatrix.ExtractScale());
             LocalMatrix = translation * rotation * scale;
+        }
+
+        public override string ToString()
+        {
+            return EntityName;
         }
     }
 }
