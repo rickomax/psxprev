@@ -1,4 +1,8 @@
 # psxprev - async version
+
+IMPORTANT: Branch outdated, figuring out some license issues.
+Please download the latest release build to get the updated version.
+
 PSXPREV - Playstation (PSX) File Previewer/Extractor<br><br>
 PsxPrev, a TMD/PMD/TIM PlayStation file scanner.<br><br>
 ![Sample](https://ricardoreis.net/wp-content/uploads/2017/05/lod2.png)
