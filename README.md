@@ -10,7 +10,7 @@ You'll need to run it:<br>
 An OpenGL 3.0 compatible video card<br>
 .NET Framework 4.5<br>
 Treat it as an experimental release and use this tool as your own risk!<br>
-(The tool can use a big ammount of memory to scan the files, so, be careful.)<br>
+(The tool can use a big ammount of memory to scan the files, so, be careful.)<br><br>
 Compatibility list (WIP): https://docs.google.com/spreadsheets/d/1V20NN_At_bBhKv99Ee4umaav0mYkU116p2bcHV8ie9o/edit#gid=0<br><br>
 If you don't pass any parameter, a launcher interface will be displayed.
 Otherwise, a console window will appear, the application will scan each byte of the files inside the folder/filter you specified trying to find the files types you specified, so, it can take a bit of time for this process to end.<br><br>
