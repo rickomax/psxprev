@@ -1,7 +1,6 @@
 # psxprev - async version
 
-PSXPREV - Playstation (PSX) File Previewer/Extractor<br><br>
-PsxPrev, a TMD/PMD/TIM PlayStation file scanner.<br><br>
+PSXPREV - Playstation (PSX) FileS Previewer/Extractor<br><br>
 ![Sample](https://ricardoreis.net/wp-content/uploads/2017/05/lod2.png)
 This tool uses:<br>
 OpenTK - https://github.com/opentk/opentk<br>
