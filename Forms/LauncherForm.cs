@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Windows.Forms;
+using Microsoft.WindowsAPICodePack.Dialogs;
+using Microsoft.WindowsAPICodePack.Shell.PropertySystem;
 
 namespace PSXPrev.Forms
 {
@@ -39,19 +41,20 @@ namespace PSXPrev.Forms
 
         private void SelectFolderButton_Click(object sender, EventArgs e)
         {
-            using (var folderBrowserDialog = new FolderBrowserDialog())
+            using (var folderBrowserDialog = new Microsoft.WindowsAPICodePack.Dialogs.CommonOpenFileDialog())
             {
-                folderBrowserDialog.Description = "Select a Folder to Scan";
-                if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
+                folderBrowserDialog.IsFolderPicker = true;
+                folderBrowserDialog.Title = "Select a Folder to Scan";
+                if (folderBrowserDialog.ShowDialog() == CommonFileDialogResult.Ok)
                 {
-                    FilenameText.Text = folderBrowserDialog.SelectedPath;
+                    FilenameText.Text = folderBrowserDialog.FileName;
                 }
             }
         }
 
         private void ScanButton_Click(object sender, EventArgs e)
         {
-            Program.DoScan(FilenameText.Text, FilterText.Text, TMDCheckBox.Checked, TMDAltCheckBox.Checked, TIMCheckBox.Checked, TIMAltCheckBox.Checked, PMDCheckBox.Checked, TODCheckBox.Checked, HMDModelsCheckBox.Checked, LogCheckBox.Checked, NoVerboseCheckBox.Checked, DebugCheckBox.Checked);
+            Program.DoScan(FilenameText.Text, FilterText.Text, TMDCheckBox.Checked, VDFCheckBox.Checked, TIMCheckBox.Checked, PMDCheckBox.Checked, TODCheckBox.Checked, hmdCheckBox.Checked, LogCheckBox.Checked, NoVerboseCheckBox.Checked, DebugCheckBox.Checked, crocCheckBox.Checked, psxCheckBox.Checked, scanForAnCheckBox.Checked);
             Close();
         }
 

@@ -1,7 +1,7 @@
 ﻿using System.Drawing;
 using OpenTK.Graphics.OpenGL;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class TextureBinder
     {

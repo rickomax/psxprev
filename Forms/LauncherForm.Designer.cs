@@ -37,18 +37,20 @@
             this.groupBox2 = new System.Windows.Forms.GroupBox();
             this.FilterText = new System.Windows.Forms.TextBox();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
+            this.psxCheckBox = new System.Windows.Forms.CheckBox();
+            this.crocCheckBox = new System.Windows.Forms.CheckBox();
             this.PMDCheckBox = new System.Windows.Forms.CheckBox();
-            this.HMDModelsCheckBox = new System.Windows.Forms.CheckBox();
+            this.hmdCheckBox = new System.Windows.Forms.CheckBox();
             this.TODCheckBox = new System.Windows.Forms.CheckBox();
-            this.TIMAltCheckBox = new System.Windows.Forms.CheckBox();
             this.TIMCheckBox = new System.Windows.Forms.CheckBox();
-            this.TMDAltCheckBox = new System.Windows.Forms.CheckBox();
+            this.VDFCheckBox = new System.Windows.Forms.CheckBox();
             this.TMDCheckBox = new System.Windows.Forms.CheckBox();
             this.groupBox4 = new System.Windows.Forms.GroupBox();
             this.DebugCheckBox = new System.Windows.Forms.CheckBox();
             this.NoVerboseCheckBox = new System.Windows.Forms.CheckBox();
             this.LogCheckBox = new System.Windows.Forms.CheckBox();
             this.ScanButton = new System.Windows.Forms.Button();
+            this.scanForAnCheckBox = new System.Windows.Forms.CheckBox();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox3.SuspendLayout();
@@ -127,12 +129,14 @@
             // 
             // groupBox3
             // 
+            this.groupBox3.Controls.Add(this.scanForAnCheckBox);
+            this.groupBox3.Controls.Add(this.psxCheckBox);
+            this.groupBox3.Controls.Add(this.crocCheckBox);
             this.groupBox3.Controls.Add(this.PMDCheckBox);
-            this.groupBox3.Controls.Add(this.HMDModelsCheckBox);
+            this.groupBox3.Controls.Add(this.hmdCheckBox);
             this.groupBox3.Controls.Add(this.TODCheckBox);
-            this.groupBox3.Controls.Add(this.TIMAltCheckBox);
             this.groupBox3.Controls.Add(this.TIMCheckBox);
-            this.groupBox3.Controls.Add(this.TMDAltCheckBox);
+            this.groupBox3.Controls.Add(this.VDFCheckBox);
             this.groupBox3.Controls.Add(this.TMDCheckBox);
             this.groupBox3.Dock = System.Windows.Forms.DockStyle.Top;
             this.groupBox3.Location = new System.Drawing.Point(0, 135);
@@ -142,65 +146,75 @@
             this.groupBox3.TabStop = false;
             this.groupBox3.Text = "Scanners";
             // 
+            // psxCheckBox
+            // 
+            this.psxCheckBox.AutoSize = true;
+            this.psxCheckBox.Location = new System.Drawing.Point(210, 65);
+            this.psxCheckBox.Name = "psxCheckBox";
+            this.psxCheckBox.Size = new System.Drawing.Size(90, 17);
+            this.psxCheckBox.TabIndex = 8;
+            this.psxCheckBox.Text = "Scan for PSX";
+            this.psxCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // crocCheckBox
+            // 
+            this.crocCheckBox.AutoSize = true;
+            this.crocCheckBox.Location = new System.Drawing.Point(111, 65);
+            this.crocCheckBox.Name = "crocCheckBox";
+            this.crocCheckBox.Size = new System.Drawing.Size(91, 17);
+            this.crocCheckBox.TabIndex = 7;
+            this.crocCheckBox.Text = "Scan for Croc";
+            this.crocCheckBox.UseVisualStyleBackColor = true;
+            // 
             // PMDCheckBox
             // 
             this.PMDCheckBox.AutoSize = true;
-            this.PMDCheckBox.Location = new System.Drawing.Point(110, 65);
+            this.PMDCheckBox.Location = new System.Drawing.Point(111, 19);
             this.PMDCheckBox.Name = "PMDCheckBox";
             this.PMDCheckBox.Size = new System.Drawing.Size(93, 17);
             this.PMDCheckBox.TabIndex = 6;
             this.PMDCheckBox.Text = "Scan for PMD";
             this.PMDCheckBox.UseVisualStyleBackColor = true;
             // 
-            // HMDModelsCheckBox
+            // hmdCheckBox
             // 
-            this.HMDModelsCheckBox.AutoSize = true;
-            this.HMDModelsCheckBox.Location = new System.Drawing.Point(209, 65);
-            this.HMDModelsCheckBox.Name = "HMDModelsCheckBox";
-            this.HMDModelsCheckBox.Size = new System.Drawing.Size(131, 17);
-            this.HMDModelsCheckBox.TabIndex = 5;
-            this.HMDModelsCheckBox.Text = "Scan for HMD Models";
-            this.HMDModelsCheckBox.UseVisualStyleBackColor = true;
+            this.hmdCheckBox.AutoSize = true;
+            this.hmdCheckBox.Location = new System.Drawing.Point(210, 19);
+            this.hmdCheckBox.Name = "hmdCheckBox";
+            this.hmdCheckBox.Size = new System.Drawing.Size(94, 17);
+            this.hmdCheckBox.TabIndex = 5;
+            this.hmdCheckBox.Text = "Scan for HMD";
+            this.hmdCheckBox.UseVisualStyleBackColor = true;
             // 
             // TODCheckBox
             // 
             this.TODCheckBox.AutoSize = true;
-            this.TODCheckBox.Location = new System.Drawing.Point(12, 65);
+            this.TODCheckBox.Location = new System.Drawing.Point(11, 42);
             this.TODCheckBox.Name = "TODCheckBox";
             this.TODCheckBox.Size = new System.Drawing.Size(92, 17);
             this.TODCheckBox.TabIndex = 4;
             this.TODCheckBox.Text = "Scan for TOD";
             this.TODCheckBox.UseVisualStyleBackColor = true;
             // 
-            // TIMAltCheckBox
-            // 
-            this.TIMAltCheckBox.AutoSize = true;
-            this.TIMAltCheckBox.Location = new System.Drawing.Point(111, 42);
-            this.TIMAltCheckBox.Name = "TIMAltCheckBox";
-            this.TIMAltCheckBox.Size = new System.Drawing.Size(146, 17);
-            this.TIMAltCheckBox.TabIndex = 3;
-            this.TIMAltCheckBox.Text = "Scan for TIM (alternative)";
-            this.TIMAltCheckBox.UseVisualStyleBackColor = true;
-            // 
             // TIMCheckBox
             // 
             this.TIMCheckBox.AutoSize = true;
-            this.TIMCheckBox.Location = new System.Drawing.Point(12, 42);
+            this.TIMCheckBox.Location = new System.Drawing.Point(11, 65);
             this.TIMCheckBox.Name = "TIMCheckBox";
             this.TIMCheckBox.Size = new System.Drawing.Size(88, 17);
             this.TIMCheckBox.TabIndex = 2;
             this.TIMCheckBox.Text = "Scan for TIM";
             this.TIMCheckBox.UseVisualStyleBackColor = true;
             // 
-            // TMDAltCheckBox
+            // VDFCheckBox
             // 
-            this.TMDAltCheckBox.AutoSize = true;
-            this.TMDAltCheckBox.Location = new System.Drawing.Point(111, 19);
-            this.TMDAltCheckBox.Name = "TMDAltCheckBox";
-            this.TMDAltCheckBox.Size = new System.Drawing.Size(151, 17);
-            this.TMDAltCheckBox.TabIndex = 1;
-            this.TMDAltCheckBox.Text = "Scan for TMD (alternative)";
-            this.TMDAltCheckBox.UseVisualStyleBackColor = true;
+            this.VDFCheckBox.AutoSize = true;
+            this.VDFCheckBox.Location = new System.Drawing.Point(111, 42);
+            this.VDFCheckBox.Name = "VDFCheckBox";
+            this.VDFCheckBox.Size = new System.Drawing.Size(90, 17);
+            this.VDFCheckBox.TabIndex = 1;
+            this.VDFCheckBox.Text = "Scan for VDF";
+            this.VDFCheckBox.UseVisualStyleBackColor = true;
             // 
             // TMDCheckBox
             // 
@@ -266,6 +280,16 @@
             this.ScanButton.UseVisualStyleBackColor = true;
             this.ScanButton.Click += new System.EventHandler(this.ScanButton_Click);
             // 
+            // scanForAnCheckBox
+            // 
+            this.scanForAnCheckBox.AutoSize = true;
+            this.scanForAnCheckBox.Location = new System.Drawing.Point(210, 42);
+            this.scanForAnCheckBox.Name = "scanForAnCheckBox";
+            this.scanForAnCheckBox.Size = new System.Drawing.Size(84, 17);
+            this.scanForAnCheckBox.TabIndex = 9;
+            this.scanForAnCheckBox.Text = "Scan for AN";
+            this.scanForAnCheckBox.UseVisualStyleBackColor = true;
+            // 
             // LauncherForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -304,11 +328,10 @@
         private System.Windows.Forms.GroupBox groupBox2;
         private System.Windows.Forms.TextBox FilterText;
         private System.Windows.Forms.GroupBox groupBox3;
-        private System.Windows.Forms.CheckBox HMDModelsCheckBox;
+        private System.Windows.Forms.CheckBox hmdCheckBox;
         private System.Windows.Forms.CheckBox TODCheckBox;
-        private System.Windows.Forms.CheckBox TIMAltCheckBox;
         private System.Windows.Forms.CheckBox TIMCheckBox;
-        private System.Windows.Forms.CheckBox TMDAltCheckBox;
+        private System.Windows.Forms.CheckBox VDFCheckBox;
         private System.Windows.Forms.CheckBox TMDCheckBox;
         private System.Windows.Forms.GroupBox groupBox4;
         private System.Windows.Forms.CheckBox DebugCheckBox;
@@ -316,5 +339,8 @@
         private System.Windows.Forms.CheckBox LogCheckBox;
         private System.Windows.Forms.Button ScanButton;
         private System.Windows.Forms.CheckBox PMDCheckBox;
+        private System.Windows.Forms.CheckBox crocCheckBox;
+        private System.Windows.Forms.CheckBox psxCheckBox;
+        private System.Windows.Forms.CheckBox scanForAnCheckBox;
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -11,41 +12,68 @@ using System.Threading.Tasks;
 using System.Text;
 using DiscUtils;
 using DiscUtils.Iso9660;
+using PSXPrev.Classes;
 
 namespace PSXPrev
 {
     public class Program
     {
         public static Logger Logger;
-        public static PreviewForm PreviewForm;
-        public static LauncherForm LauncherForm;
+        private static PreviewForm PreviewForm;
+        private static LauncherForm LauncherForm;
 
         public static bool Scanning { get; private set; }
         public static List<RootEntity> AllEntities { get; private set; }
         public static List<Texture> AllTextures { get; private set; }
         public static List<Animation> AllAnimations { get; private set; }
 
-        public static long LargestFileLength = 0;
-        public static long LargestCurrentFilePosition = 0;
+        private static long _largestFileLength;
+        private static long _largestCurrentFilePosition;
         private static bool _checkAll;
         private static string _path;
         private static bool _checkTmd;
-        private static bool _checkTmdAlt;
+        private static bool _checkVdf;
         private static bool _checkTim;
-        private static bool _checkTimAlt;
         private static bool _checkPmd;
         private static bool _checkTod;
-        private static bool _checkHmdModels;
+        private static bool _checkHmd;
+        private static bool _checkCroc;
+        private static bool _checkPsx;
+        private static bool _checkAn;
         private static bool _log;
         private static bool _noVerbose;
-        private static bool _debug;
         private static string _filter;
+
+        public static bool Debug;
+
+        public static ulong MaxTODPackets = 100000;
+        public static ulong MaxTODFrames = 100000;
+        public static ulong MaxTMDPrimitives = 100000;
+        public static ulong MaxTMDObjects = 100000;
+        public static ulong MaxTIMResolution = 1024;
+        public static ulong MinVDFFrames = 3;
+        public static ulong MaxVDFFrames = 512;
+        public static ulong MaxVDFVertices = 1024;
+        public static ulong MaxVDFObjects = 512;
+        public static ulong MaxPSXObjectCount = 1024;
+        public static ulong MaxHMDBlockCount = 1024;
+        public static ulong MaxHMDTypeCount = 1024;
+        public static ulong MaxHMDDataSize = 5000;
+        public static ulong MaxHMDMimeDiffs = 100;
+        public static ulong MaxHMDVertCount = 10000;
+        public static uint MaxANJoints = 512;
+        public static uint MaxANFrames = 5000;
 
         private static void Main(string[] args)
         {
-            if (args.Length == 0)
+            Initialize(args);
+        }
+
+        public static void Initialize(string[] args)
+        {
+            if (args == null || args.Length == 0)
             {
-                Console.WriteLine("Usage PSXPrev folder filter(optional) -tmd(optional) -tmdAlt(optional) -pmd(optional) -tim(optional) -timAlt(optional) -tod(optional) -hmdmodels(optional) -log(optional) -noverbose(optional)");
+                Console.WriteLine("Usage PSXPrev folder filter(optional) -tmd(optional) -vdf(optional) -pmd(optional) -tim(optional) -tod(optional) -an(optional) -hmd(optional) -croc(optional) -psx(optional) -log(optional) -noverbose(optional) -debug(optional)");
                 LauncherForm = new LauncherForm();
                 var thread = new Thread(new ThreadStart(delegate
                 {
@@ -67,12 +95,14 @@ namespace PSXPrev
             var filter = args.Length > 1 ? args[1] : "*.*";
 
             var checkTmd = false;
-            var checkTmdAlt = false;
+            var checkVdf = false;
             var checkTim = false;
-            var checkTimAlt = false;
             var checkPmd = false;
             var checkTod = false;
+            var checkAn = false;
             var checkHmdModels = false;
+            var checkCrocModels = false;
+            var checkPsx = false;
             var log = false;
             var noVerbose = false;
             var debug = false;
@@ -84,8 +114,8 @@ namespace PSXPrev
                     case "-tmd":
                         checkTmd = true;
                         break;
-                    case "-tmdAlt":
-                        checkTmdAlt = true;
+                    case "-vdf":
+                        checkVdf = true;
                         break;
                     case "-pmd":
                         checkPmd = true;
@@ -93,13 +123,13 @@ namespace PSXPrev
                     case "-tim":
                         checkTim = true;
                         break;
-                    case "-timAlt":
-                        checkTimAlt = true;
-                        break;
                     case "-tod":
                         checkTod = true;
                         break;
-                    case "-hmdmodels":
+                    case "-an":
+                        checkAn = true;
+                        break;
+                    case "-hmd":
                         checkHmdModels = true;
                         break;
                     case "-log":
@@ -111,13 +141,18 @@ namespace PSXPrev
                     case "-debug":
                         debug = true;
                         break;
+                    case "-croc":
+                        checkCrocModels = true;
+                        break;
+                    case "-psx":
+                        checkPsx = true;
+                        break;
                 }
             }
-
-            DoScan(path, filter, checkTmd, checkTmdAlt, checkTim, checkTimAlt, checkPmd, checkTod, checkHmdModels, log, noVerbose, debug);
+            DoScan(path, filter, checkTmd, checkVdf, checkTim, checkPmd, checkTod, checkHmdModels, log, noVerbose, debug, checkCrocModels, checkPsx, checkAn);
         }
 
-        internal static void DoScan(string path, string filter, bool checkTmd, bool checkTmdAlt, bool checkTim, bool checkTimAlt, bool checkPmd, bool checkTod, bool checkHmdModels, bool log, bool noVerbose, bool debug)
+        internal static void DoScan(string path, string filter, bool checkTmd, bool checkVdf, bool checkTim, bool checkPmd, bool checkTod, bool checkHmd, bool log, bool noVerbose, bool debug, bool checkCroc, bool checkPsx, bool checkAn)
         {
             if (!Directory.Exists(path) && !File.Exists(path))
             {
@@ -129,23 +164,27 @@ namespace PSXPrev
 
             Logger = new Logger(log, noVerbose);
 
-            _checkAll = !(checkTmd || checkTmdAlt || checkTim || checkTimAlt || checkPmd || checkTod || checkHmdModels);
+            _checkAll = !(checkTmd || checkVdf || checkTim || checkPmd || checkTod || checkHmd || checkCroc || checkPsx || checkAn);
             _path = path;
             _filter = filter;
             _checkTmd = checkTmd;
-            _checkTmdAlt = checkTmdAlt;
+            _checkVdf = checkVdf;
             _checkTim = checkTim;
-            _checkTimAlt = checkTimAlt;
+            //_checkTimAlt = checkTimAlt;
             _checkPmd = checkPmd;
             _checkTod = checkTod;
-            _checkHmdModels = checkHmdModels;
+            _checkHmd = checkHmd;
+            _checkCroc = checkCroc;
+            _checkPsx = checkPsx;
+            _checkAn = checkAn;
             _log = log;
             _noVerbose = noVerbose;
-            _debug = debug;
+            Debug = debug;
 
             AllEntities = new List<RootEntity>();
             AllTextures = new List<Texture>();
             AllAnimations = new List<Animation>();
+
             PreviewForm = new PreviewForm((form) =>
             {
                 form.UpdateAnimations(AllAnimations);
@@ -153,14 +192,13 @@ namespace PSXPrev
                 form.UpdateTextures(AllTextures);
             });
 
-            var t = new Thread(new ThreadStart(delegate
+            var thread = new Thread(new ThreadStart(delegate
             {
                 Application.EnableVisualStyles();
                 Application.Run(PreviewForm);
             }));
-
-            t.SetApartmentState(ApartmentState.STA);
-            t.Start();
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
 
             try
             {
@@ -187,11 +225,11 @@ namespace PSXPrev
 
         private static void UpdateProgress(long filePos, string message)
         {
-            if (filePos > LargestCurrentFilePosition)
+            if (filePos > _largestCurrentFilePosition)
             {
-                LargestCurrentFilePosition = filePos;
+                _largestCurrentFilePosition = filePos;
             }
-            var perc = (double)LargestCurrentFilePosition / LargestFileLength;
+            var perc = (double)_largestCurrentFilePosition / _largestFileLength;
             PreviewForm.UpdateProgress((int)(perc * 100), 100, false, message);
         }
 
@@ -210,24 +248,40 @@ namespace PSXPrev
                         PreviewForm.ReloadItems();
                     });
                     Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for TIM Images at file {0}", fileTitle);
+                    Logger.WriteLine("Scanning for TIM at file {0}", fileTitle);
                     timParser.LookForTim(binaryReader, fileTitle);
                 });
             }
 
-            if (_checkTimAlt)
+            if (_checkAll || _checkCroc)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
-                    var timParser = new TIMParserOld((tmdEntity, fp) =>
+                    var crocModelReader = new CrocModelReader((tmdEntity, fp) =>
                     {
-                        AllTextures.Add(tmdEntity);
-                        UpdateProgress(fp, $"Found Texture {tmdEntity.Width}x{tmdEntity.Height} {tmdEntity.Bpp}bpp");
+                        AllEntities.Add(tmdEntity);
+                        UpdateProgress(fp, $"Found Model with {tmdEntity.ChildCount} objects");
                         PreviewForm.ReloadItems();
                     });
                     Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for TIM Images (alt) at file {0}", fileTitle);
-                    timParser.LookForTim(binaryReader, fileTitle);
+                    Logger.WriteLine("Scanning for Croc at file {0}", fileTitle);
+                    crocModelReader.LookForCrocModel(binaryReader, fileTitle);
+                });
+            }
+
+            if (_checkAll || _checkPsx)
+            {
+                parsers.Add((binaryReader, fileTitle) =>
+                {
+                    var psxParser = new PSXParser((tmdEntity, fp) =>
+                    {
+                        AllEntities.Add(tmdEntity);
+                        UpdateProgress(fp, $"Found Model with {tmdEntity.ChildCount} objects");
+                        PreviewForm.ReloadItems();
+                    });
+                    Logger.WriteLine("");
+                    Logger.WriteLine("Scanning for PSX at file {0}", fileTitle);
+                    psxParser.LookForPSX(binaryReader, fileTitle);
                 });
             }
 
@@ -242,24 +296,40 @@ namespace PSXPrev
                         PreviewForm.ReloadItems();
                     });
                     Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for TMD Models at file {0}", fileTitle);
+                    Logger.WriteLine("Scanning for TMD at file {0}", fileTitle);
                     tmdParser.LookForTmd(binaryReader, fileTitle);
                 });
             }
 
-            if (_checkTmdAlt)
+            if (_checkAll || _checkVdf)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
-                    var tmdParser = new TMDParserAlternative((tmdEntity, fp) =>
+                    var vdfParser = new VDFParser((vdfEntity, fp) =>
                     {
-                        AllEntities.Add(tmdEntity);
-                        UpdateProgress(fp, $"Found Model with {tmdEntity.ChildCount} objects");
+                        AllAnimations.Add(vdfEntity);
+                        UpdateProgress(fp, $"Found Animation with {vdfEntity.ObjectCount} objects");
                         PreviewForm.ReloadItems();
                     });
                     Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for TMD Models (alt) at file {0}", fileTitle);
-                    tmdParser.LookForTmd(binaryReader, fileTitle);
+                    Logger.WriteLine("Scanning for VDF at file {0}", fileTitle);
+                    vdfParser.LookForVDF(binaryReader, fileTitle);
+                });
+            }
+
+            if (_checkAll || _checkAn)
+            {
+                parsers.Add((binaryReader, fileTitle) =>
+                {
+                    var anParser = new ANParser((vdfEntity, fp) =>
+                    {
+                        AllAnimations.Add(vdfEntity);
+                        UpdateProgress(fp, $"Found Animation with {vdfEntity.ObjectCount} objects");
+                        PreviewForm.ReloadItems();
+                    });
+                    Logger.WriteLine("");
+                    Logger.WriteLine("Scanning for AN at file {0}", fileTitle);
+                    anParser.LookForAN(binaryReader, fileTitle);
                 });
             }
 
@@ -274,7 +344,7 @@ namespace PSXPrev
                         PreviewForm.ReloadItems();
                     });
                     Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for PMD Models at file {0}", fileTitle);
+                    Logger.WriteLine("Scanning for PMD at file {0}", fileTitle);
                     pmdParser.LookForPMD(binaryReader, fileTitle);
                 });
             }
@@ -290,12 +360,12 @@ namespace PSXPrev
                         PreviewForm.ReloadItems();
                     });
                     Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for TOD Animations at file {0}", fileTitle);
+                    Logger.WriteLine("Scanning for TOD at file {0}", fileTitle);
                     todParser.LookForTOD(binaryReader, fileTitle);
                 });
             }
 
-            if (_checkHmdModels)
+            if (_checkAll || _checkHmd)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
@@ -304,9 +374,14 @@ namespace PSXPrev
                         AllEntities.Add(hmdEntity);
                         UpdateProgress(fp, $"Found Model with {hmdEntity.ChildCount} objects");
                         PreviewForm.ReloadItems();
+                    }, (hmdAnimation, fp) =>
+                    {
+                        AllAnimations.Add(hmdAnimation);
+                        UpdateProgress(fp, $"Found Animation with {hmdAnimation.ObjectCount} objects and {hmdAnimation.FrameCount} frames");
+                        PreviewForm.ReloadItems();
                     });
                     Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for HMD Models at file {0}", fileTitle);
+                    Logger.WriteLine("Scanning for HMD at file {0}", fileTitle);
                     hmdParser.LookForHMDEntities(binaryReader, fileTitle);
                 });
             }
@@ -319,7 +394,7 @@ namespace PSXPrev
                     var files = cdReader.GetFiles("", _filter ?? "*.*", SearchOption.AllDirectories);
                     foreach (var file in files)
                     {
-                        if (file.ToLowerInvariant().Contains(".str;"))
+                        if (file.ToLowerInvariant().Contains(".str;") || file.ToLowerInvariant().Contains(".xa"))
                         {
                             continue;
                         }
@@ -358,7 +433,7 @@ namespace PSXPrev
             var files = Directory.GetFiles(path, filter);
             foreach (var file in files)
             {
-                if (file.ToLowerInvariant().EndsWith(".str"))
+                if (file.ToLowerInvariant().EndsWith(".str") || file.ToLowerInvariant().EndsWith(".xa"))
                 {
                     continue;
                 }
@@ -385,9 +460,9 @@ namespace PSXPrev
                 {
                     try
                     {
-                        if (stream.Length > LargestFileLength)
+                        if (stream.Length > _largestFileLength)
                         {
-                            LargestFileLength = stream.Length;
+                            _largestFileLength = stream.Length;
                         }
                         var fileTitle = file.Substring(file.LastIndexOf('\\') + 1);
                         parser(binaryReader, fileTitle);

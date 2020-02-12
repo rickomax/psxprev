@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.IO;
-
-namespace PSXPrev
+﻿namespace PSXPrev.Classes
 {
    public class PXLParser {
    // {

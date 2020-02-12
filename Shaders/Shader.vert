@@ -10,6 +10,7 @@ out float pass_NormalDotLight;
 out float pass_NormalLength;
 out vec4 pass_Diffuse;
 out vec4 pass_Ambient;
+out float discardPixel;
 
 uniform mat4 mvpMatrix;
 uniform vec3 lightDirection;
@@ -17,8 +18,10 @@ uniform sampler2D mainTex;
 
 const vec4 ambient = vec4(0.5, 0.5, 0.5, 1.0);
 const vec4 diffuse = vec4(0.75, 0.75, 0.75, 1.0);
+const float DiscardValue = 100000000;
 
 void main(void) {	
+	discardPixel = step(DiscardValue, in_Position.x);
     gl_Position = mvpMatrix * vec4(in_Position, 1.0);
 	pass_NormalDotLight = clamp(dot(in_Normal, lightDirection), 0.0, 1.0);
 	pass_NormalLength = length(in_Normal);

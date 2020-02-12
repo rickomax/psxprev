@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Drawing;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class Texture
     {

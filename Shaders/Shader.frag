@@ -5,12 +5,16 @@ in vec4 pass_Diffuse;
 in vec4 pass_Ambient;
 in float pass_NormalDotLight;
 in float pass_NormalLength;
+in float discardPixel;
 
 out vec4 out_Color;
 
 uniform sampler2D mainTex;
 
-void main(void) {	
+void main(void) {
+	if (discardPixel > 0.0) {
+		discard;
+	}
 	vec4 finalColor;
 	if (pass_NormalLength == 0.0) {
 		finalColor = pass_Color;

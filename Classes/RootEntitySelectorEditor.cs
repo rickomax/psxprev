@@ -1,12 +1,11 @@
-﻿using PSXPrev.Forms;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.ComponentModel;
 using System.Drawing.Design;
 using System.Windows.Forms;
 using System.Windows.Forms.Design;
+using PSXPrev.Forms;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class RootEntitySelectorEditor : UITypeEditor
     {

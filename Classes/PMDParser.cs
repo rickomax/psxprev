@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using OpenTK;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class PMDParser
     {
@@ -25,7 +25,6 @@ namespace PSXPrev
 
             reader.BaseStream.Seek(0, SeekOrigin.Begin);
 
-            //var entities = new List<RootEntity>();
 
             while (reader.BaseStream.CanRead)
             {
@@ -149,6 +148,7 @@ namespace PSXPrev
                                 triangles.AddRange(ReadPolyG4(reader, true, _offset + vertPoint));
                                 break;
                             default:
+                                Program.Logger.WriteLine("Unknown primitive:" + primType);
                                 goto EndObject;
                         }
                     }
@@ -719,7 +719,7 @@ namespace PSXPrev
             ReadSVector(reader, out v0X, out v0Y, out v0Z);
         }
 
-        private void AddTriangle(Dictionary<int, List<Triangle>> groupedTriangles, Triangle triangle, int p)
+        private void AddTriangle(Dictionary<uint, List<Triangle>> groupedTriangles, Triangle triangle, uint p)
         {
             List<Triangle> triangles;
             if (groupedTriangles.ContainsKey(p))
@@ -850,26 +850,26 @@ namespace PSXPrev
 
             var triangle = new Triangle
             {
-                PrimitiveType = primitiveType,
+                //PrimitiveType = primitiveType,
                 Colors = new[]
                 {
                     new Color
                     (
-                        r0/256f,
-                        g0/256f,
-                        b0/256f
+                        r0/255f,
+                        g0/255f,
+                        b0/255f
                     ),
                     new Color
                     (
-                         r1/256f,
-                         g1/256f,
-                         b1/256f
+                         r1/255f,
+                         g1/255f,
+                         b1/255f
                     ),
                     new Color
                     (
-                         r2/256f,
-                         g2/256f,
-                         b2/256f
+                         r2/255f,
+                         g2/255f,
+                         b2/255f
                     )
                 },
                 Normals = new[]
@@ -888,20 +888,21 @@ namespace PSXPrev
                 {
                     new Vector3
                     {
-                        X = u0/256f,
-                        Y = v0/256f
+                        X = u0/255f,
+                        Y = v0/255f
                     },
                     new Vector3
                     {
-                        X = u1/256f,
-                        Y = v1/256f
+                        X = u1/255f,
+                        Y = v1/255f
                     },
                     new Vector3
                     {
-                        X = u2/256f,
-                        Y = v2/256f
+                        X = u2/255f,
+                        Y = v2/255f
                     }
-                }
+                },
+                AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
             };
 
             return triangle;

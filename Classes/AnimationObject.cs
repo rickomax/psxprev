@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class AnimationObject
     {
         [Browsable(false)]
-        public Dictionary<int, AnimationFrame> AnimationFrames { get; set; }
-
+        public Dictionary<uint, AnimationFrame> AnimationFrames { get; set; }
+        
         [Browsable(false)]
         public AnimationObject Parent { get; set; }
 
@@ -18,18 +18,18 @@ namespace PSXPrev
         public Animation Animation { get; set; }
 
         [Browsable(false)]
-        public int ParentID { get; set; }
+        public uint ParentID { get; set; }
 
         [ReadOnly(true)]
-        public int ID { get; set; }
+        public uint ID { get; set; }
 
         [DisplayName("TMD ID")]
-        public int? TMDID { get; set; }
+        public uint? TMDID { get; set; }
 
         public AnimationObject()
         {
             Children = new List<AnimationObject>();
-            AnimationFrames = new Dictionary<int, AnimationFrame>();
+            AnimationFrames = new Dictionary<uint, AnimationFrame>();
         }
     }
 }

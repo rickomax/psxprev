@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.IO;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public static class ManifestResourceLoader
     {

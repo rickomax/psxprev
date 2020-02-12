@@ -1,20 +1,17 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 
-
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class TIMParser
     {
         private long _offset;
-        private Action<Texture, long> entityAddedAction;
+        private readonly Action<Texture, long> _entityAddedAction;
 
         public TIMParser(Action<Texture, long> entityAdded)
         {
-            entityAddedAction = entityAdded;
+            _entityAddedAction = entityAdded;
         }
 
         public void LookForTim(BinaryReader reader, string fileTitle)
@@ -30,10 +27,9 @@ namespace PSXPrev
 
             while (reader.BaseStream.CanRead)
             {
+                var passed = false;
                 try
                 {
-                    _offset = reader.BaseStream.Position;
-
                     var id = reader.ReadUInt16();
                     if (id == 0x10)
                     {
@@ -45,8 +41,10 @@ namespace PSXPrev
                             {
                                 texture.TextureName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
                                 //textures.Add(texture);
-                                entityAddedAction(texture, reader.BaseStream.Position);
+                                _entityAddedAction(texture, reader.BaseStream.Position);
                                 Program.Logger.WriteLine("Found TIM Image at offset {0:X}", _offset);
+                                _offset = reader.BaseStream.Position;
+                                passed = true;
                             }
                         }
                     }
@@ -54,13 +52,20 @@ namespace PSXPrev
                 }
                 catch (Exception exp)
                 {
-                    if (exp is EndOfStreamException)
-                    {
-                        break;
-                    }
-                    Program.Logger.WriteLine(exp);
+                    //if (Program.Debug)
+                    //{
+                    //    Program.Logger.WriteLine(exp);
+                    //}
                 }
-                reader.BaseStream.Seek(_offset + 1, SeekOrigin.Begin);
+                if (!passed)
+                {
+                    if (++_offset > reader.BaseStream.Length)
+                    {
+                        Program.Logger.WriteLine("Reached file end");
+                        return;
+                    }
+                    reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
+                }
             }
         }
 
@@ -77,7 +82,7 @@ namespace PSXPrev
             {
                 return null;
             }
-            
+
             var cf = (flag & 0x8) >> 3;
             if (cf > 1)
             {
@@ -113,7 +118,7 @@ namespace PSXPrev
                             var g = (clut & 0x3E0) >> 5;
                             var b = (clut & 0x7C00) >> 10;
                             var a = (clut & 0x8000) >> 15;
-                            System.Drawing.Color color = System.Drawing.Color.FromArgb(255, r*8, g*8, b*8);
+                            System.Drawing.Color color = System.Drawing.Color.FromArgb(255, r * 8, g * 8, b * 8);
                             palette[c] = color;
                         }
                         break;
@@ -126,7 +131,7 @@ namespace PSXPrev
                             var g = (clut & 0x3E0) >> 5;
                             var b = (clut & 0x7C00) >> 10;
                             var a = (clut & 0x8000) >> 15;
-                            System.Drawing.Color color = System.Drawing.Color.FromArgb(255, r*8, g*8, b*8);
+                            System.Drawing.Color color = System.Drawing.Color.FromArgb(255, r * 8, g * 8, b * 8);
                             palette[c] = color;
                         }
                         break;
@@ -140,7 +145,7 @@ namespace PSXPrev
             var imgWidth = reader.ReadUInt16();
             var imgHeight = reader.ReadUInt16();
 
-            if (imgWidth == 0 || imgHeight == 0 || imgWidth > 1024 || imgHeight > 1024)
+            if (imgWidth == 0 || imgHeight == 0 || imgWidth > Program.MaxTIMResolution || imgHeight > Program.MaxTIMResolution)
             {
                 return null;
             }
@@ -151,8 +156,8 @@ namespace PSXPrev
                 return null;
             }
             int textureOffset = texturePage * 64;
-            
-            int texturePageY = imgDy / 256;
+
+            int texturePageY = imgDy / 255;
             if (texturePageY > 2)
             {
                 return null;

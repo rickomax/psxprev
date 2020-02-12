@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class MtlExporter : IDisposable
     {

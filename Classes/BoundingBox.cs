@@ -1,6 +1,6 @@
 ﻿using OpenTK;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class BoundingBox
     {

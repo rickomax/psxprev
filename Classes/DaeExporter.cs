@@ -1,12 +1,9 @@
 ﻿using System;
-using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Text;
 using Collada141;
 
-
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class DaeExporter
     {

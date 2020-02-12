@@ -1,4 +1,4 @@
-﻿namespace PSXPrev
+﻿namespace PSXPrev.Classes
 {
     internal class ObjBlock
     {

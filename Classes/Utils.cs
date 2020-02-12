@@ -1,6 +1,6 @@
 ﻿using PSXPrev.Forms;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class Utils
     {

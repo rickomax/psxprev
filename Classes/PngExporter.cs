@@ -1,6 +1,6 @@
 ﻿using System.Drawing.Imaging;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class PngExporter
     {

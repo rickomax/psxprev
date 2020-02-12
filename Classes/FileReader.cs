@@ -2,7 +2,7 @@
 using System.IO;
 using System.Text;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class FileReader : IDisposable
     {

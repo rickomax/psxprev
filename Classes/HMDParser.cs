@@ -1,19 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using OpenTK;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class HMDParser
     {
         private long _offset;
 
-        private Action<RootEntity, long> entityAddedAction;
+        private readonly Action<RootEntity, long> _entityAddedAction;
+        private readonly Action<Animation, long> _animationAddedAction;
 
-        public HMDParser(Action<RootEntity, long> entityAddedAction)
+        public HMDParser(Action<RootEntity, long> entityAddedAction, Action<Animation, long> animationAddedAction)
         {
-            this.entityAddedAction = entityAddedAction;
+            this._entityAddedAction = entityAddedAction;
+            this._animationAddedAction = animationAddedAction;
         }
 
 
@@ -26,46 +29,65 @@ namespace PSXPrev
 
             reader.BaseStream.Seek(0, SeekOrigin.Begin);
 
-            //var entities = new List<RootEntity>();
-
             while (reader.BaseStream.CanRead)
             {
+                var passed = false;
                 try
                 {
-                    _offset = reader.BaseStream.Position;
                     var version = reader.ReadUInt32();
                     if (version == 0x00000050)
                     {
-                        var entity = ParseHMDEntities(reader);
-                        if (entity != null)
+                        var rootEntity = ParseHMD(reader, out var animations);
+                        if (rootEntity != null)
                         {
-                            entity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            //entities.Add(entity);
-                            entityAddedAction(entity, reader.BaseStream.Position);
+                            rootEntity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
+                            _entityAddedAction(rootEntity, reader.BaseStream.Position);
                             Program.Logger.WriteLine("Found HMD Model at offset {0:X}", _offset);
+                            _offset = reader.BaseStream.Position;
+                            passed = true;
+                        }
+                        foreach (var animation in animations)
+                        {
+                            animation.AnimationName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
+                            _animationAddedAction(animation, reader.BaseStream.Position);
+                            Program.Logger.WriteLine("Found HMD Animation at offset {0:X}", _offset);
+                            _offset = reader.BaseStream.Position;
+                            passed = true;
                         }
                     }
                 }
                 catch (Exception exp)
                 {
-                    if (exp is EndOfStreamException)
-                    {
-                        break;
-                    }
-                    Program.Logger.WriteLine(exp);
+                    //if (Program.Debug)
+                    //{
+                    //    Program.Logger.WriteLine(exp);
+                    //}
                 }
-                reader.BaseStream.Seek(_offset + 1, SeekOrigin.Begin);
+
+                if (!passed)
+                {
+                    if (++_offset > reader.BaseStream.Length)
+                    {
+                        Program.Logger.WriteLine("Reached file end");
+                        return;
+                    }
+                    reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
+                }
             }
         }
 
-        private RootEntity ParseHMDEntities(BinaryReader reader)
+        private RootEntity ParseHMD(BinaryReader reader, out List<Animation> animations)
         {
-            var rootEntity = new RootEntity();
+            animations = new List<Animation>();
             var mapFlag = reader.ReadUInt32();
             var primitiveHeaderTop = reader.ReadUInt32() * 4;
             var blockCount = reader.ReadUInt32();
+            if (blockCount == 0 || blockCount > Program.MaxHMDBlockCount)
+            {
+                return null;
+            }
             var modelEntities = new List<ModelEntity>();
-            for (var i = 0; i < blockCount; i++)
+            for (uint i = 0; i < blockCount; i++)
             {
                 var primitiveSetTop = reader.ReadUInt32() * 4;
                 if (primitiveSetTop == 0)
@@ -73,22 +95,37 @@ namespace PSXPrev
                     continue;
                 }
                 var blockTop = reader.BaseStream.Position;
-                reader.BaseStream.Seek(_offset + primitiveSetTop, SeekOrigin.Begin);
-                ProccessPrimitive(reader, modelEntities, i);
+                ProccessPrimitive(reader, modelEntities, animations, i, primitiveSetTop, primitiveHeaderTop);
                 reader.BaseStream.Seek(blockTop, SeekOrigin.Begin);
+            }
+            RootEntity rootEntity;
+            if (modelEntities.Count > 0)
+            {
+                rootEntity = new RootEntity();
+                foreach (var modelEntity in modelEntities)
+                {
+                    modelEntity.ParentEntity = rootEntity;
+                }
+                rootEntity.ChildEntities = modelEntities.ToArray();
+                rootEntity.ComputeBounds();
+            }
+            else
+            {
+                rootEntity = null;
             }
             var coordCount = reader.ReadUInt32();
             for (var c = 0; c < coordCount; c++)
             {
-                Matrix4 localMatrix = ReadCoord(reader);
-                modelEntities[c].LocalMatrix = localMatrix;
+                var localMatrix = ReadCoord(reader);
+                foreach (var modelEntity in modelEntities)
+                {
+                    if (modelEntity.TMDID == c)
+                    {
+                        modelEntity.LocalMatrix = localMatrix;
+                    }
+                }
             }
-            foreach (var modelEntity in modelEntities)
-            {
-                modelEntity.ParentEntity = rootEntity;
-            }
-            rootEntity.ChildEntities = modelEntities.ToArray();
-            rootEntity.ComputeBounds();
+            var primitiveHeaderCount = reader.ReadUInt32();
             return rootEntity;
         }
 
@@ -111,7 +148,8 @@ namespace PSXPrev
                 reader.BaseStream.Seek(top, SeekOrigin.Begin);
                 return superMatrix * worldMatrix;
             }
-            return worldMatrix;
+
+            return Matrix4.Identity; //worldMatrix;
         }
 
         private static Matrix4 ReadMatrix(BinaryReader reader)
@@ -140,381 +178,510 @@ namespace PSXPrev
             return matrix;
         }
 
-        private void ProccessPrimitive(BinaryReader reader, List<ModelEntity> modelEntities, int modelIndex)
+        private void ProccessPrimitive(BinaryReader reader, List<ModelEntity> modelEntities, List<Animation> animations, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop)
         {
-            var triangles = new List<Triangle>();
-            var nextPrimitivePointer = reader.ReadUInt32() * 4;
-            var primitiveHeaderPointer = reader.ReadUInt32() * 4;
-            var typeCountMapped = reader.ReadUInt32();
-            var mapped = typeCountMapped >> 0x1F & 0x1;
-            var typeCount = typeCountMapped & 0x1F;
-            for (var j = 0; j < typeCount; j++)
+            var groupedTriangles = new Dictionary<uint, List<Triangle>>();
+            while (true)
             {
-                var primitiveType = reader.ReadUInt16();
-                var dataType = reader.ReadUInt16();
-                var developerId = (dataType & 0xF000) >> 0xC;
-                var category = (dataType & 0xF00) >> 0x8;  //0: Polygon data 1: Shared polygon data 2: Image data 3: Animation data 4: MIMe data 5: Ground dat      
-                var driver = dataType & 0xFF;
-                var dataCountAndSize = reader.ReadUInt32();
-                var flag = (dataCountAndSize & 0x80000000) >> 0x1F;
-                var dataCount = (dataCountAndSize & 0x3FFF0000) >> 0x10;
-                var dataSize = dataCountAndSize & 0xFFFF;
-                var polygonIndex = reader.ReadUInt32() * 4;
-                if (category == 0)
+                reader.BaseStream.Seek(_offset + primitiveSetTop, SeekOrigin.Begin);
+                var nextPrimitivePointer = reader.ReadUInt32();
+                var primitiveHeaderPointer = reader.ReadUInt32() * 4;
+                ReadMappedValue(reader, out var typeCountMapped, out var typeCount);
+                if (typeCount > Program.MaxHMDTypeCount)
                 {
-                    ProcessNonSharedPrimitiveData(triangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, dataCount);
+                    return;
                 }
+                for (var j = 0; j < typeCount; j++)
+                {
+                    //0: Polygon data 1: Shared polygon data 2: Image data 3: Animation data 4: MIMe data 5: Ground data  
+
+                    var type = reader.ReadUInt32();
+                    var developerId = (type >> 27) & 0b00001111; //4
+                    var category = (type >> 24) & 0b00001111; //4  
+                    var driver = (type >> 16) & 0b11111111; //8
+                    var primitiveType = type & 0xFFFF; //16
+
+                    ReadMappedValue16(reader, out var dataCountMapped, out var dataCount);
+                    ReadMappedValue16(reader, out var dataSizeMapped, out var dataSize);
+
+                    if (dataCount > Program.MaxHMDDataSize)
+                    {
+                        return;
+                    }
+                    if (dataSize > Program.MaxHMDDataSize)
+                    {
+                        return;
+                    }
+
+                    if (category > 5)
+                    {
+                        return;
+                    }
+
+                    if (Program.Debug)
+                    {
+                        Program.Logger.WriteLine($"HMD Type: {type} of category {category} and primitive type {primitiveType}");
+                    }
+
+                    if (category == 0)
+                    {
+                        if (Program.Debug)
+                        {
+                            Program.Logger.WriteLine($"HMD Non-Shared Vertices Geometry");
+                        }
+
+                        var polygonIndex = reader.ReadUInt32() * 4;
+                        ProcessNonSharedGeometryData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, dataSize);
+                    }
+                    else if (category == 1)
+                    {
+                        if (Program.Debug)
+                        {
+                            Program.Logger.WriteLine($"HMD Shared Vertices Geometry");
+                        }
+                    }
+                    else if (category == 1)
+                    {
+                        if (Program.Debug)
+                        {
+                            Program.Logger.WriteLine($"HMD Image Data");
+                        }
+                    }
+                    else if (category == 3)
+                    {
+                        //if (Program.Debug)
+                        {
+                            Program.Logger.WriteLine($"HMD Animation");
+                        }
+                    }
+                    else if (category == 4)
+                    {
+                        var code1 = primitiveType & 0x111;
+                        var rst = (primitiveType >> 3) & 0x1;
+                        var code0 = (primitiveType >> 4) & 0x111;
+                        //if (Program.Debug)
+                        {
+                            Program.Logger.WriteLine($"HMD Mime Animation: {code1}|{rst}|{code0}");
+                        }
+                        //todo: docs are broken!
+                        if (code0 == 0 && rst == 0)
+                        {
+                            var diffIndex = reader.ReadUInt32() * 4;
+                            var animation = ProcessMimeVertexData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, diffIndex, dataSize);
+                            if (animation != null)
+                            {
+                                animations.Add(animation);
+                            }
+                        }
+                    }
+                    else if (category == 5)
+                    {
+                        if (Program.Debug)
+                        {
+                            Program.Logger.WriteLine($"HMD Grid");
+                        }
+                        var polygonIndex = reader.ReadUInt32() * 4;
+                        var gridIndex = reader.ReadUInt32() * 4;
+                        var vertexIndex = reader.ReadUInt32() * 4;
+                        ProcessGroundData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, dataCount / 4, gridIndex, vertexIndex);
+                    }
+                }
+                if (nextPrimitivePointer != 0xFFFFFFFF)
+                {
+                    primitiveSetTop = nextPrimitivePointer * 4;
+                    continue;
+                }
+                break;
             }
-            var modelEntity = new ModelEntity();
-            modelEntity.Triangles = triangles.ToArray();
-            modelEntity.HasColors = true;
-            modelEntity.HasNormals = true;
-            modelEntity.HasUvs = false;
-            modelEntities.Add(modelEntity);
-            if (nextPrimitivePointer < 1000)
+            foreach (var key in groupedTriangles.Keys)
             {
-                reader.BaseStream.Seek(_offset + nextPrimitivePointer, SeekOrigin.Begin);
-                ProccessPrimitive(reader, modelEntities, modelIndex);
+                var triangles = groupedTriangles[key];
+                var model = new ModelEntity
+                {
+                    Triangles = triangles.ToArray(),
+                    TexturePage = key,
+                    TMDID = primitiveIndex, //todo
+                    //PrimitiveIndex = primitiveIndex
+                };
+                modelEntities.Add(model);
             }
         }
 
-        private void ProcessNonSharedPrimitiveData(List<Triangle> triangles, BinaryReader reader, int driver, int primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount)
+        private static void ReadMappedValue(BinaryReader reader, out uint mapped, out uint value)
+        {
+            var valueMapped = reader.ReadUInt32();
+            mapped = (valueMapped >> 31) & 0b00000001;
+            value = valueMapped & 0b01111111111111111111111111111111;
+        }
+
+        private static void ReadMappedValue16(BinaryReader reader, out uint mapped, out uint value)
+        {
+            var valueMapped = reader.ReadUInt16();
+            mapped = (uint)((valueMapped >> 15) & 0b00000001);
+            value = (uint)(valueMapped & 0b0111111111111111);
+        }
+
+        private void ProcessNonSharedGeometryData(Dictionary<uint, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount)
         {
             var primitiveDataTop = reader.BaseStream.Position;
+            ProcessGeometryPrimitiveHeader(reader, primitiveHeaderPointer, polygonIndex, out var vertTop, out var normTop, out var coordTop, out var dataTop);
+            reader.BaseStream.Seek(_offset + dataTop + polygonIndex, SeekOrigin.Begin);
+            for (var j = 0; j < dataCount; j++)
+            {
+                var packetStructure = TMDHelper.CreateHMDPacketStructure(driver, primitiveType, reader);
+                //var offset = reader.BaseStream.Position;
+                if (packetStructure != null)
+                {
+                    TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure,
+                        index =>
+                        {
+                            var position = reader.BaseStream.Position;
+                            reader.BaseStream.Seek(_offset + vertTop + index * 8, SeekOrigin.Begin);
+                            var x = reader.ReadInt16();
+                            var y = reader.ReadInt16();
+                            var z = reader.ReadInt16();
+                            var pad = reader.ReadInt16();
+                            var vertex = new Vector3(x, y, z);
+                            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+                            return vertex;
+                        },
+                        index =>
+                        {
+                            var position = reader.BaseStream.Position;
+                            reader.BaseStream.Seek(_offset + normTop + index * 8, SeekOrigin.Begin);
+                            var nx = TMDHelper.ConvertNormal(reader.ReadInt16());
+                            var ny = TMDHelper.ConvertNormal(reader.ReadInt16());
+                            var nz = TMDHelper.ConvertNormal(reader.ReadInt16());
+                            var pad = FInt.Create(reader.ReadInt16());
+                            var normal = new Vector3
+                            {
+                                X = nx,
+                                Y = ny,
+                                Z = nz
+                            };
+                            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+                            return normal;
+                        }
+                    );
+                }
+            }
+            reader.BaseStream.Seek(primitiveDataTop, SeekOrigin.Begin);
+        }
+
+        private Animation ProcessMimeVertexData(Dictionary<uint, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint diffIndex, uint dataCount)
+        {
+            Animation animation;
+            Dictionary<uint, AnimationObject> animationObjects;
+            AnimationFrame GetNextAnimationFrame(AnimationObject animationObject)
+            {
+                var animationFrames = animationObject.AnimationFrames;
+                var frameTime = (uint)animationFrames.Count;
+                var frame = new AnimationFrame { FrameTime = frameTime, AnimationObject = animationObject };
+                animationFrames.Add(frameTime, frame);
+                if (frameTime >= animation.FrameCount)
+                {
+                    animation.FrameCount = frameTime + 1;
+                }
+                return frame;
+            }
+            AnimationObject GetAnimationObject(uint objectId)
+            {
+                if (animationObjects.ContainsKey(objectId))
+                {
+                    return animationObjects[objectId];
+                }
+                var animationObject = new AnimationObject { Animation = animation, ID = objectId, TMDID = objectId };
+                animationObjects.Add(objectId, animationObject);
+                return animationObject;
+            }
+            animation = new Animation();
+            var rootAnimationObject = new AnimationObject();
+            animationObjects = new Dictionary<uint, AnimationObject>();
+            var primitiveDataTop = reader.BaseStream.Position;
+            ProcessMimeVertexPrimitiveHeader(reader, primitiveHeaderPointer, diffIndex, out var mimeTop, out var mimeDiffTop, out var mimeOrgTop, out var mimeVertTop, out var mimeNormTop);
+            for (uint i = 0; i < dataCount; i++)
+            {
+                reader.BaseStream.Seek(_offset + mimeDiffTop, SeekOrigin.Begin);
+                var rstNum = reader.ReadUInt16();
+                var numDiffs = reader.ReadUInt16();
+                if (numDiffs > Program.MaxHMDMimeDiffs)
+                {
+                    return null;
+                }
+                var flags = reader.ReadUInt32();
+                var animationObject = GetAnimationObject(rstNum);
+                for (uint j = 0; j < numDiffs; j++)
+                {
+                    var position = reader.BaseStream.Position;
+                    var diffDataIndex = reader.ReadUInt32() * 4;
+                    reader.BaseStream.Seek(mimeDiffTop + diffIndex + diffDataIndex, SeekOrigin.Begin);
+                    var vertexStart = reader.ReadUInt32();
+                    var res = reader.ReadUInt16();
+                    var vertexCount = reader.ReadUInt16();
+                    if (vertexCount >= Program.MaxHMDVertCount)
+                    {
+                        return null;
+                    }
+                    //if (j == 0)
+                    //{
+                    //    var initialAnimationFrame = GetAnimationFrame(animationObject, 0);
+                    //    var initialVertices = new Vector3[vertexCount + vertexStart];
+                    //    for (var k = 0; k < vertexCount; k++)
+                    //    {
+                    //        initialVertices[k] = Vector3.Zero;
+                    //    }
+                    //    initialAnimationFrame.Vertices = initialVertices;
+                    //    initialAnimationFrame.TempVertices = new Vector3[initialAnimationFrame.Vertices.Length];
+                    //}
+                    var animationFrame = GetNextAnimationFrame(animationObject);
+                    var vertices = new Vector3[vertexCount + vertexStart];
+                    for (var k = 0; k < vertexCount; k++)
+                    {
+                        var x = reader.ReadInt16();
+                        var y = reader.ReadInt16();
+                        var z = reader.ReadInt16();
+                        var pad  = reader.ReadUInt16();
+                        vertices[vertexStart + k] = new Vector3(x, y, z);
+                    }
+                    animationFrame.Vertices = vertices;
+                    animationFrame.TempVertices = new Vector3[animationFrame.Vertices.Length];
+                    reader.BaseStream.Seek(position, SeekOrigin.Begin);
+                }
+                if (flags == 1)
+                {
+                    var resetOffset = reader.ReadUInt32() * 4;
+                    //var position = reader.BaseStream.Position;
+                    //reader.BaseStream.Seek(_offset + resetOffset, SeekOrigin.Begin);
+                    //reader.BaseStream.Seek(mimeDiffTop + diffIndex + mimeOrgTop, SeekOrigin.Begin);
+                    //var animationFrame = GetAnimationFrame(animationObject, 0);
+                    //for (var k = 0; k < vertexCount; k++)
+                    //{
+                    //    var x = reader.ReadInt16();
+                    //    var y = reader.ReadInt16();
+                    //    var z = reader.ReadInt16();
+                    //    reader.ReadInt16();
+                    //    vertices[vertexStart + k] = new Vector3(x, y, z);
+                    //}
+                    //reader.BaseStream.Seek(position, SeekOrigin.Begin);
+                }
+            }
+            foreach (var animationObject in animationObjects.Values)
+            {
+                if (animationObject.ParentID != 0 && animationObjects.ContainsKey(animationObject.ParentID))
+                {
+                    var parent = animationObjects[animationObject.ParentID];
+                    animationObject.Parent = parent;
+                    parent.Children.Add(animationObject);
+                    continue;
+                }
+                animationObject.Parent = rootAnimationObject;
+                rootAnimationObject.Children.Add(animationObject);
+            }
+            animation.AnimationType = AnimationType.VertexDiff;
+            animation.RootAnimationObject = rootAnimationObject;
+            animation.ObjectCount = animationObjects.Count;
+            animation.FPS = 1f;
+            return animation;
+        }
+
+        private void ProcessGroundData(Dictionary<uint, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount, uint gridIndex, uint vertexIndex)
+        {
+            void AddTriangle(Triangle triangle, uint tPageNum)
+            {
+                List<Triangle> triangles;
+                if (groupedTriangles.ContainsKey(tPageNum))
+                {
+                    triangles = groupedTriangles[tPageNum];
+                }
+                else
+                {
+                    triangles = new List<Triangle>();
+                    groupedTriangles.Add(tPageNum, triangles);
+                }
+                triangles.Add(triangle);
+            }
+
+            ProcessGroundPrimitiveHeader(reader, primitiveHeaderPointer, primitiveType, polygonIndex, out var vertTop, out var normTop, out var polyTop, out var uvTop, out var gridTop, out var coordTop);
+
+            for (var j = 0; j < dataCount; j++)
+            {
+                //polygon
+                reader.BaseStream.Seek(_offset + polyTop + polygonIndex, SeekOrigin.Begin);
+                var x0 = reader.ReadInt16();
+                var y0 = reader.ReadInt16();
+                var w = reader.ReadUInt16();
+                var h = reader.ReadUInt16();
+                var m = reader.ReadUInt16();
+                var n = reader.ReadUInt16();
+                var size = reader.ReadUInt16();
+                var @base = reader.ReadUInt16();
+                var position = reader.BaseStream.Position;
+                var gridItemSize = primitiveType == 1 ? 32 : 16;
+                for (var row = 0; row < size; row++)
+                {
+                    var itemVertexIndex = reader.ReadUInt16();
+                    var itemGridCount = reader.ReadUInt16();
+                    var rowPosition = position;
+                    for (var itemGridIndex = 0; itemGridIndex < itemGridCount; itemGridIndex++)
+                    {
+                        reader.BaseStream.Seek(_offset + gridTop + gridIndex + itemGridIndex * gridItemSize, SeekOrigin.Begin);
+
+                        uint tPage;
+                        Color color;
+                        Vector3 n0, n1, n2, n3;
+                        Vector3 uv0, uv1, uv2, uv3;
+
+                        if (primitiveType == 0)
+                        {
+                            var r = reader.ReadByte() / 255f;
+                            var g = reader.ReadByte() / 255f;
+                            var b = reader.ReadByte() / 255f;
+                            color = new Color(r, g, b);
+                            reader.ReadByte();
+                            var normIndex = reader.ReadUInt16();
+
+                            //todo
+                            n0 = n1 = n2 = n3 = Vector3.Zero;
+
+                            reader.ReadUInt16();
+                            tPage = 0;
+                            uv0 = uv1 = uv2 = uv3 = Vector3.Zero;
+                        }
+                        else
+                        {
+                            var normIndex = reader.ReadUInt16();
+                            var uvIndex = reader.ReadUInt16();
+
+                            //todo
+                            tPage = 0;
+                            uv0 = uv1 = uv2 = uv3 = Vector3.Zero;
+
+                            color = Color.Grey;
+                            n0 = n1 = n2 = n3 = Vector3.Zero;
+                        }
+
+                        var columnPosition = position;
+                        reader.BaseStream.Seek(_offset + vertTop + vertexIndex + itemVertexIndex * 4, SeekOrigin.Begin);
+                        var z0 = reader.ReadInt16();
+                        //var z1 = reader.ReadInt16();
+                        //var z2 = reader.ReadInt16();
+                        //var z3 = reader.ReadInt16();
+                        var z1 = z0;
+                        var z2 = z0;
+                        var z3 = z0;
+                        reader.BaseStream.Seek(columnPosition, SeekOrigin.Begin);
+
+                        var vertex0 = new Vector3(x0 + w * row, y0 + h * itemGridIndex, z0);
+                        var vertex1 = new Vector3(x0 + w * (row + 1), y0 + h * itemGridIndex, z1);
+                        var vertex2 = new Vector3(x0 + w * (row + 1), y0 + h * (itemGridIndex + 1), z2);
+                        var vertex3 = new Vector3(x0 + w * row, y0 + h * (itemGridIndex + 1), z3);
+
+                        AddTriangle(new Triangle
+                        {
+                            Vertices = new[] { vertex0, vertex1, vertex2 },
+                            Normals = new[] { n0, n1, n2 },
+                            Colors = new[] { color, color, color },
+                            Uv = new[] { uv0, uv1, uv2 },
+                            AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
+                        }, tPage);
+
+                        AddTriangle(new Triangle
+                        {
+                            Vertices = new[] { vertex2, vertex3, vertex0 },
+                            Normals = new[] { n2, n3, n0 },
+                            Colors = new[] { color, color, color },
+                            Uv = new[] { uv2, uv3, uv0 },
+                            AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
+                        }, tPage);
+                    }
+                    reader.BaseStream.Seek(rowPosition, SeekOrigin.Begin);
+
+                }
+                reader.BaseStream.Seek(position, SeekOrigin.Begin);
+            }
+        }
+
+        private void ProcessGeometryPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, uint polygonIndex, out uint vertTop, out uint normTop, out uint coordTop, out uint dataTop)
+        {
+            var position = reader.BaseStream.Position;
+
             reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
 
             var headerSize = reader.ReadUInt32();
 
-            var headerTop = reader.BaseStream.Position;
-            var dataTopMapped = reader.ReadInt32();
-            var dataMapped = (dataTopMapped & 0x80000000) >> 0x1F;
-            var dataTop = (dataTopMapped & 0x7FFFFFFF) * 4;
+            ReadMappedValue(reader, out var dataTopMapped, out dataTop);
+            ReadMappedValue(reader, out var vertTopMapped, out vertTop);
+            ReadMappedValue(reader, out var normTopMaped, out normTop);
+            ReadMappedValue(reader, out var coordTopMapped, out coordTop);
 
-            var vertTopMapped = reader.ReadInt32();
-            var vertMapped = (vertTopMapped & 0x80000000) >> 0x1F;
-            var vertTop = (vertTopMapped & 0x7FFFFFFF) * 4;
+            dataTop *= 4;
+            vertTop *= 4;
+            normTop *= 4;
+            coordTop *= 4;
 
-            var normTopMapped = reader.ReadInt32();
-            var normMapped = (normTopMapped & 0x80000000) >> 0x1F;
-            var normTop = (normTopMapped & 0x7FFFFFFF) * 4;
-
-            var coordTopMapped = reader.ReadInt32();
-            var coordMapped = (coordTopMapped & 0x80000000) >> 0x1F;
-            var coordTop = (coordTopMapped & 0x7FFFFFFF) * 4;
-
-            reader.BaseStream.Seek(_offset + dataTop + polygonIndex, SeekOrigin.Begin);
-            for (var j = 0; j < dataCount; j++)
-            {
-                Triangle triangle1;
-                Triangle triangle2;
-                switch (primitiveType)
-                {
-                    case 0x00000008: //0x00000008; DRV(0)|PRIM_TYPE(TRI); GsUF3
-                        triangle1 = ReadGsUF3(reader, vertTop, normTop);
-                        if (triangle1 == null)
-                        {
-                            goto EndModel;
-                        }
-                        triangles.Add(triangle1);
-                        break;
-                    case 0x00000010: //  0x00000010; DRV(0) | PRIM_TYPE(QUAD); GsUF4
-                        ReadGsUF4(reader, vertTop, normTop, out triangle1, out triangle2);
-                        if (triangle1 == null || triangle2 == null)
-                        {
-                            goto EndModel;
-                        }
-                        triangles.Add(triangle1);
-                        triangles.Add(triangle2);
-                        break;
-                }
-            }
-            EndModel:
-            reader.BaseStream.Seek(primitiveDataTop, SeekOrigin.Begin);
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private Triangle ReadGsUF3(BinaryReader reader, int vertTop, int normTop)
+        private void ProcessMimeVertexPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, uint mimeIndex, out uint mimeTop, out uint mimeDiffTop, out uint mimeOrgTop, out uint mimeVertTop, out uint mimeNormTop)
         {
-            byte r, g, b;
-            ReadColor(reader, out r, out g, out b);
+            var position = reader.BaseStream.Position;
 
-            var ni0 = reader.ReadUInt16();
-            short nx0, ny0, nz0;
-            ReadXYZ(reader, normTop, ni0, out nx0, out ny0, out nz0);
+            reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
 
-            var vi0 = reader.ReadUInt16();
-            short vx0, vy0, vz0;
-            ReadXYZ(reader, vertTop, vi0, out vx0, out vy0, out vz0);
+            var headerSize = reader.ReadUInt32();
 
-            var vi1 = reader.ReadUInt16();
-            short vx1, vy1, vz1;
-            ReadXYZ(reader, vertTop, vi1, out vx1, out vy1, out vz1);
+            ReadMappedValue(reader, out var mimeTopMapped, out mimeTop);
+            mimeTop *= 4;
 
-            var vi2 = reader.ReadUInt16();
-            short vx2, vy2, vz2;
-            ReadXYZ(reader, vertTop, vi2, out vx2, out vy2, out vz2);
+            var mimeNum = reader.ReadUInt32();
+            var mimeId = reader.ReadUInt16();
+            reader.ReadUInt16();
 
-            var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.GsUF3, false, false, new Vector3[] { }, new Vector3[] { }, 0, 0, 0, 0, 0, 0, r, g, b, r, g, b, r, g, b, 0, 0, 0, 0, 0, 0,
-               vx0, vy0, vz0,
-               vx1, vy1, vz1,
-               vx2, vy2, vz2,
-               nx0, ny0, nz0,
-               nx0, ny0, nz0,
-               nx0, ny0, nz0
-            );
-            return triangle;
+            ReadMappedValue(reader, out var mimeDiffTopMapped, out mimeDiffTop);
+            ReadMappedValue(reader, out var mimeOrgTopMapped, out mimeOrgTop);
+            ReadMappedValue(reader, out var mimeVertTopMapped, out mimeVertTop);
+            ReadMappedValue(reader, out var mimeNormTopMapped, out mimeNormTop);
+
+            mimeDiffTop *= 4;
+            mimeOrgTop *= 4;
+            mimeVertTop *= 4;
+            mimeNormTop *= 4;
+
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ReadGsUF4(BinaryReader reader, int vertTop, int normTop, out Triangle triangle1, out Triangle triangle2)
+        private void ProcessGroundPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, uint primitiveType, uint polygonIndex, out uint vertTop, out uint normTop, out uint polyTop, out uint uvTop, out uint gridTop, out uint coordTop)
         {
-            byte r, g, b;
-            ReadColor(reader, out r, out g, out b);
+            var position = reader.BaseStream.Position;
 
-            var ni0 = reader.ReadUInt16();
-            short nx0, ny0, nz0;
-            ReadXYZ(reader, normTop, ni0, out nx0, out ny0, out nz0);
+            reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
 
-            var vi0 = reader.ReadUInt16();
-            short vx0, vy0, vz0;
-            ReadXYZ(reader, vertTop, vi0, out vx0, out vy0, out vz0);
+            uvTop = int.MaxValue;
+            coordTop = int.MaxValue;
 
-            var vi1 = reader.ReadUInt16();
-            short vx1, vy1, vz1;
-            ReadXYZ(reader, vertTop, vi1, out vx1, out vy1, out vz1);
+            var headerSize = reader.ReadUInt32();
 
-            var vi2 = reader.ReadUInt16();
-            short vx2, vy2, vz2;
-            ReadXYZ(reader, vertTop, vi2, out vx2, out vy2, out vz2);
+            ReadMappedValue(reader, out var polyTopMapped, out polyTop);
+            ReadMappedValue(reader, out var gridTopMapped, out gridTop);
+            ReadMappedValue(reader, out var vertTopMapped, out vertTop);
+            ReadMappedValue(reader, out var normTopMapped, out normTop);
+            polyTop *= 4;
+            gridTop *= 4;
+            vertTop *= 4;
+            normTop *= 4;
 
-            var vi3 = reader.ReadUInt16();
-            short vx3, vy3, vz3;
-            ReadXYZ(reader, vertTop, vi3, out vx3, out vy3, out vz3);
+            if (headerSize >= 5)
+            {
+                ReadMappedValue(reader, out var uvTopMapped, out uvTop);
+                uvTop *= 4;
+            }
+            if (headerSize >= 6)
+            {
+                ReadMappedValue(reader, out var coordTopMapped, out coordTop);
+                coordTop *= 4;
+            }
 
-            triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.GsUF4, false, false, new Vector3[] { }, new Vector3[] { }, 0, 0, 0, 0, 0, 0, r, g, b, r, g, b, r, g, b, 0, 0, 0, 0, 0, 0,
-               vx0, vy0, vz0,
-               vx1, vy1, vz1,
-               vx2, vy2, vz2,
-               nx0, ny0, nz0,
-               nx0, ny0, nz0,
-               nx0, ny0, nz0
-            );
-
-            triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum.GsUF4, false, false, new Vector3[] { }, new Vector3[] { }, 0, 0, 0, 0, 0, 0, r, g, b, r, g, b, r, g, b, 0, 0, 0, 0, 0, 0,
-               vx1, vy1, vz1,
-               vx3, vy3, vz3,
-               vx2, vy2, vz2,
-               nx0, ny0, nz0,
-               nx0, ny0, nz0,
-               nx0, ny0, nz0
-            );
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
-
-        private static void ReadColor(BinaryReader reader, out byte r, out byte g, out byte b)
-        {
-            r = reader.ReadByte();
-            g = reader.ReadByte();
-            b = reader.ReadByte();
-            var code = reader.ReadByte();
-        }
-
-        private void ReadXYZ(BinaryReader reader, long dataTop, int index, out short x, out short y, out short z)
-        {
-            var top = reader.BaseStream.Position;
-            reader.BaseStream.Seek(_offset + dataTop + (index * 8), SeekOrigin.Begin);
-            x = reader.ReadInt16();
-            y = reader.ReadInt16();
-            z = reader.ReadInt16();
-            var code = reader.ReadInt16();
-            reader.BaseStream.Seek(top, SeekOrigin.Begin);
-        }
-
-        private Triangle TriangleFromPrimitive(Triangle.PrimitiveTypeEnum primitiveType, bool sharedVertices, bool sharedNormals, Vector3[] vertices, Vector3[] normals, ushort vertex0, ushort vertex1,
-    ushort vertex2, ushort normal0, ushort normal1, ushort normal2, byte r0, byte g0, byte b0, byte r1, byte g1,
-    byte b1, byte r2, byte g2, byte b2, byte u0, byte v0, byte u1, byte v1, byte u2, byte v2, short p1x = 0, short p1y = 0, short p1z = 0, short p2x = 0, short p2y = 0, short p2z = 0, short p3x = 0, short p3y = 0, short p3z = 0
-
-    , short n1x = 0, short n1y = 0, short n1z = 0, short n2x = 0, short n2y = 0, short n2z = 0, short n3x = 0, short n3y = 0, short n3z = 0
-
-    )
-        {
-            if (sharedVertices)
-            {
-                if (vertex0 >= vertices.Length)
-                {
-                    return null;
-                }
-            }
-
-            if (sharedNormals)
-            {
-                if (normal0 >= normals.Length || normal1 >= normals.Length || normal2 >= normals.Length)
-                {
-                    return null;
-                }
-            }
-
-            Vector3 ver1, ver2, ver3;
-            if (sharedVertices)
-            {
-                ver1 = new Vector3
-                {
-                    X = vertices[vertex0].X,
-                    Y = vertices[vertex0].Y,
-                    Z = vertices[vertex0].Z,
-                };
-
-                ver2 = new Vector3
-                {
-                    X = vertices[vertex1].X,
-                    Y = vertices[vertex1].Y,
-                    Z = vertices[vertex1].Z,
-                };
-
-                ver3 = new Vector3
-                {
-                    X = vertices[vertex2].X,
-                    Y = vertices[vertex2].Y,
-                    Z = vertices[vertex2].Z,
-                };
-            }
-            else
-            {
-                ver1 = new Vector3
-                {
-                    X = p1x,
-                    Y = p1y,
-                    Z = p1z
-                };
-                ver2 = new Vector3
-                {
-                    X = p2x,
-                    Y = p2y,
-                    Z = p2z
-                };
-                ver3 = new Vector3
-                {
-                    X = p3x,
-                    Y = p3y,
-                    Z = p3z
-                };
-            }
-
-            Vector3 nor1, nor2, nor3;
-            if (sharedNormals)
-            {
-                nor1 = new Vector3
-                {
-                    X = normals[normal0].X,
-                    Y = normals[normal0].Y,
-                    Z = normals[normal0].Z
-                };
-                nor2 = new Vector3
-                {
-                    X = normals[normal1].X,
-                    Y = normals[normal1].Y,
-                    Z = normals[normal1].Z
-                };
-                nor3 = new Vector3
-                {
-                    X = normals[normal2].X,
-                    Y = normals[normal2].Y,
-                    Z = normals[normal2].Z
-                };
-            }
-            else
-            {
-                nor1 = new Vector3
-                {
-                    X = n1x,
-                    Y = n1y,
-                    Z = n1z
-                };
-                nor2 = new Vector3
-                {
-                    X = n2x,
-                    Y = n2y,
-                    Z = n2z
-                };
-                nor3 = new Vector3
-                {
-                    X = n3x,
-                    Y = n3y,
-                    Z = n3z
-                };
-            }
-
-            var triangle = new Triangle
-            {
-                PrimitiveType = primitiveType,
-                Colors = new[]
-                {
-                    new Color
-                    (
-                        r0/256f,
-                        g0/256f,
-                        b0/256f
-                    ),
-                    new Color
-                    (
-                        r1/256f,
-                        g1/256f,
-                        b1/256f
-                    ),
-                    new Color
-                    (
-                        r2/256f,
-                        g2/256f,
-                        b2/256f
-                    )
-                },
-                Normals = new[]
-                {
-                    nor1,
-                    nor2,
-                    nor3
-                },
-                Vertices = new[]
-                {
-                    ver1,
-                    ver2,
-                    ver3
-                },
-                Uv = new[]
-                {
-                    new Vector3
-                    {
-                        X = u0/256f,
-                        Y = v0/256f
-                    },
-                    new Vector3
-                    {
-                        X = u1/256f,
-                        Y = v1/256f
-                    },
-                    new Vector3
-                    {
-                        X = u2/256f,
-                        Y = v2/256f
-                    }
-                }
-            };
-
-            return triangle;
-        }
-
-        //private void ReadPrimitiveHeaderPointer(BinaryReader reader, uint primitiveHeaderPointer)
-        //{
-        //    var offset = reader.BaseStream.Position;
-        //    reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
-        //    var primitiveHeaderCount = reader.ReadUInt32();
-        //    for (var i = 0; i < primitiveHeaderCount; i++)
-        //    {
-        //        var sectionCount = reader.ReadUInt32();
-        //        for (var j = 0; j < sectionCount; j++)
-        //        {
-        //            var pointer = reader.ReadUInt32();
-        //            var x = 1;
-        //        }
-        //        //reader.BaseStream.Seek(sectionCount, SeekOrigin.Current);
-        //    }
-        //}
     }
 }

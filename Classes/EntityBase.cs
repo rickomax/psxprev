@@ -1,8 +1,8 @@
-﻿using OpenTK;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Globalization;
+using OpenTK;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class EntityBase
     {
@@ -130,6 +130,18 @@ namespace PSXPrev
         public override string ToString()
         {
             return EntityName;
+        }
+
+        public virtual void FixConnectionsRecursively()
+        {
+            if (ChildEntities == null)
+            {
+                return;
+            }
+            foreach (var child in ChildEntities)
+            {
+                child.FixConnectionsRecursively();
+            }
         }
     }
 }

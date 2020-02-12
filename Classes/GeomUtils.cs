@@ -2,7 +2,7 @@ using System;
 using System.Text;
 using OpenTK;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public static class GeomUtils
     {

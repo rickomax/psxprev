@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Globalization;
 using System.Text;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class Scene
     {
@@ -66,6 +65,8 @@ namespace PSXPrev
         private Vector3 _rayTarget;
         private Vector3 _rayDirection;
         private Vector3? _intersected;
+        private List<EntityBase> _lastPickedEntities;
+        private int _lastPickedIndex;
 
         private Color _clearColor;
         public Color ClearColor
@@ -77,6 +78,8 @@ namespace PSXPrev
                 _clearColor = value;
             }
         }
+
+        public bool AutoAttach { get; set; } 
 
         public bool Wireframe { get; set; }
 
@@ -122,6 +125,7 @@ namespace PSXPrev
         public float CameraDistanceToOrigin => -_viewMatrix.ExtractTranslation().Z;
 
         private Vector3 _lightRotation;
+
         public Vector3 LightRotation
         {
             get => _lightRotation;
@@ -138,7 +142,7 @@ namespace PSXPrev
             SetupShaders();
             SetupMatrices(width, height, CameraNearClip, CameraFarClip);
             SetupInternals();
-            LightRotation = new Vector3(1f, -1f, -1f);
+            //LightRotation = Quaternion.FromEulerAngles(45f,45f,0f) * new Vector3(0f,0f,1f);
         }
 
         private void SetupInternals()
@@ -205,8 +209,7 @@ namespace PSXPrev
             GL.GetProgram(_shaderProgram, GetProgramParameterName.InfoLogLength, infoLength);
             var bufSize = infoLength[0];
             var il = new StringBuilder(bufSize);
-            int bufferLength;
-            GL.GetProgramInfoLog(_shaderProgram, bufSize, out bufferLength, il);
+            GL.GetProgramInfoLog(_shaderProgram, bufSize, out var bufferLength, il);
             return il.ToString();
         }
 
@@ -256,9 +259,6 @@ namespace PSXPrev
             }
             GL.UseProgram(0);
         }
-
-        private List<EntityBase> _lastPickedEntities;
-        private int _lastPickedIndex;
 
         public EntityBase GetEntityUnderMouse(RootEntity[] checkedEntities, EntityBase selectedRootEntity, EntityBase selectedEntity, int x, int y, float width, float height, bool selectRoot = false)
         {
@@ -343,11 +343,6 @@ namespace PSXPrev
             }
         }
 
-        public Vector3 GetBestPlaneNormal(Vector3 a, Vector3 b)
-        {
-            return Math.Abs(Vector3.Dot(CameraDirection, a)) > 0.5f ? a : b;
-        }
-
         public void FocusOnBounds(BoundingBox bounds)
         {
             _cameraYaw = 0f;
@@ -370,7 +365,7 @@ namespace PSXPrev
             UpdateViewMatrix();
         }
 
-        public GizmoId GetGizmoUnderPosition(int x, int y, float width, float height, EntityBase selectedEntityBase)
+        public GizmoId GetGizmoUnderPosition(EntityBase selectedEntityBase)
         {
             if (!ShowGizmos)
             {
@@ -378,8 +373,7 @@ namespace PSXPrev
             }
             if (selectedEntityBase != null)
             {
-                UpdatePicking(x, y, width, height);
-                var matrix = selectedEntityBase.WorldMatrix;
+                var matrix = Matrix4.CreateTranslation(selectedEntityBase.Bounds3D.Center);//selectedEntityBase.WorldMatrix;
                 var scaleMatrix = GetGizmoScaleMatrix(matrix.ExtractTranslation());
                 var finalMatrix = scaleMatrix * matrix;
                 GeomUtils.GetBoxMinMax(XGizmoDimensions, XGizmoDimensions, out var xMin, out var xMax, finalMatrix);
@@ -387,13 +381,11 @@ namespace PSXPrev
                 {
                     return GizmoId.XMover;
                 }
-
                 GeomUtils.GetBoxMinMax(YGizmoDimensions, YGizmoDimensions, out var yMin, out var yMax, finalMatrix);
                 if (GeomUtils.BoxIntersect(_rayOrigin, _rayDirection, yMin, yMax) > 0f)
                 {
                     return GizmoId.YMover;
                 }
-
                 GeomUtils.GetBoxMinMax(ZGizmoDimensions, ZGizmoDimensions, out var zMin, out var zMax, finalMatrix);
                 if (GeomUtils.BoxIntersect(_rayOrigin, _rayDirection, zMin, zMax) > 0f)
                 {
@@ -403,28 +395,12 @@ namespace PSXPrev
             return GizmoId.None;
         }
 
-        public Vector3 GetGizmoProjectionOffset(int x, int y, float width, float height, EntityBase entityBase, Vector3 planeNormal, Vector3 projectionNormal)
+        public Vector3 GetPickedPosition(Vector3 onNormal)
         {
-            var worldMatrix = entityBase.WorldMatrix;
-            var planeOrigin = worldMatrix.ExtractTranslation();
-            UpdatePicking(x, y, width, height);
-            var intersected = GeomUtils.PlaneIntersect(_rayOrigin, _rayDirection, planeOrigin, planeNormal);
-            Vector3 offset;
-            if (_intersected != null)
-            {
-                var previousIntersected = _intersected.Value;
-                offset = new Vector3((int)(intersected.X - previousIntersected.X), (int)(intersected.Y - previousIntersected.Y), (int)(intersected.Z - previousIntersected.Z));
-                offset = offset.ProjectOnNormal(projectionNormal);
-            }
-            else
-            {
-                offset = Vector3.Zero;
-            }
-            _intersected = intersected;
-            return Vector3.TransformVector(offset, worldMatrix.Inverted());
+            return GeomUtils.PlaneIntersect(_rayOrigin, _rayDirection, Vector3.Zero, onNormal);
         }
 
-        private void UpdatePicking(int x, int y, float width, float height)
+        public void UpdatePicking(int x, int y, float width, float height)
         {
             if (!_viewMatrixValid)
             {

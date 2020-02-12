@@ -1,40 +1,47 @@
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using System;
+using Collada141;
+using PSXPrev.Classes;
 
 namespace PSXPrev
 {
     public class MeshBatch
     {
+        private const float DiscardValue = 100000000f;
+
         private readonly Scene _scene;
         private uint[] _ids;
         private Mesh[] _meshes;
+        private int _modelIndex;
 
-        public bool IsValid { get; private set; }
+        private bool IsValid { get; set; }
 
         public MeshBatch(Scene scene)
         {
             _scene = scene;
         }
 
-        public void SetupMultipleEntityBatch(RootEntity[] checkedEntities = null, ModelEntity selectedModel = null, RootEntity selectedEntity = null, TextureBinder textureBinder = null, bool updateMeshData = true, bool focus = false)
+        public void SetupMultipleEntityBatch(RootEntity[] checkedEntities = null, ModelEntity selectedModelEntity = null, RootEntity selectedRootEntity = null, TextureBinder textureBinder = null, bool updateMeshData = true, bool focus = false, Animation selectedAnimation = null, AnimationObject selectedAnimationObject = null)
         {
             var bounds = focus ? new BoundingBox() : null;
-            var modelCount = checkedEntities != null || selectedEntity != null || selectedModel != null ? 1 : 0;
+            //count models
+            var modelCount = checkedEntities != null || selectedRootEntity != null || selectedModelEntity != null || selectedAnimationObject != null || selectedAnimation != null ? 1 : 0;
             if (checkedEntities != null)
             {
                 foreach (var entity in checkedEntities)
                 {
-                    if (entity == selectedEntity)
+                    if (entity == selectedRootEntity)
                     {
                         continue;
                     }
                     modelCount += entity.ChildEntities.Length;
                 }
             }
-            if (selectedEntity != null)
+            //focus
+            if (selectedRootEntity != null)
             {
-                foreach (var subEntity in selectedEntity.ChildEntities)
+                foreach (var subEntity in selectedRootEntity.ChildEntities)
                 {
                     modelCount++;
                     if (focus)
@@ -43,53 +50,62 @@ namespace PSXPrev
                     }
                 }
             }
+            //reset
+            ResetModelIndex();
             if (updateMeshData)
             {
                 Reset(modelCount);
             }
-            var modelIndex = 0;
+            //checked entities, except selected root
             if (checkedEntities != null)
             {
                 foreach (var entity in checkedEntities)
                 {
-                    if (entity == selectedEntity)
+                    if (entity == selectedRootEntity)
                     {
                         continue;
                     }
-                    foreach (var subEntity in entity.ChildEntities)
+                    foreach (ModelEntity modelEntity in entity.ChildEntities)
                     {
-                        if (subEntity == selectedModel)
+                        if (modelEntity == selectedModelEntity)
                         {
                             continue;
                         }
-                        BindMesh((ModelEntity)subEntity, modelIndex++, null, textureBinder, updateMeshData);
+                        BindMesh(modelEntity, null, textureBinder, updateMeshData);
                     }
                 }
             }
-            if (selectedEntity != null)
+            //if not animating
+            if (selectedAnimation == null && selectedAnimationObject == null)
             {
-                foreach (var subEntity in selectedEntity.ChildEntities)
+                //root entity
+                if (selectedRootEntity != null)
                 {
-                    if (subEntity == selectedModel)
+                    foreach (ModelEntity modelEntity in selectedRootEntity.ChildEntities)
                     {
-                        continue;
+                        if (modelEntity == selectedModelEntity)
+                        {
+                            continue;
+                        }
+                        BindMesh(modelEntity, null, textureBinder, updateMeshData);
                     }
-                    BindMesh((ModelEntity)subEntity, modelIndex++, null, textureBinder, updateMeshData);
+                }
+                //model entity
+                if (selectedModelEntity != null)
+                {
+                    BindMesh(selectedModelEntity, null, textureBinder, updateMeshData);
                 }
             }
-            if (selectedModel != null)
-            {
-                BindMesh(selectedModel, modelIndex, null, textureBinder, updateMeshData);
-            }
+            // do focus
             if (focus)
             {
                 _scene.FocusOnBounds(bounds);
             }
         }
 
-        public void BindModelBatch(ModelEntity modelEntity, int index, Matrix4 matrix, TextureBinder textureBinder = null)
+        public void BindModelBatch(ModelEntity modelEntity, Matrix4 matrix, TextureBinder textureBinder = null, Vector3[] initialVertices = null, Vector3[] initialNormals = null, Vector3[] finalVertices = null, Vector3[] finalNormals = null, float? interpolator = null)
         {
-            BindMesh(modelEntity, index, matrix, textureBinder);
+            BindMesh(modelEntity, matrix, textureBinder, finalVertices != null || finalNormals != null, initialVertices, initialNormals, finalVertices, finalNormals, interpolator);
         }
 
         public void BindCube(Matrix4 matrix, Color color, Vector3 center, Vector3 size, int index, TextureBinder textureBinder = null, bool updateMeshData = true)
@@ -181,13 +197,19 @@ namespace PSXPrev
             }
         }
 
-        private void BindMesh(ModelEntity modelEntity, int index, Matrix4? matrix = null, TextureBinder textureBinder = null, bool updateMeshData = true)
+        private void BindMesh(ModelEntity modelEntity, Matrix4? matrix = null, TextureBinder textureBinder = null, bool updateMeshData = true, Vector3[] initialVertices = null, Vector3[] initialNormals = null, Vector3[] finalVertices = null, Vector3[] finalNormals = null, float? interpolator = null)
         {
-            var mesh = GetMesh(index);
+            if (!modelEntity.Visible)
+            {
+                return;
+            }
+            var mesh = GetMesh(_modelIndex++);
             if (mesh == null)
             {
                 return;
             }
+            //var rootEntity = modelEntity.ParentEntity as RootEntity; //todo
+            mesh.WorldMatrix = matrix ?? modelEntity.WorldMatrix;
             if (updateMeshData)
             {
                 var numTriangles = modelEntity.Triangles.Length;
@@ -206,12 +228,45 @@ namespace PSXPrev
                         var index2 = baseIndex++;
                         var index3 = baseIndex++;
 
-                        var vertex = triangle.Vertices[i];
+                        var sourceVertex = triangle.Vertices[i];
+                        if (triangle.AttachedIndices != null)
+                        {
+                            var attachedIndex = triangle.AttachedIndices[i];
+                            if (attachedIndex != uint.MaxValue)
+                            {
+                                if (!_scene.AutoAttach)
+                                {
+                                    sourceVertex = new Vector3(DiscardValue, DiscardValue, DiscardValue);
+                                }
+                            }
+                        }
+
+                        Vector3 vertex;
+                        if (initialVertices != null && finalVertices != null && triangle.OriginalVertexIndices[i] < finalVertices.Length)
+                        {
+                            var initialVertex = sourceVertex + initialVertices[triangle.OriginalVertexIndices[i]];
+                            var finalVertex = sourceVertex + finalVertices[triangle.OriginalVertexIndices[i]];
+                            vertex = Vector3.Lerp(initialVertex, finalVertex, interpolator.GetValueOrDefault());
+                        }
+                        else
+                        {
+                            vertex = sourceVertex;
+                        }
                         positionList[index1] = vertex.X;
                         positionList[index2] = vertex.Y;
                         positionList[index3] = vertex.Z;
 
-                        var normal = triangle.Normals[i];
+                        Vector3 normal;
+                        if (initialNormals != null && finalNormals != null && triangle.OriginalNormalIndices[i] < finalNormals.Length)
+                        {
+                            var initialNormal = triangle.Normals[i] + initialNormals[triangle.OriginalNormalIndices[i]] / 4096f;
+                            var finalNormal = triangle.Normals[i] + finalNormals[triangle.OriginalNormalIndices[i]] / 4096f;
+                            normal = Vector3.Lerp(initialNormal, finalNormal, interpolator.GetValueOrDefault());
+                        }
+                        else
+                        {
+                            normal = triangle.Normals[i];
+                        }
                         normalList[index1] = normal.X;
                         normalList[index2] = normal.Y;
                         normalList[index3] = normal.Z;
@@ -229,10 +284,9 @@ namespace PSXPrev
                 }
                 mesh.SetData(numTriangles * 3, positionList, normalList, colorList, uvList);
             }
-            mesh.WorldMatrix = matrix ?? modelEntity.WorldMatrix;
             if (textureBinder != null)
             {
-                mesh.Texture = modelEntity.Texture != null ? textureBinder.GetTexture(modelEntity.TexturePage) : 0;
+                mesh.Texture = modelEntity.Texture != null ? textureBinder.GetTexture((int)modelEntity.TexturePage) : 0;
             }
         }
 
@@ -248,7 +302,13 @@ namespace PSXPrev
             }
             _meshes = new Mesh[nMeshes];
             _ids = new uint[nMeshes];
+            ResetModelIndex();
             GL.GenVertexArrays(nMeshes, _ids);
+        }
+
+        public void ResetModelIndex()
+        {
+            _modelIndex = 0;
         }
 
         private Mesh GetMesh(int index)

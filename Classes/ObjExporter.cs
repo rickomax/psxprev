@@ -1,8 +1,8 @@
-using OpenTK;
 using System.Globalization;
 using System.IO;
+using OpenTK;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class ObjExporter
     {
@@ -70,9 +70,9 @@ namespace PSXPrev
         {
             if (model.Texture != null)
             {
-                if (_mtlExporter.AddMaterial(model.TexturePage))
+                if (_mtlExporter.AddMaterial((int) model.TexturePage))
                 {
-                    _pngExporter.Export(model.Texture, model.TexturePage, _selectedPath);
+                    _pngExporter.Export(model.Texture, (int) model.TexturePage, _selectedPath);
                 }
             }
             var worldMatrix = model.WorldMatrix;

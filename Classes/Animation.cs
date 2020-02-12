@@ -1,7 +1,17 @@
 using System.ComponentModel;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
+    public enum AnimationType
+    {
+        Common,
+        VertexDiff,
+        NormalDiff,
+        RPYDiff,
+        MatrixDiff,
+        AxisDiff
+    }
+
     public class Animation
     {
         [DisplayName("Animation Name")]
@@ -18,5 +28,8 @@ namespace PSXPrev
 
         [Browsable(false)]
         public AnimationObject RootAnimationObject { get; set; }
+
+        public AnimationType AnimationType { get; set; }
+
     }
 }

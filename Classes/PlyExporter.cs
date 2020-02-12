@@ -1,11 +1,9 @@
-﻿using OpenTK;
-using System.Collections.Generic;
-using System.Globalization;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using OpenTK;
 
-
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class PlyExporter
     {
@@ -31,10 +29,10 @@ namespace PSXPrev
                     var model = (ModelEntity)entityBase;
                     faceCount += model.Triangles.Count();
                     var texturePage = model.TexturePage;
-                    if (!materialsDic.ContainsKey(texturePage))
+                    if (!materialsDic.ContainsKey((int) texturePage))
                     {
-                        materialsDic.Add(texturePage, numMaterials++);
-                        pngExporter.Export(model.Texture, texturePage, selectedPath);
+                        materialsDic.Add((int) texturePage, numMaterials++);
+                        pngExporter.Export(model.Texture, (int) texturePage, selectedPath);
                     }
                 }
                 var vertexCount = faceCount * 3;
@@ -66,7 +64,7 @@ namespace PSXPrev
                 foreach (var entityBase in entity.ChildEntities)
                 {
                     var model = (ModelEntity)entityBase;
-                    var materialIndex = materialsDic[model.TexturePage];
+                    var materialIndex = materialsDic[(int) model.TexturePage];
                     var triangles = model.Triangles;
                     var worldMatrix = model.WorldMatrix;
                     foreach (var triangle in triangles)

@@ -1,7 +1,7 @@
 ﻿using System;
 using OpenTK.Graphics.OpenGL;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class LineMesh
     {

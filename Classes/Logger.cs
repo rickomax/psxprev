@@ -2,7 +2,7 @@
 using System.IO;
 using System.Windows.Forms;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class Logger : IDisposable
     {

@@ -1,7 +1,9 @@
-﻿using System.ComponentModel;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using OpenTK;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class Triangle
     {
@@ -47,9 +49,6 @@ namespace PSXPrev
             _poly_g4c
         }
 
-        [ReadOnly(true), DisplayName("Primitive")]
-        public PrimitiveTypeEnum PrimitiveType { get; set; }
-
         [Browsable(false)]
         public Vector3[] Vertices { get; set; }
 
@@ -61,5 +60,36 @@ namespace PSXPrev
 
         [Browsable(false)]
         public Color[] Colors { get; set; }
+
+        [Browsable(false)]
+        public uint[] OriginalVertexIndices { get; set; }
+        
+        [Browsable(false)]
+        public uint[] OriginalNormalIndices { get; set; }
+
+        [Browsable(false)]
+        public uint[] AttachableIndices { get; set; }
+
+        [Browsable(false)]
+        public uint[] AttachedIndices { get; set; }
+
+        public List<Tuple<uint, uint>> ExtraPaddingData { get; set; } = new List<Tuple<uint, uint>>();
+
+        public Triangle()
+        {
+
+        }
+
+        public Triangle(Triangle fromTriangle)
+        {
+            Vertices = fromTriangle.Vertices;
+            Normals = fromTriangle.Normals;
+            Uv = fromTriangle.Uv;
+            Colors = fromTriangle.Colors;
+            OriginalVertexIndices = fromTriangle.OriginalVertexIndices;
+            OriginalNormalIndices = fromTriangle.OriginalNormalIndices;
+            AttachableIndices = fromTriangle.AttachableIndices;
+            AttachedIndices = fromTriangle.AttachedIndices;
+        }
     }
 }

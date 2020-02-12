@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
-using System.ComponentModel;
 
-namespace PSXPrev
+namespace PSXPrev.Classes
 {
     public class RootEntity : EntityBase
     {
@@ -18,7 +17,7 @@ namespace PSXPrev
             Bounds3D = bounds;
         }
 
-        public List<ModelEntity> GetModelsWithTMDID(int id)
+        public List<ModelEntity> GetModelsWithTMDID(uint id)
         {
             _groupedModels.Clear();
             foreach (var entityBase in ChildEntities)
