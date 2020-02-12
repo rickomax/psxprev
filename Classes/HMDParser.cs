@@ -249,7 +249,7 @@ namespace PSXPrev.Classes
                     }
                     else if (category == 3)
                     {
-                        //if (Program.Debug)
+                        if (Program.Debug)
                         {
                             Program.Logger.WriteLine($"HMD Animation");
                         }
