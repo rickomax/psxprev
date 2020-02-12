@@ -1,4 +1,4 @@
-# psxprev - async version
+# PSXPrev
 
 PSXPREV - Playstation (PSX) Files Previewer/Extractor<br><br>
 ![Sample](https://i.snipboard.io/hLlNy5.jpg)
@@ -24,8 +24,7 @@ To Apply a Texture to a Model, first you have to look at the VRAM Page property 
 To Export a Model or Multiple Models,  tick their checkboxes at the Model Tab, click at Export Selected button, select the desired Output Format and the Output Folder. (Textures and materials will be automatically exported)<br>
 To Export a Texture or Multiple Textures, select them at the Texture Tab, click at Export Selected button and select the desired Output Folder.<br><br>
 Known issues/limitations:<br>
-The two 3D exportable file formats has disadvantages, .OBJ files cannot have vertex color information, and .PLY files will group all the sub-models in one single model. I'm looking for a better format for the exporter. An experimental .OBJ exporter option with Vertex Color is available.<br>
-The tool will only find files that are explicitly conformant to the file formats it's looking for. Any compressed file cannot be scanned.<br><br>
+The tool will only find files that are explicitly conformant to the file formats it's looking for. Any compressed or proprietary file cannot be scanned.<br><br>
 <b>License (BSD License 2.0):</b><br>
 Copyright (c) 2020 Ricardo Reis<br>
 All rights reserved.<br><br>
