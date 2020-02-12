@@ -1,6 +1,6 @@
 # psxprev - async version
 
-PSXPREV - Playstation (PSX) FileS Previewer/Extractor<br><br>
+PSXPREV - Playstation (PSX) Files Previewer/Extractor<br><br>
 ![Sample](https://ricardoreis.net/wp-content/uploads/2017/05/lod2.png)
 This tool uses:<br>
 OpenTK - https://github.com/opentk/opentk<br>
