@@ -22,20 +22,32 @@ namespace PSXPrev
             _scene = scene;
         }
 
-        public void SetupMultipleEntityBatch(RootEntity[] checkedEntities = null, ModelEntity selectedModelEntity = null, RootEntity selectedRootEntity = null, TextureBinder textureBinder = null, bool updateMeshData = true, bool focus = false, Animation selectedAnimation = null, AnimationObject selectedAnimationObject = null)
+        public void SetupMultipleEntityBatch(RootEntity[] checkedEntities = null, ModelEntity selectedModelEntity = null, RootEntity selectedRootEntity = null, TextureBinder textureBinder = null, bool updateMeshData = true, bool focus = false, bool hasAnimation = false)
         {
+            if (selectedModelEntity == null && selectedRootEntity == null)
+            {
+                return;
+            }
             var bounds = focus ? new BoundingBox() : null;
-            //count models
-            var modelCount = checkedEntities != null || selectedRootEntity != null || selectedModelEntity != null || selectedAnimationObject != null || selectedAnimation != null ? 1 : 0;
+
+            selectedRootEntity = selectedRootEntity ?? selectedModelEntity.GetRootEntity();
+
+            //count the selected entity
+            var modelCount = 1;
+            //count checked, excecpt, the selected
             if (checkedEntities != null)
             {
-                foreach (var entity in checkedEntities)
+                foreach (var checkedEntity in checkedEntities)
                 {
-                    if (entity == selectedRootEntity)
+                    if (checkedEntity == selectedRootEntity)
                     {
                         continue;
                     }
-                    modelCount += entity.ChildEntities.Length;
+                    modelCount += checkedEntity.ChildEntities.Length;
+                    if (focus)
+                    {
+                        bounds.AddPoints(checkedEntity.Bounds3D.Corners);
+                    }
                 }
             }
             //focus
@@ -56,6 +68,8 @@ namespace PSXPrev
             {
                 Reset(modelCount);
             }
+            //bindings
+
             //checked entities, except selected root
             if (checkedEntities != null)
             {
@@ -67,35 +81,22 @@ namespace PSXPrev
                     }
                     foreach (ModelEntity modelEntity in entity.ChildEntities)
                     {
-                        if (modelEntity == selectedModelEntity)
-                        {
-                            continue;
-                        }
-                        BindMesh(modelEntity, null, textureBinder, updateMeshData);
+                        BindMesh(modelEntity, modelEntity.TempMatrix * modelEntity.WorldMatrix, textureBinder, updateMeshData, modelEntity.InitialVertices, modelEntity.InitialNormals, modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
                     }
                 }
             }
             //if not animating
-            if (selectedAnimation == null && selectedAnimationObject == null)
+            //if (!hasAnimation)
+            //{
+            //root entity
+            if (selectedRootEntity != null)
             {
-                //root entity
-                if (selectedRootEntity != null)
+                foreach (ModelEntity modelEntity in selectedRootEntity.ChildEntities)
                 {
-                    foreach (ModelEntity modelEntity in selectedRootEntity.ChildEntities)
-                    {
-                        if (modelEntity == selectedModelEntity)
-                        {
-                            continue;
-                        }
-                        BindMesh(modelEntity, null, textureBinder, updateMeshData);
-                    }
-                }
-                //model entity
-                if (selectedModelEntity != null)
-                {
-                    BindMesh(selectedModelEntity, null, textureBinder, updateMeshData);
+                    BindMesh(modelEntity, modelEntity.TempMatrix * modelEntity.WorldMatrix, textureBinder, updateMeshData, modelEntity.InitialVertices, modelEntity.InitialNormals, modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
                 }
             }
+            //}
             // do focus
             if (focus)
             {
@@ -221,6 +222,10 @@ namespace PSXPrev
                 var uvList = new float[elementCount];
                 for (var t = 0; t < numTriangles; t++)
                 {
+                    var lastVertex = Vector3.Zero;
+                    var lastNormal = Vector3.Zero;
+                    var lastColor = Color.White;
+                    var lastUv = Vector3.Zero;
                     var triangle = modelEntity.Triangles[t];
                     for (var i = 0; i < 3; i++)
                     {
@@ -242,44 +247,81 @@ namespace PSXPrev
                         }
 
                         Vector3 vertex;
-                        if (initialVertices != null && finalVertices != null && triangle.OriginalVertexIndices[i] < finalVertices.Length)
+                        if (_scene.VibRibbonWireframe && i == 2)
                         {
-                            var initialVertex = sourceVertex + initialVertices[triangle.OriginalVertexIndices[i]];
-                            var finalVertex = sourceVertex + finalVertices[triangle.OriginalVertexIndices[i]];
-                            vertex = Vector3.Lerp(initialVertex, finalVertex, interpolator.GetValueOrDefault());
+                            vertex = lastVertex;
                         }
                         else
                         {
-                            vertex = sourceVertex;
+                            if (initialVertices != null && finalVertices != null && triangle.OriginalVertexIndices[i] < finalVertices.Length)
+                            {
+                                var initialVertex = sourceVertex + initialVertices[triangle.OriginalVertexIndices[i]];
+                                var finalVertex = sourceVertex + finalVertices[triangle.OriginalVertexIndices[i]];
+                                vertex = Vector3.Lerp(initialVertex, finalVertex, interpolator.GetValueOrDefault());
+                            }
+                            else
+                            {
+                                vertex = sourceVertex;
+                            }
                         }
+
                         positionList[index1] = vertex.X;
                         positionList[index2] = vertex.Y;
                         positionList[index3] = vertex.Z;
 
                         Vector3 normal;
-                        if (initialNormals != null && finalNormals != null && triangle.OriginalNormalIndices[i] < finalNormals.Length)
+                        if (_scene.VibRibbonWireframe && i == 2)
                         {
-                            var initialNormal = triangle.Normals[i] + initialNormals[triangle.OriginalNormalIndices[i]] / 4096f;
-                            var finalNormal = triangle.Normals[i] + finalNormals[triangle.OriginalNormalIndices[i]] / 4096f;
-                            normal = Vector3.Lerp(initialNormal, finalNormal, interpolator.GetValueOrDefault());
+                            normal = lastNormal;
                         }
                         else
                         {
-                            normal = triangle.Normals[i];
+                            if (initialNormals != null && finalNormals != null && triangle.OriginalNormalIndices[i] < finalNormals.Length)
+                            {
+                                var initialNormal = triangle.Normals[i] + initialNormals[triangle.OriginalNormalIndices[i]] / 4096f;
+                                var finalNormal = triangle.Normals[i] + finalNormals[triangle.OriginalNormalIndices[i]] / 4096f;
+                                normal = Vector3.Lerp(initialNormal, finalNormal, interpolator.GetValueOrDefault());
+                            }
+                            else
+                            {
+                                normal = triangle.Normals[i];
+                            }
                         }
+
                         normalList[index1] = normal.X;
                         normalList[index2] = normal.Y;
                         normalList[index3] = normal.Z;
 
-                        var color = triangle.Colors[i];
+                        Color color;
+                        if (_scene.VibRibbonWireframe && i == 2)
+                        {
+                            color = lastColor;
+                        }
+                        else
+                        {
+                            color = triangle.Colors[i];
+                        }
                         colorList[index1] = color.R;
                         colorList[index2] = color.G;
                         colorList[index3] = color.B;
 
-                        var uv = triangle.Uv[i];
+                        Vector3 uv;
+                        if (_scene.VibRibbonWireframe && i == 2)
+                        {
+                            uv = lastUv;
+                        }
+                        else
+                        {
+                            uv = triangle.Uv[i];
+                        }
                         uvList[index1] = uv.X;
                         uvList[index2] = uv.Y;
                         uvList[index3] = uv.Z;
+
+                        lastVertex = vertex;
+                        lastNormal = normal;
+                        lastColor = color;
+                        lastUv = uv;
                     }
                 }
                 mesh.SetData(numTriangles * 3, positionList, normalList, colorList, uvList);

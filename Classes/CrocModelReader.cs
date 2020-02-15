@@ -33,7 +33,7 @@ namespace PSXPrev.Classes
                     {
                         model.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
                         _entityAddedAction(model, reader.BaseStream.Position);
-                        Program.Logger.WriteLine("Found Croc Model at offset {0:X}", _offset);
+                        Program.Logger.WritePositiveLine("Found Croc Model at offset {0:X}", _offset);
                         _offset = reader.BaseStream.Position;
                         passed = true;
                     }
@@ -53,7 +53,7 @@ namespace PSXPrev.Classes
                 {
                     if (++_offset > reader.BaseStream.Length)
                     {
-                        Program.Logger.WriteLine("Reached file end");
+                        Program.Logger.WriteLine($"Croc - Reached file end: {fileTitle}");
                         return;
                     }
                     reader.BaseStream.Seek(_offset, SeekOrigin.Begin);

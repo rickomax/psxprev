@@ -54,7 +54,7 @@ namespace PSXPrev.Forms
 
         private void ScanButton_Click(object sender, EventArgs e)
         {
-            Program.DoScan(FilenameText.Text, FilterText.Text, TMDCheckBox.Checked, VDFCheckBox.Checked, TIMCheckBox.Checked, PMDCheckBox.Checked, TODCheckBox.Checked, hmdCheckBox.Checked, LogCheckBox.Checked, NoVerboseCheckBox.Checked, DebugCheckBox.Checked, crocCheckBox.Checked, psxCheckBox.Checked, scanForAnCheckBox.Checked);
+            Program.DoScan(FilenameText.Text, FilterText.Text, TMDCheckBox.Checked, VDFCheckBox.Checked, TIMCheckBox.Checked, PMDCheckBox.Checked, TODCheckBox.Checked, hmdCheckBox.Checked, LogCheckBox.Checked, NoVerboseCheckBox.Checked, DebugCheckBox.Checked, crocCheckBox.Checked, psxCheckBox.Checked, scanForAnCheckBox.Checked, ignoreVersionCheckBox.Checked, scanForBffCheckBox.Checked);
             Close();
         }
 

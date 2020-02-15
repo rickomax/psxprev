@@ -28,6 +28,13 @@ namespace PSXPrev.Classes
 
         public bool Visible { get; set; } = true;
 
+        public Matrix4 TempMatrix { get; set; } = Matrix4.Identity;
+        public float Interpolator { get; set; }
+        public Vector3[] InitialVertices { get; set; }
+        public Vector3[] FinalVertices { get; set; }
+        public Vector3[] FinalNormals { get; set; }
+        public Vector3[] InitialNormals { get; set; }
+
         public override void ComputeBounds()
         {
             base.ComputeBounds();
@@ -55,9 +62,9 @@ namespace PSXPrev.Classes
             Bounds3D = bounds;
         }
 
-        public override void FixConnectionsRecursively()
+        public override void FixConnections()
         {
-            var rootEntity = ParentEntity as RootEntity;
+            var rootEntity = GetRootEntity();
             if (rootEntity != null)
             {
                 foreach (var triangle in Triangles)
@@ -95,7 +102,6 @@ namespace PSXPrev.Classes
                     }
                 }
             }
-            base.FixConnectionsRecursively();
         }
     }
 }

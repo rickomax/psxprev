@@ -1,7 +1,8 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
-using System.Linq;
 using OpenTK;
 
 namespace PSXPrev.Classes
@@ -12,13 +13,14 @@ namespace PSXPrev.Classes
 
         private readonly Action<RootEntity, long> _entityAddedAction;
         private readonly Action<Animation, long> _animationAddedAction;
+        private readonly Action<Texture, long> _textureAddedAction;
 
-        public HMDParser(Action<RootEntity, long> entityAddedAction, Action<Animation, long> animationAddedAction)
+        public HMDParser(Action<RootEntity, long> entityAddedAction, Action<Animation, long> animationAddedAction, Action<Texture, long> textureAddedAction)
         {
-            this._entityAddedAction = entityAddedAction;
-            this._animationAddedAction = animationAddedAction;
+            _entityAddedAction = entityAddedAction;
+            _animationAddedAction = animationAddedAction;
+            _textureAddedAction = textureAddedAction;
         }
-
 
         public void LookForHMDEntities(BinaryReader reader, string fileTitle)
         {
@@ -37,12 +39,12 @@ namespace PSXPrev.Classes
                     var version = reader.ReadUInt32();
                     if (version == 0x00000050)
                     {
-                        var rootEntity = ParseHMD(reader, out var animations);
+                        var rootEntity = ParseHMD(reader, out var animations, out var textures);
                         if (rootEntity != null)
                         {
                             rootEntity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
                             _entityAddedAction(rootEntity, reader.BaseStream.Position);
-                            Program.Logger.WriteLine("Found HMD Model at offset {0:X}", _offset);
+                            Program.Logger.WritePositiveLine("Found HMD Model at offset {0:X}", _offset);
                             _offset = reader.BaseStream.Position;
                             passed = true;
                         }
@@ -50,7 +52,16 @@ namespace PSXPrev.Classes
                         {
                             animation.AnimationName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
                             _animationAddedAction(animation, reader.BaseStream.Position);
-                            Program.Logger.WriteLine("Found HMD Animation at offset {0:X}", _offset);
+                            Program.Logger.WritePositiveLine("Found HMD Animation at offset {0:X}", _offset);
+                            _offset = reader.BaseStream.Position;
+                            passed = true;
+                        }
+
+                        foreach (var texture in textures)
+                        {
+                            texture.TextureName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
+                            _textureAddedAction(texture, reader.BaseStream.Position);
+                            Program.Logger.WritePositiveLine("Found HMD Image at offset {0:X}", _offset);
                             _offset = reader.BaseStream.Position;
                             passed = true;
                         }
@@ -68,7 +79,7 @@ namespace PSXPrev.Classes
                 {
                     if (++_offset > reader.BaseStream.Length)
                     {
-                        Program.Logger.WriteLine("Reached file end");
+                        Program.Logger.WriteLine($"HMD - Reached file end: {fileTitle}");
                         return;
                     }
                     reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
@@ -76,9 +87,10 @@ namespace PSXPrev.Classes
             }
         }
 
-        private RootEntity ParseHMD(BinaryReader reader, out List<Animation> animations)
+        private RootEntity ParseHMD(BinaryReader reader, out List<Animation> animations, out List<Texture> textures)
         {
             animations = new List<Animation>();
+            textures = new List<Texture>();
             var mapFlag = reader.ReadUInt32();
             var primitiveHeaderTop = reader.ReadUInt32() * 4;
             var blockCount = reader.ReadUInt32();
@@ -95,7 +107,7 @@ namespace PSXPrev.Classes
                     continue;
                 }
                 var blockTop = reader.BaseStream.Position;
-                ProccessPrimitive(reader, modelEntities, animations, i, primitiveSetTop, primitiveHeaderTop);
+                ProccessPrimitive(reader, modelEntities, animations, textures, i, primitiveSetTop, primitiveHeaderTop);
                 reader.BaseStream.Seek(blockTop, SeekOrigin.Begin);
             }
             RootEntity rootEntity;
@@ -142,10 +154,10 @@ namespace PSXPrev.Classes
             var super = reader.ReadUInt32() * 4;
             if (super != 0)
             {
-                var top = reader.BaseStream.Position;
+                var position = reader.BaseStream.Position;
                 reader.BaseStream.Seek(_offset + super, SeekOrigin.Begin);
                 var superMatrix = ReadCoord(reader);
-                reader.BaseStream.Seek(top, SeekOrigin.Begin);
+                reader.BaseStream.Seek(position, SeekOrigin.Begin);
                 return superMatrix * worldMatrix;
             }
 
@@ -178,7 +190,7 @@ namespace PSXPrev.Classes
             return matrix;
         }
 
-        private void ProccessPrimitive(BinaryReader reader, List<ModelEntity> modelEntities, List<Animation> animations, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop)
+        private void ProccessPrimitive(BinaryReader reader, List<ModelEntity> modelEntities, List<Animation> animations, List<Texture> textures, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop)
         {
             var groupedTriangles = new Dictionary<uint, List<Triangle>>();
             while (true)
@@ -223,6 +235,11 @@ namespace PSXPrev.Classes
                         Program.Logger.WriteLine($"HMD Type: {type} of category {category} and primitive type {primitiveType}");
                     }
 
+                    if (Program.Debug)
+                    {
+                        Program.Logger.WriteLine("Primitive type bits:" + new BitArray(BitConverter.GetBytes(primitiveType)).ToBitString());
+                    }
+
                     if (category == 0)
                     {
                         if (Program.Debug)
@@ -246,28 +263,38 @@ namespace PSXPrev.Classes
                         {
                             Program.Logger.WriteLine($"HMD Image Data");
                         }
+                        var hasClut = primitiveType == 1;
+                        var texture = ProcessImageData(reader, driver, hasClut, primitiveHeaderPointer, nextPrimitivePointer);
+                        if (texture != null)
+                        {
+                            textures.Add(texture);
+                        }
                     }
                     else if (category == 3)
                     {
-                        //if (Program.Debug)
+                        if (Program.Debug)
                         {
                             Program.Logger.WriteLine($"HMD Animation");
                         }
                     }
                     else if (category == 4)
                     {
-                        var code1 = primitiveType & 0x111;
-                        var rst = (primitiveType >> 3) & 0x1;
-                        var code0 = (primitiveType >> 4) & 0x111;
-                        //if (Program.Debug)
+                        var code1 = (primitiveType & 0b11100000) > 0;
+                        var rst =   (primitiveType & 0b00010000) > 0;
+                        var code0 = (primitiveType & 0b00001110) > 0;
+                        if (Program.Debug)
                         {
                             Program.Logger.WriteLine($"HMD Mime Animation: {code1}|{rst}|{code0}");
                         }
                         //todo: docs are broken!
-                        if (code0 == 0 && rst == 0)
+                        if (!code0)
                         {
-                            var diffIndex = reader.ReadUInt32() * 4;
-                            var animation = ProcessMimeVertexData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, diffIndex, dataSize);
+                            var diffTop = reader.ReadUInt32() * 4;
+                            Animation animation = null;
+                            if (code1)
+                            {
+                                animation = ProcessMimeVertexData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, diffTop, dataSize, rst);
+                            }
                             if (animation != null)
                             {
                                 animations.Add(animation);
@@ -307,6 +334,39 @@ namespace PSXPrev.Classes
             }
         }
 
+        private Texture ProcessImageData(BinaryReader reader, uint driver, bool hasClut, uint primitiveHeaderPointer, uint nextPrimitivePointer)
+        {
+            var position = reader.BaseStream.Position;
+            var x = reader.ReadUInt16();
+            var y = reader.ReadUInt16();
+            var width = reader.ReadUInt16();
+            var height = reader.ReadUInt16();
+            if (width == 0 || height == 0 || width > 256 || height > 256)
+            {
+                return null;
+            }
+            var imageTop = reader.ReadUInt32() * 4;
+            System.Drawing.Color[] palette;
+            if (hasClut)
+            {
+                var clutX = reader.ReadUInt16();
+                var clutY = reader.ReadUInt16();
+                var clutWidth = reader.ReadUInt16();
+                var clutHeight = reader.ReadUInt16();
+                var clutTop = reader.ReadUInt32() * 4;
+                reader.BaseStream.Seek(_offset + clutTop, SeekOrigin.Begin);
+                palette = TIMParser.ReadPalette(reader, 1, clutWidth, clutHeight);
+            }
+            else
+            {
+                palette = null;
+            }
+            reader.BaseStream.Seek(_offset + imageTop, SeekOrigin.Begin);
+            var texture = TIMParser.ReadTexture(reader, width, height, x, y, hasClut ? 1u : 3u, palette);
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+            return texture;
+        }
+
         private static void ReadMappedValue(BinaryReader reader, out uint mapped, out uint value)
         {
             var valueMapped = reader.ReadUInt32();
@@ -323,7 +383,7 @@ namespace PSXPrev.Classes
 
         private void ProcessNonSharedGeometryData(Dictionary<uint, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount)
         {
-            var primitiveDataTop = reader.BaseStream.Position;
+            var primitivePosition = reader.BaseStream.Position;
             ProcessGeometryPrimitiveHeader(reader, primitiveHeaderPointer, polygonIndex, out var vertTop, out var normTop, out var coordTop, out var dataTop);
             reader.BaseStream.Seek(_offset + dataTop + polygonIndex, SeekOrigin.Begin);
             for (var j = 0; j < dataCount; j++)
@@ -365,10 +425,10 @@ namespace PSXPrev.Classes
                     );
                 }
             }
-            reader.BaseStream.Seek(primitiveDataTop, SeekOrigin.Begin);
+            reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
         }
 
-        private Animation ProcessMimeVertexData(Dictionary<uint, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint diffIndex, uint dataCount)
+        private Animation ProcessMimeVertexData(Dictionary<uint, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint diffTop, uint dataCount, bool rst)
         {
             Animation animation;
             Dictionary<uint, AnimationObject> animationObjects;
@@ -398,41 +458,31 @@ namespace PSXPrev.Classes
             var rootAnimationObject = new AnimationObject();
             animationObjects = new Dictionary<uint, AnimationObject>();
             var primitiveDataTop = reader.BaseStream.Position;
-            ProcessMimeVertexPrimitiveHeader(reader, primitiveHeaderPointer, diffIndex, out var mimeTop, out var mimeDiffTop, out var mimeOrgTop, out var mimeVertTop, out var mimeNormTop);
+            ProcessMimeVertexPrimitiveHeader(reader, primitiveHeaderPointer, out var coordTop, out var mimeDiffTop, out var mimeOrgTop, out var mimeVertTop, out var mimeNormTop, out var mimeTop);
+            reader.BaseStream.Seek(primitiveDataTop, SeekOrigin.Begin);
             for (uint i = 0; i < dataCount; i++)
             {
                 reader.BaseStream.Seek(_offset + mimeDiffTop, SeekOrigin.Begin);
-                var rstNum = reader.ReadUInt16();
+                var oNum = reader.ReadUInt16();
                 var numDiffs = reader.ReadUInt16();
                 if (numDiffs > Program.MaxHMDMimeDiffs)
                 {
                     return null;
                 }
                 var flags = reader.ReadUInt32();
-                var animationObject = GetAnimationObject(rstNum);
+                var animationObject = GetAnimationObject(oNum);
                 for (uint j = 0; j < numDiffs; j++)
                 {
                     var position = reader.BaseStream.Position;
-                    var diffDataIndex = reader.ReadUInt32() * 4;
-                    reader.BaseStream.Seek(mimeDiffTop + diffIndex + diffDataIndex, SeekOrigin.Begin);
+                    var diffDataTop = reader.ReadUInt32() * 4;
+                    reader.BaseStream.Seek(_offset + mimeDiffTop + diffTop + diffDataTop, SeekOrigin.Begin);
                     var vertexStart = reader.ReadUInt32();
                     var res = reader.ReadUInt16();
                     var vertexCount = reader.ReadUInt16();
-                    if (vertexCount >= Program.MaxHMDVertCount)
+                    if (vertexCount + vertexStart == 0 || vertexCount + vertexStart >= Program.MaxHMDVertCount)
                     {
                         return null;
                     }
-                    //if (j == 0)
-                    //{
-                    //    var initialAnimationFrame = GetAnimationFrame(animationObject, 0);
-                    //    var initialVertices = new Vector3[vertexCount + vertexStart];
-                    //    for (var k = 0; k < vertexCount; k++)
-                    //    {
-                    //        initialVertices[k] = Vector3.Zero;
-                    //    }
-                    //    initialAnimationFrame.Vertices = initialVertices;
-                    //    initialAnimationFrame.TempVertices = new Vector3[initialAnimationFrame.Vertices.Length];
-                    //}
                     var animationFrame = GetNextAnimationFrame(animationObject);
                     var vertices = new Vector3[vertexCount + vertexStart];
                     for (var k = 0; k < vertexCount; k++)
@@ -440,7 +490,7 @@ namespace PSXPrev.Classes
                         var x = reader.ReadInt16();
                         var y = reader.ReadInt16();
                         var z = reader.ReadInt16();
-                        var pad  = reader.ReadUInt16();
+                        var pad = reader.ReadUInt16();
                         vertices[vertexStart + k] = new Vector3(x, y, z);
                     }
                     animationFrame.Vertices = vertices;
@@ -450,19 +500,6 @@ namespace PSXPrev.Classes
                 if (flags == 1)
                 {
                     var resetOffset = reader.ReadUInt32() * 4;
-                    //var position = reader.BaseStream.Position;
-                    //reader.BaseStream.Seek(_offset + resetOffset, SeekOrigin.Begin);
-                    //reader.BaseStream.Seek(mimeDiffTop + diffIndex + mimeOrgTop, SeekOrigin.Begin);
-                    //var animationFrame = GetAnimationFrame(animationObject, 0);
-                    //for (var k = 0; k < vertexCount; k++)
-                    //{
-                    //    var x = reader.ReadInt16();
-                    //    var y = reader.ReadInt16();
-                    //    var z = reader.ReadInt16();
-                    //    reader.ReadInt16();
-                    //    vertices[vertexStart + k] = new Vector3(x, y, z);
-                    //}
-                    //reader.BaseStream.Seek(position, SeekOrigin.Begin);
                 }
             }
             foreach (var animationObject in animationObjects.Values)
@@ -622,13 +659,27 @@ namespace PSXPrev.Classes
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ProcessMimeVertexPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, uint mimeIndex, out uint mimeTop, out uint mimeDiffTop, out uint mimeOrgTop, out uint mimeVertTop, out uint mimeNormTop)
+        private void ProcessMimeVertexPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint coordTop, out uint mimeDiffTop, out uint mimeOrgTop, out uint mimeVertTop, out uint mimeNormTop, out uint mimeTop)
         {
+            //7; /* header size */
+            //M(MIMePr_ptr / 4);
+            //MIMe_num;
+            //H(MIMeID); H(0 /* reserved */);
+            //M(MIMeDiffSect / 4);
+            //M(MIMeOrgsVNSect / 4);
+            //M(VertSect / 4);
+            //M(NormSect / 4);
+
             var position = reader.BaseStream.Position;
 
             reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
 
-            var headerSize = reader.ReadUInt32();
+            var headLen = reader.ReadUInt32();
+
+            //ReadMappedValue(reader, out var coordTopMapped, out coordTop);
+            //coordTop *= 4;
+
+            coordTop = 0;
 
             ReadMappedValue(reader, out var mimeTopMapped, out mimeTop);
             mimeTop *= 4;

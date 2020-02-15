@@ -42,7 +42,7 @@ namespace PSXPrev.Classes
                                 texture.TextureName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
                                 //textures.Add(texture);
                                 _entityAddedAction(texture, reader.BaseStream.Position);
-                                Program.Logger.WriteLine("Found TIM Image at offset {0:X}", _offset);
+                                Program.Logger.WritePositiveLine("Found TIM Image at offset {0:X}", _offset);
                                 _offset = reader.BaseStream.Position;
                                 passed = true;
                             }
@@ -61,7 +61,7 @@ namespace PSXPrev.Classes
                 {
                     if (++_offset > reader.BaseStream.Length)
                     {
-                        Program.Logger.WriteLine("Reached file end");
+                        Program.Logger.WriteLine($"TIM - Reached file end: {fileTitle}");
                         return;
                     }
                     reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
@@ -101,49 +101,60 @@ namespace PSXPrev.Classes
                 var clutDy = reader.ReadUInt16();
                 var clutWidth = reader.ReadUInt16();
                 var clutHeight = reader.ReadUInt16();
-
-                if (clutWidth == 0 || clutHeight == 0 || clutWidth > 256 || clutHeight > 256)
-                {
-                    return null;
-                }
-
-                switch (pmode)
-                {
-                    case 0: // 4-bit CLUT
-                        palette = new System.Drawing.Color[16];
-                        for (var c = 0; c < 16; c++)
-                        {
-                            var clut = reader.ReadUInt16();
-                            var r = (clut & 0x1F);
-                            var g = (clut & 0x3E0) >> 5;
-                            var b = (clut & 0x7C00) >> 10;
-                            var a = (clut & 0x8000) >> 15;
-                            System.Drawing.Color color = System.Drawing.Color.FromArgb(255, r * 8, g * 8, b * 8);
-                            palette[c] = color;
-                        }
-                        break;
-                    case 1: // 8-bit CLUT
-                        palette = new System.Drawing.Color[256];
-                        for (var c = 0; c < 256; c++)
-                        {
-                            var clut = reader.ReadUInt16();
-                            var r = (clut & 0x1F);
-                            var g = (clut & 0x3E0) >> 5;
-                            var b = (clut & 0x7C00) >> 10;
-                            var a = (clut & 0x8000) >> 15;
-                            System.Drawing.Color color = System.Drawing.Color.FromArgb(255, r * 8, g * 8, b * 8);
-                            palette[c] = color;
-                        }
-                        break;
-                }
+                palette = ReadPalette(reader, pmode, clutWidth, clutHeight);
             }
-
-
             var imgBnum = reader.ReadUInt32();
             var imgDx = reader.ReadUInt16();
             var imgDy = reader.ReadUInt16();
             var imgWidth = reader.ReadUInt16();
             var imgHeight = reader.ReadUInt16();
+            texture = ReadTexture(reader, imgWidth, imgHeight, imgDx, imgDy, pmode, palette);
+            return texture;
+        }
+
+        public static System.Drawing.Color[] ReadPalette(BinaryReader reader, uint pmode, uint clutWidth, uint clutHeight)
+        {
+            if (clutWidth == 0 || clutHeight == 0 || clutWidth > 256 || clutHeight > 256)
+            {
+                return null;
+            }
+            System.Drawing.Color[] palette = null;
+            switch (pmode)
+            {
+                case 0: // 4-bit CLUT
+                    palette = new System.Drawing.Color[16];
+                    for (var c = 0; c < 16; c++)
+                    {
+                        var clut = reader.ReadUInt16();
+                        var r = (clut & 0x1F);
+                        var g = (clut & 0x3E0) >> 5;
+                        var b = (clut & 0x7C00) >> 10;
+                        var a = (clut & 0x8000) >> 15;
+                        System.Drawing.Color color = System.Drawing.Color.FromArgb(255, r * 8, g * 8, b * 8);
+                        palette[c] = color;
+                    }
+                    break;
+                case 1: // 8-bit CLUT
+                    palette = new System.Drawing.Color[256];
+                    for (var c = 0; c < 256; c++)
+                    {
+                        var clut = reader.ReadUInt16();
+                        var r = (clut & 0x1F);
+                        var g = (clut & 0x3E0) >> 5;
+                        var b = (clut & 0x7C00) >> 10;
+                        var a = (clut & 0x8000) >> 15;
+                        System.Drawing.Color color = System.Drawing.Color.FromArgb(255, r * 8, g * 8, b * 8);
+                        palette[c] = color;
+                    }
+                    break;
+            }
+            return palette;
+        }
+
+        public static Texture ReadTexture(BinaryReader reader, ushort imgWidth, ushort imgHeight, ushort imgDx, ushort imgDy, uint pmode, System.Drawing.Color[] palette)
+        {
+            Texture texture = null;
+            Bitmap bitmap;
 
             if (imgWidth == 0 || imgHeight == 0 || imgWidth > Program.MaxTIMResolution || imgHeight > Program.MaxTIMResolution)
             {
@@ -155,6 +166,7 @@ namespace PSXPrev.Classes
             {
                 return null;
             }
+
             int textureOffset = texturePage * 64;
 
             int texturePageY = imgDy / 255;
@@ -162,6 +174,7 @@ namespace PSXPrev.Classes
             {
                 return null;
             }
+
             int textureOffsetY = texturePageY * 256;
 
             int finalTexturePage = (texturePageY * 16) + texturePage;
@@ -194,7 +207,7 @@ namespace PSXPrev.Classes
 
                             if (index1 >= palette.Length || index2 >= palette.Length || index3 >= palette.Length || index4 >= palette.Length)
                             {
-                                return null;
+                                return texture;
                             }
 
                             var color1 = palette[index1];
@@ -208,6 +221,7 @@ namespace PSXPrev.Classes
                             bitmap.SetPixel((x * 4) + 3, y, color4);
                         }
                     }
+
                     break;
                 case 1: //8bpp
                     texturePage = imgDx / 64;
@@ -230,7 +244,7 @@ namespace PSXPrev.Classes
 
                             if (index1 >= palette.Length || index2 >= palette.Length)
                             {
-                                return null;
+                                return texture;
                             }
 
                             var color1 = palette[index1];
@@ -240,6 +254,7 @@ namespace PSXPrev.Classes
                             bitmap.SetPixel((x * 2) + 1, y, color2);
                         }
                     }
+
                     break;
                 case 2: //16bpp
                     textureX = (imgDx - textureOffset);
@@ -299,6 +314,7 @@ namespace PSXPrev.Classes
                             bitmap.SetPixel((x * 2) + 1, y, color2);
                         }
                     }
+
                     break;
                 case 4:
                     break;

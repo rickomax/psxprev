@@ -57,6 +57,7 @@ namespace PSXPrev
         private AnimationFrame _curAnimationFrameObj;
         private RootEntity _selectedRootEntity;
         private ModelEntity _selectedModelEntity;
+        private Vector3 _pickedPosition;
 
         private bool Playing
         {
@@ -170,23 +171,6 @@ namespace PSXPrev
             }
         }
 
-        private System.Drawing.Color SceneBackColor
-        {
-            set
-            {
-                if (_scene == null)
-                {
-                    throw new Exception("Window must be initialized");
-                }
-                _scene.ClearColor = new Color
-                (
-                    value.R / 255f,
-                    value.G / 255f,
-                    value.B / 255f
-                );
-            }
-        }
-
         private void SetupControls()
         {
             _openTkControl = new GLControl
@@ -213,7 +197,7 @@ namespace PSXPrev
             if (_inAnimationTab && _curAnimation != null)
             {
                 var checkedEntities = GetCheckedEntities();
-                if (!_scene.AnimationBatch.SetupAnimationFrame(_curAnimationFrame, _curAnimationObject, checkedEntities, _selectedRootEntity, _selectedModelEntity, true))
+                if (!_scene.AnimationBatch.SetupAnimationFrame(_curAnimationFrame, checkedEntities, _selectedRootEntity, _selectedModelEntity, true))
                 {
                     _curAnimationFrame = 0f;
                     _curAnimationTime = 0f;
@@ -230,7 +214,9 @@ namespace PSXPrev
 
         private void SetupColors()
         {
-            SceneBackColor = System.Drawing.Color.LightSkyBlue;
+            SetMaskColor(System.Drawing.Color.Black);
+            SetAmbientColor(System.Drawing.Color.LightGray);
+            SetBackgroundColor(System.Drawing.Color.LightSkyBlue);
         }
 
         private void SetupTextures()
@@ -412,8 +398,6 @@ namespace PSXPrev
             }
         }
 
-        private Vector3 _pickedPosition;
-
         private void openTkControl_MouseEvent(MouseEventArgs e, MouseEventType eventType)
         {
             if (_inAnimationTab)
@@ -447,7 +431,16 @@ namespace PSXPrev
                         if (hoveredGizmo == Scene.GizmoId.None)
                         {
                             var checkedEntities = GetCheckedEntities();
-                            var newSelectedEntity = _scene.GetEntityUnderMouse(checkedEntities, _selectedRootEntity, _selectedModelEntity, e.Location.X, e.Location.Y, controlWidth, controlHeight);
+                            RootEntity rootEntity = null;
+                            if (_selectedRootEntity != null)
+                            {
+                                rootEntity = _selectedRootEntity;
+                            }
+                            else if (_selectedModelEntity != null)
+                            {
+                                rootEntity = _selectedModelEntity.GetRootEntity();
+                            }
+                            var newSelectedEntity = _scene.GetEntityUnderMouse(checkedEntities, rootEntity, e.Location.X, e.Location.Y, controlWidth, controlHeight);
                             if (newSelectedEntity != null)// && newSelectedEntity != selectedEntityBase)
                             {
                                 SelectEntity(newSelectedEntity);
@@ -594,10 +587,11 @@ namespace PSXPrev
             _scene.BoundsBatch.Reset();
             _scene.SkeletonBatch.Reset();
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
-            var rootEntity = selectedEntityBase != null ? selectedEntityBase as RootEntity ?? selectedEntityBase.ParentEntity as RootEntity : null;
+            var rootEntity = selectedEntityBase != null ? selectedEntityBase as RootEntity ?? selectedEntityBase.GetRootEntity() : null;
             if (rootEntity != null)
             {
-                rootEntity.FixConnectionsRecursively();
+                rootEntity.ResetAnimationData();
+                rootEntity.FixConnections();
             }
             if (selectedEntityBase != null)
             {
@@ -912,6 +906,33 @@ namespace PSXPrev
             SetupAnimations();
         }
 
+        private void SetMaskColor(System.Drawing.Color color)
+        {
+            _scene.MaskColor = color;
+            var bitmap = new Bitmap(16, 16);
+            var graphics = Graphics.FromImage(bitmap);
+            graphics.Clear(color);
+            setMaskColorToolStripMenuItem.Image = bitmap;
+        }
+
+        private void SetAmbientColor(System.Drawing.Color color)
+        {
+            _scene.AmbientColor = color;
+            var bitmap = new Bitmap(16, 16);
+            var graphics = Graphics.FromImage(bitmap);
+            graphics.Clear(color);
+            setAmbientColorToolStripMenuItem.Image = bitmap;
+        }
+
+        private void SetBackgroundColor(System.Drawing.Color color)
+        {
+            _scene.ClearColor = new Color(color.R / 255f, color.G / 255f, color.B / 255f);
+            var bitmap = new Bitmap(16, 16);
+            var graphics = Graphics.FromImage(bitmap);
+            graphics.Clear(color);
+            setBackgroundColorToolStripMenuItem.Image = bitmap;
+        }
+
         private void Redraw()
         {
             _openTkControl.Invalidate();
@@ -969,7 +990,7 @@ namespace PSXPrev
             UpdateSelectedAnimation();
             if (_curAnimationFrameObj != null)
             {
-                _curAnimationFrame = _curAnimationFrameObj.FrameTime+0.9999f;
+                _curAnimationFrame = _curAnimationFrameObj.FrameTime + 0.9999f;
             }
         }
 
@@ -1082,7 +1103,7 @@ namespace PSXPrev
 
         private void UpdateLightDirection()
         {
-            _scene.LightRotation = new Vector3(MathHelper.DegreesToRadians((float) lightPitchNumericUpDown.Value), MathHelper.DegreesToRadians((float) lightYawNumericUpDown.Value), MathHelper.DegreesToRadians((float) lightRollNumericUpDown.Value));
+            _scene.LightRotation = new Vector3(MathHelper.DegreesToRadians((float)lightPitchNumericUpDown.Value), MathHelper.DegreesToRadians((float)lightYawNumericUpDown.Value), MathHelper.DegreesToRadians((float)lightRollNumericUpDown.Value));
         }
 
         private void restartToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1142,6 +1163,65 @@ namespace PSXPrev
         private void lightRollNumericUpDown_ValueChanged(object sender, EventArgs e)
         {
             UpdateLightDirection();
+        }
+
+        private void setMaskColorToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (var colorDialog = new ColorDialog())
+            {
+                if (colorDialog.ShowDialog() == DialogResult.OK)
+                {
+                    SetMaskColor(colorDialog.Color);
+                }
+            }
+        }
+
+        private void enableLightToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _scene.LightEnabled = enableLightToolStripMenuItem.Checked;
+        }
+
+
+        private void setAmbientColorToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (var colorDialog = new ColorDialog())
+            {
+                if (colorDialog.ShowDialog() == DialogResult.OK)
+                {
+                    SetAmbientColor(colorDialog.Color);
+                }
+            }
+        }
+
+        private void setBackgroundColorToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (var colorDialog = new ColorDialog())
+            {
+                if (colorDialog.ShowDialog() == DialogResult.OK)
+                {
+                    SetBackgroundColor(colorDialog.Color);
+                }
+            }
+        }
+
+        private void lightIntensityNumericUpDown_ValueChanged(object sender, EventArgs e)
+        {
+            _scene.LightIntensity = (float)lightIntensityNumericUpDown.Value / 100f;
+        }
+
+        private void vibRibbonWireframeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void wireframeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void lineRendererToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.VibRibbonWireframe = lineRendererToolStripMenuItem.Checked;
         }
     }
 }

@@ -73,6 +73,7 @@
     <Compile Include="Classes\AnimationFrame.cs" />
     <Compile Include="Classes\AnimationObject.cs" />
     <Compile Include="Classes\ANParser.cs" />
+    <Compile Include="Classes\BFFModelReader.cs" />
     <Compile Include="Classes\BoundingBox.cs" />
     <Compile Include="Classes\BRenderHelper.cs" />
     <Compile Include="Classes\collada_schema_1_4.cs" />

@@ -33,14 +33,14 @@ namespace PSXPrev.Classes
                 try
                 {
                     var version = reader.ReadUInt32();
-                    if (version == 0x00000041)
+                    if (Program.IgnoreTmdVersion || version == 0x00000041)
                     {
-                        var entity = ParseTmd(reader);
+                        var entity = ParseTmd(reader, fileTitle);
                         if (entity != null)
                         {
                             entity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
                             _entityAddedAction(entity, reader.BaseStream.Position);
-                            Program.Logger.WriteLine("Found TMD Model at offset {0:X}", _offset);
+                            Program.Logger.WritePositiveLine("Found TMD Model at offset {0:X}", _offset);
                             _offset = reader.BaseStream.Position;
                             passed = true;
                         }
@@ -57,7 +57,7 @@ namespace PSXPrev.Classes
                 {
                     if (++_offset > reader.BaseStream.Length)
                     {
-                        Program.Logger.WriteLine("Reached file end");
+                        Program.Logger.WriteLine($"TMD - Reached file end: {fileTitle}");
                         return;
                     }
                     reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
@@ -65,7 +65,7 @@ namespace PSXPrev.Classes
             }
         }
 
-        private static RootEntity ParseTmd(BinaryReader reader)
+        private RootEntity ParseTmd(BinaryReader reader, string fileTitle)
         {
             var flags = reader.ReadUInt32();
             if (flags != 0 && flags != 1)
@@ -124,6 +124,10 @@ namespace PSXPrev.Classes
                 var objBlock = objBlocks[o];
 
                 var vertices = new Vector3[objBlock.NVert];
+                if (Program.IgnoreTmdVersion && objBlock.VertTop < _offset)
+                {
+                    return null;
+                }
                 reader.BaseStream.Seek(objBlock.VertTop, SeekOrigin.Begin);
                 for (var v = 0; v < objBlock.NVert; v++)
                 {
@@ -148,6 +152,10 @@ namespace PSXPrev.Classes
                 }
 
                 var normals = new Vector3[objBlock.NNormal];
+                if (Program.IgnoreTmdVersion && objBlock.NormalTop < _offset)
+                {
+                    return null;
+                }
                 reader.BaseStream.Seek(objBlock.NormalTop, SeekOrigin.Begin);
                 for (var n = 0; n < objBlock.NNormal; n++)
                 {
@@ -157,7 +165,10 @@ namespace PSXPrev.Classes
                     var pad = reader.ReadInt16();
                     if (pad != 0)
                     {
-                        Program.Logger.WriteLine($"Found suspicious pad value of: {pad} at index:{n}");
+                        if (Program.Debug)
+                        {
+                            Program.Logger.WriteLine($"Found suspicious pad value of: {pad} at index:{n}");
+                        }
                     }
                     var normal = new Vector3
                     {
@@ -171,6 +182,15 @@ namespace PSXPrev.Classes
                 var groupedTriangles = new Dictionary<uint, List<Triangle>>();
 
                 reader.BaseStream.Seek(objBlock.PrimitiveTop, SeekOrigin.Begin);
+                if (Program.IgnoreTmdVersion && objBlock.PrimitiveTop < _offset)
+                {
+                    return null;
+                }
+
+                if (Program.Debug)
+                {
+                    Program.Logger.WriteLine($"Primitive count:{objBlock.NPrimitive} {fileTitle}");
+                }
                 for (var p = 0; p < objBlock.NPrimitive; p++)
                 {
                     var olen = reader.ReadByte();
@@ -178,26 +198,41 @@ namespace PSXPrev.Classes
                     var flag = reader.ReadByte();
                     var mode = reader.ReadByte();
                     var offset = reader.BaseStream.Position;
-                    var packetStructure = TMDHelper.CreateTMDPacketStructure(flag, mode, reader);
+                    var packetStructure = TMDHelper.CreateTMDPacketStructure(flag, mode, reader, p);
                     if (packetStructure != null)
                     {
                         TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, delegate (uint index)
                         {
                             if (index >= vertices.Length)
                             {
-                                return new Vector3(index, 0, 0);
+                                if (Program.IgnoreTmdVersion)
+                                {
+                                    return new Vector3(index, 0, 0);
+                                }
+                                Program.Logger.WriteErrorLine("Vertex index error : " + fileTitle);
+                                throw new Exception("Vertex index error: " + fileTitle);
                             }
                             return vertices[index];
                         }, delegate (uint index)
                         {
                             if (index >= normals.Length)
                             {
-                                return new Vector3(index, 0, 0);
+                                if (Program.IgnoreTmdVersion)
+                                {
+                                    return new Vector3(index, 0, 0);
+                                }
+                                Program.Logger.WriteErrorLine("Vertex index error: " + fileTitle);
+                                throw new Exception("Vertex index error: " + fileTitle);
                             }
                             return normals[index];
                         });
                     }
-                    reader.BaseStream.Seek(offset + ilen * 4, SeekOrigin.Begin);
+                    var newOffset = offset + ilen * 4;
+                    if (Program.IgnoreTmdVersion && newOffset < _offset)
+                    {
+                        return null;
+                    }
+                    reader.BaseStream.Seek(newOffset, SeekOrigin.Begin);
                 }
 
                 foreach (var kvp in groupedTriangles)

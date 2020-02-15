@@ -36,7 +36,7 @@ namespace PSXPrev.Classes
                         {
                             animation.AnimationName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
                             entityAddedAction(animation, reader.BaseStream.Position);
-                            Program.Logger.WriteLine("Found TOD Animation at offset {0:X}", _offset);
+                            Program.Logger.WritePositiveLine("Found TOD Animation at offset {0:X}", _offset);
                             _offset = reader.BaseStream.Position;
                             passed = true;
                         }
@@ -53,7 +53,7 @@ namespace PSXPrev.Classes
                 {
                     if (++_offset > reader.BaseStream.Length)
                     {
-                        Program.Logger.WriteLine("Reached file end");
+                        Program.Logger.WriteLine($"TOD - Reached file end: {fileTitle}");
                         return;
                     }
                     reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
@@ -82,12 +82,16 @@ namespace PSXPrev.Classes
                 {
                     return animationObjects[objectId];
                 }
-                var animationObject = new AnimationObject { Animation = animation, ID = objectId };
+                var animationObject = new AnimationObject { Animation = animation, ID = objectId, TMDID = (uint?) (objectId+1)};
                 animationObjects.Add(objectId, animationObject);
                 return animationObject;
             }
             var version = reader.ReadByte();
             var resolution = reader.ReadUInt16();
+            if (resolution == 0)
+            {
+                return null;
+            }
             var frameCount = reader.ReadUInt32();
             if (frameCount == 0 || frameCount > Program.MaxTODFrames)
             {
@@ -110,9 +114,10 @@ namespace PSXPrev.Classes
                 //{
                 //    return null;
                 //}
-                if (packetCount == 0)
+                if (packetCount == 0 || frameSize == 0)
                 {
-                    reader.BaseStream.Position = frameTop + (frameSize * 4);
+                    continue;
+                    //reader.BaseStream.Position = frameTop + (frameSize * 4);
                 }
                 for (var p = 0; p < packetCount; p++)
                 {

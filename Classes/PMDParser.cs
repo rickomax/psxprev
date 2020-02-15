@@ -28,6 +28,7 @@ namespace PSXPrev.Classes
 
             while (reader.BaseStream.CanRead)
             {
+                var passed = false;
                 try
                 {
                     _offset = reader.BaseStream.Position;
@@ -40,24 +41,27 @@ namespace PSXPrev.Classes
                             entity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
                             //entities.Add(entity);
                             entityAddedAction(entity, reader.BaseStream.Position);
-                            Program.Logger.WriteLine("Found PMD Model at offset {0:X}", _offset);
+                            Program.Logger.WritePositiveLine("Found PMD Model at offset {0:X}", _offset);
+                            passed = true;
                         }
                     }
                 }
                 catch (Exception exp)
                 {
-                    if (exp is EndOfStreamException)
-                    {
-                        //if (checkOffset >= reader.BaseStream.Length - 4)
-                        //{
-                        break;
-                        //}
-                        //reader.BaseStream.Seek(checkOffset + 1, SeekOrigin.Begin);
-                    }
-                    Program.Logger.WriteLine(exp);
+                    //if (Program.Debug)
+                    //{
+                    //    Program.Logger.WriteLine(exp);
+                    //}
                 }
-                //Debug.WriteLine(checkOffset);
-                reader.BaseStream.Seek(_offset + 1, SeekOrigin.Begin);
+                if (!passed)
+                {
+                    if (++_offset > reader.BaseStream.Length)
+                    {
+                        Program.Logger.WriteLine($"VDF - Reached file end: {fileTitle}");
+                        return;
+                    }
+                    reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
+                }
             }
         }
 
@@ -148,7 +152,10 @@ namespace PSXPrev.Classes
                                 triangles.AddRange(ReadPolyG4(reader, true, _offset + vertPoint));
                                 break;
                             default:
-                                Program.Logger.WriteLine("Unknown primitive:" + primType);
+                                if (Program.Debug)
+                                {
+                                    Program.Logger.WriteErrorLine("Unknown primitive:" + primType);
+                                }
                                 goto EndObject;
                         }
                     }

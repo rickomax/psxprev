@@ -9,14 +9,13 @@ namespace PSXPrev.Classes
 {
     public static class TMDHelper
     {
-        public static Dictionary<PrimitiveDataType, uint> CreateTMDPacketStructure(byte flag, byte mode, BinaryReader reader)
+        public static Dictionary<PrimitiveDataType, uint> CreateTMDPacketStructure(byte flag, byte mode, BinaryReader reader, int index)
         {
             var option = (mode & 0x1F);
-            var flagMode = option | (flag << 8);
 
             var lgtBit = ((flag >> 0) & 0x01) == 0; //0-lit, 1-unlit
             var fceBit = ((flag >> 1) & 0x01) == 1; //1-double faced, 0-single faced
-            var grdBit = ((flag >> 2) & 0x01) == 1; //0-gradation, 1-single color
+            var grdBit = ((flag >> 2) & 0x01) == 1 || mode == 0x35 || mode == 0x31 || mode == 0x39 || mode == 0x3d || mode == 0x3b || mode == 0x3f; //0-gradation, 1-single color
 
             var tgeBit = ((option >> 0) & 0x01) == 0; //brightness: 0-on, 1-off
             var abeBit = ((option >> 1) & 0x01) == 1; //translucency: 0-off, 1-on
@@ -24,8 +23,29 @@ namespace PSXPrev.Classes
             var isqBit = ((option >> 3) & 0x01) == 1; //1-quad, 0-tri
             var iipBit = ((option >> 4) & 0x01) == 1; //shading mode: 0-flat, 1-goraund
             var code = ((mode >> 5) & 0x03);
-
-            return ParsePrimitiveData(reader, lgtBit, iipBit, tmeBit, grdBit, isqBit);
+            if (Program.Debug)
+            {
+                Program.Logger.WriteLine("[{9}] mode: {8:x2} light:{0} double-faced:{1} gradation:{2} brightness:{3} translucency:{4} texture:{5} quad:{6} gouraud:{7}",
+                    lgtBit ? 1 : 0,
+                    fceBit ? 1 : 0,
+                    grdBit ? 1 : 0, 
+                    tgeBit ? 1 : 0,
+                    abeBit ? 1 : 0, 
+                    tmeBit ? 1 : 0, 
+                    isqBit ? 1 : 0,
+                    iipBit ? 1 : 0,
+                    mode,
+                    index);
+            }
+            if (code != 0b001)
+            {
+                if (Program.Debug)
+                {
+                    Program.Logger.WriteErrorLine($"Unsupported primitive code:{code}");
+                }
+                return null;
+            }
+            return ParsePrimitiveData(reader, lgtBit, iipBit, tmeBit, grdBit, isqBit, abeBit);
         }
 
         public static Dictionary<PrimitiveDataType, uint> CreateHMDPacketStructure(uint driver, uint primitiveType, BinaryReader reader)
@@ -34,7 +54,7 @@ namespace PSXPrev.Classes
             var colBit = ((primitiveType >> 1) & 0x01) == 1;
             var iipBit = ((primitiveType >> 2) & 0x01) == 1;
             var isqBit = ((primitiveType >> 3) & 0x07) == 2;
-            return ParsePrimitiveData(reader, true, iipBit, tmeBit, colBit, isqBit);
+            return ParsePrimitiveData(reader, true, iipBit, tmeBit, colBit, isqBit, false); //todo
         }
 
         public static string ToString(Dictionary<PrimitiveDataType, uint> primitiveDataDictionary)
@@ -42,7 +62,7 @@ namespace PSXPrev.Classes
             return primitiveDataDictionary.Keys.Aggregate("", (current, key) => current + (key + "-"));
         }
 
-        private static Dictionary<PrimitiveDataType, uint> ParsePrimitiveData(BinaryReader reader, bool lgtBit, bool iipBit, bool tmeBit, bool grdBit, bool isqBit)
+        private static Dictionary<PrimitiveDataType, uint> ParsePrimitiveData(BinaryReader reader, bool light, bool gouraud, bool texture, bool gradation, bool quad, bool translucency)
         {
             var primitiveDataDictionary = new Dictionary<PrimitiveDataType, uint>();
 
@@ -163,20 +183,14 @@ namespace PSXPrev.Classes
                 primitiveDataDictionary.Add(key, value);
             }
 
-            //var hasGradation = grdBit;
-            //var isGouraud = iipBit;
-            var hasLight = lgtBit;
-            var isFlat = !iipBit;
-            var hasTexture = tmeBit;
-            var isSolid = !grdBit;
+            var hasColors = !quad && light && !texture ||
+                            quad && light && !texture ||
+                            !quad && !light ||
+                            quad && !light;
 
-            var hasColors = !hasLight ||
-                            !hasTexture;
+            var numVerts = quad ? 4 : 3;
 
-
-            var numVerts = isqBit ? 4 : 3;
-
-            if (hasTexture)
+            if (texture)
             {
                 for (var i = 0; i < numVerts; ++i)
                 {
@@ -200,7 +214,7 @@ namespace PSXPrev.Classes
 
             if (hasColors)
             {
-                var numColors = isFlat || isSolid ? 1 : numVerts;
+                var numColors = gradation ? numVerts : 1;
                 for (var i = 0; i < numColors; ++i)
                 {
                     AddData(PrimitiveDataType.R0 + i);
@@ -210,11 +224,11 @@ namespace PSXPrev.Classes
                 }
             }
 
-            if (hasLight)
+            if (light)
             {
                 switch (numVerts)
                 {
-                    case 3 when isFlat:
+                    case 3 when !gouraud:
                         AddData(PrimitiveDataType.NORMAL0);
                         AddData(PrimitiveDataType.VERTEX0);
                         AddData(PrimitiveDataType.VERTEX1);
@@ -228,7 +242,7 @@ namespace PSXPrev.Classes
                         AddData(PrimitiveDataType.NORMAL2);
                         AddData(PrimitiveDataType.VERTEX2);
                         break;
-                    case 4 when isFlat:
+                    case 4 when !gouraud:
                         AddData(PrimitiveDataType.NORMAL0);
                         AddData(PrimitiveDataType.VERTEX0);
                         AddData(PrimitiveDataType.VERTEX1);
@@ -309,11 +323,11 @@ namespace PSXPrev.Classes
 
             foreach (var kvp in primitiveData)
             {
-                if (kvp.Key >= PrimitiveDataType.PAD1 && kvp.Value != 0)
+                //if (kvp.Key >= PrimitiveDataType.PAD1 && kvp.Value != 0)
                 {
                     if (Program.Debug)
                     {
-                        Console.WriteLine($"Primitive contains extra padding data [{kvp.Value}]{PrintPrimitiveData(primitiveData)}");
+                        Console.WriteLine($"Primitive data: {PrintPrimitiveData(primitiveData)}");
                     }
                 }
             }
@@ -340,13 +354,13 @@ namespace PSXPrev.Classes
                 normalIndex1 = normalIndex0;
                 normalIndex2 = normalIndex0;
             }
-            var r0 = primitiveData.TryGetValue(PrimitiveDataType.R0, out var r0Value) ? r0Value / 255f : 0.5f;
+            var r0 = primitiveData.TryGetValue(PrimitiveDataType.R0, out var r0Value) ? r0Value / 255f : Color.DefaultColorTone;
             var r1 = primitiveData.TryGetValue(PrimitiveDataType.R1, out var r1Value) ? r1Value / 255f : r0;
             var r2 = primitiveData.TryGetValue(PrimitiveDataType.R2, out var r2Value) ? r2Value / 255f : r0;
-            var g0 = primitiveData.TryGetValue(PrimitiveDataType.G0, out var g0Value) ? g0Value / 255f : 0.5f;
+            var g0 = primitiveData.TryGetValue(PrimitiveDataType.G0, out var g0Value) ? g0Value / 255f : Color.DefaultColorTone;
             var g1 = primitiveData.TryGetValue(PrimitiveDataType.G1, out var g1Value) ? g1Value / 255f : g0;
             var g2 = primitiveData.TryGetValue(PrimitiveDataType.G2, out var g2Value) ? g2Value / 255f : g0;
-            var b0 = primitiveData.TryGetValue(PrimitiveDataType.B0, out var b0Value) ? b0Value / 255f : 0.5f;
+            var b0 = primitiveData.TryGetValue(PrimitiveDataType.B0, out var b0Value) ? b0Value / 255f : Color.DefaultColorTone;
             var b1 = primitiveData.TryGetValue(PrimitiveDataType.B1, out var b1Value) ? b1Value / 255f : b0;
             var b2 = primitiveData.TryGetValue(PrimitiveDataType.B2, out var b2Value) ? b2Value / 255f : b0;
             var s0 = primitiveData.TryGetValue(PrimitiveDataType.S0, out var s0Value) ? s0Value / 255f : 0f;
@@ -391,13 +405,11 @@ namespace PSXPrev.Classes
 
         private static string PrintPrimitiveData(Dictionary<PrimitiveDataType, uint> primitiveData)
         {
-            var value = new StringBuilder("[");
+            var value = new StringBuilder();
             foreach (var kvp in primitiveData)
             {
-                value.Append(kvp.Key).Append(":").Append(kvp.Value).Append("|");
+                value.Append("\t").Append(kvp.Key).Append(":").Append(kvp.Value);
             }
-
-            value.Append("]");
             return value.ToString();
         }
 

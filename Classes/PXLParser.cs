@@ -38,7 +38,7 @@
    //                         if (bitmap != null)
    //                         {
    //                             bitmaps.Add(bitmap);
-   //                             _logger.WriteLine("Found PXL Image at offset {0:X}", checkOffset);
+   //                             _Program.Logger.WriteLine("Found PXL Image at offset {0:X}", checkOffset);
    //                         }
    //                     }
    //                 }
@@ -49,7 +49,7 @@
    //                 {
    //                     break;
    //                 }
-   //                 _logger.WriteLine(exp);
+   //                 _Program.Logger.WriteLine(exp);
    //             }
    //             reader.BaseStream.Seek(checkOffset + 1, SeekOrigin.Begin);
    //         }

@@ -4,29 +4,29 @@ in vec3 in_Color;
 in vec3 in_Normal;
 in vec3 in_Uv;
 
-out vec4 pass_Color;
 out vec2 pass_Uv;
+out vec4 pass_Ambient;
+out vec4 pass_Color;
 out float pass_NormalDotLight;
 out float pass_NormalLength;
-out vec4 pass_Diffuse;
-out vec4 pass_Ambient;
 out float discardPixel;
 
 uniform mat4 mvpMatrix;
 uniform vec3 lightDirection;
+uniform vec3 maskColor;
+uniform vec3 ambientColor;
+uniform int renderMode;
+uniform float lightIntensity;
 uniform sampler2D mainTex;
 
-const vec4 ambient = vec4(0.5, 0.5, 0.5, 1.0);
-const vec4 diffuse = vec4(0.75, 0.75, 0.75, 1.0);
-const float DiscardValue = 100000000;
+const float discardValue = 100000000;
 
 void main(void) {	
-	discardPixel = step(DiscardValue, in_Position.x);
     gl_Position = mvpMatrix * vec4(in_Position, 1.0);
-	pass_NormalDotLight = clamp(dot(in_Normal, lightDirection), 0.0, 1.0);
+	discardPixel = step(discardValue, in_Position.x);
+	pass_NormalDotLight = clamp(dot(in_Normal, lightDirection), 0.0, 1.0) * lightIntensity;
 	pass_NormalLength = length(in_Normal);
-	pass_Color = vec4(in_Color, 1.0);
 	pass_Uv = in_Uv.st;
-	pass_Ambient = ambient;
-	pass_Diffuse = diffuse;
+	pass_Ambient = vec4(ambientColor, 1.0);
+	pass_Color = vec4(in_Color, 1.0);
 }

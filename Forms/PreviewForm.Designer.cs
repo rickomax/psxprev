@@ -50,6 +50,7 @@
             this.vramComboBox = new System.Windows.Forms.ComboBox();
             this.vramPagePictureBox = new System.Windows.Forms.PictureBox();
             this.animationsTabPage = new System.Windows.Forms.TabPage();
+            this.label3 = new System.Windows.Forms.Label();
             this.animationSpeedTrackbar = new System.Windows.Forms.TrackBar();
             this.animationPlayButton = new System.Windows.Forms.Button();
             this.animationPropertyGrid = new System.Windows.Forms.PropertyGrid();
@@ -68,13 +69,21 @@
             this.wireframeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.showGizmosToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.showBoundsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.enableLightToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoAttachLimbsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator7 = new System.Windows.Forms.ToolStripSeparator();
+            this.setAmbientColorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.setBackgroundColorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator8 = new System.Windows.Forms.ToolStripSeparator();
+            this.lineRendererToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.texturesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.exportSelectedToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.drawToVRAMToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.findByPageToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.clearSearchToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
+            this.setMaskColorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.vRAMToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.clearPageToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.clearAllPagesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -90,8 +99,8 @@
             this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
             this.aboutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
-            this.toolStripProgressBar1 = new System.Windows.Forms.ToolStripProgressBar();
             this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
+            this.toolStripProgressBar1 = new System.Windows.Forms.ToolStripProgressBar();
             this.label1 = new System.Windows.Forms.Label();
             this.gridSizeNumericUpDown = new System.Windows.Forms.NumericUpDown();
             this.label2 = new System.Windows.Forms.Label();
@@ -99,7 +108,7 @@
             this.lightYawNumericUpDown = new System.Windows.Forms.NumericUpDown();
             this.lightRollNumericUpDown = new System.Windows.Forms.NumericUpDown();
             this.animationFrameLabel = new System.Windows.Forms.Label();
-            this.label3 = new System.Windows.Forms.Label();
+            this.lightIntensityNumericUpDown = new System.Windows.Forms.NumericUpDown();
             this.entitiesTabPage.SuspendLayout();
             this.menusTabControl.SuspendLayout();
             this.bitmapsTabPage.SuspendLayout();
@@ -116,6 +125,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.lightPitchNumericUpDown)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.lightYawNumericUpDown)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.lightRollNumericUpDown)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.lightIntensityNumericUpDown)).BeginInit();
             this.SuspendLayout();
             // 
             // entitiesTabPage
@@ -361,6 +371,15 @@
             this.animationsTabPage.Text = "Animations";
             this.animationsTabPage.UseVisualStyleBackColor = true;
             // 
+            // label3
+            // 
+            this.label3.Location = new System.Drawing.Point(3, 540);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(73, 20);
+            this.label3.TabIndex = 21;
+            this.label3.Text = "Speed:";
+            this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
             // animationSpeedTrackbar
             // 
             this.animationSpeedTrackbar.AutoSize = false;
@@ -447,7 +466,7 @@
             // 
             this.exportSelectedToolStripMenuItem.DropDown = this.cmsModelExport;
             this.exportSelectedToolStripMenuItem.Name = "exportSelectedToolStripMenuItem";
-            this.exportSelectedToolStripMenuItem.Size = new System.Drawing.Size(173, 22);
+            this.exportSelectedToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
             this.exportSelectedToolStripMenuItem.Text = "Export Selected";
             // 
             // mainMenuStrip
@@ -490,7 +509,13 @@
             this.wireframeToolStripMenuItem,
             this.showGizmosToolStripMenuItem,
             this.showBoundsToolStripMenuItem,
-            this.autoAttachLimbsToolStripMenuItem});
+            this.enableLightToolStripMenuItem,
+            this.autoAttachLimbsToolStripMenuItem,
+            this.toolStripSeparator7,
+            this.setAmbientColorToolStripMenuItem,
+            this.setBackgroundColorToolStripMenuItem,
+            this.toolStripSeparator8,
+            this.lineRendererToolStripMenuItem});
             this.modelsToolStripMenuItem.Name = "modelsToolStripMenuItem";
             this.modelsToolStripMenuItem.Size = new System.Drawing.Size(58, 20);
             this.modelsToolStripMenuItem.Text = "Models";
@@ -498,15 +523,16 @@
             // toolStripSeparator2
             // 
             this.toolStripSeparator2.Name = "toolStripSeparator2";
-            this.toolStripSeparator2.Size = new System.Drawing.Size(170, 6);
+            this.toolStripSeparator2.Size = new System.Drawing.Size(186, 6);
             // 
             // wireframeToolStripMenuItem
             // 
             this.wireframeToolStripMenuItem.CheckOnClick = true;
             this.wireframeToolStripMenuItem.Name = "wireframeToolStripMenuItem";
-            this.wireframeToolStripMenuItem.Size = new System.Drawing.Size(173, 22);
+            this.wireframeToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
             this.wireframeToolStripMenuItem.Text = "Wireframe";
             this.wireframeToolStripMenuItem.CheckedChanged += new System.EventHandler(this.wireframeToolStripMenuItem_CheckedChanged);
+            this.wireframeToolStripMenuItem.Click += new System.EventHandler(this.wireframeToolStripMenuItem_Click);
             // 
             // showGizmosToolStripMenuItem
             // 
@@ -514,7 +540,7 @@
             this.showGizmosToolStripMenuItem.CheckOnClick = true;
             this.showGizmosToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.showGizmosToolStripMenuItem.Name = "showGizmosToolStripMenuItem";
-            this.showGizmosToolStripMenuItem.Size = new System.Drawing.Size(173, 22);
+            this.showGizmosToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
             this.showGizmosToolStripMenuItem.Text = "Show Gizmos";
             this.showGizmosToolStripMenuItem.Click += new System.EventHandler(this.showGizmosToolStripMenuItem_Click);
             // 
@@ -524,17 +550,59 @@
             this.showBoundsToolStripMenuItem.CheckOnClick = true;
             this.showBoundsToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.showBoundsToolStripMenuItem.Name = "showBoundsToolStripMenuItem";
-            this.showBoundsToolStripMenuItem.Size = new System.Drawing.Size(173, 22);
+            this.showBoundsToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
             this.showBoundsToolStripMenuItem.Text = "Show Bounds";
             this.showBoundsToolStripMenuItem.Click += new System.EventHandler(this.showBoundsToolStripMenuItem_Click);
+            // 
+            // enableLightToolStripMenuItem
+            // 
+            this.enableLightToolStripMenuItem.Checked = true;
+            this.enableLightToolStripMenuItem.CheckOnClick = true;
+            this.enableLightToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.enableLightToolStripMenuItem.Name = "enableLightToolStripMenuItem";
+            this.enableLightToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.enableLightToolStripMenuItem.Text = "Enable Light";
+            this.enableLightToolStripMenuItem.Click += new System.EventHandler(this.enableLightToolStripMenuItem_Click);
             // 
             // autoAttachLimbsToolStripMenuItem
             // 
             this.autoAttachLimbsToolStripMenuItem.CheckOnClick = true;
             this.autoAttachLimbsToolStripMenuItem.Name = "autoAttachLimbsToolStripMenuItem";
-            this.autoAttachLimbsToolStripMenuItem.Size = new System.Drawing.Size(173, 22);
+            this.autoAttachLimbsToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
             this.autoAttachLimbsToolStripMenuItem.Text = "Auto Attach Limbs";
             this.autoAttachLimbsToolStripMenuItem.Click += new System.EventHandler(this.autoAttachLimbsToolStripMenuItem_Click);
+            // 
+            // toolStripSeparator7
+            // 
+            this.toolStripSeparator7.Name = "toolStripSeparator7";
+            this.toolStripSeparator7.Size = new System.Drawing.Size(186, 6);
+            // 
+            // setAmbientColorToolStripMenuItem
+            // 
+            this.setAmbientColorToolStripMenuItem.Name = "setAmbientColorToolStripMenuItem";
+            this.setAmbientColorToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.setAmbientColorToolStripMenuItem.Text = "Set Ambient Color";
+            this.setAmbientColorToolStripMenuItem.Click += new System.EventHandler(this.setAmbientColorToolStripMenuItem_Click);
+            // 
+            // setBackgroundColorToolStripMenuItem
+            // 
+            this.setBackgroundColorToolStripMenuItem.Name = "setBackgroundColorToolStripMenuItem";
+            this.setBackgroundColorToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.setBackgroundColorToolStripMenuItem.Text = "Set Background Color";
+            this.setBackgroundColorToolStripMenuItem.Click += new System.EventHandler(this.setBackgroundColorToolStripMenuItem_Click);
+            // 
+            // toolStripSeparator8
+            // 
+            this.toolStripSeparator8.Name = "toolStripSeparator8";
+            this.toolStripSeparator8.Size = new System.Drawing.Size(186, 6);
+            // 
+            // lineRendererToolStripMenuItem
+            // 
+            this.lineRendererToolStripMenuItem.CheckOnClick = true;
+            this.lineRendererToolStripMenuItem.Name = "lineRendererToolStripMenuItem";
+            this.lineRendererToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.lineRendererToolStripMenuItem.Text = "Line Renderer";
+            this.lineRendererToolStripMenuItem.CheckedChanged += new System.EventHandler(this.lineRendererToolStripMenuItem_CheckedChanged);
             // 
             // texturesToolStripMenuItem
             // 
@@ -543,7 +611,9 @@
             this.toolStripSeparator3,
             this.drawToVRAMToolStripMenuItem,
             this.findByPageToolStripMenuItem,
-            this.clearSearchToolStripMenuItem});
+            this.clearSearchToolStripMenuItem,
+            this.toolStripSeparator1,
+            this.setMaskColorToolStripMenuItem});
             this.texturesToolStripMenuItem.Name = "texturesToolStripMenuItem";
             this.texturesToolStripMenuItem.Size = new System.Drawing.Size(62, 20);
             this.texturesToolStripMenuItem.Text = "Textures";
@@ -580,6 +650,19 @@
             this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(155, 22);
             this.clearSearchToolStripMenuItem.Text = "Clear Results";
             this.clearSearchToolStripMenuItem.Click += new System.EventHandler(this.clearSearchToolStripMenuItem_Click);
+            // 
+            // toolStripSeparator1
+            // 
+            this.toolStripSeparator1.Name = "toolStripSeparator1";
+            this.toolStripSeparator1.Size = new System.Drawing.Size(152, 6);
+            // 
+            // setMaskColorToolStripMenuItem
+            // 
+            this.setMaskColorToolStripMenuItem.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.setMaskColorToolStripMenuItem.Name = "setMaskColorToolStripMenuItem";
+            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(155, 22);
+            this.setMaskColorToolStripMenuItem.Text = "Set Mask Color";
+            this.setMaskColorToolStripMenuItem.Click += new System.EventHandler(this.setMaskColorToolStripMenuItem_Click);
             // 
             // vRAMToolStripMenuItem
             // 
@@ -699,11 +782,6 @@
             this.statusStrip1.TabIndex = 10;
             this.statusStrip1.Text = "statusStrip1";
             // 
-            // toolStripProgressBar1
-            // 
-            this.toolStripProgressBar1.Name = "toolStripProgressBar1";
-            this.toolStripProgressBar1.Size = new System.Drawing.Size(75, 16);
-            // 
             // toolStripStatusLabel1
             // 
             this.toolStripStatusLabel1.AutoSize = false;
@@ -713,18 +791,23 @@
             this.toolStripStatusLabel1.Text = "Waiting";
             this.toolStripStatusLabel1.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
+            // toolStripProgressBar1
+            // 
+            this.toolStripProgressBar1.Name = "toolStripProgressBar1";
+            this.toolStripProgressBar1.Size = new System.Drawing.Size(75, 16);
+            // 
             // label1
             // 
-            this.label1.Location = new System.Drawing.Point(655, 649);
+            this.label1.Location = new System.Drawing.Point(547, 648);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(114, 22);
+            this.label1.Size = new System.Drawing.Size(164, 21);
             this.label1.TabIndex = 14;
-            this.label1.Text = "Light Rotation (XYZ):";
+            this.label1.Text = "Light Rotation, Intensity (XYZ):";
             this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // gridSizeNumericUpDown
             // 
-            this.gridSizeNumericUpDown.Location = new System.Drawing.Point(600, 651);
+            this.gridSizeNumericUpDown.Location = new System.Drawing.Point(492, 649);
             this.gridSizeNumericUpDown.Name = "gridSizeNumericUpDown";
             this.gridSizeNumericUpDown.Size = new System.Drawing.Size(49, 20);
             this.gridSizeNumericUpDown.TabIndex = 15;
@@ -736,16 +819,16 @@
             // 
             // label2
             // 
-            this.label2.Location = new System.Drawing.Point(542, 649);
+            this.label2.Location = new System.Drawing.Point(418, 648);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(52, 22);
+            this.label2.Size = new System.Drawing.Size(68, 21);
             this.label2.TabIndex = 16;
             this.label2.Text = "Grid Size:";
             this.label2.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lightPitchNumericUpDown
             // 
-            this.lightPitchNumericUpDown.Location = new System.Drawing.Point(767, 651);
+            this.lightPitchNumericUpDown.Location = new System.Drawing.Point(717, 649);
             this.lightPitchNumericUpDown.Maximum = new decimal(new int[] {
             360,
             0,
@@ -758,7 +841,7 @@
             // 
             // lightYawNumericUpDown
             // 
-            this.lightYawNumericUpDown.Location = new System.Drawing.Point(822, 651);
+            this.lightYawNumericUpDown.Location = new System.Drawing.Point(772, 649);
             this.lightYawNumericUpDown.Maximum = new decimal(new int[] {
             360,
             0,
@@ -767,16 +850,11 @@
             this.lightYawNumericUpDown.Name = "lightYawNumericUpDown";
             this.lightYawNumericUpDown.Size = new System.Drawing.Size(49, 20);
             this.lightYawNumericUpDown.TabIndex = 18;
-            this.lightYawNumericUpDown.Value = new decimal(new int[] {
-            180,
-            0,
-            0,
-            0});
             this.lightYawNumericUpDown.ValueChanged += new System.EventHandler(this.lightYawNumericUpDown_ValueChanged);
             // 
             // lightRollNumericUpDown
             // 
-            this.lightRollNumericUpDown.Location = new System.Drawing.Point(877, 651);
+            this.lightRollNumericUpDown.Location = new System.Drawing.Point(827, 649);
             this.lightRollNumericUpDown.Maximum = new decimal(new int[] {
             360,
             0,
@@ -789,21 +867,30 @@
             // 
             // animationFrameLabel
             // 
-            this.animationFrameLabel.Location = new System.Drawing.Point(388, 649);
+            this.animationFrameLabel.Location = new System.Drawing.Point(264, 648);
             this.animationFrameLabel.Name = "animationFrameLabel";
-            this.animationFrameLabel.Size = new System.Drawing.Size(148, 22);
+            this.animationFrameLabel.Size = new System.Drawing.Size(148, 21);
             this.animationFrameLabel.TabIndex = 20;
             this.animationFrameLabel.Text = "Animation Frame:0";
             this.animationFrameLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // label3
+            // lightIntensityNumericUpDown
             // 
-            this.label3.Location = new System.Drawing.Point(3, 540);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(73, 20);
-            this.label3.TabIndex = 21;
-            this.label3.Text = "Speed:";
-            this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lightIntensityNumericUpDown.Location = new System.Drawing.Point(882, 649);
+            this.lightIntensityNumericUpDown.Maximum = new decimal(new int[] {
+            1000,
+            0,
+            0,
+            0});
+            this.lightIntensityNumericUpDown.Name = "lightIntensityNumericUpDown";
+            this.lightIntensityNumericUpDown.Size = new System.Drawing.Size(49, 20);
+            this.lightIntensityNumericUpDown.TabIndex = 19;
+            this.lightIntensityNumericUpDown.Value = new decimal(new int[] {
+            100,
+            0,
+            0,
+            0});
+            this.lightIntensityNumericUpDown.ValueChanged += new System.EventHandler(this.lightIntensityNumericUpDown_ValueChanged);
             // 
             // PreviewForm
             // 
@@ -811,6 +898,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(948, 671);
             this.Controls.Add(this.animationFrameLabel);
+            this.Controls.Add(this.lightIntensityNumericUpDown);
             this.Controls.Add(this.lightRollNumericUpDown);
             this.Controls.Add(this.lightYawNumericUpDown);
             this.Controls.Add(this.lightPitchNumericUpDown);
@@ -827,7 +915,7 @@
             this.Name = "PreviewForm";
             this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "PSXPrev Alpha 0.9.7.1";
+            this.Text = "PSXPrev Alpha 0.9.8.2";
             this.Load += new System.EventHandler(this.previewForm_Load);
             this.entitiesTabPage.ResumeLayout(false);
             this.menusTabControl.ResumeLayout(false);
@@ -849,6 +937,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.lightPitchNumericUpDown)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.lightYawNumericUpDown)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.lightRollNumericUpDown)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.lightIntensityNumericUpDown)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -925,5 +1014,14 @@
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator5;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator6;
         private System.Windows.Forms.Label label3;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
+        private System.Windows.Forms.ToolStripMenuItem setMaskColorToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem enableLightToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator7;
+        private System.Windows.Forms.ToolStripMenuItem setAmbientColorToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem setBackgroundColorToolStripMenuItem;
+        private System.Windows.Forms.NumericUpDown lightIntensityNumericUpDown;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator8;
+        private System.Windows.Forms.ToolStripMenuItem lineRendererToolStripMenuItem;
     }
 }

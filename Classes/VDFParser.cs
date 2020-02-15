@@ -33,7 +33,7 @@ namespace PSXPrev.Classes
                     {
                         animation.AnimationName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
                         _entityAddedAction(animation, reader.BaseStream.Position);
-                        Program.Logger.WriteLine("Found VDF Animation at offset {0:X}", _offset);
+                        Program.Logger.WritePositiveLine("Found VDF Animation at offset {0:X}", _offset);
                         _offset = reader.BaseStream.Position;
                         passed = true;
                     }
@@ -49,7 +49,7 @@ namespace PSXPrev.Classes
                 {
                     if (++_offset > reader.BaseStream.Length)
                     {
-                        Program.Logger.WriteLine("Reached file end");
+                        Program.Logger.WriteLine($"VDF - Reached file end: {fileTitle}");
                         return;
                     }
                     reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
@@ -110,7 +110,7 @@ namespace PSXPrev.Classes
                 var vertexOffset = reader.ReadUInt32();
                 var skippedVertices = vertexOffset / 8;
                 var vertexCount = reader.ReadUInt32();
-                if (vertexCount == 0 || vertexCount > Program.MaxVDFVertices || skippedVertices > Program.MaxVDFVertices)
+                if (vertexCount + skippedVertices == 0 || vertexCount  + skippedVertices > Program.MaxVDFVertices)
                 {
                     return null;
                 }

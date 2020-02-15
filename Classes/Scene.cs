@@ -25,21 +25,30 @@ namespace PSXPrev.Classes
         public static Vector3 ZGizmoDimensions = new Vector3(GizmoWidth, GizmoWidth, GizmoHeight);
 
         public static int AttributeIndexPosition = 0;
-        public static int AttributeIndexNormal = 1;
-        public static int AttributeIndexColour = 2;
+        public static int AttributeIndexColour = 1;
+        public static int AttributeIndexNormal = 2;
         public static int AttributeIndexUv = 3;
-        //public static int AttributeIndexIndex = 4;
-        public static int AttributeIndexTexture = 5;
+        public static int AttributeIndexTexture = 4;
+
         public static int UniformIndexMVP;
         public static int UniformIndexLightDirection;
+        public static int UniformMaskColor;
+        public static int UniformAmbientColor;
+        public static int UniformRenderMode;
+        public static int UniformLightIntensity;
 
         public const string AttributeNamePosition = "in_Position";
-        public const string AttributeNameNormal = "in_Normal";
         public const string AttributeNameColour = "in_Color";
+        public const string AttributeNameNormal = "in_Normal";
         public const string AttributeNameUv = "in_Uv";
         public const string AttributeNameTexture = "mainTex";
+
         public const string UniformNameMVP = "mvpMatrix";
         public const string UniformNameLightDirection = "lightDirection";
+        public const string UniformMaskColorName = "maskColor";
+        public const string UniformAmbientColorName = "ambientColor";
+        public const string UniformRenderModeName = "renderMode";
+        public const string UniformLightIntensityName = "lightIntensity";
 
         public enum GizmoId
         {
@@ -79,9 +88,11 @@ namespace PSXPrev.Classes
             }
         }
 
-        public bool AutoAttach { get; set; } 
+        public bool AutoAttach { get; set; }
 
         public bool Wireframe { get; set; }
+
+        public bool VibRibbonWireframe { get; set; }
 
         public bool ShowGizmos { get; set; } = true;
 
@@ -135,6 +146,15 @@ namespace PSXPrev.Classes
                 UpdateLightRotation();
             }
         }
+
+        public System.Drawing.Color MaskColor { get; set; }
+
+        public System.Drawing.Color DiffuseColor { get; set; }
+        public System.Drawing.Color AmbientColor { get; set; }
+
+        public bool LightEnabled { get; set; } = true;
+
+        public float LightIntensity { get; set; } = 1f;
 
         public void Initialise(float width, float height)
         {
@@ -194,6 +214,10 @@ namespace PSXPrev.Classes
             }
             UniformIndexMVP = GL.GetUniformLocation(_shaderProgram, UniformNameMVP);
             UniformIndexLightDirection = GL.GetUniformLocation(_shaderProgram, UniformNameLightDirection);
+            UniformMaskColor = GL.GetUniformLocation(_shaderProgram, UniformMaskColorName);
+            UniformAmbientColor = GL.GetUniformLocation(_shaderProgram, UniformAmbientColorName);
+            UniformRenderMode = GL.GetUniformLocation(_shaderProgram, UniformRenderModeName);
+            UniformLightIntensity = GL.GetUniformLocation(_shaderProgram, UniformLightIntensityName);
         }
 
         private bool GetLinkStatus()
@@ -241,7 +265,12 @@ namespace PSXPrev.Classes
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
             GL.UseProgram(_shaderProgram);
             GL.Uniform3(UniformIndexLightDirection, _transformedLight.X, _transformedLight.Y, _transformedLight.Z);
+            GL.Uniform3(UniformMaskColor, MaskColor.R / 255f, MaskColor.G / 255f, MaskColor.B / 255f);
+            GL.Uniform3(UniformAmbientColor, AmbientColor.R / 255f, AmbientColor.G / 255f, AmbientColor.B / 255f);
+            GL.Uniform1(UniformLightIntensity, LightIntensity);
+            GL.Uniform1(UniformRenderMode, LightEnabled ? 0 : 1);
             MeshBatch.Draw(_viewMatrix, _projectionMatrix, TextureBinder, Wireframe);
+            GL.Uniform1(UniformRenderMode, 2);
             if (ShowBounds)
             {
                 BoundsBatch.SetupAndDraw(_viewMatrix, _projectionMatrix);
@@ -260,7 +289,7 @@ namespace PSXPrev.Classes
             GL.UseProgram(0);
         }
 
-        public EntityBase GetEntityUnderMouse(RootEntity[] checkedEntities, EntityBase selectedRootEntity, EntityBase selectedEntity, int x, int y, float width, float height, bool selectRoot = false)
+        public EntityBase GetEntityUnderMouse(RootEntity[] checkedEntities, RootEntity selectedRootEntity, int x, int y, float width, float height, bool selectRoot = false)
         {
             UpdatePicking(x, y, width, height);
             var pickedEntities = new List<EntityBase>();
@@ -271,27 +300,23 @@ namespace PSXPrev.Classes
                     foreach (var entity in checkedEntities)
                     {
                         if (entity.ChildEntities != null)
+                        {
                             foreach (var subEntity in entity.ChildEntities)
                             {
                                 CheckEntity(subEntity, pickedEntities);
                             }
+                        }
                     }
                 }
-                else if (selectedEntity != null)
+                else if (selectedRootEntity != null)
                 {
-                    if (selectedEntity.ChildEntities != null)
-                        foreach (var subEntity in selectedEntity.ChildEntities)
-                        {
-                            CheckEntity(subEntity, pickedEntities);
-                        }
-                }
-                else
-                {
-                    if (selectedRootEntity?.ChildEntities != null)
+                    if (selectedRootEntity.ChildEntities != null)
+                    {
                         foreach (var subEntity in selectedRootEntity.ChildEntities)
                         {
                             CheckEntity(subEntity, pickedEntities);
                         }
+                    }
                 }
             }
             pickedEntities.Sort((a, b) => a.IntersectionDistance.CompareTo(b.IntersectionDistance));

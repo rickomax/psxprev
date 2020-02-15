@@ -40,16 +40,18 @@ namespace PSXPrev
         private static bool _checkCroc;
         private static bool _checkPsx;
         private static bool _checkAn;
-        private static bool _log;
-        private static bool _noVerbose;
-        private static string _filter;
+        private static bool _checkBff;
 
+        public static bool IgnoreTmdVersion;
         public static bool Debug;
+        public static bool Log;
+        public static bool NoVerbose;
+        public static string Filter;
 
-        public static ulong MaxTODPackets = 100000;
-        public static ulong MaxTODFrames = 100000;
-        public static ulong MaxTMDPrimitives = 100000;
-        public static ulong MaxTMDObjects = 100000;
+        public static ulong MaxTODPackets = 10000;
+        public static ulong MaxTODFrames = 10000;
+        public static ulong MaxTMDPrimitives = 10000;
+        public static ulong MaxTMDObjects = 10000;
         public static ulong MaxTIMResolution = 1024;
         public static ulong MinVDFFrames = 3;
         public static ulong MaxVDFFrames = 512;
@@ -60,7 +62,7 @@ namespace PSXPrev
         public static ulong MaxHMDTypeCount = 1024;
         public static ulong MaxHMDDataSize = 5000;
         public static ulong MaxHMDMimeDiffs = 100;
-        public static ulong MaxHMDVertCount = 10000;
+        public static ulong MaxHMDVertCount = 5000;
         public static uint MaxANJoints = 512;
         public static uint MaxANFrames = 5000;
 
@@ -73,7 +75,8 @@ namespace PSXPrev
         {
             if (args == null || args.Length == 0)
             {
-                Console.WriteLine("Usage PSXPrev folder filter(optional) -tmd(optional) -vdf(optional) -pmd(optional) -tim(optional) -tod(optional) -an(optional) -hmd(optional) -croc(optional) -psx(optional) -log(optional) -noverbose(optional) -debug(optional)");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine("Usage PSXPrev folder filter(optional) -tmd(optional) -vdf(optional) -pmd(optional) -tim(optional) -tod(optional) -an(optional) -hmd(optional) -croc(optional) -psx(optional) -log(optional) -noverbose(optional) -debug(optional) -ignoretmdversion(optional) -bff(optional)");
                 LauncherForm = new LauncherForm();
                 var thread = new Thread(new ThreadStart(delegate
                 {
@@ -86,11 +89,11 @@ namespace PSXPrev
             }
 
             var path = args[0];
-            if (!Directory.Exists(path) && !File.Exists(path))
-            {
-                Logger.WriteLine("Directory/File not found");
-                return;
-            }
+            //if (!Directory.Exists(path) && !File.Exists(path))
+            //{
+            //    Program.Logger.WriteErrorLine("Directory/File not found");
+            //    return;
+            //}
 
             var filter = args.Length > 1 ? args[1] : "*.*";
 
@@ -103,9 +106,11 @@ namespace PSXPrev
             var checkHmdModels = false;
             var checkCrocModels = false;
             var checkPsx = false;
+            var checkBff = false;
             var log = false;
             var noVerbose = false;
             var debug = false;
+            var ignoreTmdVersion = false;
 
             for (var a = 2; a < args.Length; a++)
             {
@@ -147,16 +152,22 @@ namespace PSXPrev
                     case "-psx":
                         checkPsx = true;
                         break;
+                    case "-ignoretmdversion":
+                        ignoreTmdVersion = true;
+                        break;
+                    case "-bff":
+                        checkBff = true;
+                        break;
                 }
             }
-            DoScan(path, filter, checkTmd, checkVdf, checkTim, checkPmd, checkTod, checkHmdModels, log, noVerbose, debug, checkCrocModels, checkPsx, checkAn);
+            DoScan(path, filter, checkTmd, checkVdf, checkTim, checkPmd, checkTod, checkHmdModels, log, noVerbose, debug, checkCrocModels, checkPsx, checkAn, ignoreTmdVersion, checkBff);
         }
 
-        internal static void DoScan(string path, string filter, bool checkTmd, bool checkVdf, bool checkTim, bool checkPmd, bool checkTod, bool checkHmd, bool log, bool noVerbose, bool debug, bool checkCroc, bool checkPsx, bool checkAn)
+        internal static void DoScan(string path, string filter, bool checkTmd, bool checkVdf, bool checkTim, bool checkPmd, bool checkTod, bool checkHmd, bool log, bool noVerbose, bool debug, bool checkCroc, bool checkPsx, bool checkAn, bool ignoreTmdVersion, bool checkBff)
         {
             if (!Directory.Exists(path) && !File.Exists(path))
             {
-                Logger.WriteLine("Directory/File not found");
+                Logger.WriteErrorLine("Directory/File not found");
                 return;
             }
 
@@ -164,9 +175,9 @@ namespace PSXPrev
 
             Logger = new Logger(log, noVerbose);
 
-            _checkAll = !(checkTmd || checkVdf || checkTim || checkPmd || checkTod || checkHmd || checkCroc || checkPsx || checkAn);
+            _checkAll = !(checkTmd || checkVdf || checkTim || checkPmd || checkTod || checkHmd || checkCroc || checkPsx || checkAn || checkBff);
             _path = path;
-            _filter = filter;
+            Filter = filter;
             _checkTmd = checkTmd;
             _checkVdf = checkVdf;
             _checkTim = checkTim;
@@ -177,8 +188,12 @@ namespace PSXPrev
             _checkCroc = checkCroc;
             _checkPsx = checkPsx;
             _checkAn = checkAn;
-            _log = log;
-            _noVerbose = noVerbose;
+            _checkBff = checkBff;
+
+            Log = log;
+            NoVerbose = noVerbose;
+
+            IgnoreTmdVersion = ignoreTmdVersion;
             Debug = debug;
 
             AllEntities = new List<RootEntity>();
@@ -202,22 +217,22 @@ namespace PSXPrev
 
             try
             {
-                Logger.WriteLine("");
-                Logger.WriteLine("Scan begin {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
+                //Program.Logger.WriteLine("");
+                Program.Logger.WriteLine("Scan begin {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
 
                 ScanFiles();
 
-                Logger.WriteLine("");
-                Logger.WriteLine("Scan End {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
-                Logger.WriteLine("Found {0} Models", AllEntities.Count);
-                Logger.WriteLine("Found {0} Textures", AllTextures.Count);
-                Logger.WriteLine("Found {0} Animations", AllAnimations.Count);
+                //Program.Logger.WriteLine("");
+                Program.Logger.WriteLine("Scan End {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
+                Program.Logger.WritePositiveLine("Found {0} Models", AllEntities.Count);
+                Program.Logger.WritePositiveLine("Found {0} Textures", AllTextures.Count);
+                Program.Logger.WritePositiveLine("Found {0} Animations", AllAnimations.Count);
 
                 PreviewForm.UpdateProgress(0, 0, true, $"{AllEntities.Count} Models, {AllTextures.Count} Textures, {AllAnimations.Count} Animations Found");
             }
             catch (Exception exp)
             {
-                Logger.WriteLine(exp);
+                Program.Logger.WriteErrorLine(exp);
             }
 
             Scanning = false;
@@ -247,8 +262,8 @@ namespace PSXPrev
                         UpdateProgress(fp, $"Found Texture {tmdEntity.Width}x{tmdEntity.Height} {tmdEntity.Bpp}bpp");
                         PreviewForm.ReloadItems();
                     });
-                    Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for TIM at file {0}", fileTitle);
+                    //Program.Logger.WriteLine("");
+                    Program.Logger.WriteLine("Scanning for TIM at file {0}", fileTitle);
                     timParser.LookForTim(binaryReader, fileTitle);
                 });
             }
@@ -263,9 +278,25 @@ namespace PSXPrev
                         UpdateProgress(fp, $"Found Model with {tmdEntity.ChildCount} objects");
                         PreviewForm.ReloadItems();
                     });
-                    Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for Croc at file {0}", fileTitle);
+                    //Program.Logger.WriteLine("");
+                    Program.Logger.WriteLine("Scanning for Croc at file {0}", fileTitle);
                     crocModelReader.LookForCrocModel(binaryReader, fileTitle);
+                });
+            }
+
+            if (_checkAll || _checkBff)
+            {
+                parsers.Add((binaryReader, fileTitle) =>
+                {
+                    var crocModelReader = new BFFModelReader((tmdEntity, fp) =>
+                    {
+                        AllEntities.Add(tmdEntity);
+                        UpdateProgress(fp, $"Found Model with {tmdEntity.ChildCount} objects");
+                        PreviewForm.ReloadItems();
+                    });
+                    //Program.Logger.WriteLine("");
+                    Program.Logger.WriteLine("Scanning for BFF at file {0}", fileTitle);
+                    crocModelReader.LookForBFF(binaryReader, fileTitle);
                 });
             }
 
@@ -279,8 +310,8 @@ namespace PSXPrev
                         UpdateProgress(fp, $"Found Model with {tmdEntity.ChildCount} objects");
                         PreviewForm.ReloadItems();
                     });
-                    Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for PSX at file {0}", fileTitle);
+                    //Program.Logger.WriteLine("");
+                    Program.Logger.WriteLine("Scanning for PSX at file {0}", fileTitle);
                     psxParser.LookForPSX(binaryReader, fileTitle);
                 });
             }
@@ -295,8 +326,8 @@ namespace PSXPrev
                         UpdateProgress(fp, $"Found Model with {tmdEntity.ChildCount} objects");
                         PreviewForm.ReloadItems();
                     });
-                    Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for TMD at file {0}", fileTitle);
+                    //Program.Logger.WriteLine("");
+                    Program.Logger.WriteLine("Scanning for TMD at file {0}", fileTitle);
                     tmdParser.LookForTmd(binaryReader, fileTitle);
                 });
             }
@@ -311,8 +342,8 @@ namespace PSXPrev
                         UpdateProgress(fp, $"Found Animation with {vdfEntity.ObjectCount} objects");
                         PreviewForm.ReloadItems();
                     });
-                    Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for VDF at file {0}", fileTitle);
+                    //Program.Logger.WriteLine("");
+                    Program.Logger.WriteLine("Scanning for VDF at file {0}", fileTitle);
                     vdfParser.LookForVDF(binaryReader, fileTitle);
                 });
             }
@@ -327,8 +358,8 @@ namespace PSXPrev
                         UpdateProgress(fp, $"Found Animation with {vdfEntity.ObjectCount} objects");
                         PreviewForm.ReloadItems();
                     });
-                    Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for AN at file {0}", fileTitle);
+                    //Program.Logger.WriteLine("");
+                    Program.Logger.WriteLine("Scanning for AN at file {0}", fileTitle);
                     anParser.LookForAN(binaryReader, fileTitle);
                 });
             }
@@ -343,8 +374,8 @@ namespace PSXPrev
                         UpdateProgress(fp, $"Found Model with {pmdEntity.ChildCount} objects");
                         PreviewForm.ReloadItems();
                     });
-                    Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for PMD at file {0}", fileTitle);
+                    //Program.Logger.WriteLine("");
+                    Program.Logger.WriteLine("Scanning for PMD at file {0}", fileTitle);
                     pmdParser.LookForPMD(binaryReader, fileTitle);
                 });
             }
@@ -359,8 +390,8 @@ namespace PSXPrev
                         UpdateProgress(fp, $"Found Animation with {todEntity.ObjectCount} objects and {todEntity.FrameCount} frames");
                         PreviewForm.ReloadItems();
                     });
-                    Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for TOD at file {0}", fileTitle);
+                    //Program.Logger.WriteLine("");
+                    Program.Logger.WriteLine("Scanning for TOD at file {0}", fileTitle);
                     todParser.LookForTOD(binaryReader, fileTitle);
                 });
             }
@@ -379,9 +410,15 @@ namespace PSXPrev
                         AllAnimations.Add(hmdAnimation);
                         UpdateProgress(fp, $"Found Animation with {hmdAnimation.ObjectCount} objects and {hmdAnimation.FrameCount} frames");
                         PreviewForm.ReloadItems();
-                    });
-                    Logger.WriteLine("");
-                    Logger.WriteLine("Scanning for HMD at file {0}", fileTitle);
+                    }, delegate (Texture texture, long fp)
+                        {
+                            AllTextures.Add(texture);
+                            UpdateProgress(fp, $"Found Texture {texture.Width}x{texture.Height} {texture.Bpp}bpp");
+                            PreviewForm.ReloadItems();
+                        }
+                    );
+                    //Program.Logger.WriteLine("");
+                    Program.Logger.WriteLine("Scanning for HMD at file {0}", fileTitle);
                     hmdParser.LookForHMDEntities(binaryReader, fileTitle);
                 });
             }
@@ -391,10 +428,10 @@ namespace PSXPrev
                 using (var isoStream = File.Open(_path, FileMode.Open))
                 {
                     var cdReader = new CDReader(isoStream, true);
-                    var files = cdReader.GetFiles("", _filter ?? "*.*", SearchOption.AllDirectories);
+                    var files = cdReader.GetFiles("", Filter ?? "*.*", SearchOption.AllDirectories);
                     foreach (var file in files)
                     {
-                        if (file.ToLowerInvariant().Contains(".str;") || file.ToLowerInvariant().Contains(".xa"))
+                        if (HasInvalidExtension(file))
                         {
                             continue;
                         }
@@ -424,7 +461,7 @@ namespace PSXPrev
             }
             else
             {
-                ProcessFiles(_path, _filter, parsers);
+                ProcessFiles(_path, Filter, parsers);
             }
         }
 
@@ -433,7 +470,7 @@ namespace PSXPrev
             var files = Directory.GetFiles(path, filter);
             foreach (var file in files)
             {
-                if (file.ToLowerInvariant().EndsWith(".str") || file.ToLowerInvariant().EndsWith(".xa"))
+                if (HasInvalidExtension(file))
                 {
                     continue;
                 }
@@ -450,6 +487,11 @@ namespace PSXPrev
             {
                 ProcessFiles(directory, filter, parsers);
             }
+        }
+
+        private static bool HasInvalidExtension(string file)
+        {
+            return file.ToLowerInvariant().EndsWith(".str") || file.ToLowerInvariant().EndsWith(".xa") || file.ToLowerInvariant().EndsWith(".vb");
         }
 
         private static void ProcessFile(Stream stream, string file, Action<BinaryReader, string> parser)
@@ -469,19 +511,10 @@ namespace PSXPrev
                     }
                     catch (Exception exp)
                     {
-                        Logger.WriteLine(exp);
+                        Program.Logger.WriteErrorLine(exp);
                     }
                 }
             }
-        }
-
-        private static void UnhandledExceptionTrapper(object sender, UnhandledExceptionEventArgs e)
-        {
-            Logger.WriteLine(e.ExceptionObject.ToString());
-            Console.WriteLine("---------------------");
-            Console.WriteLine("Press any key to exit");
-            Console.ReadKey();
-            Environment.Exit(1);
         }
 
     }

@@ -20,7 +20,7 @@ namespace PSXPrev.Classes
             _noVerbose = noVerbose;
         }
 
-        public void WriteLine(string format, params object[] args)
+        private void Write(string format, object[] args)
         {
             if (!_noVerbose)
             {
@@ -32,16 +32,38 @@ namespace PSXPrev.Classes
             }
         }
 
+        public void WriteLine(string format, params object[] args)
+        {
+            Console.ForegroundColor = ConsoleColor.White;
+            Write(format, args);
+        }
+
         public void WriteLine(object text)
         {
-            if (!_noVerbose)
-            {
-                Console.WriteLine(text);
-            }
-            if (_writeToFile)
-            {
-                _writer.WriteLine(text);
-            }
+            WriteLine(new[] { text });
+        }
+
+        public void WriteErrorLine(string format, params object[] args)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Write(format, args);
+        }
+        public void WriteErrorLine(object text)
+        {
+            WriteErrorLine(new[] { text });
+        }
+
+
+        public void WritePositiveLine(string format, params object[] args)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Write(format, args);
+        }
+
+        public void WritePositiveLine(string format, object value)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Write(format, new[] { value });
         }
 
         public void Dispose()

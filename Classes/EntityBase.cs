@@ -132,7 +132,7 @@ namespace PSXPrev.Classes
             return EntityName;
         }
 
-        public virtual void FixConnectionsRecursively()
+        public virtual void FixConnections()
         {
             if (ChildEntities == null)
             {
@@ -140,8 +140,18 @@ namespace PSXPrev.Classes
             }
             foreach (var child in ChildEntities)
             {
-                child.FixConnectionsRecursively();
+                child.FixConnections();
             }
+        }
+
+        public RootEntity GetRootEntity()
+        {
+            var entity = ParentEntity;
+            while (entity.ParentEntity != null)
+            {
+                entity = entity.ParentEntity;
+            }
+            return entity as RootEntity;
         }
     }
 }
