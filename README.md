@@ -1,8 +1,7 @@
-# psxprev - async version
+# PSXPrev
 
-PSXPREV - Playstation (PSX) File Previewer/Extractor<br><br>
-PsxPrev, a TMD/PMD/TIM PlayStation file scanner.<br><br>
-![Sample](https://ricardoreis.net/wp-content/uploads/2017/05/lod2.png)
+PSXPREV - Playstation (PSX) Files Previewer/Extractor<br><br>
+![Sample](https://i.snipboard.io/hLlNy5.jpg)
 This tool uses:<br>
 OpenTK - https://github.com/opentk/opentk<br>
 DiscUtils - https://github.com/DiscUtils/DiscUtils<br>
@@ -11,22 +10,10 @@ You'll need to run it:<br>
 An OpenGL 3.0 compatible video card<br>
 .NET Framework 4.5<br>
 Treat it as an experimental release and use this tool as your own risk!<br>
-(The tool can use a big ammount of memory to scan the files, so, be careful.)<br>
-Usage:<br>
-PSXPrev folder/iso [filter] [-tmd] [-tmdAlt] [-pmd] [-tim] [-timAlt] [-tod] [-hmdmodels] [-log] [-noverbose]<br>
-<ul>
-<li>folder/iso - folder where are the files to be scanned or an ISO file path to scan the ISO contents</li>
-<li>filter - use this parameter to specify a filter of files to be scanned (eg: *.tod)</li>
-<li>tmd - add this parameter to scan for tmd models</li>
-<li>tmdAlt - add this parameter to scan for tmd models using an alternative parser</li>
-<li>pmd - add this parameter to scan for pmd models</li>
-<li>tim - add this parameter to scan for tim textures</li>
-<li>timAlt - add this parameter to scan for tim textures using an alternative parser</li>
-<li>tod - add this paramete rto scan for tod animations</li>
-<li>hmdmodels - add this parameter to scan for hmd models (wip)</li>
-<li>log - add this parameter to generate a scanning log text file</li>
-<li>noverbose - add this parameter to dont show log on the console window</li>
-</ul>
+(The tool can use a big ammount of memory to scan the files, so, be careful.)<br><br>
+Compatibility list (WIP): https://docs.google.com/spreadsheets/d/1V20NN_At_bBhKv99Ee4umaav0mYkU116p2bcHV8ie9o/edit#gid=0<br><br>
+Our Patreon:<br>
+https://www.patreon.com/rickomax<br><br>
 If you don't pass any parameter, a launcher interface will be displayed.
 Otherwise, a console window will appear, the application will scan each byte of the files inside the folder/filter you specified trying to find the files types you specified, so, it can take a bit of time for this process to end.<br><br>
 After the scan has been completed, a new window will open, with the tabs:<br>
@@ -39,10 +26,9 @@ To Apply a Texture to a Model, first you have to look at the VRAM Page property 
 To Export a Model or Multiple Models,  tick their checkboxes at the Model Tab, click at Export Selected button, select the desired Output Format and the Output Folder. (Textures and materials will be automatically exported)<br>
 To Export a Texture or Multiple Textures, select them at the Texture Tab, click at Export Selected button and select the desired Output Folder.<br><br>
 Known issues/limitations:<br>
-The two 3D exportable file formats has disadvantages, .OBJ files cannot have vertex color information, and .PLY files will group all the sub-models in one single model. I'm looking for a better format for the exporter. An experimental .OBJ exporter option with Vertex Color is available.<br>
-The tool will only find files that are explicitly conformant to the file formats it's looking for. Any compressed file cannot be scanned.<br><br>
+The tool will only find files that are explicitly conformant to the file formats it's looking for. Any compressed or proprietary file cannot be scanned.<br><br>
 <b>License (BSD License 2.0):</b><br>
-Copyright (c) 2018, Ricardo Reis<br>
+Copyright (c) 2020 Ricardo Reis<br>
 All rights reserved.<br><br>
 Redistribution and use in source and binary forms, with or without<br>
 modification, are permitted provided that the following conditions are met:<br>

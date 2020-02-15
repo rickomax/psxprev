@@ -5,6 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+//taken from:
+//https://github.com/zeroKilo/CrocExplorerWV/tree/master/CrocExplorerWV
+
 namespace PSXPrev.Classes
 {
     public static class BRenderHelper
