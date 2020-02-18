@@ -10,6 +10,7 @@ You'll need to run it:<br>
 An OpenGL 3.0 compatible video card<br>
 .NET Framework 4.5<br>
 Treat it as an experimental release and use this tool as your own risk!<br>
+Scanned file formats: TMD, PMD, TIM, HMD, TOD and VDF<br>
 (The tool can use a big ammount of memory to scan the files, so, be careful.)<br><br>
 Compatibility list (WIP): https://docs.google.com/spreadsheets/d/1V20NN_At_bBhKv99Ee4umaav0mYkU116p2bcHV8ie9o/edit#gid=0<br><br>
 Our Patreon:<br>
