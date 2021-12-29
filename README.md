@@ -24,6 +24,8 @@ Usage tips:<br>
 To Apply a Texture to a Model, first you have to look at the VRAM Page property of the Model you want to apply the Texture.After that have to draw the textures (at the VRAM Tab, called Draw to VRAM) on the desired VRAM Page (which is pre-defined in the Texture Properties area). After that, if you come back to the Model Tab, you may see your Model textured, if it has Uvs property enabled (True).<br>
 To Export a Model or Multiple Models,  tick their checkboxes at the Model Tab, click at Export Selected button, select the desired Output Format and the Output Folder. (Textures and materials will be automatically exported)<br>
 To Export a Texture or Multiple Textures, select them at the Texture Tab, click at Export Selected button and select the desired Output Folder.<br><br>
+Video Tutorial:<br>
+https://www.youtube.com/watch?v=hPDa8l3ZE6U&feature=youtu.be<br><br>
 Known issues/limitations:<br>
 The tool will only find files that are explicitly conformant to the file formats it's looking for. Any compressed or proprietary file cannot be scanned.<br><br>
 <b>License (BSD License 2.0):</b><br>
