@@ -293,7 +293,7 @@ namespace PSXPrev.Classes
 
         public static void AddTrianglesToGroup(Dictionary<uint, List<Triangle>> groupedTriangles, Dictionary<PrimitiveDataType, uint> primitiveData, Func<uint, Vector3> vertexCallback, Func<uint, Vector3> normalCallback)
         {
-            var tPage = primitiveData.TryGetValue(PrimitiveDataType.TSB, out var tsbValue) ? tsbValue & 0xF : 0;
+            var tPage = primitiveData.TryGetValue(PrimitiveDataType.TSB, out var tsbValue) ? tsbValue & 0x1F : 0;
             void AddTriangle(Triangle triangle)
             {
                 List<Triangle> triangles;
