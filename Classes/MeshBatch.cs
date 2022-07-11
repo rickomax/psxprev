@@ -343,6 +343,7 @@ namespace PSXPrev
                 }
             }
             _meshes = new Mesh[nMeshes];
+            if (_ids != null) GL.DeleteVertexArrays(_ids.Length, _ids);
             _ids = new uint[nMeshes];
             ResetModelIndex();
             GL.GenVertexArrays(nMeshes, _ids);
