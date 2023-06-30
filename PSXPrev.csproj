@@ -36,14 +36,14 @@
     </ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="DiscUtils.Core">
-      <HintPath>Contrib\DiscUtils-master\Library\DiscUtils.Iso9660\bin\Release\net45\DiscUtils.Core.dll</HintPath>
+    <Reference Include="DiscUtils.Core, Version=0.14.0.0, Culture=neutral, PublicKeyToken=5fa5b410cc9c6289, processorArchitecture=MSIL">
+      <HintPath>packages\DiscUtils.Core.0.14.0-alpha234\lib\net45\DiscUtils.Core.dll</HintPath>
     </Reference>
-    <Reference Include="DiscUtils.Iso9660">
-      <HintPath>Contrib\DiscUtils-master\Library\DiscUtils.Iso9660\bin\Release\net45\DiscUtils.Iso9660.dll</HintPath>
+    <Reference Include="DiscUtils.Iso9660, Version=0.14.0.0, Culture=neutral, PublicKeyToken=5fa5b410cc9c6289, processorArchitecture=MSIL">
+      <HintPath>packages\DiscUtils.Iso9660.0.14.0-alpha234\lib\net45\DiscUtils.Iso9660.dll</HintPath>
     </Reference>
-    <Reference Include="DiscUtils.Streams">
-      <HintPath>Contrib\DiscUtils-master\Library\DiscUtils.Iso9660\bin\Release\net45\DiscUtils.Streams.dll</HintPath>
+    <Reference Include="DiscUtils.Streams, Version=0.14.0.0, Culture=neutral, PublicKeyToken=5fa5b410cc9c6289, processorArchitecture=MSIL">
+      <HintPath>packages\DiscUtils.Streams.0.14.0-alpha234\lib\net45\DiscUtils.Streams.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.WindowsAPICodePack, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>packages\WindowsAPICodePack-Core.1.1.1\lib\Microsoft.WindowsAPICodePack.dll</HintPath>
