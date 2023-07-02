@@ -8,7 +8,7 @@ DiscUtils - https://github.com/DiscUtils/DiscUtils<br>
 Daniele de Santis Playstation Icons - http://www.danieledesantis.net/<br><br>
 You'll need to run it:<br>
 An OpenGL 3.0 compatible video card<br>
-.NET Framework 4.5<br>
+.NET Framework 4.8<br>
 Treat it as an experimental release and use this tool as your own risk!<br><br>
 Scanned file formats: TMD, PMD, TIM, HMD, TOD and VDF<br><br>
 (The tool can use a big ammount of memory to scan the files, so, be careful.)<br><br>
