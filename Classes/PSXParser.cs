@@ -425,7 +425,7 @@ namespace PSXPrev.Classes
                             Triangles = triangles.ToArray(),
                             TexturePage = kvp.Key.Item2,
                             TMDID = 1, //todo
-                            LocalMatrix = Matrix4.CreateTranslation(psxModel.X, psxModel.Y, psxModel.Z)
+                            OriginalLocalMatrix = Matrix4.CreateTranslation(psxModel.X, psxModel.Y, psxModel.Z)
                         };
                         modelEntities.Add(model);
                     }

@@ -19,8 +19,12 @@ namespace PSXPrev
     public class Program
     {
         public static Logger Logger;
-        private static PreviewForm PreviewForm;
-        private static LauncherForm LauncherForm;
+        // Volatile because these are assigned and accessed in different threads.
+        private static volatile PreviewForm PreviewForm;
+        private static volatile LauncherForm LauncherForm;
+        // Wait handles to make sure that forms can be constructed and assigned in their respective thread before continuing execution.
+        private static AutoResetEvent _waitForPreviewForm = new AutoResetEvent(false);
+        private static AutoResetEvent _waitForLauncherForm = new AutoResetEvent(false);
 
         public static bool Scanning { get; private set; }
         public static List<RootEntity> AllEntities { get; private set; }
@@ -77,14 +81,17 @@ namespace PSXPrev
             {
                 Console.ForegroundColor = ConsoleColor.White;
                 Console.WriteLine("Usage PSXPrev folder filter(optional) -tmd(optional) -vdf(optional) -pmd(optional) -tim(optional) -tod(optional) -an(optional) -hmd(optional) -croc(optional) -psx(optional) -log(optional) -noverbose(optional) -debug(optional) -ignoretmdversion(optional) -bff(optional)");
-                LauncherForm = new LauncherForm();
+
                 var thread = new Thread(new ThreadStart(delegate
                 {
+                    LauncherForm = new LauncherForm();
+                    _waitForLauncherForm.Set(); // LauncherForm has been assigned, let the main thread continue.
                     Application.EnableVisualStyles();
                     Application.Run(LauncherForm);
                 }));
                 thread.SetApartmentState(ApartmentState.STA);
                 thread.Start();
+                _waitForLauncherForm.WaitOne(); // Wait for LauncherForm to be assigned before continuing.
                 return;
             }
 
@@ -200,20 +207,22 @@ namespace PSXPrev
             AllTextures = new List<Texture>();
             AllAnimations = new List<Animation>();
 
-            PreviewForm = new PreviewForm((form) =>
-            {
-                form.UpdateAnimations(AllAnimations);
-                form.UpdateRootEntities(AllEntities);
-                form.UpdateTextures(AllTextures);
-            });
 
             var thread = new Thread(new ThreadStart(delegate
             {
+                PreviewForm = new PreviewForm((form) =>
+                {
+                    form.UpdateAnimations(AllAnimations);
+                    form.UpdateRootEntities(AllEntities);
+                    form.UpdateTextures(AllTextures);
+                });
+                _waitForPreviewForm.Set(); // PreviewForm has been assigned, let the main thread continue.
                 Application.EnableVisualStyles();
                 Application.Run(PreviewForm);
             }));
             thread.SetApartmentState(ApartmentState.STA);
             thread.Start();
+            _waitForPreviewForm.WaitOne(); // Wait for PreviewForm to be assigned before continuing.
 
             try
             {
