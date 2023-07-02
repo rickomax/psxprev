@@ -33,6 +33,7 @@
         B1,
         B2,
         B3,
+        TILE,
         PAD1,
         PAD2,
         PAD_CUSTOM1,

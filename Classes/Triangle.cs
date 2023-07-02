@@ -73,6 +73,10 @@ namespace PSXPrev.Classes
         [Browsable(false)]
         public uint[] AttachedIndices { get; set; }
 
+        // HMD: Attached (shared) normal indices from other model entities.
+        [Browsable(false)]
+        public uint[] AttachedNormalIndices { get; set; }
+
         public List<Tuple<uint, uint>> ExtraPaddingData { get; set; } = new List<Tuple<uint, uint>>();
 
         public Triangle()

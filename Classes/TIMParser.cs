@@ -101,57 +101,80 @@ namespace PSXPrev.Classes
                 var clutDy = reader.ReadUInt16();
                 var clutWidth = reader.ReadUInt16();
                 var clutHeight = reader.ReadUInt16();
-                palette = ReadPalette(reader, pmode, clutWidth, clutHeight);
+                palette = ReadPalette(reader, pmode, clutWidth, clutHeight, false);
             }
             var imgBnum = reader.ReadUInt32();
             var imgDx = reader.ReadUInt16();
             var imgDy = reader.ReadUInt16();
             var imgWidth = reader.ReadUInt16();
             var imgHeight = reader.ReadUInt16();
-            texture = ReadTexture(reader, imgWidth, imgHeight, imgDx, imgDy, pmode, palette);
+            texture = ReadTexture(reader, imgWidth, imgHeight, imgDx, imgDy, pmode, palette, false);
             return texture;
         }
 
-        public static System.Drawing.Color[] ReadPalette(BinaryReader reader, uint pmode, uint clutWidth, uint clutHeight)
+        public static System.Drawing.Color[] ReadPalette(BinaryReader reader, uint pmode, uint clutWidth, uint clutHeight, bool allowOutOfBounds)
         {
             if (clutWidth == 0 || clutHeight == 0 || clutWidth > 256 || clutHeight > 256)
             {
                 return null;
             }
+
+            var count = clutWidth * clutHeight;
             System.Drawing.Color[] palette = null;
+            // We should probably allocate the full 16clut or 256clut in-case an image pixel has bad data.
             switch (pmode)
             {
-                case 0: // 4-bit CLUT
+                case 0:
                     palette = new System.Drawing.Color[16];
-                    for (var c = 0; c < 16; c++)
-                    {
-                        var clut = reader.ReadUInt16();
-                        var r = (clut & 0x1F);
-                        var g = (clut & 0x3E0) >> 5;
-                        var b = (clut & 0x7C00) >> 10;
-                        var a = (clut & 0x8000) >> 15;
-                        System.Drawing.Color color = System.Drawing.Color.FromArgb(255, r * 8, g * 8, b * 8);
-                        palette[c] = color;
-                    }
                     break;
-                case 1: // 8-bit CLUT
+                case 1:
                     palette = new System.Drawing.Color[256];
-                    for (var c = 0; c < 256; c++)
+                    break;
+            }
+            if (palette != null)
+            {
+                for (var c = 0; c < palette.Length; c++)
+                {
+                    System.Drawing.Color color;
+                    if (c >= count)
                     {
+                        // Use default masking black as fallback color.
+                        color = System.Drawing.Color.FromArgb(255, 0, 0, 0);
+                    }
+                    else
+                    {
+                        // HMD: Support models with invalid image data, but valid model data.
+                        if (allowOutOfBounds && reader.BaseStream.Position + 2 > reader.BaseStream.Length)
+                            break;
+
                         var clut = reader.ReadUInt16();
                         var r = (clut & 0x1F);
                         var g = (clut & 0x3E0) >> 5;
                         var b = (clut & 0x7C00) >> 10;
-                        var a = (clut & 0x8000) >> 15;
-                        System.Drawing.Color color = System.Drawing.Color.FromArgb(255, r * 8, g * 8, b * 8);
-                        palette[c] = color;
+                        var stpBit = ((clut & 0x8000) >> 15) == 1; // Semi-transparency: 0-Off, 1-On
+                        // HMD: Semi-transparency
+                        // Note: stpMode is defined on a per polygon type basis, so we can't apply this alpha until rendering.
+                        //       We could choose to create secondary versions of textures with the semi-transparency alpha applied.
+                        var a = 255;
+                        //var black = (r == 0 && g == 0 && b == 0);
+                        //if (!stpBit && black)
+                        //{
+                        //    a = 0;
+                        //}
+                        //else if (stpBit && stpMode)
+                        //{
+                        //    a = 127;
+                        //}
+
+                        color = System.Drawing.Color.FromArgb(a, r * 8, g * 8, b * 8);
                     }
-                    break;
+                    palette[c] = color;
+                }
             }
             return palette;
         }
 
-        public static Texture ReadTexture(BinaryReader reader, ushort imgWidth, ushort imgHeight, ushort imgDx, ushort imgDy, uint pmode, System.Drawing.Color[] palette)
+        public static Texture ReadTexture(BinaryReader reader, ushort imgWidth, ushort imgHeight, ushort imgDx, ushort imgDy, uint pmode, System.Drawing.Color[] palette, bool allowOutOfBounds)
         {
             Texture texture = null;
             Bitmap bitmap;
@@ -199,6 +222,10 @@ namespace PSXPrev.Classes
                     {
                         for (var x = 0; x < imgWidth; x++)
                         {
+                            // HMD: Support models with invalid image data, but valid model data.
+                            if (allowOutOfBounds && reader.BaseStream.Position + 2 > reader.BaseStream.Length)
+                                break;
+
                             var color = reader.ReadUInt16();
                             var index1 = (color & 0xF);
                             var index2 = (color & 0xF0) >> 4;
@@ -238,6 +265,10 @@ namespace PSXPrev.Classes
                     {
                         for (var x = 0; x < imgWidth; x++)
                         {
+                            // HMD: Support models with invalid image data, but valid model data.
+                            if (allowOutOfBounds && reader.BaseStream.Position + 2 > reader.BaseStream.Length)
+                                break;
+
                             var color = reader.ReadUInt16();
                             var index1 = (color & 0xFF);
                             var index2 = (color & 0xFF00) >> 8;
@@ -269,6 +300,10 @@ namespace PSXPrev.Classes
                     {
                         for (var x = 0; x < imgWidth; x++)
                         {
+                            // HMD: Support models with invalid image data, but valid model data. (HMD has no 2 pmode)
+                            if (allowOutOfBounds && reader.BaseStream.Position + 2 > reader.BaseStream.Length)
+                                break;
+
                             var data1 = reader.ReadUInt16();
                             var r0 = (data1 & 0x1F);
                             var g0 = (data1 & 0x3E0) >> 5;
@@ -295,6 +330,10 @@ namespace PSXPrev.Classes
                     {
                         for (var x = 0; x < imgWidth - 1; x++)
                         {
+                            // HMD: Support models with invalid image data, but valid model data.
+                            if (allowOutOfBounds && reader.BaseStream.Position + 4 > reader.BaseStream.Length)
+                                break;
+
                             var data1 = reader.ReadUInt16();
                             var r0 = (data1 & 0xFF);
                             var g0 = (data1 & 0xFF00) >> 8;

@@ -45,16 +45,29 @@ namespace PSXPrev.Classes
                 }
                 return null;
             }
-            return ParsePrimitiveData(reader, lgtBit, iipBit, tmeBit, grdBit, isqBit, abeBit);
+            return ParsePrimitiveData(reader, false, lgtBit, iipBit, tmeBit, grdBit, isqBit, abeBit, false);
         }
 
         public static Dictionary<PrimitiveDataType, uint> CreateHMDPacketStructure(uint driver, uint primitiveType, BinaryReader reader)
         {
-            var tmeBit = ((primitiveType >> 0) & 0x01) == 1;
-            var colBit = ((primitiveType >> 1) & 0x01) == 1;
-            var iipBit = ((primitiveType >> 2) & 0x01) == 1;
-            var isqBit = ((primitiveType >> 3) & 0x07) == 2;
-            return ParsePrimitiveData(reader, true, iipBit, tmeBit, colBit, isqBit, false); //todo
+            var tmeBit = ((primitiveType >> 0) & 0x01) == 1; // Texture: 0-Off, 1-On
+            var colBit = ((primitiveType >> 1) & 0x01) == 1; // Color: 0-Single, 1-Separate
+            var iipBit = ((primitiveType >> 2) & 0x01) == 1; // Shading: 0-Flat, 1-Gouraud
+            var code   = ((primitiveType >> 3) & 0x07); // Polygon: 1-Triangle, 2-Quad, 3-Mesh
+            var lmdBit = ((primitiveType >> 6) & 0x01) == 1; // Normal: 0-Off, 1-On
+            var tileBit = ((primitiveType >> 9) & 0x01) == 1; // Tile: 0-Off, 1-On
+            var quad = code == 2;
+
+            var divBit = ((driver >> 0) & 0x01) == 1; // Subdivision: 0-Off, 1-On
+            var fogBit = ((driver >> 1) & 0x01) == 1; // Fog: 0-Off, 1-On
+            var lgtBit = ((driver >> 2) & 0x01) == 0; // Light: 0-Lit, 1-Unlit
+            var advBit = ((driver >> 3) & 0x01) == 1; // Automatic division: 0-Off, 1-On
+            var botBit = ((driver >> 4) & 0x01) == 1; // Sides: 0-Single sided, 1-Double sided
+            var stpBit = ((driver >> 5) & 0x01) == 1; // Semi-transparency: 0-Preserve, 1-On
+
+            // Note that lgtBit should equal lmdBit.
+
+            return ParsePrimitiveData(reader, true, lgtBit, iipBit, tmeBit, colBit, quad, stpBit, tileBit); //todo: translucency
         }
 
         public static string ToString(Dictionary<PrimitiveDataType, uint> primitiveDataDictionary)
@@ -62,7 +75,7 @@ namespace PSXPrev.Classes
             return primitiveDataDictionary.Keys.Aggregate("", (current, key) => current + (key + "-"));
         }
 
-        private static Dictionary<PrimitiveDataType, uint> ParsePrimitiveData(BinaryReader reader, bool light, bool gouraud, bool texture, bool gradation, bool quad, bool translucency)
+        private static Dictionary<PrimitiveDataType, uint> ParsePrimitiveData(BinaryReader reader, bool hmd, bool light, bool gouraud, bool texture, bool gradation, bool quad, bool translucency, bool tiled)
         {
             var primitiveDataDictionary = new Dictionary<PrimitiveDataType, uint>();
 
@@ -109,6 +122,8 @@ namespace PSXPrev.Classes
                     case PrimitiveDataType.NORMAL3:
                         return 2;
                         break;
+                    case PrimitiveDataType.TILE:
+                        return 4;
                 }
                 return 0;
             }
@@ -155,6 +170,9 @@ namespace PSXPrev.Classes
                         case PrimitiveDataType.NORMAL3:
                             value = reader.ReadUInt16();
                             break;
+                        case PrimitiveDataType.TILE:
+                            value = reader.ReadUInt32();
+                            break;
                         case PrimitiveDataType.PAD1:
                             value = reader.ReadByte();
                             //if (value != 0)
@@ -183,12 +201,71 @@ namespace PSXPrev.Classes
                 primitiveDataDictionary.Add(key, value);
             }
 
-            var hasColors = !quad && light && !texture ||
-                            quad && light && !texture ||
-                            !quad && !light ||
-                            quad && !light;
+            var hasColors = (!quad &&  light && !texture) ||
+                            ( quad &&  light && !texture) ||
+                            (!quad && !light) ||
+                            ( quad && !light) ||
+                            (hmd && gradation);
 
             var numVerts = quad ? 4 : 3;
+
+
+            // HMD: PAD2 appearing after vertices. Handle this differently from TMD since it's more complex.
+            var hmdVertexEndPad = hmd && (( quad &&  light && !texture && !gouraud) ||
+                                          (!quad && !light && !texture));
+
+            // HMD: Early definitions of Normal0, Vertex0, and/or Vertex1 after UV coordinates (instead of padding).
+            var uv2PostData = PrimitiveDataType.PAD1;
+            var uv3PostData = PrimitiveDataType.PAD1;
+            var skipFirstVertexNormal = false;
+            var skipSecondVertexNormal = false;
+            if (hmd)
+            {
+                if (quad && light && texture && !gouraud)
+                {
+                    uv3PostData = PrimitiveDataType.NORMAL0;
+                    skipFirstVertexNormal = true;
+                }
+                else if (quad && light && texture && gouraud)
+                {
+                    uv2PostData = PrimitiveDataType.NORMAL0;
+                    uv3PostData = PrimitiveDataType.VERTEX0;
+                    skipFirstVertexNormal = true;
+                    skipSecondVertexNormal = true;
+                }
+                else if (!quad && !light && texture)
+                {
+                    uv2PostData = PrimitiveDataType.VERTEX0;
+                    skipFirstVertexNormal = true;
+                }
+                else if (quad && !light && texture)
+                {
+                    uv2PostData = PrimitiveDataType.VERTEX0;
+                    uv3PostData = PrimitiveDataType.VERTEX1;
+                    skipFirstVertexNormal = true;
+                    skipSecondVertexNormal = true;
+                }
+            }
+            
+            
+            // HMD: Tiled texture information.
+            if (tiled)
+            {
+                AddData(PrimitiveDataType.TILE);
+            }
+
+            // HMD: Colors come before UVs.
+            if (hmd && hasColors)
+            {
+                var numColors = gradation ? numVerts : 1;
+                for (var i = 0; i < numColors; ++i)
+                {
+                    AddData(PrimitiveDataType.R0 + i);
+                    AddData(PrimitiveDataType.G0 + i);
+                    AddData(PrimitiveDataType.B0 + i);
+                    AddData(primitiveDataDictionary.Count == 0 ? PrimitiveDataType.Mode : PrimitiveDataType.PAD1);
+                }
+            }
 
             if (texture)
             {
@@ -204,15 +281,34 @@ namespace PSXPrev.Classes
                         case 1:
                             AddData(PrimitiveDataType.TSB);
                             break;
-                        default:
-                            AddData(PrimitiveDataType.PAD1); //pad
-                            AddData(PrimitiveDataType.PAD1); //pad
+                        case 2:
+                            if (uv2PostData < PrimitiveDataType.PAD1)
+                            {
+                                AddData(uv2PostData); // NORMAL0 or VERTEX0
+                            }
+                            else
+                            {
+                                AddData(PrimitiveDataType.PAD1); //pad
+                                AddData(PrimitiveDataType.PAD1); //pad
+                            }
+                            break;
+                        case 3:
+                            if (uv3PostData < PrimitiveDataType.PAD1)
+                            {
+                                AddData(uv3PostData); // NORMAL0, VERTEX0, or VERTEX1
+                            }
+                            else
+                            {
+                                AddData(PrimitiveDataType.PAD1); //pad
+                                AddData(PrimitiveDataType.PAD1); //pad
+                            }
                             break;
                     }
                 }
             }
 
-            if (hasColors)
+            // TMD: Colors come after UVs.
+            if (!hmd && hasColors)
             {
                 var numColors = gradation ? numVerts : 1;
                 for (var i = 0; i < numColors; ++i)
@@ -229,30 +325,33 @@ namespace PSXPrev.Classes
                 switch (numVerts)
                 {
                     case 3 when !gouraud:
-                        AddData(PrimitiveDataType.NORMAL0);
-                        AddData(PrimitiveDataType.VERTEX0);
+                        if (!skipFirstVertexNormal)  AddData(PrimitiveDataType.NORMAL0);
+                        if (!skipSecondVertexNormal) AddData(PrimitiveDataType.VERTEX0);
                         AddData(PrimitiveDataType.VERTEX1);
                         AddData(PrimitiveDataType.VERTEX2);
                         break;
                     case 3:
-                        AddData(PrimitiveDataType.NORMAL0);
-                        AddData(PrimitiveDataType.VERTEX0);
+                        if (!skipFirstVertexNormal)  AddData(PrimitiveDataType.NORMAL0);
+                        if (!skipSecondVertexNormal) AddData(PrimitiveDataType.VERTEX0);
                         AddData(PrimitiveDataType.NORMAL1);
                         AddData(PrimitiveDataType.VERTEX1);
                         AddData(PrimitiveDataType.NORMAL2);
                         AddData(PrimitiveDataType.VERTEX2);
                         break;
                     case 4 when !gouraud:
-                        AddData(PrimitiveDataType.NORMAL0);
-                        AddData(PrimitiveDataType.VERTEX0);
+                        if (!skipFirstVertexNormal)  AddData(PrimitiveDataType.NORMAL0);
+                        if (!skipSecondVertexNormal) AddData(PrimitiveDataType.VERTEX0);
                         AddData(PrimitiveDataType.VERTEX1);
                         AddData(PrimitiveDataType.VERTEX2);
                         AddData(PrimitiveDataType.VERTEX3);
-                        AddData(PrimitiveDataType.PAD2); //pad
+                        if (!hmd)
+                        {
+                            AddData(PrimitiveDataType.PAD2); //pad
+                        }
                         break;
                     case 4:
-                        AddData(PrimitiveDataType.NORMAL0);
-                        AddData(PrimitiveDataType.VERTEX0);
+                        if (!skipFirstVertexNormal)  AddData(PrimitiveDataType.NORMAL0);
+                        if (!skipSecondVertexNormal) AddData(PrimitiveDataType.VERTEX0);
                         AddData(PrimitiveDataType.NORMAL1);
                         AddData(PrimitiveDataType.VERTEX1);
                         AddData(PrimitiveDataType.NORMAL2);
@@ -267,18 +366,26 @@ namespace PSXPrev.Classes
                 switch (numVerts)
                 {
                     case 3:
-                        AddData(PrimitiveDataType.VERTEX0);
-                        AddData(PrimitiveDataType.VERTEX1);
+                        if (!skipFirstVertexNormal)  AddData(PrimitiveDataType.VERTEX0);
+                        if (!skipSecondVertexNormal) AddData(PrimitiveDataType.VERTEX1);
                         AddData(PrimitiveDataType.VERTEX2);
-                        AddData(PrimitiveDataType.PAD2); //pad
+                        if (!hmd)
+                        {
+                            AddData(PrimitiveDataType.PAD2); //pad
+                        }
                         break;
                     case 4:
-                        AddData(PrimitiveDataType.VERTEX0);
-                        AddData(PrimitiveDataType.VERTEX1);
+                        if (!skipFirstVertexNormal)  AddData(PrimitiveDataType.VERTEX0);
+                        if (!skipSecondVertexNormal) AddData(PrimitiveDataType.VERTEX1);
                         AddData(PrimitiveDataType.VERTEX2);
                         AddData(PrimitiveDataType.VERTEX3);
                         break;
                 }
+            }
+
+            if (hmdVertexEndPad)
+            {
+                AddData(PrimitiveDataType.PAD2); //pad
             }
 
             //var modBytes = packetDataLength % 4;
@@ -291,9 +398,11 @@ namespace PSXPrev.Classes
             return primitiveDataDictionary;
         }
 
-        public static void AddTrianglesToGroup(Dictionary<uint, List<Triangle>> groupedTriangles, Dictionary<PrimitiveDataType, uint> primitiveData, Func<uint, Vector3> vertexCallback, Func<uint, Vector3> normalCallback)
+        public static void AddTrianglesToGroup(Dictionary<uint, List<Triangle>> groupedTriangles, Dictionary<PrimitiveDataType, uint> primitiveData, bool attached, Func<uint, Vector3> vertexCallback, Func<uint, Vector3> normalCallback)
         {
             var tPage = primitiveData.TryGetValue(PrimitiveDataType.TSB, out var tsbValue) ? tsbValue & 0x1F : 0;
+            //var abrValue = (tsbValue >> 5) & 0x3; // if translucency: 0- 50%back+50%poly, 1- 100%back+100%poly, 2- 100%back-100%poly, 3- 100%back+25%poly
+            //var tpfValue = (tsbValue >> 7) & 0x3; // 0-4bit, 1-8bit, 2-15bit
             void AddTriangle(Triangle triangle)
             {
                 List<Triangle> triangles;
@@ -321,20 +430,15 @@ namespace PSXPrev.Classes
                 return;
             }
 
-            foreach (var kvp in primitiveData)
+            if (Program.Debug)
             {
-                //if (kvp.Key >= PrimitiveDataType.PAD1 && kvp.Value != 0)
-                {
-                    if (Program.Debug)
-                    {
-                        Console.WriteLine($"Primitive data: {PrintPrimitiveData(primitiveData)}");
-                    }
-                }
+                Console.WriteLine($"Primitive data: {PrintPrimitiveData(primitiveData)}");
             }
 
             var vertex0 = vertexCallback(vertexIndex0);
             var vertex1 = primitiveData.TryGetValue(PrimitiveDataType.VERTEX1, out var vertexIndex1) ? vertexCallback(vertexIndex1) : Vector3.Zero;
             var vertex2 = primitiveData.TryGetValue(PrimitiveDataType.VERTEX2, out var vertexIndex2) ? vertexCallback(vertexIndex2) : Vector3.Zero;
+            bool hasNormals;
             Vector3 normal0;
             Vector3 normal1;
             Vector3 normal2;
@@ -342,18 +446,45 @@ namespace PSXPrev.Classes
             uint normalIndex2;
             if (primitiveData.TryGetValue(PrimitiveDataType.NORMAL0, out var normalIndex0))
             {
+                hasNormals = true;
                 normal0 = normalCallback(normalIndex0);
                 normal1 = primitiveData.TryGetValue(PrimitiveDataType.NORMAL1, out normalIndex1) ? normalCallback(normalIndex1) : normal0;
                 normal2 = primitiveData.TryGetValue(PrimitiveDataType.NORMAL2, out normalIndex2) ? normalCallback(normalIndex2) : normal0;
             }
             else
             {
+                hasNormals = false;
                 normal0 = Vector3.Cross((vertex1 - vertex0).Normalized(), (vertex2 - vertex1).Normalized());
                 normal1 = normal0;
                 normal2 = normal0;
                 normalIndex1 = normalIndex0;
                 normalIndex2 = normalIndex0;
             }
+
+            // HMD: Tiled information for textures.
+            // Default values when there's no tiled information.
+            uint tum = 0;
+            uint tvm = 0;
+            uint tua = 0;
+            uint tva = 0;
+            if (primitiveData.TryGetValue(PrimitiveDataType.TILE, out var tile))
+            {
+                tum = (tile >>  0) & 0x1f;
+                tvm = (tile >>  5) & 0x1f;
+                tua = (tile >> 10) & 0x1f;
+                tva = (tile >> 15) & 0x1f;
+            }
+            // We can wrap these around all S/T getters since these functions
+            // will not change S/T values if there is no tiled information.
+            uint TileS(uint sValue)
+            {
+                return (~(tum << 3) & sValue) | ((tum << 3) & (tua << 3));
+            }
+            uint TileT(uint tValue)
+            {
+                return (~(tvm << 3) & tValue) | ((tvm << 3) & (tva << 3));
+            }
+
             var r0 = primitiveData.TryGetValue(PrimitiveDataType.R0, out var r0Value) ? r0Value / 255f : Color.DefaultColorTone;
             var r1 = primitiveData.TryGetValue(PrimitiveDataType.R1, out var r1Value) ? r1Value / 255f : r0;
             var r2 = primitiveData.TryGetValue(PrimitiveDataType.R2, out var r2Value) ? r2Value / 255f : r0;
@@ -363,12 +494,12 @@ namespace PSXPrev.Classes
             var b0 = primitiveData.TryGetValue(PrimitiveDataType.B0, out var b0Value) ? b0Value / 255f : Color.DefaultColorTone;
             var b1 = primitiveData.TryGetValue(PrimitiveDataType.B1, out var b1Value) ? b1Value / 255f : b0;
             var b2 = primitiveData.TryGetValue(PrimitiveDataType.B2, out var b2Value) ? b2Value / 255f : b0;
-            var s0 = primitiveData.TryGetValue(PrimitiveDataType.S0, out var s0Value) ? s0Value / 255f : 0f;
-            var s1 = primitiveData.TryGetValue(PrimitiveDataType.S1, out var s1Value) ? s1Value / 255f : 0f;
-            var s2 = primitiveData.TryGetValue(PrimitiveDataType.S2, out var s2Value) ? s2Value / 255f : 0f;
-            var t0 = primitiveData.TryGetValue(PrimitiveDataType.T0, out var t0Value) ? t0Value / 255f : 0f;
-            var t1 = primitiveData.TryGetValue(PrimitiveDataType.T1, out var t1Value) ? t1Value / 255f : 0f;
-            var t2 = primitiveData.TryGetValue(PrimitiveDataType.T2, out var t2Value) ? t2Value / 255f : 0f;
+            var s0 = primitiveData.TryGetValue(PrimitiveDataType.S0, out var s0Value) ? TileS(s0Value) / 255f : 0f;
+            var s1 = primitiveData.TryGetValue(PrimitiveDataType.S1, out var s1Value) ? TileS(s1Value) / 255f : 0f;
+            var s2 = primitiveData.TryGetValue(PrimitiveDataType.S2, out var s2Value) ? TileS(s2Value) / 255f : 0f;
+            var t0 = primitiveData.TryGetValue(PrimitiveDataType.T0, out var t0Value) ? TileT(t0Value) / 255f : 0f;
+            var t1 = primitiveData.TryGetValue(PrimitiveDataType.T1, out var t1Value) ? TileT(t1Value) / 255f : 0f;
+            var t2 = primitiveData.TryGetValue(PrimitiveDataType.T2, out var t2Value) ? TileT(t2Value) / 255f : 0f;
             var triangle1 = new Triangle
             {
                 Vertices = new[] { vertex0, vertex1, vertex2 },
@@ -379,6 +510,15 @@ namespace PSXPrev.Classes
                 Uv = new[] { new Vector3(s0, t0, 0f), new Vector3(s1, t1, 0f), new Vector3(s2, t2, 0f) },
                 AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
             };
+            if (attached)
+            {
+                // HMD: Attached (shared) indices from other model entities.
+                triangle1.AttachedIndices = (uint[])triangle1.OriginalVertexIndices.Clone();
+                if (hasNormals)
+                {
+                    triangle1.AttachedNormalIndices = (uint[])triangle1.OriginalNormalIndices.Clone();
+                }
+            }
             AddTriangle(triangle1);
             if (primitiveData.TryGetValue(PrimitiveDataType.VERTEX3, out var vertexIndex3))
             {
@@ -387,8 +527,8 @@ namespace PSXPrev.Classes
                 var g3 = primitiveData.TryGetValue(PrimitiveDataType.G3, out var g3Value) ? g3Value / 255f : g0;
                 var r3 = primitiveData.TryGetValue(PrimitiveDataType.R3, out var r3Value) ? r3Value / 255f : r0;
                 var b3 = primitiveData.TryGetValue(PrimitiveDataType.B3, out var b3Value) ? b3Value / 255f : b0;
-                var s3 = primitiveData.TryGetValue(PrimitiveDataType.S3, out var s3Value) ? s3Value / 255f : 0f;
-                var t3 = primitiveData.TryGetValue(PrimitiveDataType.T3, out var t3Value) ? t3Value / 255f : 0f;
+                var s3 = primitiveData.TryGetValue(PrimitiveDataType.S3, out var s3Value) ? TileS(s3Value) / 255f : 0f;
+                var t3 = primitiveData.TryGetValue(PrimitiveDataType.T3, out var t3Value) ? TileT(t3Value) / 255f : 0f;
                 var triangle2 = new Triangle
                 {
                     Vertices = new[] { vertex1, vertex3, vertex2 },
@@ -399,6 +539,15 @@ namespace PSXPrev.Classes
                     Uv = new[] { new Vector3(s1, t1, 0f), new Vector3(s3, t3, 0f), new Vector3(s2, t2, 0f) },
                     AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
                 };
+                if (attached)
+                {
+                    // HMD: Attached (shared) indices from other model entities.
+                    triangle2.AttachedIndices = (uint[])triangle2.OriginalVertexIndices.Clone();
+                    if (hasNormals)
+                    {
+                        triangle2.AttachedNormalIndices = (uint[])triangle2.OriginalNormalIndices.Clone();
+                    }
+                }
                 AddTriangle(triangle2);
             }
         }
