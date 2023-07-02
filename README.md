@@ -29,7 +29,7 @@ https://www.youtube.com/watch?v=hPDa8l3ZE6U&feature=youtu.be<br><br>
 Known issues/limitations:<br>
 The tool will only find files that are explicitly conformant to the file formats it's looking for. Any compressed or proprietary file cannot be scanned.<br><br>
 <b>License (BSD License 2.0):</b><br>
-Copyright (c) 2020 Ricardo Reis<br>
+Copyright (c) 2020-2023 PSXPrev contributors<br>
 All rights reserved.<br><br>
 Redistribution and use in source and binary forms, with or without<br>
 modification, are permitted provided that the following conditions are met:<br>
