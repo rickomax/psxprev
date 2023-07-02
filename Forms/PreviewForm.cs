@@ -1119,7 +1119,7 @@ namespace PSXPrev
 
         private void compatibilityListToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            System.Diagnostics.Process.Start("https://docs.google.com/spreadsheets/d/1V20NN_At_bBhKv99Ee4umaav0mYkU116p2bcHV8ie9o");
+            System.Diagnostics.Process.Start("https://docs.google.com/spreadsheets/d/155pUzwl7CC14ssT0PJkaEA53CS1ijpOV04VitQCVBC4/edit?pli=1#gid=22642205");
         }
 
         private void exitToolStripMenuItem_Click(object sender, EventArgs e)
