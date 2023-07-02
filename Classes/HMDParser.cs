@@ -133,7 +133,7 @@ namespace PSXPrev.Classes
                 {
                     if (modelEntity.TMDID == c + 1)
                     {
-                        modelEntity.LocalMatrix = localMatrix;
+                        modelEntity.OriginalLocalMatrix = localMatrix;
                     }
                 }
             }

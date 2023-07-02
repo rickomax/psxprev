@@ -107,6 +107,10 @@
             this.animationFrameLabel = new System.Windows.Forms.Label();
             this.lightIntensityNumericUpDown = new System.Windows.Forms.NumericUpDown();
             this.aboutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.resetTransformToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.cmsResetTransform = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.resetWholeModelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.resetSelectedModelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.entitiesTabPage.SuspendLayout();
             this.menusTabControl.SuspendLayout();
             this.bitmapsTabPage.SuspendLayout();
@@ -124,6 +128,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.lightYawNumericUpDown)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.lightRollNumericUpDown)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.lightIntensityNumericUpDown)).BeginInit();
+            this.cmsResetTransform.SuspendLayout();
             this.SuspendLayout();
             // 
             // entitiesTabPage
@@ -503,6 +508,7 @@
             // 
             this.modelsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.exportSelectedToolStripMenuItem,
+            this.resetTransformToolStripMenuItem,
             this.toolStripSeparator2,
             this.wireframeToolStripMenuItem,
             this.showGizmosToolStripMenuItem,
@@ -876,6 +882,37 @@
             this.aboutToolStripMenuItem.Text = "About";
             this.aboutToolStripMenuItem.Click += new System.EventHandler(this.aboutToolStripMenuItem_Click);
             // 
+            // resetTransformToolStripMenuItem
+            // 
+            this.resetTransformToolStripMenuItem.DropDown = this.cmsResetTransform;
+            this.resetTransformToolStripMenuItem.Name = "resetTransformToolStripMenuItem";
+            this.resetTransformToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.resetTransformToolStripMenuItem.Text = "Reset Transform";
+            // 
+            // cmsResetTransform
+            // 
+            this.cmsResetTransform.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.resetWholeModelToolStripMenuItem,
+            this.resetSelectedModelToolStripMenuItem});
+            this.cmsResetTransform.Name = "cmsResetTransform";
+            this.cmsResetTransform.OwnerItem = this.resetTransformToolStripMenuItem;
+            this.cmsResetTransform.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
+            this.cmsResetTransform.Size = new System.Drawing.Size(181, 70);
+            // 
+            // resetWholeModelToolStripMenuItem
+            // 
+            this.resetWholeModelToolStripMenuItem.Name = "resetWholeModelToolStripMenuItem";
+            this.resetWholeModelToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.resetWholeModelToolStripMenuItem.Text = "Reset Whole Model";
+            this.resetWholeModelToolStripMenuItem.Click += new System.EventHandler(this.resetWholeModelToolStripMenuItem_Click);
+            // 
+            // resetSelectedModelToolStripMenuItem
+            // 
+            this.resetSelectedModelToolStripMenuItem.Name = "resetSelectedModelToolStripMenuItem";
+            this.resetSelectedModelToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.resetSelectedModelToolStripMenuItem.Text = "Reset Selected Model";
+            this.resetSelectedModelToolStripMenuItem.Click += new System.EventHandler(this.resetSelectedModelToolStripMenuItem_Click);
+            // 
             // PreviewForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -922,6 +959,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.lightYawNumericUpDown)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.lightRollNumericUpDown)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.lightIntensityNumericUpDown)).EndInit();
+            this.cmsResetTransform.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -1005,5 +1043,9 @@
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator8;
         private System.Windows.Forms.ToolStripMenuItem lineRendererToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem aboutToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem resetTransformToolStripMenuItem;
+        private System.Windows.Forms.ContextMenuStrip cmsResetTransform;
+        private System.Windows.Forms.ToolStripMenuItem resetWholeModelToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem resetSelectedModelToolStripMenuItem;
     }
 }

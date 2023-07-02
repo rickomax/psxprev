@@ -573,7 +573,7 @@ namespace PSXPrev
             _scene.BoundsBatch.Reset();
             _scene.SkeletonBatch.Reset();
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
-            var rootEntity = selectedEntityBase != null ? selectedEntityBase as RootEntity ?? selectedEntityBase.GetRootEntity() : null;
+            var rootEntity = selectedEntityBase?.GetRootEntity();
             if (rootEntity != null)
             {
                 rootEntity.ResetAnimationData();
@@ -1199,6 +1199,28 @@ namespace PSXPrev
         private void lineRendererToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _scene.VibRibbonWireframe = lineRendererToolStripMenuItem.Checked;
+        }
+
+        private void resetWholeModelToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+            if (selectedEntityBase != null)
+            {
+                // This could be changed to only reset the selected model and its children.
+                // But that's only necessary if sub-sub-model support is ever added.
+                selectedEntityBase.GetRootEntity()?.ResetTransform(true);
+                UpdateSelectedEntity(true);
+            }
+        }
+
+        private void resetSelectedModelToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+            if (selectedEntityBase != null)
+            {
+                selectedEntityBase.ResetTransform(false);
+                UpdateSelectedEntity(true);
+            }
         }
     }
 }

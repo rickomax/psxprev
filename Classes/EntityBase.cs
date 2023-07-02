@@ -7,6 +7,11 @@ namespace PSXPrev.Classes
     public class EntityBase
     {
         private EntityBase[] _childEntities;
+        private Matrix4 _originalLocalMatrix;
+        private Matrix4 _localMatrix;
+        private Vector3 _translation;
+        private Quaternion _rotation;
+        private Vector3 _scale;
 
         [DisplayName("Name")]
         public string EntityName { get; set; }
@@ -14,8 +19,49 @@ namespace PSXPrev.Classes
         [ReadOnly(true), DisplayName("Bounds")]
         public BoundingBox Bounds3D { get; set; }
 
+        // Store original transform so that gizmo translations can be reset by the user.
+        // This also assigns the current transform (LocalMatrix).
         [Browsable(false)]
-        public Matrix4 LocalMatrix { get; set; }
+        public Matrix4 OriginalLocalMatrix
+        {
+            get => _originalLocalMatrix;
+            set => LocalMatrix = _originalLocalMatrix = value;
+        }
+
+        [Browsable(false)]
+        public Matrix4 LocalMatrix
+        {
+            get => _localMatrix;
+            set
+            {
+                _translation = value.ExtractTranslation();
+                _rotation = value.ExtractRotation();
+                _scale = value.ExtractScale();
+                _localMatrix = value;
+            }
+        }
+
+        // Store each component of LocalMatrix so that changes to one won't minimally affect the other components.
+        [Browsable(false)]
+        public Vector3 Translation
+        {
+            get => _translation;
+            set => ApplyTransform(value, null, null);
+        }
+        
+        [Browsable(false)]
+        public Quaternion Rotation
+        {
+            get => _rotation;
+            set => ApplyTransform(null, value, null);
+        }
+
+        [Browsable(false)]
+        public Vector3 Scale
+        {
+            get => _scale;
+            set => ApplyTransform(null, null, value);
+        }
 
         [Browsable(false)]
         public Matrix4 WorldMatrix
@@ -26,7 +72,7 @@ namespace PSXPrev.Classes
                 var entity = this;
                 do
                 {
-                    matrix = entity.LocalMatrix * matrix;
+                    matrix = matrix * entity.LocalMatrix;
                     entity = entity.ParentEntity;
                 } while (entity != null);
                 return matrix;
@@ -36,37 +82,22 @@ namespace PSXPrev.Classes
         [DisplayName("Position X")]
         public float PositionX
         {
-            get => LocalMatrix.ExtractTranslation().X;
-            set
-            {
-                var translationValues = LocalMatrix.ExtractTranslation();
-                translationValues.X = value;
-                ApplyTranslation(translationValues);
-            }
+            get => Translation.X;
+            set => Translation = new Vector3(value, Translation.Y, Translation.Z);
         }
 
         [DisplayName("Position Y")]
         public float PositionY
         {
-            get => LocalMatrix.ExtractTranslation().Y;
-            set
-            {
-                var translationValues = LocalMatrix.ExtractTranslation();
-                translationValues.Y = value;
-                ApplyTranslation(translationValues);
-            }
+            get => Translation.Y;
+            set => Translation = new Vector3(Translation.X, value, Translation.Z);
         }
 
         [DisplayName("Position Z")]
         public float PositionZ
         {
-            get => LocalMatrix.ExtractTranslation().Z;
-            set
-            {
-                var translationValues = LocalMatrix.ExtractTranslation();
-                translationValues.Z = value;
-                ApplyTranslation(translationValues);
-            }
+            get => Translation.Z;
+            set => Translation = new Vector3(Translation.X, Translation.Y, value);
         }
 
         [ReadOnly(true), DisplayName("Sub-Models")]
@@ -94,7 +125,8 @@ namespace PSXPrev.Classes
 
         protected EntityBase()
         {
-            LocalMatrix = Matrix4.Identity;
+            // Also assigns LocalMatrix, Translation, Rotation, and Scale.
+            OriginalLocalMatrix = Matrix4.Identity;
         }
 
         public virtual void ComputeBounds()
@@ -119,12 +151,43 @@ namespace PSXPrev.Classes
             } while (entity != null);
         }
 
-        private void ApplyTranslation(Vector3 translationValues)
+        // Reset this and optionally all children's LocalMatrix to OriginalLocalMatrix.
+        public void ResetTransform(bool resetChildren)
         {
-            var translation = Matrix4.CreateTranslation(translationValues);
-            var rotation = Matrix4.CreateFromQuaternion(LocalMatrix.ExtractRotation());
-            var scale = Matrix4.CreateScale(LocalMatrix.ExtractScale());
-            LocalMatrix = translation * rotation * scale;
+            LocalMatrix = OriginalLocalMatrix;
+            if (resetChildren && ChildEntities != null)
+            {
+                foreach (var child in ChildEntities)
+                {
+                    child.ResetTransform(resetChildren);
+                }
+            }
+        }
+
+        // Apply different transform components to LocalMatrix.
+        // Null values will use the current transform component for that value.
+        private void ApplyTransform(Vector3? translationValues, Quaternion? rotationValues, Vector3? scaleValues)
+        {
+            if (!translationValues.HasValue)
+            {
+                translationValues = Translation;
+            }
+            if (!rotationValues.HasValue)
+            {
+                rotationValues = Rotation;
+            }
+            if (!scaleValues.HasValue)
+            {
+                scaleValues = Scale;
+            }
+            _translation = translationValues.Value;
+            _rotation = rotationValues.Value;
+            _scale = scaleValues.Value;
+            
+            var translation = Matrix4.CreateTranslation(translationValues.Value);
+            var rotation = Matrix4.CreateFromQuaternion(rotationValues.Value);
+            var scale = Matrix4.CreateScale(scaleValues.Value);
+            _localMatrix = scale * rotation * translation;
         }
 
         public override string ToString()
@@ -146,7 +209,7 @@ namespace PSXPrev.Classes
 
         public RootEntity GetRootEntity()
         {
-            var entity = ParentEntity;
+            var entity = this;
             while (entity.ParentEntity != null)
             {
                 entity = entity.ParentEntity;
