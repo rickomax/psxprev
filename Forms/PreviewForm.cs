@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Timers;
 using System.Windows.Forms;
-using Collada141;
 using OpenTK;
 using PSXPrev.Classes;
 using Color = PSXPrev.Classes.Color;
@@ -259,8 +258,6 @@ namespace PSXPrev
                 {
                     var animationFrameNode = new TreeNode("Frame " + animationFrame.Value.FrameTime);
                     animationFrameNode.Tag = animationFrame.Value;
-                    //animationFrameNode.HideCheckBox();
-                    //animationFrameNode.HideCheckBox();
                     animationObjectNode.Nodes.Add(animationFrameNode);
                 }
                 AddAnimationObject(animationObject, animationObjectNode);
@@ -288,21 +285,10 @@ namespace PSXPrev
             _redrawTimer.Start();
             _animateTimer = new Timer();
             _animateTimer.Elapsed += _animateTimer_Elapsed;
+            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            var fileVersionInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location);
+            Text = $@"{Text} {fileVersionInfo.FileVersion}";
         }
-
-        //private AnimationFrame GetSelectedAnimationFrame()
-        //{
-        //    var selectedNode = animationsTreeView.SelectedNode;
-        //    if (selectedNode != null)
-        //    {
-        //        var selectedAnimationFrame = selectedNode.Tag as AnimationFrame;
-        //        if (selectedAnimationFrame != null)
-        //        {
-        //            return selectedAnimationFrame;
-        //        }
-        //    }
-        //    return null;
-        //}
 
         private void _animateTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
@@ -441,7 +427,7 @@ namespace PSXPrev
                                 rootEntity = _selectedModelEntity.GetRootEntity();
                             }
                             var newSelectedEntity = _scene.GetEntityUnderMouse(checkedEntities, rootEntity, e.Location.X, e.Location.Y, controlWidth, controlHeight);
-                            if (newSelectedEntity != null)// && newSelectedEntity != selectedEntityBase)
+                            if (newSelectedEntity != null)
                             {
                                 SelectEntity(newSelectedEntity);
                             }
@@ -572,7 +558,7 @@ namespace PSXPrev
                 return;
             }
 
-            var matrix = Matrix4.CreateTranslation(selectedEntityBase.Bounds3D.Center);//selectedEntityBase.WorldMatrix;
+            var matrix = Matrix4.CreateTranslation(selectedEntityBase.Bounds3D.Center);
             var scaleMatrix = _scene.GetGizmoScaleMatrix(matrix.ExtractTranslation());
             var finalMatrix = scaleMatrix * matrix;
             _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.XMover || selectedGizmo == Scene.GizmoId.XMover ? Color.White : Color.Red, Scene.XGizmoDimensions, Scene.XGizmoDimensions, 0, null, updateMeshData);
@@ -1115,11 +1101,7 @@ namespace PSXPrev
         private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
         {
             MessageBox.Show("PSXPrev - Playstation (PSX) Files Previewer/Extractor\n" +
-                            "(c) Ricardo Reis - 2020\n\n" +
-                            "Special thanks to supporters:\n" +
-                            "Jacob Lenard\n" +
-                            "Alberto Navas Gonzalez\n" +
-                            "Pete Mache\n"
+                            "(c) PSX Prev Contributors - 2020-2023"
                 , "About"
             );
         }
@@ -1133,11 +1115,6 @@ namespace PSXPrev
         {
             _scene.AutoAttach = autoAttachLimbsToolStripMenuItem.Checked;
             UpdateSelectedEntity(true);
-        }
-
-        private void patreonToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            System.Diagnostics.Process.Start("https://www.patreon.com/rickomax");
         }
 
         private void compatibilityListToolStripMenuItem_Click(object sender, EventArgs e)
