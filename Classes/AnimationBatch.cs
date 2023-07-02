@@ -149,7 +149,7 @@ namespace PSXPrev.Classes
 
                             //if (parentMatrix != null)
                             //{
-                            worldMatrix = localMatrix * worldMatrix;
+                            worldMatrix = worldMatrix * localMatrix;
                             //_scene.SkeletonBatch.AddLine(Vector3.TransformPosition(Vector3.One, parentMatrix.Value), Vector3.TransformPosition(Vector3.One, worldMatrix), animationObject == selectedAnimationObject ? Color.Blue : Color.Red);
                             //}
                             //else
