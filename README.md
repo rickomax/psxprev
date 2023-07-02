@@ -12,7 +12,7 @@ An OpenGL 3.0 compatible video card<br>
 Treat it as an experimental release and use this tool as your own risk!<br><br>
 Scanned file formats: TMD, PMD, TIM, HMD, TOD and VDF<br><br>
 (The tool can use a big ammount of memory to scan the files, so, be careful.)<br><br>
-Compatibility list (Maintained by Cavan Ashton): https://drive.google.com/file/d/1V39J5RNcZLID6WNnw7ZB98tMwoksHjGS/view?usp=sharing<br><br>
+Compatibility list: [https://drive.google.com/file/d/1V39J5RNcZLID6WNnw7ZB98tMwoksHjGS/view?usp=sharing](https://docs.google.com/spreadsheets/d/155pUzwl7CC14ssT0PJkaEA53CS1ijpOV04VitQCVBC4/edit?usp=sharing)<br><br>
 If you don't pass any parameter, a launcher interface will be displayed.
 Otherwise, a console window will appear, the application will scan each byte of the files inside the folder/filter you specified trying to find the files types you specified, so, it can take a bit of time for this process to end.<br><br>
 After the scan has been completed, a new window will open, with the tabs:<br>
