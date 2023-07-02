@@ -105,6 +105,10 @@ namespace PSXPrev.Classes
                     normals[j] = new Vector3(x, y, z);
                 }
                 var countFaces = BRenderHelper.ReadU32BE(reader.BaseStream);
+                if (countFaces == 0)
+                {
+                    return null;
+                }
                 var triangles = new List<Triangle>();
                 //var header = Encoding.ASCII.GetString(reader.ReadBytes(64));
                 for (var j = 0; j < countFaces; j++)
