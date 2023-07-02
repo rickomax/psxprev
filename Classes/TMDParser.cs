@@ -201,7 +201,7 @@ namespace PSXPrev.Classes
                     var packetStructure = TMDHelper.CreateTMDPacketStructure(flag, mode, reader, p);
                     if (packetStructure != null)
                     {
-                        TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, delegate (uint index)
+                        TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, false, delegate (uint index)
                         {
                             if (index >= vertices.Length)
                             {

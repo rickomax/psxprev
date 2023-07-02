@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using System.Collections.Generic;
+using System.ComponentModel;
 using OpenTK;
 
 namespace PSXPrev.Classes
@@ -34,6 +35,13 @@ namespace PSXPrev.Classes
         public Vector3[] FinalVertices { get; set; }
         public Vector3[] FinalNormals { get; set; }
         public Vector3[] InitialNormals { get; set; }
+
+        // HMD: Attachable (shared) vertices and normals that aren't tied to an existing triangle.
+        [Browsable(false)]
+        public Dictionary<uint, Vector3> AttachableVertices { get; set; }
+
+        [Browsable(false)]
+        public Dictionary<uint, Vector3> AttachableNormals { get; set; }
 
         public override void ComputeBounds()
         {
@@ -76,6 +84,8 @@ namespace PSXPrev.Classes
                     for (var i = 0; i < 3; i++)
                     {
                         var attachedIndex = triangle.AttachedIndices[i];
+                        var attachedNormalIndex = triangle.AttachedNormalIndices?[i] ?? uint.MaxValue;
+                        // AttachedNormalIndices should only ever be non-null when AttachedIndices is non-null.
                         if (attachedIndex != uint.MaxValue)
                         {
                             foreach (ModelEntity subModel in rootEntity.ChildEntities)
@@ -96,6 +106,17 @@ namespace PSXPrev.Classes
                                             break;
                                         }
                                     }
+                                }
+
+                                // HMD: Check for attachable vertices and normals that aren't associated with an existing triangle.
+                                if (subModel.AttachableVertices != null && subModel.AttachableVertices.TryGetValue(attachedIndex, out var attachedVertex))
+                                {
+                                    var newVertex = Vector3.TransformPosition(attachedVertex, subModel.WorldMatrix);
+                                    triangle.Vertices[i] = newVertex;
+                                }
+                                if (subModel.AttachableNormals != null && subModel.AttachableNormals.TryGetValue(attachedNormalIndex, out var attachedNormal))
+                                {
+                                    triangle.Normals[i] = attachedNormal;
                                 }
                             }
                         }

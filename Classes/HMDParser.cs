@@ -131,7 +131,7 @@ namespace PSXPrev.Classes
                 var localMatrix = ReadCoord(reader);
                 foreach (var modelEntity in modelEntities)
                 {
-                    if (modelEntity.TMDID == c)
+                    if (modelEntity.TMDID == c + 1)
                     {
                         modelEntity.LocalMatrix = localMatrix;
                     }
@@ -146,11 +146,13 @@ namespace PSXPrev.Classes
             var flag = reader.ReadUInt32();
             var worldMatrix = ReadMatrix(reader);
             var workMatrix = ReadMatrix(reader);
+
             short rx, ry, rz;
             rx = reader.ReadInt16();
             ry = reader.ReadInt16();
             rz = reader.ReadInt16();
-            var code = reader.ReadInt16();
+            var pad = reader.ReadInt16();
+
             var super = reader.ReadUInt32() * 4;
             if (super != 0)
             {
@@ -158,9 +160,9 @@ namespace PSXPrev.Classes
                 reader.BaseStream.Seek(_offset + super, SeekOrigin.Begin);
                 var superMatrix = ReadCoord(reader);
                 reader.BaseStream.Seek(position, SeekOrigin.Begin);
-                return superMatrix * worldMatrix;
+                return worldMatrix * superMatrix;
             }
-
+            // todo: Most matrices at coord index 0 are an identity matrix, but we should still really return the actual matrix.
             return Matrix4.Identity; //worldMatrix;
         }
 
@@ -178,21 +180,25 @@ namespace PSXPrev.Classes
             float r21 = reader.ReadInt16() / 4096f;
             float r22 = reader.ReadInt16() / 4096f;
 
-            var x = reader.ReadInt32() / 4096f;
-            var y = reader.ReadInt32() / 4096f;
-            var z = reader.ReadInt32() / 4096f;
+            var x = reader.ReadInt32() / 65536f;
+            var y = reader.ReadInt32() / 65536f;
+            var z = reader.ReadInt32() / 65536f;
             var matrix = new Matrix4(
                 new Vector4(r00, r10, r20, 0f),
                 new Vector4(r01, r11, r21, 0f),
                 new Vector4(r02, r12, r22, 0f),
                 new Vector4(x, y, z, 1f)
             );
+            // It's strange that padding comes after the int32s. Would have expected the int32s to get aligned instead.
+            var pad = reader.ReadInt16();
             return matrix;
         }
 
         private void ProccessPrimitive(BinaryReader reader, List<ModelEntity> modelEntities, List<Animation> animations, List<Texture> textures, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop)
         {
             var groupedTriangles = new Dictionary<uint, List<Triangle>>();
+            var sharedVertices = new Dictionary<uint, Vector3>();
+            var sharedNormals = new Dictionary<uint, Vector3>();
             while (true)
             {
                 reader.BaseStream.Seek(_offset + primitiveSetTop, SeekOrigin.Begin);
@@ -212,15 +218,19 @@ namespace PSXPrev.Classes
                     var category = (type >> 24) & 0b00001111; //4  
                     var driver = (type >> 16) & 0b11111111; //8
                     var primitiveType = type & 0xFFFF; //16
+                    
+                    // dataSize is the remaining size of this type data in units of 4 bytes.
+                    // This size includes the definition of dataSize/dataCount.
+                    var typeDataPosition = reader.BaseStream.Position;
 
-                    ReadMappedValue16(reader, out var dataCountMapped, out var dataCount);
                     ReadMappedValue16(reader, out var dataSizeMapped, out var dataSize);
+                    ReadMappedValue16(reader, out var dataCountMapped, out var dataCount);
 
-                    if (dataCount > Program.MaxHMDDataSize)
+                    if (dataSize > Program.MaxHMDDataSize)
                     {
                         return;
                     }
-                    if (dataSize > Program.MaxHMDDataSize)
+                    if (dataCount > Program.MaxHMDDataSize)
                     {
                         return;
                     }
@@ -248,7 +258,7 @@ namespace PSXPrev.Classes
                         }
 
                         var polygonIndex = reader.ReadUInt32() * 4;
-                        ProcessNonSharedGeometryData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, dataSize);
+                        ProcessNonSharedGeometryData(groupedTriangles, reader, false, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, dataCount);
                     }
                     else if (category == 1)
                     {
@@ -256,8 +266,20 @@ namespace PSXPrev.Classes
                         {
                             Program.Logger.WriteLine($"HMD Shared Vertices Geometry");
                         }
+
+                        // You would expect this to be (type == 0x01000000), but examples have been found where the driver was unexpectedly 0x80.
+                        var preCalculation = (primitiveType == 0);
+                        if (preCalculation)
+                        {
+                            ProcessSharedGeometryData(sharedVertices, sharedNormals, reader, driver, primitiveHeaderPointer, nextPrimitivePointer);
+                        }
+                        else
+                        {
+                            var polygonIndex = reader.ReadUInt32() * 4;
+                            ProcessNonSharedGeometryData(groupedTriangles, reader, true, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, dataCount);
+                        }
                     }
-                    else if (category == 1)
+                    else if (category == 2)
                     {
                         if (Program.Debug)
                         {
@@ -293,7 +315,7 @@ namespace PSXPrev.Classes
                             Animation animation = null;
                             if (code1)
                             {
-                                animation = ProcessMimeVertexData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, diffTop, dataSize, rst);
+                                animation = ProcessMimeVertexData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, diffTop, dataCount, rst);
                             }
                             if (animation != null)
                             {
@@ -310,8 +332,14 @@ namespace PSXPrev.Classes
                         var polygonIndex = reader.ReadUInt32() * 4;
                         var gridIndex = reader.ReadUInt32() * 4;
                         var vertexIndex = reader.ReadUInt32() * 4;
-                        ProcessGroundData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, dataCount / 4, gridIndex, vertexIndex);
+                        // TODO: Is this actually supposed to pass dataCount and not dataSize?
+                        // Originally dataSize/dataCount were read in the wrong order, so what was assumed to be the dataCount variable was used here (but was really dataSize).
+                        // Is the divide-by-4 here because the value needed to be transformed into something that passed the tests?
+                        ProcessGroundData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, dataSize / 4, gridIndex, vertexIndex);
                     }
+
+                    // Seek to the next type. This is necessary since not all types will fully read up to the next type (i.e. Image Data).
+                    reader.BaseStream.Seek(typeDataPosition + dataSize * 4, SeekOrigin.Begin);
                 }
                 if (nextPrimitivePointer != 0xFFFFFFFF)
                 {
@@ -330,13 +358,40 @@ namespace PSXPrev.Classes
                     TMDID = primitiveIndex, //todo
                     //PrimitiveIndex = primitiveIndex
                 };
+                if (sharedVertices.Count > 0 || sharedNormals.Count > 0)
+                {
+                    // We can add shared geometry onto this existing model, instead of adding a dummy model.
+                    // A model is used so that it can transform the shared vertices.
+                    model.AttachableVertices = sharedVertices;
+                    model.AttachableNormals = sharedNormals;
+                    // Reset dictionaries so that we don't add shared geometry again for this block.
+                    sharedVertices = new Dictionary<uint, Vector3>();
+                    sharedNormals = new Dictionary<uint, Vector3>();
+                }
                 modelEntities.Add(model);
+            }
+            if (sharedVertices.Count > 0 || sharedNormals.Count > 0)
+            {
+                // No models were added for this primitive index, add a dummy model.
+                var sharedModel = new ModelEntity
+                {
+                    Triangles = new Triangle[0], // No triangles. Is it possible this could break exporters?
+                    TMDID = primitiveIndex, //todo
+                    //PrimitiveIndex = primitiveIndex
+                    Visible = false,
+                    AttachableVertices = sharedVertices,
+                    AttachableNormals = sharedNormals,
+                };
+                modelEntities.Add(sharedModel);
             }
         }
 
         private Texture ProcessImageData(BinaryReader reader, uint driver, bool hasClut, uint primitiveHeaderPointer, uint nextPrimitivePointer)
         {
             var position = reader.BaseStream.Position;
+            ProcessImageDataPrimitiveHeader(reader, primitiveHeaderPointer, out var imageTop, out var clutTop);
+            reader.BaseStream.Seek(position, SeekOrigin.Begin); // Seek is redundant, but follows same convention as other Process functions.
+            
             var x = reader.ReadUInt16();
             var y = reader.ReadUInt16();
             var width = reader.ReadUInt16();
@@ -345,7 +400,9 @@ namespace PSXPrev.Classes
             {
                 return null;
             }
-            var imageTop = reader.ReadUInt32() * 4;
+
+            var imageIndex = reader.ReadUInt32() * 4;
+            uint pmode;
             System.Drawing.Color[] palette;
             if (hasClut)
             {
@@ -353,16 +410,28 @@ namespace PSXPrev.Classes
                 var clutY = reader.ReadUInt16();
                 var clutWidth = reader.ReadUInt16();
                 var clutHeight = reader.ReadUInt16();
-                var clutTop = reader.ReadUInt32() * 4;
-                reader.BaseStream.Seek(_offset + clutTop, SeekOrigin.Begin);
-                palette = TIMParser.ReadPalette(reader, 1, clutWidth, clutHeight);
+                var clutIndex = reader.ReadUInt32() * 4;
+
+                // NOTE: Width*height always seems to be 16 or 256.
+                //       Specifically width was 16 or 256 and height was 1.
+                //       With that, it's safe to assume the dimensions tell us the color count.
+                //       Because this data could potentionally give us something other than 16 or 256,
+                //       assume anything greater than 16 will allocate a 256clut and only read w*h colors.
+                pmode = (clutWidth * clutHeight <= 16) ? 0u : 1u; // 16clut or 256clut
+                
+                reader.BaseStream.Seek(_offset + clutTop + clutIndex, SeekOrigin.Begin);
+                // Allow out of bounds to support HMDs with invalid image data, but valid model data.
+                palette = TIMParser.ReadPalette(reader, pmode, clutWidth, clutHeight, true);
             }
             else
             {
+                pmode = 3u; // 24bpp
                 palette = null;
             }
-            reader.BaseStream.Seek(_offset + imageTop, SeekOrigin.Begin);
-            var texture = TIMParser.ReadTexture(reader, width, height, x, y, hasClut ? 1u : 3u, palette);
+            reader.BaseStream.Seek(_offset + imageTop + imageIndex, SeekOrigin.Begin);
+            // Allow out of bounds to support HMDs with invalid image data, but valid model data.
+            var texture = TIMParser.ReadTexture(reader, width, height, x, y, pmode, palette, true);
+
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
             return texture;
         }
@@ -381,10 +450,45 @@ namespace PSXPrev.Classes
             value = (uint)(valueMapped & 0b0111111111111111);
         }
 
-        private void ProcessNonSharedGeometryData(Dictionary<uint, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount)
+        private Vector3 ReadVertex(BinaryReader reader, uint vertTop, uint index)
+        {
+            var position = reader.BaseStream.Position;
+            reader.BaseStream.Seek(_offset + vertTop + index * 8, SeekOrigin.Begin);
+            var x = reader.ReadInt16();
+            var y = reader.ReadInt16();
+            var z = reader.ReadInt16();
+            var pad = reader.ReadInt16();
+            var vertex = new Vector3(x, y, z);
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+            return vertex;
+        }
+
+        private Vector3 ReadNormal(BinaryReader reader, uint normTop, uint index)
+        {
+            var position = reader.BaseStream.Position;
+            reader.BaseStream.Seek(_offset + normTop + index * 8, SeekOrigin.Begin);
+            var nx = TMDHelper.ConvertNormal(reader.ReadInt16());
+            var ny = TMDHelper.ConvertNormal(reader.ReadInt16());
+            var nz = TMDHelper.ConvertNormal(reader.ReadInt16());
+            var pad = FInt.Create(reader.ReadInt16());
+            var normal = new Vector3(nx, ny, nz);
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+            return normal;
+        }
+
+        private void ProcessNonSharedGeometryData(Dictionary<uint, List<Triangle>> groupedTriangles, BinaryReader reader, bool shared, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount)
         {
             var primitivePosition = reader.BaseStream.Position;
-            ProcessGeometryPrimitiveHeader(reader, primitiveHeaderPointer, polygonIndex, out var vertTop, out var normTop, out var coordTop, out var dataTop);
+            uint dataTop, vertTop, normTop, coordTop;
+            if (!shared)
+            {
+                ProcessGeometryPrimitiveHeader(reader, primitiveHeaderPointer, out vertTop, out normTop, out coordTop, out dataTop);
+            }
+            else
+            {
+                // Post-processing driver for shared geometry data.
+                ProcessSharedGeometryPrimitiveHeader(reader, primitiveHeaderPointer, out dataTop, out vertTop, out var calcVertTop, out normTop, out var calcNormTop, out coordTop);
+            }
             reader.BaseStream.Seek(_offset + dataTop + polygonIndex, SeekOrigin.Begin);
             for (var j = 0; j < dataCount; j++)
             {
@@ -392,39 +496,56 @@ namespace PSXPrev.Classes
                 //var offset = reader.BaseStream.Position;
                 if (packetStructure != null)
                 {
-                    TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure,
+                    TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, shared,
                         index =>
                         {
-                            var position = reader.BaseStream.Position;
-                            reader.BaseStream.Seek(_offset + vertTop + index * 8, SeekOrigin.Begin);
-                            var x = reader.ReadInt16();
-                            var y = reader.ReadInt16();
-                            var z = reader.ReadInt16();
-                            var pad = reader.ReadInt16();
-                            var vertex = new Vector3(x, y, z);
-                            reader.BaseStream.Seek(position, SeekOrigin.Begin);
-                            return vertex;
+                            if (shared)
+                            {
+                                return Vector3.Zero; // This is an attached vertex.
+                            }
+                            return ReadVertex(reader, vertTop, index);
                         },
                         index =>
                         {
-                            var position = reader.BaseStream.Position;
-                            reader.BaseStream.Seek(_offset + normTop + index * 8, SeekOrigin.Begin);
-                            var nx = TMDHelper.ConvertNormal(reader.ReadInt16());
-                            var ny = TMDHelper.ConvertNormal(reader.ReadInt16());
-                            var nz = TMDHelper.ConvertNormal(reader.ReadInt16());
-                            var pad = FInt.Create(reader.ReadInt16());
-                            var normal = new Vector3
+                            if (shared)
                             {
-                                X = nx,
-                                Y = ny,
-                                Z = nz
-                            };
-                            reader.BaseStream.Seek(position, SeekOrigin.Begin);
-                            return normal;
+                                return Vector3.UnitZ; // This is an attached normal. Return Unit vector in-case it somehow gets used in a calculation.
+                            }
+                            return ReadNormal(reader, normTop, index);
                         }
                     );
                 }
             }
+            reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
+        }
+
+        private void ProcessSharedGeometryData(Dictionary<uint, Vector3> sharedVertices, Dictionary<uint, Vector3> sharedNormals, BinaryReader reader, uint driver, uint primitiveHeaderPointer, uint nextPrimitivePointer)
+        {
+            // Pre-calculation driver for shared geometry data.
+            var primitivePosition = reader.BaseStream.Position;
+            ProcessSharedGeometryPrimitiveHeader(reader, primitiveHeaderPointer, out var dataTop, out var vertTop, out var calcVertTop, out var normTop, out var calcNormTop, out var coordTop);
+            reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
+
+            // todo: Figure out what to do when dst != src. Is dst the lookup index?
+            var vertCount = reader.ReadUInt32();
+            var vertSrcOffset = reader.ReadUInt32();
+            var vertDstOffset = reader.ReadUInt32();
+
+            var normCount = reader.ReadUInt32();
+            var normSrcOffset = reader.ReadUInt32();
+            var normDstOffset = reader.ReadUInt32();
+
+            for (uint i = 0; i < vertCount; i++)
+            {
+                var index = vertSrcOffset + i;
+                sharedVertices[index] = ReadVertex(reader, vertTop, index);
+            }
+            for (uint i = 0; i < normCount; i++)
+            {
+                var index = normSrcOffset + i;
+                sharedNormals[index] = ReadNormal(reader, normTop, index);
+            }
+
             reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
         }
 
@@ -638,7 +759,7 @@ namespace PSXPrev.Classes
             }
         }
 
-        private void ProcessGeometryPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, uint polygonIndex, out uint vertTop, out uint normTop, out uint coordTop, out uint dataTop)
+        private void ProcessGeometryPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint vertTop, out uint normTop, out uint coordTop, out uint dataTop)
         {
             var position = reader.BaseStream.Position;
 
@@ -655,6 +776,48 @@ namespace PSXPrev.Classes
             vertTop *= 4;
             normTop *= 4;
             coordTop *= 4;
+
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+        }
+
+        private void ProcessSharedGeometryPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint dataTop, out uint vertTop, out uint calcVertTop, out uint normTop, out uint calcNormTop, out uint coordTop)
+        {
+            var position = reader.BaseStream.Position;
+
+            reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
+
+            var headerSize = reader.ReadUInt32();
+
+            ReadMappedValue(reader, out var dataTopMapped, out dataTop);
+            ReadMappedValue(reader, out var vertTopMapped, out vertTop);
+            ReadMappedValue(reader, out var calcVertTopMapped, out calcVertTop);
+            ReadMappedValue(reader, out var normTopMaped, out normTop);
+            ReadMappedValue(reader, out var calcNormTopMaped, out calcNormTop);
+            ReadMappedValue(reader, out var coordTopMapped, out coordTop);
+
+            dataTop *= 4;
+            vertTop *= 4;
+            calcVertTop *= 4;
+            normTop *= 4;
+            calcNormTop *= 4;
+            coordTop *= 4;
+
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+        }
+
+        private void ProcessImageDataPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint imageTop, out uint clutTop)
+        {
+            var position = reader.BaseStream.Position;
+
+            reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
+
+            var headerSize = reader.ReadUInt32();
+
+            ReadMappedValue(reader, out var imageTopMapped, out imageTop);
+            ReadMappedValue(reader, out var clutTopMapped, out clutTop);
+
+            imageTop *= 4;
+            clutTop *= 4;
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
