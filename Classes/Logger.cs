@@ -40,7 +40,7 @@ namespace PSXPrev.Classes
 
         public void WriteLine(object text)
         {
-            WriteLine(new[] { text });
+            WriteLine("{0}", new[] { text });
         }
 
         public void WriteErrorLine(string format, params object[] args)
@@ -50,7 +50,7 @@ namespace PSXPrev.Classes
         }
         public void WriteErrorLine(object text)
         {
-            WriteErrorLine(new[] { text });
+            WriteErrorLine("{0}", new[] { text });
         }
 
 
