@@ -12,7 +12,8 @@ PSXPrev uses:
 To run PSXPrev, you need:
 - An OpenGL 3.0 compatible video card
 - .NET Framework 4.8
-- Treat it as an experimental release and use this tool at your own risk.
+
+Treat it as an experimental release and use this tool at your own risk.
 
 Scanned file formats: TMD, PMD, TIM, HMD, TOD, VDF, and more.
 Warning: PSXPrev uses a lot of memory to scan files, so your system might run out of resources while scanning.
