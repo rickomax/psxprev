@@ -54,7 +54,30 @@ namespace PSXPrev.Forms
 
         private void ScanButton_Click(object sender, EventArgs e)
         {
-            Program.DoScan(FilenameText.Text, FilterText.Text, TMDCheckBox.Checked, VDFCheckBox.Checked, TIMCheckBox.Checked, PMDCheckBox.Checked, TODCheckBox.Checked, hmdCheckBox.Checked, LogCheckBox.Checked, NoVerboseCheckBox.Checked, DebugCheckBox.Checked, crocCheckBox.Checked, psxCheckBox.Checked, scanForAnCheckBox.Checked, ignoreVersionCheckBox.Checked, scanForBffCheckBox.Checked);
+            Program.DoScan(FilenameText.Text, FilterText.Text, new Program.ScanOptions
+            {
+                CheckAN = scanForAnCheckBox.Checked,
+                CheckBFF = scanForBffCheckBox.Checked,
+                CheckCROC = crocCheckBox.Checked,
+                CheckHMD = hmdCheckBox.Checked,
+                CheckPMD = PMDCheckBox.Checked,
+                CheckPSX = psxCheckBox.Checked,
+                CheckTIM = TIMCheckBox.Checked,
+                CheckTMD = TMDCheckBox.Checked,
+                CheckTOD = TODCheckBox.Checked,
+                CheckVDF = VDFCheckBox.Checked,
+
+                IgnoreTMDVersion = ignoreVersionCheckBox.Checked,
+
+                LogToFile = LogCheckBox.Checked,
+                NoVerbose = NoVerboseCheckBox.Checked,
+                Debug = DebugCheckBox.Checked,
+                
+                SelectFirstModel = selectFirstModelCheckBox.Checked,
+                DrawAllToVRAM = drawAllToVRAMCheckBox.Checked,
+                AutoAttachLimbs = autoAttachLimbsCheckBox.Checked,
+            });
+
             Close();
         }
 

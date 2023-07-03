@@ -170,6 +170,53 @@ namespace PSXPrev
             }
         }
 
+        public void SetAutoAttachLimbs(bool attachLimbs)
+        {
+            if (InvokeRequired)
+            {
+                var invokeAction = new Action<bool>(SetAutoAttachLimbs);
+                Invoke(invokeAction, attachLimbs);
+            }
+            else
+            {
+                autoAttachLimbsToolStripMenuItem.Checked = attachLimbs;
+                _scene.AutoAttach = attachLimbs;
+                UpdateSelectedEntity(true);
+            }
+        }
+
+        public void SelectFirstEntity()
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(SelectFirstEntity));
+            }
+            else
+            {
+                if (entitiesTreeView.Nodes.Count > 0)
+                {
+                    // I don't think the user will necessarily want the entity checked too.
+                    //entitiesTreeView.Nodes[0].Checked = true;
+                    entitiesTreeView.SelectedNode = entitiesTreeView.Nodes[0];
+                }
+            }
+        }
+
+        public void DrawAllTexturesToVRAM()
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(DrawAllTexturesToVRAM));
+            }
+            else
+            {
+                foreach (var texture in _textures)
+                {
+                    DrawTextureToVRAM(texture);
+                }
+            }
+        }
+
         private void SetupControls()
         {
             _openTkControl = new GLControl
@@ -625,7 +672,7 @@ namespace PSXPrev
 
         private Texture GetSelectedTexture(int? index = null)
         {
-            if (texturesListView.SelectedIndices.Count == 0)
+            if (!index.HasValue && texturesListView.SelectedIndices.Count == 0)
             {
                 return null;
             }
@@ -635,6 +682,20 @@ namespace PSXPrev
                 return null;
             }
             return _textures[textureIndex];
+        }
+
+        private void DrawTextureToVRAM(Texture texture)
+        {
+            var texturePage = texture.TexturePage;
+            var textureX = texture.X;
+            var textureY = texture.Y;
+            var textureBitmap = texture.Bitmap;
+            var textureWidth = textureBitmap.Width;
+            var textureHeight = textureBitmap.Height;
+            var vramPageBitmap = _vramPage[texturePage].Bitmap;
+            var vramPageGraphics = Graphics.FromImage(vramPageBitmap);
+            vramPageGraphics.DrawImage(textureBitmap, textureX, textureY, textureWidth, textureHeight);
+            _scene.UpdateTexture(vramPageBitmap, texturePage);
         }
 
         private void drawToVRAMButton_Click(object sender, EventArgs e)
@@ -647,17 +708,7 @@ namespace PSXPrev
             }
             foreach (int index in texturesListView.SelectedIndices)
             {
-                var texture = GetSelectedTexture(index);
-                var texturePage = texture.TexturePage;
-                var textureX = texture.X;
-                var textureY = texture.Y;
-                var textureBitmap = texture.Bitmap;
-                var textureWidth = textureBitmap.Width;
-                var textureHeight = textureBitmap.Height;
-                var vramPageBitmap = _vramPage[texturePage].Bitmap;
-                var vramPageGraphics = Graphics.FromImage(vramPageBitmap);
-                vramPageGraphics.DrawImage(textureBitmap, textureX, textureY, textureWidth, textureHeight);
-                _scene.UpdateTexture(vramPageBitmap, texturePage);
+                DrawTextureToVRAM(GetSelectedTexture(index));
             }
         }
 
