@@ -34,3 +34,38 @@ Compatibility list:
 
 Known issues/limitations:
 PSXPrev only find files conformant to the file formats it's looking for. PSXPrev can't scan any compressed or proprietary format.
+
+Command line usage:
+```
+usage: PSXPrev <PATH> [FILTER="*.*"] [-help] [-an] [-bff] [-croc]
+               [-hmd] [-pmd] [-psx] [-tim] [-tmd] [-tod] [-vdf]
+               [-ignoretmdversion] [-log] [-noverbose] [-debug]
+               [-selectmodel] [-drawvram] [-attachlimbs]
+
+arguments:
+  PATH   : folder or file path to scan
+  FILTER : wildcard filter for files to include (default: "*.*")
+
+scanner options: (default: all formats)
+  -an    : scan for AN animations
+  -bff   : scan for BFF models
+  -croc  : scan for CROC models
+  -hmd   : scan for HMD models, textures, and animations
+  -pmd   : scan for PMD models
+  -psx   : scan for PSX models
+  -tim   : scan for TIM textures
+  -tmd   : scan for TMD models
+  -tod   : scan for TOD animations
+  -vdf   : scan for VDF animations
+  -ignoretmdversion : reduce strictness when scanning TMD models
+
+log options:
+  -log       : write output to log file
+  -noverbose : reduce output to console and file
+  -debug     : output file format details and other information
+
+program options:
+  -selectmodel : select and display the first-loaded model
+  -drawvram    : draw all loaded textures to VRAM (not advised when scanning a lot of files)
+  -attachlimbs : enable Auto Attach Limbs by default
+```

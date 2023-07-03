@@ -432,7 +432,7 @@ namespace PSXPrev.Classes
 
             if (Program.Debug)
             {
-                Console.WriteLine($"Primitive data: {PrintPrimitiveData(primitiveData)}");
+                Program.Logger.WriteLine($"Primitive data: {PrintPrimitiveData(primitiveData)}");
             }
 
             var vertex0 = vertexCallback(vertexIndex0);

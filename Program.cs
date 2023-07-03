@@ -18,6 +18,37 @@ namespace PSXPrev
 {
     public class Program
     {
+        public class ScanOptions
+        {
+            public bool CheckAll => !CheckAN && !CheckBFF && !CheckCROC && !CheckHMD && !CheckPMD && !CheckPSX && !CheckTIM && !CheckTMD && !CheckTOD && !CheckVDF;
+
+            public bool CheckAN { get; set; }
+            public bool CheckBFF { get; set; }
+            public bool CheckCROC { get; set; }
+            public bool CheckHMD { get; set; }
+            public bool CheckPMD { get; set; }
+            public bool CheckPSX { get; set; }
+            public bool CheckTIM { get; set; }
+            public bool CheckTMD { get; set; }
+            public bool CheckTOD { get; set; }
+            public bool CheckVDF { get; set; }
+
+            public bool IgnoreTMDVersion { get; set; }
+
+            public bool LogToFile { get; set; }
+            public bool NoVerbose { get; set; }
+            public bool Debug { get; set; }
+
+            public bool SelectFirstModel { get; set; }
+            public bool DrawAllToVRAM { get; set; }
+            public bool AutoAttachLimbs { get; set; }
+
+            public ScanOptions Clone()
+            {
+                return (ScanOptions)MemberwiseClone();
+            }
+        }
+
         public static Logger Logger;
         // Volatile because these are assigned and accessed in different threads.
         private static volatile PreviewForm PreviewForm;
@@ -33,24 +64,18 @@ namespace PSXPrev
 
         private static long _largestFileLength;
         private static long _largestCurrentFilePosition;
-        private static bool _checkAll;
         private static string _path;
-        private static bool _checkTmd;
-        private static bool _checkVdf;
-        private static bool _checkTim;
-        private static bool _checkPmd;
-        private static bool _checkTod;
-        private static bool _checkHmd;
-        private static bool _checkCroc;
-        private static bool _checkPsx;
-        private static bool _checkAn;
-        private static bool _checkBff;
+        private static string _filter;
+        private static ScanOptions _options = new ScanOptions();
 
-        public static bool IgnoreTmdVersion;
-        public static bool Debug;
-        public static bool Log;
-        public static bool NoVerbose;
-        public static string Filter;
+
+        public static bool IgnoreTmdVersion => _options.IgnoreTMDVersion;
+        public static bool Debug => _options.Debug;
+        public static bool LogToFile => _options.LogToFile;
+        public static bool NoVerbose => _options.NoVerbose;
+
+
+        public const string DefaultFilter = "*.*";
 
         public static ulong MaxTODPackets = 10000;
         public static ulong MaxTODFrames = 10000;
@@ -75,17 +100,162 @@ namespace PSXPrev
             Initialize(args);
         }
 
+        public static void PrintUsage()
+        {
+            Console.ForegroundColor = ConsoleColor.White;
+
+            Console.WriteLine("usage: PSXPrev <PATH> [FILTER=\"" + DefaultFilter + "\"] [-help]"  // general
+                + " [-an] [-bff] [-croc] [-hmd] [-pmd] [-psx] [-tim] [-tmd] [-tod] [-vdf]" // scanner formats (alphabetical)
+                + " [-ignoretmdversion]" // scanner options
+                + " [-log] [-noverbose] [-debug]" // log options
+                + " [-selectmodel] [-drawvram] [-attachlimbs]" // program options
+                );
+
+            Console.ResetColor();
+        }
+
+        public static void PrintHelp()
+        {
+            PrintUsage();
+
+            Console.ForegroundColor = ConsoleColor.White;
+
+            Console.WriteLine();
+            //Console.WriteLine("positional arguments:");
+            Console.WriteLine("arguments:");
+            Console.WriteLine("  PATH   : folder or file path to scan");
+            Console.WriteLine("  FILTER : wildcard filter for files to include (default: \"" + DefaultFilter + "\")");
+            Console.WriteLine();
+            Console.WriteLine("scanner options: (default: all formats)");
+            Console.WriteLine("  -an    : scan for AN animations");
+            Console.WriteLine("  -bff   : scan for BFF models");
+            Console.WriteLine("  -croc  : scan for CROC models");
+            Console.WriteLine("  -hmd   : scan for HMD models, textures, and animations");
+            Console.WriteLine("  -pmd   : scan for PMD models");
+            Console.WriteLine("  -psx   : scan for PSX models");
+            Console.WriteLine("  -tim   : scan for TIM textures");
+            Console.WriteLine("  -tmd   : scan for TMD models");
+            Console.WriteLine("  -tod   : scan for TOD animations");
+            Console.WriteLine("  -vdf   : scan for VDF animations");
+            Console.WriteLine("  -ignoretmdversion : reduce strictness when scanning TMD models");
+            Console.WriteLine();
+            Console.WriteLine("log options:");
+            Console.WriteLine("  -log       : write output to log file");
+            Console.WriteLine("  -noverbose : reduce output to console and file");
+            Console.WriteLine("  -debug     : output file format details and other information");
+            Console.WriteLine();
+            Console.WriteLine("program options:");
+            //Console.WriteLine("  -help        : show this help message"); // It's redundant to display this
+            Console.WriteLine("  -selectmodel : select and display the first-loaded model");
+            Console.WriteLine("  -drawvram    : draw all loaded textures to VRAM (not advised when scanning a lot of files)");
+            Console.WriteLine("  -attachlimbs : enable Auto Attach Limbs by default");
+
+            Console.ResetColor();
+        }
+
+        private static bool TryParseHelp(string arg)
+        {
+            switch (arg)
+            {
+                // Add all -help aliases here
+                case "-help":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static bool TryParseOption(string arg, ScanOptions options, ref bool help)
+        {
+            if (options == null)
+            {
+                // Use dummy options. We're just checking for a valid argument.
+                options = new ScanOptions();
+            }
+
+            if (TryParseHelp(arg))
+            {
+                help = true;
+                return true;
+            }
+
+            switch (arg)
+            {
+                case "-an":
+                    options.CheckAN = true;
+                    break;
+                case "-bff":
+                    options.CheckBFF = true;
+                    break;
+                case "-croc":
+                    options.CheckCROC = true;
+                    break;
+                case "-hmd":
+                    options.CheckHMD = true;
+                    break;
+                case "-pmd":
+                    options.CheckPMD = true;
+                    break;
+                case "-psx":
+                    options.CheckPSX = true;
+                    break;
+                case "-tim":
+                    options.CheckTIM = true;
+                    break;
+                case "-tmd":
+                    options.CheckTMD = true;
+                    break;
+                case "-tod":
+                    options.CheckTOD = true;
+                    break;
+                case "-vdf":
+                    options.CheckVDF = true;
+                    break;
+                case "-ignoretmdversion":
+                    options.IgnoreTMDVersion = true;
+                    break;
+
+                case "-log":
+                    options.LogToFile = true;
+                    break;
+                case "-noverbose":
+                    options.NoVerbose = true;
+                    break;
+                case "-debug":
+                    options.Debug = true;
+                    break;
+
+                case "-selectmodel":
+                    options.SelectFirstModel = true;
+                    break;
+                case "-drawvram":
+                    options.DrawAllToVRAM = true;
+                    break;
+                case "-attachlimbs":
+                    options.AutoAttachLimbs = true;
+                    break;
+
+                default:
+                    return false;
+            }
+            return true;
+        }
+
         public static void Initialize(string[] args)
         {
             if (args == null || args.Length == 0)
             {
-                Console.ForegroundColor = ConsoleColor.White;
-                Console.WriteLine("Usage PSXPrev folder filter(optional) -tmd(optional) -vdf(optional) -pmd(optional) -tim(optional) -tod(optional) -an(optional) -hmd(optional) -croc(optional) -psx(optional) -log(optional) -noverbose(optional) -debug(optional) -ignoretmdversion(optional) -bff(optional)");
-
+                // No arguments specified. Show the launcher window and let the user choose what to do in the GUI.
+                // Also print usage so that the user can either ask for help, or specify what they want without the GUI in the future.
+                PrintUsage();
+                
                 var thread = new Thread(new ThreadStart(delegate
                 {
                     LauncherForm = new LauncherForm();
-                    _waitForLauncherForm.Set(); // LauncherForm has been assigned, let the main thread continue.
+                    LauncherForm.HandleCreated += (sender, e) => {
+                        // InvokeRequired won't return true unless the form's handle has been created.
+                        _waitForLauncherForm.Set(); // LauncherForm has been assigned and is setup, let the main thread continue.
+                    };
                     Application.EnableVisualStyles();
                     Application.Run(LauncherForm);
                 }));
@@ -95,113 +265,83 @@ namespace PSXPrev
                 return;
             }
 
-            var path = args[0];
-            //if (!Directory.Exists(path) && !File.Exists(path))
-            //{
-            //    Program.Logger.WriteErrorLine("Directory/File not found");
-            //    return;
-            //}
+            string path = null;
+            string filter = null;
+            var options = new ScanOptions();
+            var help = false; // Skip scanning and print the help message.
 
-            var filter = args.Length > 1 ? args[1] : "*.*";
-
-            var checkTmd = false;
-            var checkVdf = false;
-            var checkTim = false;
-            var checkPmd = false;
-            var checkTod = false;
-            var checkAn = false;
-            var checkHmdModels = false;
-            var checkCrocModels = false;
-            var checkPsx = false;
-            var checkBff = false;
-            var log = false;
-            var noVerbose = false;
-            var debug = false;
-            var ignoreTmdVersion = false;
-
-            for (var a = 2; a < args.Length; a++)
+            // Check if the user is asking for -help in-place of positional arguments.
+            for (var a = 0; a < Math.Min(2, args.Length); a++)
             {
-                switch (args[a])
+                if (TryParseHelp(args[a]))
                 {
-                    case "-tmd":
-                        checkTmd = true;
-                        break;
-                    case "-vdf":
-                        checkVdf = true;
-                        break;
-                    case "-pmd":
-                        checkPmd = true;
-                        break;
-                    case "-tim":
-                        checkTim = true;
-                        break;
-                    case "-tod":
-                        checkTod = true;
-                        break;
-                    case "-an":
-                        checkAn = true;
-                        break;
-                    case "-hmd":
-                        checkHmdModels = true;
-                        break;
-                    case "-log":
-                        log = true;
-                        break;
-                    case "-noverbose":
-                        noVerbose = true;
-                        break;
-                    case "-debug":
-                        debug = true;
-                        break;
-                    case "-croc":
-                        checkCrocModels = true;
-                        break;
-                    case "-psx":
-                        checkPsx = true;
-                        break;
-                    case "-ignoretmdversion":
-                        ignoreTmdVersion = true;
-                        break;
-                    case "-bff":
-                        checkBff = true;
-                        break;
+                    help = true;
+                    break;
                 }
             }
-            DoScan(path, filter, checkTmd, checkVdf, checkTim, checkPmd, checkTod, checkHmdModels, log, noVerbose, debug, checkCrocModels, checkPsx, checkAn, ignoreTmdVersion, checkBff);
-        }
 
-        internal static void DoScan(string path, string filter, bool checkTmd, bool checkVdf, bool checkTim, bool checkPmd, bool checkTod, bool checkHmd, bool log, bool noVerbose, bool debug, bool checkCroc, bool checkPsx, bool checkAn, bool ignoreTmdVersion, bool checkBff)
-        {
-            if (!Directory.Exists(path) && !File.Exists(path))
+            if (!help)
             {
-                Logger.WriteErrorLine("Directory/File not found");
+                // Parse positional arguments PATH and FILTER.
+                path = args[0];
+                //if (!Directory.Exists(path) && !File.Exists(path))
+                //{
+                //    Logger = new Logger(false, false);
+                //    Program.Logger.WriteErrorLine("Directory/File not found");
+                //    return;
+                //}
+
+                filter = args.Length > 1 ? args[1] : DefaultFilter;
+                // If we want, we can make FILTER truly optional by checking TryParseOption, and skipping FILTER if one was found.
+                // However, this would prevent the user from specifying a filter that matches a command line option.
+                // This is a pretty unlikely scenario, but it's worth considering.
+                //filter = DefaultFilter;
+                //if (args.Length > 1 && !TryParseOption(args[1], options, ref help))
+                //{
+                //    filter = args[1];
+                //}
+
+
+                // Parse all remaining options that aren't PATH or FILTER.
+                for (var a = 2; a < args.Length && !help; a++)
+                {
+                    if (!TryParseOption(args[a], options, ref help))
+                    {
+                        // If we want, we can show some warning or error that an unknown option was passed.
+                    }
+                }
+            }
+
+            // Show help and quit.
+            if (help)
+            {
+                PrintHelp();
                 return;
             }
 
-            Scanning = true;
+            DoScan(path, filter, options);
+        }
 
-            Logger = new Logger(log, noVerbose);
+        internal static void DoScan(string path, string filter = null, ScanOptions options = null)
+        {
+            if (options == null)
+            {
+                options = new ScanOptions(); // Use default options if none given.
+            }
+            
+            Logger = new Logger(options.LogToFile, options.NoVerbose);
 
-            _checkAll = !(checkTmd || checkVdf || checkTim || checkPmd || checkTod || checkHmd || checkCroc || checkPsx || checkAn || checkBff);
+            if (!Directory.Exists(path) && !File.Exists(path))
+            {
+                Program.Logger.WriteErrorLine("Directory/File not found: {0}", path);
+                return;
+            }
+
             _path = path;
-            Filter = filter;
-            _checkTmd = checkTmd;
-            _checkVdf = checkVdf;
-            _checkTim = checkTim;
-            //_checkTimAlt = checkTimAlt;
-            _checkPmd = checkPmd;
-            _checkTod = checkTod;
-            _checkHmd = checkHmd;
-            _checkCroc = checkCroc;
-            _checkPsx = checkPsx;
-            _checkAn = checkAn;
-            _checkBff = checkBff;
+            _filter = filter ?? DefaultFilter;
+            _options = options.Clone();
 
-            Log = log;
-            NoVerbose = noVerbose;
-
-            IgnoreTmdVersion = ignoreTmdVersion;
-            Debug = debug;
+            Scanning = true;
 
             AllEntities = new List<RootEntity>();
             AllTextures = new List<Texture>();
@@ -226,13 +366,20 @@ namespace PSXPrev
                         form.UpdateTextures(AllTextures);
                     }
                 });
-                _waitForPreviewForm.Set(); // PreviewForm has been assigned, let the main thread continue.
+                PreviewForm.HandleCreated += (sender, e) => {
+                    // InvokeRequired won't return true unless the form's handle has been created.
+                    _waitForPreviewForm.Set(); // PreviewForm has been assigned and is setup, let the main thread continue.
+                };
                 Application.EnableVisualStyles();
                 Application.Run(PreviewForm);
             }));
             thread.SetApartmentState(ApartmentState.STA);
             thread.Start();
             _waitForPreviewForm.WaitOne(); // Wait for PreviewForm to be assigned before continuing.
+
+
+            // Assign default preview settings.
+            PreviewForm.SetAutoAttachLimbs(_options.AutoAttachLimbs);
 
             try
             {
@@ -248,6 +395,16 @@ namespace PSXPrev
                 Program.Logger.WritePositiveLine("Found {0} Animations", AllAnimations.Count);
 
                 PreviewForm.UpdateProgress(0, 0, true, $"{AllEntities.Count} Models, {AllTextures.Count} Textures, {AllAnimations.Count} Animations Found");
+
+                // Scan finished, perform end-of-scan actions specified by the user.
+                if (_options.SelectFirstModel)
+                {
+                    PreviewForm.SelectFirstEntity();
+                }
+                if (_options.DrawAllToVRAM)
+                {
+                    PreviewForm.DrawAllTexturesToVRAM();
+                }
             }
             catch (Exception exp)
             {
@@ -304,7 +461,7 @@ namespace PSXPrev
         {
             var parsers = new List<Action<BinaryReader, string>>();
 
-            if (_checkAll || _checkTim)
+            if (_options.CheckAll || _options.CheckTIM)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
@@ -315,7 +472,7 @@ namespace PSXPrev
                 });
             }
 
-            if (_checkAll || _checkCroc)
+            if (_options.CheckAll || _options.CheckCROC)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
@@ -326,7 +483,7 @@ namespace PSXPrev
                 });
             }
 
-            if (_checkAll || _checkBff)
+            if (_options.CheckAll || _options.CheckBFF)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
@@ -337,7 +494,7 @@ namespace PSXPrev
                 });
             }
 
-            if (_checkAll || _checkPsx)
+            if (_options.CheckAll || _options.CheckPSX)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
@@ -348,7 +505,7 @@ namespace PSXPrev
                 });
             }
 
-            if (_checkAll || _checkTmd)
+            if (_options.CheckAll || _options.CheckTMD)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
@@ -359,7 +516,7 @@ namespace PSXPrev
                 });
             }
 
-            if (_checkAll || _checkVdf)
+            if (_options.CheckAll || _options.CheckVDF)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
@@ -370,7 +527,7 @@ namespace PSXPrev
                 });
             }
 
-            if (_checkAll || _checkAn)
+            if (_options.CheckAll || _options.CheckAN)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
@@ -381,7 +538,7 @@ namespace PSXPrev
                 });
             }
 
-            if (_checkAll || _checkPmd)
+            if (_options.CheckAll || _options.CheckPMD)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
@@ -392,7 +549,7 @@ namespace PSXPrev
                 });
             }
 
-            if (_checkAll || _checkTod)
+            if (_options.CheckAll || _options.CheckTOD)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
@@ -403,7 +560,7 @@ namespace PSXPrev
                 });
             }
 
-            if (_checkAll || _checkHmd)
+            if (_options.CheckAll || _options.CheckHMD)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
@@ -419,7 +576,7 @@ namespace PSXPrev
                 using (var isoStream = File.Open(_path, FileMode.Open))
                 {
                     var cdReader = new CDReader(isoStream, true);
-                    var files = cdReader.GetFiles("", Filter ?? "*.*", SearchOption.AllDirectories);
+                    var files = cdReader.GetFiles("", _filter ?? DefaultFilter, SearchOption.AllDirectories);
                     foreach (var file in files)
                     {
                         if (HasInvalidExtension(file))
@@ -452,7 +609,7 @@ namespace PSXPrev
             }
             else
             {
-                ProcessFiles(_path, Filter, parsers);
+                ProcessFiles(_path, _filter, parsers);
             }
         }
 

@@ -53,6 +53,9 @@
             this.LogCheckBox = new System.Windows.Forms.CheckBox();
             this.ScanButton = new System.Windows.Forms.Button();
             this.scanForBffCheckBox = new System.Windows.Forms.CheckBox();
+            this.selectFirstModelCheckBox = new System.Windows.Forms.CheckBox();
+            this.drawAllToVRAMCheckBox = new System.Windows.Forms.CheckBox();
+            this.autoAttachLimbsCheckBox = new System.Windows.Forms.CheckBox();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox3.SuspendLayout();
@@ -241,6 +244,9 @@
             // 
             // groupBox4
             // 
+            this.groupBox4.Controls.Add(this.autoAttachLimbsCheckBox);
+            this.groupBox4.Controls.Add(this.drawAllToVRAMCheckBox);
+            this.groupBox4.Controls.Add(this.selectFirstModelCheckBox);
             this.groupBox4.Controls.Add(this.ignoreVersionCheckBox);
             this.groupBox4.Controls.Add(this.DebugCheckBox);
             this.groupBox4.Controls.Add(this.NoVerboseCheckBox);
@@ -248,7 +254,7 @@
             this.groupBox4.Dock = System.Windows.Forms.DockStyle.Top;
             this.groupBox4.Location = new System.Drawing.Point(0, 228);
             this.groupBox4.Name = "groupBox4";
-            this.groupBox4.Size = new System.Drawing.Size(384, 46);
+            this.groupBox4.Size = new System.Drawing.Size(384, 69);
             this.groupBox4.TabIndex = 3;
             this.groupBox4.TabStop = false;
             this.groupBox4.Text = "Options";
@@ -296,7 +302,7 @@
             // ScanButton
             // 
             this.ScanButton.Enabled = false;
-            this.ScanButton.Location = new System.Drawing.Point(297, 280);
+            this.ScanButton.Location = new System.Drawing.Point(297, 303);
             this.ScanButton.Name = "ScanButton";
             this.ScanButton.Size = new System.Drawing.Size(75, 23);
             this.ScanButton.TabIndex = 4;
@@ -314,11 +320,41 @@
             this.scanForBffCheckBox.Text = "BFF";
             this.scanForBffCheckBox.UseVisualStyleBackColor = true;
             // 
+            // selectFirstModelCheckBox
+            // 
+            this.selectFirstModelCheckBox.AutoSize = true;
+            this.selectFirstModelCheckBox.Location = new System.Drawing.Point(12, 42);
+            this.selectFirstModelCheckBox.Name = "selectFirstModelCheckBox";
+            this.selectFirstModelCheckBox.Size = new System.Drawing.Size(110, 17);
+            this.selectFirstModelCheckBox.TabIndex = 5;
+            this.selectFirstModelCheckBox.Text = "Select First Model";
+            this.selectFirstModelCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // drawAllToVRAMCheckBox
+            // 
+            this.drawAllToVRAMCheckBox.AutoSize = true;
+            this.drawAllToVRAMCheckBox.Location = new System.Drawing.Point(128, 42);
+            this.drawAllToVRAMCheckBox.Name = "drawAllToVRAMCheckBox";
+            this.drawAllToVRAMCheckBox.Size = new System.Drawing.Size(111, 17);
+            this.drawAllToVRAMCheckBox.TabIndex = 6;
+            this.drawAllToVRAMCheckBox.Text = "Draw All to VRAM";
+            this.drawAllToVRAMCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // autoAttachLimbsCheckBox
+            // 
+            this.autoAttachLimbsCheckBox.AutoSize = true;
+            this.autoAttachLimbsCheckBox.Location = new System.Drawing.Point(245, 42);
+            this.autoAttachLimbsCheckBox.Name = "autoAttachLimbsCheckBox";
+            this.autoAttachLimbsCheckBox.Size = new System.Drawing.Size(112, 17);
+            this.autoAttachLimbsCheckBox.TabIndex = 7;
+            this.autoAttachLimbsCheckBox.Text = "Auto Attach Limbs";
+            this.autoAttachLimbsCheckBox.UseVisualStyleBackColor = true;
+            // 
             // LauncherForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(384, 310);
+            this.ClientSize = new System.Drawing.Size(384, 333);
             this.Controls.Add(this.ScanButton);
             this.Controls.Add(this.groupBox4);
             this.Controls.Add(this.groupBox3);
@@ -368,5 +404,8 @@
         private System.Windows.Forms.CheckBox scanForAnCheckBox;
         private System.Windows.Forms.CheckBox ignoreVersionCheckBox;
         private System.Windows.Forms.CheckBox scanForBffCheckBox;
+        private System.Windows.Forms.CheckBox autoAttachLimbsCheckBox;
+        private System.Windows.Forms.CheckBox drawAllToVRAMCheckBox;
+        private System.Windows.Forms.CheckBox selectFirstModelCheckBox;
     }
 }
