@@ -30,7 +30,7 @@ Video tutorial:
 <https://www.youtube.com/watch?v=hPDa8l3ZE6U&feature=youtu.be>
 
 Compatibility list:
-<https://drive.google.com/file/d/1V39J5RNcZLID6WNnw7ZB98tMwoksHjGS/view?usp=sharing>
+<https://docs.google.com/spreadsheets/d/155pUzwl7CC14ssT0PJkaEA53CS1ijpOV04VitQCVBC4>
 
 Known issues/limitations:
 PSXPrev only find files conformant to the file formats it's looking for. PSXPrev can't scan any compressed or proprietary format.
