@@ -212,9 +212,19 @@ namespace PSXPrev
             {
                 PreviewForm = new PreviewForm((form) =>
                 {
-                    form.UpdateAnimations(AllAnimations);
-                    form.UpdateRootEntities(AllEntities);
-                    form.UpdateTextures(AllTextures);
+                    // Prevent another thread from adding to the lists while enumerating them.
+                    lock (AllAnimations)
+                    {
+                        form.UpdateAnimations(AllAnimations);
+                    }
+                    lock (AllEntities)
+                    {
+                        form.UpdateRootEntities(AllEntities);
+                    }
+                    lock (AllTextures)
+                    {
+                        form.UpdateTextures(AllTextures);
+                    }
                 });
                 _waitForPreviewForm.Set(); // PreviewForm has been assigned, let the main thread continue.
                 Application.EnableVisualStyles();
@@ -257,6 +267,39 @@ namespace PSXPrev
             PreviewForm.UpdateProgress((int)(perc * 100), 100, false, message);
         }
 
+        private static void AddEntity(RootEntity entity, long fp)
+        {
+            // Prevent another thread from enumerating or modifying the list while adding to it.
+            lock (AllEntities)
+            {
+                AllEntities.Add(entity);
+            }
+            UpdateProgress(fp, $"Found Model with {entity.ChildCount} objects");
+            PreviewForm.ReloadItems();
+        }
+
+        private static void AddTexture(Texture texture, long fp)
+        {
+            // Prevent another thread from enumerating or modifying the list while adding to it.
+            lock (AllTextures)
+            {
+                AllTextures.Add(texture);
+            }
+            UpdateProgress(fp, $"Found Texture {texture.Width}x{texture.Height} {texture.Bpp}bpp");
+            PreviewForm.ReloadItems();
+        }
+
+        private static void AddAnimation(Animation animation, long fp)
+        {
+            // Prevent another thread from enumerating or modifying the list while adding to it.
+            lock (AllAnimations)
+            {
+                AllAnimations.Add(animation);
+            }
+            UpdateProgress(fp, $"Found Animation with {animation.ObjectCount} objects and {animation.FrameCount} frames");
+            PreviewForm.ReloadItems();
+        }
+
         private static void ScanFiles()
         {
             var parsers = new List<Action<BinaryReader, string>>();
@@ -265,12 +308,7 @@ namespace PSXPrev
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
-                    var timParser = new TIMParser((tmdEntity, fp) =>
-                    {
-                        AllTextures.Add(tmdEntity);
-                        UpdateProgress(fp, $"Found Texture {tmdEntity.Width}x{tmdEntity.Height} {tmdEntity.Bpp}bpp");
-                        PreviewForm.ReloadItems();
-                    });
+                    var timParser = new TIMParser(AddTexture);
                     //Program.Logger.WriteLine("");
                     Program.Logger.WriteLine("Scanning for TIM at file {0}", fileTitle);
                     timParser.LookForTim(binaryReader, fileTitle);
@@ -281,12 +319,7 @@ namespace PSXPrev
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
-                    var crocModelReader = new CrocModelReader((tmdEntity, fp) =>
-                    {
-                        AllEntities.Add(tmdEntity);
-                        UpdateProgress(fp, $"Found Model with {tmdEntity.ChildCount} objects");
-                        PreviewForm.ReloadItems();
-                    });
+                    var crocModelReader = new CrocModelReader(AddEntity);
                     //Program.Logger.WriteLine("");
                     Program.Logger.WriteLine("Scanning for Croc at file {0}", fileTitle);
                     crocModelReader.LookForCrocModel(binaryReader, fileTitle);
@@ -297,15 +330,10 @@ namespace PSXPrev
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
-                    var crocModelReader = new BFFModelReader((tmdEntity, fp) =>
-                    {
-                        AllEntities.Add(tmdEntity);
-                        UpdateProgress(fp, $"Found Model with {tmdEntity.ChildCount} objects");
-                        PreviewForm.ReloadItems();
-                    });
+                    var bffModelReader = new BFFModelReader(AddEntity);
                     //Program.Logger.WriteLine("");
                     Program.Logger.WriteLine("Scanning for BFF at file {0}", fileTitle);
-                    crocModelReader.LookForBFF(binaryReader, fileTitle);
+                    bffModelReader.LookForBFF(binaryReader, fileTitle);
                 });
             }
 
@@ -313,12 +341,7 @@ namespace PSXPrev
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
-                    var psxParser = new PSXParser((tmdEntity, fp) =>
-                    {
-                        AllEntities.Add(tmdEntity);
-                        UpdateProgress(fp, $"Found Model with {tmdEntity.ChildCount} objects");
-                        PreviewForm.ReloadItems();
-                    });
+                    var psxParser = new PSXParser(AddEntity);
                     //Program.Logger.WriteLine("");
                     Program.Logger.WriteLine("Scanning for PSX at file {0}", fileTitle);
                     psxParser.LookForPSX(binaryReader, fileTitle);
@@ -329,12 +352,7 @@ namespace PSXPrev
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
-                    var tmdParser = new TMDParser((tmdEntity, fp) =>
-                    {
-                        AllEntities.Add(tmdEntity);
-                        UpdateProgress(fp, $"Found Model with {tmdEntity.ChildCount} objects");
-                        PreviewForm.ReloadItems();
-                    });
+                    var tmdParser = new TMDParser(AddEntity);
                     //Program.Logger.WriteLine("");
                     Program.Logger.WriteLine("Scanning for TMD at file {0}", fileTitle);
                     tmdParser.LookForTmd(binaryReader, fileTitle);
@@ -345,12 +363,7 @@ namespace PSXPrev
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
-                    var vdfParser = new VDFParser((vdfEntity, fp) =>
-                    {
-                        AllAnimations.Add(vdfEntity);
-                        UpdateProgress(fp, $"Found Animation with {vdfEntity.ObjectCount} objects");
-                        PreviewForm.ReloadItems();
-                    });
+                    var vdfParser = new VDFParser(AddAnimation);
                     //Program.Logger.WriteLine("");
                     Program.Logger.WriteLine("Scanning for VDF at file {0}", fileTitle);
                     vdfParser.LookForVDF(binaryReader, fileTitle);
@@ -361,12 +374,7 @@ namespace PSXPrev
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
-                    var anParser = new ANParser((vdfEntity, fp) =>
-                    {
-                        AllAnimations.Add(vdfEntity);
-                        UpdateProgress(fp, $"Found Animation with {vdfEntity.ObjectCount} objects");
-                        PreviewForm.ReloadItems();
-                    });
+                    var anParser = new ANParser(AddAnimation);
                     //Program.Logger.WriteLine("");
                     Program.Logger.WriteLine("Scanning for AN at file {0}", fileTitle);
                     anParser.LookForAN(binaryReader, fileTitle);
@@ -377,12 +385,7 @@ namespace PSXPrev
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
-                    var pmdParser = new PMDParser((pmdEntity, fp) =>
-                    {
-                        AllEntities.Add(pmdEntity);
-                        UpdateProgress(fp, $"Found Model with {pmdEntity.ChildCount} objects");
-                        PreviewForm.ReloadItems();
-                    });
+                    var pmdParser = new PMDParser(AddEntity);
                     //Program.Logger.WriteLine("");
                     Program.Logger.WriteLine("Scanning for PMD at file {0}", fileTitle);
                     pmdParser.LookForPMD(binaryReader, fileTitle);
@@ -393,12 +396,7 @@ namespace PSXPrev
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
-                    var todParser = new TODParser((todEntity, fp) =>
-                    {
-                        AllAnimations.Add(todEntity);
-                        UpdateProgress(fp, $"Found Animation with {todEntity.ObjectCount} objects and {todEntity.FrameCount} frames");
-                        PreviewForm.ReloadItems();
-                    });
+                    var todParser = new TODParser(AddAnimation);
                     //Program.Logger.WriteLine("");
                     Program.Logger.WriteLine("Scanning for TOD at file {0}", fileTitle);
                     todParser.LookForTOD(binaryReader, fileTitle);
@@ -409,23 +407,7 @@ namespace PSXPrev
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
-                    var hmdParser = new HMDParser((hmdEntity, fp) =>
-                    {
-                        AllEntities.Add(hmdEntity);
-                        UpdateProgress(fp, $"Found Model with {hmdEntity.ChildCount} objects");
-                        PreviewForm.ReloadItems();
-                    }, (hmdAnimation, fp) =>
-                    {
-                        AllAnimations.Add(hmdAnimation);
-                        UpdateProgress(fp, $"Found Animation with {hmdAnimation.ObjectCount} objects and {hmdAnimation.FrameCount} frames");
-                        PreviewForm.ReloadItems();
-                    }, delegate (Texture texture, long fp)
-                        {
-                            AllTextures.Add(texture);
-                            UpdateProgress(fp, $"Found Texture {texture.Width}x{texture.Height} {texture.Bpp}bpp");
-                            PreviewForm.ReloadItems();
-                        }
-                    );
+                    var hmdParser = new HMDParser(AddEntity, AddAnimation, AddTexture);
                     //Program.Logger.WriteLine("");
                     Program.Logger.WriteLine("Scanning for HMD at file {0}", fileTitle);
                     hmdParser.LookForHMDEntities(binaryReader, fileTitle);
