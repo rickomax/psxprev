@@ -48,6 +48,7 @@ namespace PSXPrev.Classes
             base.ComputeBounds();
             var bounds = new BoundingBox();
             var worldMatrix = WorldMatrix;
+            bool hasBounds = false;
             foreach (var triangle in Triangles)
             {
                 if (triangle.Vertices != null)
@@ -63,9 +64,17 @@ namespace PSXPrev.Classes
                         }
                         var vertex = triangle.Vertices[i];
                         bounds.AddPoint(Vector3.TransformPosition(vertex, worldMatrix));
+                        hasBounds = true;
                     }
 
                 }
+            }
+            if (!hasBounds)
+            {
+                // When a model has all attached limb vertices, the model itself will have no bounds
+                // and will always be positioned at (0, 0, 0), even if the root entity has translation.
+                // This fixes it by translating the model bounds to match its transform.
+                bounds.AddPoint(worldMatrix.ExtractTranslation());
             }
             Bounds3D = bounds;
         }
@@ -77,6 +86,7 @@ namespace PSXPrev.Classes
             {
                 foreach (var triangle in Triangles)
                 {
+                    // AttachedNormalIndices should only ever be non-null when AttachedIndices is non-null.
                     if (triangle.AttachedIndices == null)
                     {
                         continue;
@@ -85,7 +95,6 @@ namespace PSXPrev.Classes
                     {
                         var attachedIndex = triangle.AttachedIndices[i];
                         var attachedNormalIndex = triangle.AttachedNormalIndices?[i] ?? uint.MaxValue;
-                        // AttachedNormalIndices should only ever be non-null when AttachedIndices is non-null.
                         if (attachedIndex != uint.MaxValue)
                         {
                             foreach (ModelEntity subModel in rootEntity.ChildEntities)
@@ -112,6 +121,10 @@ namespace PSXPrev.Classes
                                 if (subModel.AttachableVertices != null && subModel.AttachableVertices.TryGetValue(attachedIndex, out var attachedVertex))
                                 {
                                     var newVertex = Vector3.TransformPosition(attachedVertex, subModel.WorldMatrix);
+                                    // WorldMatrix.Inverted() here prevents transforms for this model from being
+                                    // applied, which they shouldn't be since attached vertices should only transform
+                                    // based on their attached model.
+                                    newVertex = Vector3.TransformPosition(newVertex, WorldMatrix.Inverted());
                                     triangle.Vertices[i] = newVertex;
                                 }
                                 if (subModel.AttachableNormals != null && subModel.AttachableNormals.TryGetValue(attachedNormalIndex, out var attachedNormal))
