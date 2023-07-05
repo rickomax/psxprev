@@ -1,62 +1,63 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
+using System.Reflection;
 using System.Timers;
 using System.Windows.Forms;
 using OpenTK;
 using PSXPrev.Classes;
-using Color = PSXPrev.Classes.Color;
+using Color = System.Drawing.Color;
 using Timer = System.Timers.Timer;
 
 namespace PSXPrev
 {
     public partial class PreviewForm : Form
     {
-        private enum MouseEventType
-        {
-            Down,
-            Up,
-            Move,
-            Wheel
-        }
-
-        private enum EntitySelectionSource
-        {
-            None,
-            TreeView,
-            Click
-        }
-
         private const float MouseSensivity = 0.0035f;
 
-        private static Pen Black3Px = new Pen(System.Drawing.Color.Black, 3f);
-        private static Pen White1Px = new Pen(System.Drawing.Color.White, 1f);
-
-        private Timer _animateTimer;
-        private Timer _redrawTimer;
+        private static readonly Pen Black3Px = new Pen(Color.Black, 3f);
+        private static readonly Pen White1Px = new Pen(Color.White, 1f);
         private readonly List<Animation> _animations;
         private readonly Action<PreviewForm> _refreshAction;
-        private GLControl _openTkControl;
-        private Scene _scene;
         private readonly List<RootEntity> _rootEntities;
         private readonly List<Texture> _textures;
-        private Texture[] _vramPage;
-        private Scene.GizmoId _selectedGizmo;
+
+        private Timer _animateTimer;
+        private Animation _curAnimation;
+        private float _curAnimationFrame;
+        private AnimationFrame _curAnimationFrameObj;
+        private AnimationObject _curAnimationObject;
+        private float _curAnimationTime;
         private Scene.GizmoId _hoveredGizmo;
-        private EntitySelectionSource _selectionSource;
-        private bool _playing;
-        private bool _showUv = true;
         private bool _inAnimationTab;
         private float _lastMouseX;
         private float _lastMouseY;
-        private float _curAnimationTime;
-        private float _curAnimationFrame;
-        private Animation _curAnimation;
-        private AnimationObject _curAnimationObject;
-        private AnimationFrame _curAnimationFrameObj;
-        private RootEntity _selectedRootEntity;
-        private ModelEntity _selectedModelEntity;
+        private GLControl _openTkControl;
         private Vector3 _pickedPosition;
+        private bool _playing;
+        private Timer _redrawTimer;
+        private readonly Scene _scene;
+        private Scene.GizmoId _selectedGizmo;
+        private ModelEntity _selectedModelEntity;
+        private RootEntity _selectedRootEntity;
+        private EntitySelectionSource _selectionSource;
+        private bool _showUv = true;
+        private readonly Texture[] _vramPage;
+
+        public PreviewForm(Action<PreviewForm> refreshAction)
+        {
+            _refreshAction = refreshAction;
+            _animations = new List<Animation>();
+            _textures = new List<Texture>();
+            _rootEntities = new List<RootEntity>();
+            _vramPage = new Texture[32];
+            _scene = new Scene();
+            refreshAction(this);
+            Toolkit.Init();
+            InitializeComponent();
+            SetupControls();
+        }
 
         private bool Playing
         {
@@ -75,20 +76,6 @@ namespace PSXPrev
                     _animateTimer.Stop();
                 }
             }
-        }
-
-        public PreviewForm(Action<PreviewForm> refreshAction)
-        {
-            _refreshAction = refreshAction;
-            _animations = new List<Animation>();
-            _textures = new List<Texture>();
-            _rootEntities = new List<RootEntity>();
-            _vramPage = new Texture[32];
-            _scene = new Scene();
-            refreshAction(this);
-            Toolkit.Init();
-            InitializeComponent();
-            SetupControls();
         }
 
         private void EntityAdded(RootEntity entity)
@@ -181,7 +168,7 @@ namespace PSXPrev
             {
                 autoAttachLimbsToolStripMenuItem.Checked = attachLimbs;
                 _scene.AutoAttach = attachLimbs;
-                UpdateSelectedEntity(true);
+                UpdateSelectedEntity();
             }
         }
 
@@ -219,27 +206,36 @@ namespace PSXPrev
 
         private void SetupControls()
         {
-            _openTkControl = new GLControl
-            {
-                BackColor = System.Drawing.Color.Black,
-                Location = new Point(180, 3),
-                Name = "openTKControl",
-                Size = new Size(800, 600),
-                TabIndex = 15,
-                VSync = true
-            };
+            _openTkControl = new GLControl { BackColor = Color.Black, Name = "openTKControl", TabIndex = 15, VSync = true };
             _openTkControl.Load += openTKControl_Load;
-            _openTkControl.MouseDown += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Down); };
-            _openTkControl.MouseUp += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Up); };
-            _openTkControl.MouseWheel += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Wheel); };
-            _openTkControl.MouseMove += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Move); };
+            _openTkControl.MouseDown += delegate(object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Down); };
+            _openTkControl.MouseUp += delegate(object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Up); };
+            _openTkControl.MouseWheel += delegate(object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Wheel); };
+            _openTkControl.MouseMove += delegate(object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Move); };
             _openTkControl.Paint += _openTkControl_Paint;
-            entitiesTabPage.Controls.Add(_openTkControl);
+            _openTkControl.Resize += _openTkControl_Resize;
+            _openTkControl.Dock = DockStyle.Fill;
+            _openTkControl.Parent = modelsSplitContainer.Panel2;
             UpdateLightDirection();
+            ResizeToolStrip();
+        }
+
+        private void _openTkControl_Resize(object sender, EventArgs e)
+        {
+            _openTkControl.MakeCurrent();
+            if (_scene.Initialized)
+            {
+                _scene.Resize(_openTkControl.Size.Width, _openTkControl.Size.Height);
+            }
+            else
+            {
+                _scene.Initialize(_openTkControl.Size.Width, _openTkControl.Size.Height);
+            }
         }
 
         private void _openTkControl_Paint(object sender, PaintEventArgs e)
         {
+            _openTkControl.MakeCurrent();
             if (_inAnimationTab && _curAnimation != null)
             {
                 var checkedEntities = GetCheckedEntities();
@@ -255,14 +251,14 @@ namespace PSXPrev
 
         private void SetupScene()
         {
-            _scene.Initialise(Width, Height);
+            _scene.Initialize(Width, Height);
         }
 
         private void SetupColors()
         {
-            SetMaskColor(System.Drawing.Color.Black);
-            SetAmbientColor(System.Drawing.Color.LightGray);
-            SetBackgroundColor(System.Drawing.Color.LightSkyBlue);
+            SetMaskColor(Color.Black);
+            SetAmbientColor(Color.LightGray);
+            SetBackgroundColor(Color.LightSkyBlue);
         }
 
         private void SetupTextures()
@@ -318,7 +314,7 @@ namespace PSXPrev
                 var texture = new Texture(256, 256, 0, 0, 32, i);
                 var textureBitmap = texture.Bitmap;
                 var graphics = Graphics.FromImage(textureBitmap);
-                graphics.Clear(System.Drawing.Color.White);
+                graphics.Clear(Color.White);
                 _vramPage[i] = texture;
                 _scene.UpdateTexture(textureBitmap, i);
             }
@@ -332,8 +328,8 @@ namespace PSXPrev
             _redrawTimer.Start();
             _animateTimer = new Timer();
             _animateTimer.Elapsed += _animateTimer_Elapsed;
-            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            var fileVersionInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(assembly.Location);
+            var assembly = Assembly.GetExecutingAssembly();
+            var fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
             Text = $@"{Text} {fileVersionInfo.FileVersion}";
         }
 
@@ -351,8 +347,9 @@ namespace PSXPrev
 
         private void UpdateFrameLabel()
         {
-            animationFrameLabel.Text = string.Format("Animation Frame:{0:0.##}", _curAnimationFrame);
-            animationFrameLabel.Refresh();
+            animationProggressBar.Maximum = (int)_curAnimation.FrameCount;
+            animationProggressBar.Value = (int)_curAnimationFrame;
+            animationProggressBar.Refresh();
         }
 
         private void _redrawTimer_Elapsed(object sender, ElapsedEventArgs e)
@@ -604,13 +601,12 @@ namespace PSXPrev
             {
                 return;
             }
-
             var matrix = Matrix4.CreateTranslation(selectedEntityBase.Bounds3D.Center);
             var scaleMatrix = _scene.GetGizmoScaleMatrix(matrix.ExtractTranslation());
             var finalMatrix = scaleMatrix * matrix;
-            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.XMover || selectedGizmo == Scene.GizmoId.XMover ? Color.White : Color.Red, Scene.XGizmoDimensions, Scene.XGizmoDimensions, 0, null, updateMeshData);
-            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.YMover || selectedGizmo == Scene.GizmoId.YMover ? Color.White : Color.Green, Scene.YGizmoDimensions, Scene.YGizmoDimensions, 1, null, updateMeshData);
-            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.ZMover || selectedGizmo == Scene.GizmoId.ZMover ? Color.White : Color.Blue, Scene.ZGizmoDimensions, Scene.ZGizmoDimensions, 2, null, updateMeshData);
+            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.XMover || selectedGizmo == Scene.GizmoId.XMover ? Classes.Color.White : Classes.Color.Red, Scene.XGizmoDimensions, Scene.XGizmoDimensions, 0, null, updateMeshData);
+            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.YMover || selectedGizmo == Scene.GizmoId.YMover ? Classes.Color.White : Classes.Color.Green, Scene.YGizmoDimensions, Scene.YGizmoDimensions, 1, null, updateMeshData);
+            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.ZMover || selectedGizmo == Scene.GizmoId.ZMover ? Classes.Color.White : Classes.Color.Blue, Scene.ZGizmoDimensions, Scene.ZGizmoDimensions, 2, null, updateMeshData);
             _selectedGizmo = selectedGizmo;
             _hoveredGizmo = hoveredGizmo;
         }
@@ -788,7 +784,7 @@ namespace PSXPrev
         {
             var bitmap = _vramPage[index].Bitmap;
             var graphics = Graphics.FromImage(bitmap);
-            graphics.Clear(System.Drawing.Color.White);
+            graphics.Clear(Color.White);
             vramPagePictureBox.Image = bitmap;
             _scene.UpdateTexture(bitmap, index);
         }
@@ -881,7 +877,7 @@ namespace PSXPrev
             {
                 return;
             }
-            if (entity is ModelEntity modelEntity)// && modelEntity.HasUvs)
+            if (entity is ModelEntity modelEntity) // && modelEntity.HasUvs)
             {
                 foreach (var triangle in modelEntity.Triangles)
                 {
@@ -890,7 +886,7 @@ namespace PSXPrev
                     graphics.DrawLine(Black3Px, triangle.Uv[2].X * 255f, triangle.Uv[2].Y * 255f, triangle.Uv[0].X * 255f, triangle.Uv[0].Y * 255f);
                 }
             }
-            if (entity is ModelEntity modelEntity2)//&& modelEntity2.HasUvs)
+            if (entity is ModelEntity modelEntity2) //&& modelEntity2.HasUvs)
             {
                 foreach (var triangle in modelEntity2.Triangles)
                 {
@@ -943,7 +939,7 @@ namespace PSXPrev
             SetupAnimations();
         }
 
-        private void SetMaskColor(System.Drawing.Color color)
+        private void SetMaskColor(Color color)
         {
             _scene.MaskColor = color;
             var bitmap = new Bitmap(16, 16);
@@ -952,7 +948,7 @@ namespace PSXPrev
             setMaskColorToolStripMenuItem.Image = bitmap;
         }
 
-        private void SetAmbientColor(System.Drawing.Color color)
+        private void SetAmbientColor(Color color)
         {
             _scene.AmbientColor = color;
             var bitmap = new Bitmap(16, 16);
@@ -961,9 +957,9 @@ namespace PSXPrev
             setAmbientColorToolStripMenuItem.Image = bitmap;
         }
 
-        private void SetBackgroundColor(System.Drawing.Color color)
+        private void SetBackgroundColor(Color color)
         {
-            _scene.ClearColor = new Color(color.R / 255f, color.G / 255f, color.B / 255f);
+            _scene.ClearColor = new Classes.Color(color.R / 255f, color.G / 255f, color.B / 255f);
             var bitmap = new Bitmap(16, 16);
             var graphics = Graphics.FromImage(bitmap);
             graphics.Clear(color);
@@ -982,17 +978,17 @@ namespace PSXPrev
                 case 0:
                     _inAnimationTab = false;
                     animationsTreeView.SelectedNode = null;
-                    _openTkControl.Parent = menusTabControl.TabPages[0];
+                    _openTkControl.Parent = modelsSplitContainer.Panel2;
                     _openTkControl.Show();
                     break;
                 case 3:
                     _inAnimationTab = true;
-                    _openTkControl.Parent = menusTabControl.TabPages[3];
+                    _openTkControl.Parent = animationsSplitContainer.Panel2;
                     _openTkControl.Show();
                     UpdateSelectedAnimation();
                     break;
                 default:
-                    _openTkControl.Parent = this;
+                    _openTkControl.Parent = null;
                     _openTkControl.Hide();
                     break;
             }
@@ -1151,26 +1147,23 @@ namespace PSXPrev
 
         private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            MessageBox.Show("PSXPrev - Playstation (PSX) Files Previewer/Extractor\n" +
-                            "(c) PSX Prev Contributors - 2020-2023"
-                , "About"
-            );
+            MessageBox.Show("PSXPrev - Playstation (PSX) Files Previewer/Extractor\n" + "(c) PSX Prev Contributors - 2020-2023", "About");
         }
 
         private void videoTutorialToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            System.Diagnostics.Process.Start("https://www.youtube.com/watch?v=hPDa8l3ZE6U");
+            Process.Start("https://www.youtube.com/watch?v=hPDa8l3ZE6U");
         }
 
         private void autoAttachLimbsToolStripMenuItem_Click(object sender, EventArgs e)
         {
             _scene.AutoAttach = autoAttachLimbsToolStripMenuItem.Checked;
-            UpdateSelectedEntity(true);
+            UpdateSelectedEntity();
         }
 
         private void compatibilityListToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            System.Diagnostics.Process.Start("https://docs.google.com/spreadsheets/d/155pUzwl7CC14ssT0PJkaEA53CS1ijpOV04VitQCVBC4/edit?pli=1#gid=22642205");
+            Process.Start("https://docs.google.com/spreadsheets/d/155pUzwl7CC14ssT0PJkaEA53CS1ijpOV04VitQCVBC4/edit?pli=1#gid=22642205");
         }
 
         private void exitToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1239,12 +1232,10 @@ namespace PSXPrev
 
         private void vibRibbonWireframeToolStripMenuItem_Click(object sender, EventArgs e)
         {
-
         }
 
         private void wireframeToolStripMenuItem_Click(object sender, EventArgs e)
         {
-
         }
 
         private void lineRendererToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
@@ -1260,7 +1251,7 @@ namespace PSXPrev
                 // This could be changed to only reset the selected model and its children.
                 // But that's only necessary if sub-sub-model support is ever added.
                 selectedEntityBase.GetRootEntity()?.ResetTransform(true);
-                UpdateSelectedEntity(true);
+                UpdateSelectedEntity();
             }
         }
 
@@ -1270,8 +1261,34 @@ namespace PSXPrev
             if (selectedEntityBase != null)
             {
                 selectedEntityBase.ResetTransform(false);
-                UpdateSelectedEntity(true);
+                UpdateSelectedEntity();
             }
+        }
+
+        private enum MouseEventType
+        {
+            Down,
+            Up,
+            Move,
+            Wheel
+        }
+
+        private enum EntitySelectionSource
+        {
+            None,
+            TreeView,
+            Click
+        }
+
+        private void statusStrip1_Resize(object sender, EventArgs e)
+        {
+            ResizeToolStrip();
+        }
+
+        private void ResizeToolStrip()
+        {
+            toolStripStatusLabel1.Width = (int)(statusStrip1.Width * 0.35f);
+            toolStripProgressBar1.Width = (int)(statusStrip1.Width * 0.65f);
         }
     }
 }

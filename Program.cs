@@ -639,7 +639,7 @@ namespace PSXPrev
 
         private static bool HasInvalidExtension(string file)
         {
-            return file.ToLowerInvariant().EndsWith(".str") || file.ToLowerInvariant().EndsWith(".xa") || file.ToLowerInvariant().EndsWith(".vb");
+            return file.ToLowerInvariant().EndsWith(".str") || file.ToLowerInvariant().EndsWith(".xa") || file.ToLowerInvariant().EndsWith(".vb") || file.ToLowerInvariant().EndsWith(".str;1") || file.ToLowerInvariant().EndsWith(".xa;1") || file.ToLowerInvariant().EndsWith(".vb;1");
         }
 
         private static void ProcessFile(Stream stream, string file, Action<BinaryReader, string> parser)

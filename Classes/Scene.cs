@@ -58,6 +58,8 @@ namespace PSXPrev.Classes
             ZMover
         }
 
+        public bool Initialized { get; private set; }
+
         public MeshBatch MeshBatch { get; private set; }
         public MeshBatch GizmosMeshBatch { get; private set; }
         public LineBatch BoundsBatch { get; private set; }
@@ -156,13 +158,23 @@ namespace PSXPrev.Classes
 
         public float LightIntensity { get; set; } = 1f;
 
-        public void Initialise(float width, float height)
+        public void Initialize(float width, float height)
         {
+            if (Initialized)
+            {
+                return;
+            }
             SetupGL();
             SetupShaders();
             SetupMatrices(width, height, CameraNearClip, CameraFarClip);
             SetupInternals();
-            //LightRotation = Quaternion.FromEulerAngles(45f,45f,0f) * new Vector3(0f,0f,1f);
+            Initialized = true;
+        }
+
+        public void Resize(float width, float height)
+        {
+            GL.Viewport(0, 0, (int)width, (int)height);
+            SetupMatrices(width, height, CameraNearClip, CameraFarClip);
         }
 
         private void SetupInternals()
@@ -232,9 +244,8 @@ namespace PSXPrev.Classes
             int[] infoLength = { 0 };
             GL.GetProgram(_shaderProgram, GetProgramParameterName.InfoLogLength, infoLength);
             var bufSize = infoLength[0];
-            var il = new StringBuilder(bufSize);
-            GL.GetProgramInfoLog(_shaderProgram, bufSize, out var bufferLength, il);
-            return il.ToString();
+            GL.GetProgramInfoLog(_shaderProgram, bufSize, out var bufferLength, out var log);
+            return log;
         }
 
         private void SetupMatrices(float width, float height, float nearClip, float farClip)
@@ -398,7 +409,7 @@ namespace PSXPrev.Classes
             }
             if (selectedEntityBase != null)
             {
-                var matrix = Matrix4.CreateTranslation(selectedEntityBase.Bounds3D.Center);//selectedEntityBase.WorldMatrix;
+                var matrix = Matrix4.CreateTranslation(selectedEntityBase.Bounds3D.Center);
                 var scaleMatrix = GetGizmoScaleMatrix(matrix.ExtractTranslation());
                 var finalMatrix = scaleMatrix * matrix;
                 GeomUtils.GetBoxMinMax(XGizmoDimensions, XGizmoDimensions, out var xMin, out var xMax, finalMatrix);
