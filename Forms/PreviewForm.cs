@@ -295,14 +295,6 @@ namespace PSXPrev
                 var animationObjectNode = new TreeNode("Animation-Object " + (o + 1));
                 animationObjectNode.Tag = animationObject;
                 parentNode.Nodes.Add(animationObjectNode);
-                animationObjectNode.HideCheckBox();
-                animationObjectNode.HideCheckBox();
-                foreach (var animationFrame in animationObject.AnimationFrames)
-                {
-                    var animationFrameNode = new TreeNode("Frame " + animationFrame.Value.FrameTime);
-                    animationFrameNode.Tag = animationFrame.Value;
-                    animationObjectNode.Nodes.Add(animationFrameNode);
-                }
                 AddAnimationObject(animationObject, animationObjectNode);
             }
         }
@@ -997,6 +989,7 @@ namespace PSXPrev
 
         private void animationsTreeView_AfterSelect(object sender, TreeViewEventArgs e)
         {
+            UpdateSelectedEntity();
             var selectedNode = animationsTreeView.SelectedNode;
             if (selectedNode == null)
             {
@@ -1030,6 +1023,7 @@ namespace PSXPrev
 
         private void animationPropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
         {
+            UpdateSelectedEntity();
             UpdateSelectedAnimation();
         }
 

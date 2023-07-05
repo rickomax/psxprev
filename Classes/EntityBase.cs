@@ -123,6 +123,9 @@ namespace PSXPrev.Classes
         [Browsable(false)]
         public float IntersectionDistance { get; set; }
 
+        [Browsable(false)]
+        public Matrix4 TempMatrix { get; set; } = Matrix4.Identity;
+
         protected EntityBase()
         {
             // Also assigns LocalMatrix, Translation, Rotation, and Scale.
@@ -216,5 +219,25 @@ namespace PSXPrev.Classes
             }
             return entity as RootEntity;
         }
-    }
+
+        public void ResetAnimationData()
+        {
+            if (this is ModelEntity modelEntity)
+            {
+                modelEntity.Interpolator = 0;
+                modelEntity.InitialVertices = null;
+                modelEntity.FinalVertices = null;
+                modelEntity.InitialNormals = null;
+                modelEntity.FinalNormals = null;
+            }
+            TempMatrix = Matrix4.Identity;
+            if (ChildEntities != null)
+            {
+                foreach (var child in ChildEntities)
+                {
+                    child.ResetAnimationData();
+                }
+            }
+        }
+        }
 }

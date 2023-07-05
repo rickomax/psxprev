@@ -31,18 +31,5 @@ namespace PSXPrev.Classes
             }
             return _groupedModels;
         }
-
-        public void ResetAnimationData()
-        {
-            foreach (ModelEntity modelEntity in ChildEntities)
-            {
-                modelEntity.Interpolator = 0;
-                modelEntity.InitialVertices = null;
-                modelEntity.FinalVertices = null;
-                modelEntity.InitialNormals = null;
-                modelEntity.FinalNormals = null;
-                modelEntity.TempMatrix = Matrix4.Identity;
-            }
-        }
     }
 }

@@ -82,7 +82,7 @@ namespace PSXPrev.Classes
                 {
                     return animationObjects[objectId];
                 }
-                var animationObject = new AnimationObject { Animation = animation, ID = objectId, TMDID = (uint?) (objectId+1)};
+                var animationObject = new AnimationObject { Animation = animation, ID = objectId };
                 animationObjects.Add(objectId, animationObject);
                 return animationObject;
             }
@@ -131,7 +131,7 @@ namespace PSXPrev.Classes
                     var animationFrame = GetAnimationFrame(animationObject, frameNumber);
                     switch (packetType)
                     {
-                        case 0x01: //Coordinate
+                        case 0b0001: //Coordinate
                             var matrixType = (flag & 0x1);
                             var rotation = (flag & 0x2) >> 0x1;
                             var scaling = (flag & 0x4) >> 0x2;
@@ -164,15 +164,15 @@ namespace PSXPrev.Classes
                             //    return null;
                             //}
                             break;
-                        case 0x02: //TMD data ID
-                            animationObject.TMDID = reader.ReadUInt16();
+                        case 0b0010: //TMD data ID
+                            animationObject.TMDID.Add(reader.ReadUInt16());
                             reader.ReadUInt16();
                             //if ((reader.BaseStream.Position - packetTop) / 4 != packetLength)
                             //{
                             //    return null;
                             //}
                             break;
-                        case 0x03: //Parent Object ID
+                        case 0b0011: //Parent Object ID
                             animationObject.ParentID = reader.ReadUInt16();
                             reader.ReadUInt16();
                             //if ((reader.BaseStream.Position - packetTop) / 4 != packetLength)
@@ -180,7 +180,7 @@ namespace PSXPrev.Classes
                             //    return null;
                             //}
                             break;
-                        case 0x04:
+                        case 0b0100: //Matrix
                             var r00 = reader.ReadInt16()/ 4096f;
                             var r01 = reader.ReadInt16()/ 4096f;
                             var r02 = reader.ReadInt16()/ 4096f;
@@ -216,12 +216,8 @@ namespace PSXPrev.Classes
                             //}
                             break;
                         default:
-                            if (packetType <= 0xF)
-                            {
                                 reader.BaseStream.Position = packetTop + packetLength * 4;
-                                continue;
-                            }
-                            return null;
+                                break;
                     }
                 }
             }

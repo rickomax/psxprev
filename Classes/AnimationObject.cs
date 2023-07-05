@@ -5,7 +5,7 @@ namespace PSXPrev.Classes
 {
     public class AnimationObject
     {
-        [Browsable(false)]
+        [DisplayName("Frames")]
         public Dictionary<uint, AnimationFrame> AnimationFrames { get; set; }
         
         [Browsable(false)]
@@ -24,7 +24,10 @@ namespace PSXPrev.Classes
         public uint ID { get; set; }
 
         [DisplayName("TMD ID")]
-        public uint? TMDID { get; set; }
+        public List<uint> TMDID { get; set; } = new List<uint>();
+
+        [DisplayName("Handles Root")]
+        public bool HandlesRoot { get; set; }
 
         public AnimationObject()
         {

@@ -30,7 +30,8 @@ namespace PSXPrev.Classes
             if (selectedRootEntity != null)
             {
                 rootEntity = selectedRootEntity;
-            } else if (selectedModelEntity != null)
+            }
+            else if (selectedModelEntity != null)
             {
                 rootEntity = selectedModelEntity.GetRootEntity();
             }
@@ -47,51 +48,53 @@ namespace PSXPrev.Classes
                     {
                         if (selectedRootEntity != null && animationObject.Parent != null)
                         {
-                            var objectId = animationObject.TMDID.GetValueOrDefault();
-                            foreach (ModelEntity childModel in selectedRootEntity.ChildEntities)
+                            selectedRootEntity.TempMatrix = Matrix4.Identity;
+                            foreach (var objectId in animationObject.TMDID)
                             {
-                                if (childModel.TMDID == objectId)
+                                foreach (ModelEntity childModel in selectedRootEntity.ChildEntities)
                                 {
-                                    var intFrameIndex = (uint)frameIndex;
-                                    if (intFrameIndex > animationObject.AnimationFrames.Count - 1)
+                                    if (childModel.TMDID == objectId)
                                     {
-                                        return false;
-                                    }
-                                    var animationFrame = animationObject.AnimationFrames[intFrameIndex];
-                                    if (intFrameIndex > 0)
-                                    {
-                                        var lastFrame = animationObject.AnimationFrames[intFrameIndex - 1];
-                                        for (uint j = 0; j < animationFrame.Vertices.Length; j++)
+                                        var intFrameIndex = (uint)frameIndex;
+                                        if (intFrameIndex > animationObject.AnimationFrames.Count - 1)
                                         {
-                                            if (j < lastFrame.Vertices.Length)
+                                            return false;
+                                        }
+                                        var animationFrame = animationObject.AnimationFrames[intFrameIndex];
+                                        if (intFrameIndex > 0)
+                                        {
+                                            var lastFrame = animationObject.AnimationFrames[intFrameIndex - 1];
+                                            for (uint j = 0; j < animationFrame.Vertices.Length; j++)
                                             {
-                                                animationFrame.TempVertices[j] = lastFrame.Vertices[j];
+                                                if (j < lastFrame.Vertices.Length)
+                                                {
+                                                    animationFrame.TempVertices[j] = lastFrame.Vertices[j];
+                                                }
+                                                else
+                                                {
+                                                    animationFrame.TempVertices[j] = Vector3.Zero;
+                                                }
                                             }
-                                            else
+                                        }
+                                        else
+                                        {
+                                            for (uint j = 0; j < animationFrame.Vertices.Length; j++)
                                             {
                                                 animationFrame.TempVertices[j] = Vector3.Zero;
                                             }
                                         }
+                                        var interpolator = frameIndex % 1;
+                                        var initialVertices = _animation.AnimationType == AnimationType.VertexDiff ? animationFrame.TempVertices : null;
+                                        var finalVertices = _animation.AnimationType == AnimationType.VertexDiff ? animationFrame.Vertices : null;
+                                        var initialNormals = _animation.AnimationType == AnimationType.NormalDiff ? animationFrame.TempVertices : null;
+                                        var finalNormals = _animation.AnimationType == AnimationType.NormalDiff ? animationFrame.Vertices : null;
+                                        childModel.Interpolator = interpolator;
+                                        childModel.InitialVertices = initialVertices;
+                                        childModel.FinalVertices = finalVertices;
+                                        childModel.InitialNormals = initialNormals;
+                                        childModel.FinalNormals = finalNormals;
+                                        childModel.TempMatrix = Matrix4.Identity;
                                     }
-                                    else
-                                    {
-                                        for (uint j = 0; j < animationFrame.Vertices.Length; j++)
-                                        {
-                                            animationFrame.TempVertices[j] = Vector3.Zero;
-                                        }
-                                    }
-                                    var interpolator = frameIndex % 1;
-                                    var initialVertices = _animation.AnimationType == AnimationType.VertexDiff ? animationFrame.TempVertices : null;
-                                    var finalVertices = _animation.AnimationType == AnimationType.VertexDiff ? animationFrame.Vertices : null;
-                                    var initialNormals = _animation.AnimationType == AnimationType.NormalDiff ? animationFrame.TempVertices : null;
-                                    var finalNormals = _animation.AnimationType == AnimationType.NormalDiff ? animationFrame.Vertices : null;
-                                    childModel.Interpolator = interpolator;
-                                    childModel.InitialVertices = initialVertices;
-                                    childModel.FinalVertices = finalVertices;
-                                    childModel.InitialNormals = initialNormals;
-                                    childModel.FinalNormals = finalNormals;
-                                    childModel.TempMatrix = Matrix4.Identity;
-                                    //_scene.MeshBatch.BindModelBatch(childModel, childModel.WorldMatrix, _scene.TextureBinder, initialVertices, initialNormals, finalVertices, finalNormals, interpolator);
                                 }
                             }
                         }
@@ -110,7 +113,6 @@ namespace PSXPrev.Classes
                                 {
                                     continue;
                                 }
-
                                 var frameMatrix = Matrix4.Identity;
                                 var sumFrame = animationFrames[f];
                                 if (sumFrame.Rotation != null)
@@ -123,21 +125,18 @@ namespace PSXPrev.Classes
                                     var r = GeomUtils.CreateR(sumFrame.EulerRotation.Value);
                                     frameMatrix = frameMatrix * r;
                                 }
-
                                 if (sumFrame.Scale != null)
                                 {
-                                    var scale = (Vector3) sumFrame.Scale;
+                                    var scale = (Vector3)sumFrame.Scale;
                                     var s = GeomUtils.CreateS(scale.X);
                                     frameMatrix = frameMatrix * s;
                                 }
-
                                 if (sumFrame.Translation != null)
                                 {
-                                    var translation = (Vector3) sumFrame.Translation;
+                                    var translation = (Vector3)sumFrame.Translation;
                                     var t = GeomUtils.CreateT(translation);
                                     frameMatrix = frameMatrix * t;
                                 }
-
                                 var absoluteMatrixValue = sumFrame.AbsoluteMatrix;
                                 if (!absoluteMatrixValue)
                                 {
@@ -146,37 +145,31 @@ namespace PSXPrev.Classes
 
                                 localMatrix = frameMatrix;
                             }
-
-                            //if (parentMatrix != null)
-                            //{
                             worldMatrix = worldMatrix * localMatrix;
-                            //_scene.SkeletonBatch.AddLine(Vector3.TransformPosition(Vector3.One, parentMatrix.Value), Vector3.TransformPosition(Vector3.One, worldMatrix), animationObject == selectedAnimationObject ? Color.Blue : Color.Red);
-                            //}
-                            //else
-                            //{
-                            //    worldMatrix = localMatrix;
-                            //}
-                            //if (selectedRootEntity != null)
-                            //{
-                            var objectId = animationObject.TMDID.GetValueOrDefault();
-                            if (objectId > 0)
+                            if (animationObject.HandlesRoot)
                             {
-                                var models = selectedRootEntity.GetModelsWithTMDID(objectId - 1);
-                                foreach (var childModel in models)
+                                selectedRootEntity.TempMatrix = worldMatrix;
+                            }
+                            else
+                            {
+                                foreach (var objectId in animationObject.TMDID)
                                 {
-                                    childModel.Interpolator = 0;
-                                    childModel.InitialVertices = null;
-                                    childModel.FinalVertices = null;
-                                    childModel.InitialNormals = null;
-                                    childModel.FinalNormals = null;
-                                    childModel.TempMatrix = worldMatrix;
-                                    //_scene.MeshBatch.BindModelBatch(childModel, worldMatrix, _scene.TextureBinder);
+                                    if (objectId > 0)
+                                    {
+                                        var models = selectedRootEntity.GetModelsWithTMDID(objectId - 1);
+                                        foreach (var childModel in models)
+                                        {
+                                            childModel.Interpolator = 0;
+                                            childModel.InitialVertices = null;
+                                            childModel.FinalVertices = null;
+                                            childModel.InitialNormals = null;
+                                            childModel.FinalNormals = null;
+                                            childModel.TempMatrix = worldMatrix;
+                                        }
+                                    }
                                 }
                             }
-
-                            //}
                         }
-
                         break;
                     }
             }

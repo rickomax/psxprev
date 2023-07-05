@@ -29,7 +29,6 @@ namespace PSXPrev.Classes
 
         public bool Visible { get; set; } = true;
 
-        public Matrix4 TempMatrix { get; set; } = Matrix4.Identity;
         public float Interpolator { get; set; }
         public Vector3[] InitialVertices { get; set; }
         public Vector3[] FinalVertices { get; set; }
