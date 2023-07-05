@@ -1053,6 +1053,11 @@
             this.lightPitchNumericUpDown.Name = "lightPitchNumericUpDown";
             this.lightPitchNumericUpDown.Size = new System.Drawing.Size(43, 20);
             this.lightPitchNumericUpDown.TabIndex = 17;
+            this.lightPitchNumericUpDown.Value = new decimal(new int[] {
+            135,
+            0,
+            0,
+            0});
             this.lightPitchNumericUpDown.ValueChanged += new System.EventHandler(this.lightPitchNumericUpDown_ValueChanged);
             // 
             // lightYawNumericUpDown
@@ -1066,6 +1071,11 @@
             this.lightYawNumericUpDown.Name = "lightYawNumericUpDown";
             this.lightYawNumericUpDown.Size = new System.Drawing.Size(43, 20);
             this.lightYawNumericUpDown.TabIndex = 18;
+            this.lightYawNumericUpDown.Value = new decimal(new int[] {
+            135,
+            0,
+            0,
+            0});
             this.lightYawNumericUpDown.ValueChanged += new System.EventHandler(this.lightYawNumericUpDown_ValueChanged);
             // 
             // lightRollNumericUpDown
