@@ -577,6 +577,7 @@ namespace PSXPrev.Classes
                     return animationObjects[objectId];
                 }
                 var animationObject = new AnimationObject { Animation = animation, ID = objectId };
+                animationObject.TMDID.Add(objectId);
                 animationObjects.Add(objectId, animationObject);
                 return animationObject;
             }

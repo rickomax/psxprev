@@ -128,7 +128,7 @@ namespace PSXPrev.Classes
                                 if (sumFrame.Scale != null)
                                 {
                                     var scale = (Vector3)sumFrame.Scale;
-                                    var s = GeomUtils.CreateS(scale.X);
+                                    var s = GeomUtils.CreateS(scale);
                                     frameMatrix = frameMatrix * s;
                                 }
                                 if (sumFrame.Translation != null)

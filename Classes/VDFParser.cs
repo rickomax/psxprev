@@ -79,7 +79,8 @@ namespace PSXPrev.Classes
                 {
                     return animationObjects[objectId];
                 }
-                var animationObject = new AnimationObject { Animation = animation, ID = objectId };
+                var animationObject = new AnimationObject { Animation = animation, ID = objectId};
+                animationObject.TMDID.Add(objectId);
                 animationObjects.Add(objectId, animationObject);
                 return animationObject;
             }
@@ -110,7 +111,7 @@ namespace PSXPrev.Classes
                 var vertexOffset = reader.ReadUInt32();
                 var skippedVertices = vertexOffset / 8;
                 var vertexCount = reader.ReadUInt32();
-                if (vertexCount + skippedVertices == 0 || vertexCount  + skippedVertices > Program.MaxVDFVertices)
+                if (vertexCount + skippedVertices == 0 || vertexCount + skippedVertices > Program.MaxVDFVertices)
                 {
                     return null;
                 }
@@ -123,13 +124,13 @@ namespace PSXPrev.Classes
                     Program.Logger.WriteLine("  VDF vertexCount:" + vertexCount);
                 }
                 var animationObject = GetAnimationObject(objectId);
-               //if (f == 0)
-               //{
-               //    var firstAnimationFrame = GetAnimationFrame(animationObject, 0);
-               //    var firstVertices = new Vector3[vertexCount + skippedVertices];
-               //    firstAnimationFrame.Vertices = firstVertices;
-               //    firstAnimationFrame.TempVertices = new Vector3[firstAnimationFrame.Vertices.Length];
-               //}
+                //if (f == 0)
+                //{
+                //    var firstAnimationFrame = GetAnimationFrame(animationObject, 0);
+                //    var firstVertices = new Vector3[vertexCount + skippedVertices];
+                //    firstAnimationFrame.Vertices = firstVertices;
+                //    firstAnimationFrame.TempVertices = new Vector3[firstAnimationFrame.Vertices.Length];
+                //}
                 var animationFrame = GetNextAnimationFrame(animationObject);
                 var vertices = new Vector3[vertexCount + skippedVertices];
                 for (var i = 0; i < vertexCount; i++)

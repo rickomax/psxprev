@@ -55,7 +55,7 @@ namespace PSXPrev.Classes
             return mat;
         }
 
-        public static Matrix4 CreateS(float scale)
+        public static Matrix4 CreateS(Vector3 scale)
         {
             var mat = Matrix4.CreateScale(scale);
             return mat;
