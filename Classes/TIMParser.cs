@@ -232,7 +232,7 @@ namespace PSXPrev.Classes
                             var index3 = (color & 0xF00) >> 8;
                             var index4 = (color & 0xF000) >> 12;
 
-                            if (index1 >= palette.Length || index2 >= palette.Length || index3 >= palette.Length || index4 >= palette.Length)
+                            if (palette == null || index1 >= palette.Length || index2 >= palette.Length || index3 >= palette.Length || index4 >= palette.Length)
                             {
                                 return texture;
                             }
@@ -273,7 +273,7 @@ namespace PSXPrev.Classes
                             var index1 = (color & 0xFF);
                             var index2 = (color & 0xFF00) >> 8;
 
-                            if (index1 >= palette.Length || index2 >= palette.Length)
+                            if (palette == null || index1 >= palette.Length || index2 >= palette.Length)
                             {
                                 return texture;
                             }
