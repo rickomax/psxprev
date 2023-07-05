@@ -128,7 +128,8 @@ namespace PSXPrev.Classes
             var coordCount = reader.ReadUInt32();
             for (var c = 0; c < coordCount; c++)
             {
-                var localMatrix = ReadCoord(reader);
+                uint nestLevel = 0;
+                var localMatrix = ReadCoord(reader, ref nestLevel);
                 foreach (var modelEntity in modelEntities)
                 {
                     if (modelEntity.TMDID == c + 1)
@@ -141,7 +142,7 @@ namespace PSXPrev.Classes
             return rootEntity;
         }
 
-        private Matrix4 ReadCoord(BinaryReader reader)
+        private Matrix4 ReadCoord(BinaryReader reader, ref uint nestLevel)
         {
             var flag = reader.ReadUInt32();
             var worldMatrix = ReadMatrix(reader);
@@ -154,11 +155,15 @@ namespace PSXPrev.Classes
             var pad = reader.ReadInt16();
 
             var super = reader.ReadUInt32() * 4;
+            if (nestLevel ++ >= 1000)
+            {
+                return default;
+            }
             if (super != 0)
             {
                 var position = reader.BaseStream.Position;
                 reader.BaseStream.Seek(_offset + super, SeekOrigin.Begin);
-                var superMatrix = ReadCoord(reader);
+                var superMatrix = ReadCoord(reader, ref nestLevel);
                 reader.BaseStream.Seek(position, SeekOrigin.Begin);
                 return worldMatrix * superMatrix;
             }
