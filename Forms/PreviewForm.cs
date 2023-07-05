@@ -325,9 +325,11 @@ namespace PSXPrev
             _redrawTimer = new Timer();
             _redrawTimer.Interval = 1f / 60f;
             _redrawTimer.Elapsed += _redrawTimer_Elapsed;
+            _redrawTimer.SynchronizingObject = this;
             _redrawTimer.Start();
             _animateTimer = new Timer();
             _animateTimer.Elapsed += _animateTimer_Elapsed;
+            _animateTimer.SynchronizingObject = this;
             var assembly = Assembly.GetExecutingAssembly();
             var fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
             Text = $@"{Text} {fileVersionInfo.FileVersion}";
@@ -347,9 +349,8 @@ namespace PSXPrev
 
         private void UpdateFrameLabel()
         {
-            animationProggressBar.Maximum = (int)_curAnimation.FrameCount;
-            animationProggressBar.Value = (int)_curAnimationFrame;
-            animationProggressBar.Refresh();
+            animationFrameLabel.Text = $"{(int)_curAnimationFrame}/{(int)_curAnimation.FrameCount}";
+            animationFrameLabel.Refresh();
         }
 
         private void _redrawTimer_Elapsed(object sender, ElapsedEventArgs e)

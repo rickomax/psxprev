@@ -181,17 +181,17 @@ namespace PSXPrev.Classes
                             //}
                             break;
                         case 0x04:
-                            float r00 = reader.ReadInt16()/ 4096f;
-                            float r01 = reader.ReadInt16()/ 4096f;
-                            float r02 = reader.ReadInt16()/ 4096f;
+                            var r00 = reader.ReadInt16()/ 4096f;
+                            var r01 = reader.ReadInt16()/ 4096f;
+                            var r02 = reader.ReadInt16()/ 4096f;
 
-                            float r10 = reader.ReadInt16()/ 4096f;
-                            float r11 = reader.ReadInt16()/ 4096f;
-                            float r12 = reader.ReadInt16()/ 4096f;
+                            var r10 = reader.ReadInt16()/ 4096f;
+                            var r11 = reader.ReadInt16()/ 4096f;
+                            var r12 = reader.ReadInt16()/ 4096f;
 
-                            float r20 = reader.ReadInt16()/ 4096f;
-                            float r21 = reader.ReadInt16()/ 4096f;
-                            float r22 = reader.ReadInt16()/ 4096f;
+                            var r20 = reader.ReadInt16()/ 4096f;
+                            var r21 = reader.ReadInt16()/ 4096f;
+                            var r22 = reader.ReadInt16()/ 4096f;
 
                             reader.ReadInt16();
 

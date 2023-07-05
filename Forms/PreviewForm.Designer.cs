@@ -35,16 +35,18 @@
             this.modelsSplitContainer = new System.Windows.Forms.SplitContainer();
             this.splitContainer6 = new System.Windows.Forms.SplitContainer();
             this.entitiesTreeView = new System.Windows.Forms.TreeView();
-            this.modelPropertyGrid = new System.Windows.Forms.PropertyGrid();
+            this.tableLayoutPanel5 = new System.Windows.Forms.TableLayoutPanel();
             this.exportEntityButton = new System.Windows.Forms.Button();
+            this.modelPropertyGrid = new System.Windows.Forms.PropertyGrid();
             this.menusTabControl = new System.Windows.Forms.TabControl();
             this.bitmapsTabPage = new System.Windows.Forms.TabPage();
             this.splitContainer2 = new System.Windows.Forms.SplitContainer();
             this.splitContainer3 = new System.Windows.Forms.SplitContainer();
             this.texturesListView = new System.Windows.Forms.ListView();
             this.thumbsImageList = new System.Windows.Forms.ImageList(this.components);
-            this.texturePropertyGrid = new System.Windows.Forms.PropertyGrid();
+            this.tableLayoutPanel4 = new System.Windows.Forms.TableLayoutPanel();
             this.drawToVRAMButton = new System.Windows.Forms.Button();
+            this.texturePropertyGrid = new System.Windows.Forms.PropertyGrid();
             this.exportBitmapButton = new System.Windows.Forms.Button();
             this.texturePanel = new System.Windows.Forms.Panel();
             this.texturePreviewPictureBox = new System.Windows.Forms.PictureBox();
@@ -119,14 +121,12 @@
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
             this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
-            this.label5 = new System.Windows.Forms.Label();
-            this.animationProggressBar = new System.Windows.Forms.ProgressBar();
+            this.animationFrameLabel = new System.Windows.Forms.Label();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
             this.label4 = new System.Windows.Forms.Label();
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
-            this.tableLayoutPanel5 = new System.Windows.Forms.TableLayoutPanel();
-            this.tableLayoutPanel4 = new System.Windows.Forms.TableLayoutPanel();
+            this.label6 = new System.Windows.Forms.Label();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -135,6 +135,7 @@
             this.splitContainer6.Panel1.SuspendLayout();
             this.splitContainer6.Panel2.SuspendLayout();
             this.splitContainer6.SuspendLayout();
+            this.tableLayoutPanel5.SuspendLayout();
             this.menusTabControl.SuspendLayout();
             this.bitmapsTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).BeginInit();
@@ -145,6 +146,7 @@
             this.splitContainer3.Panel1.SuspendLayout();
             this.splitContainer3.Panel2.SuspendLayout();
             this.splitContainer3.SuspendLayout();
+            this.tableLayoutPanel4.SuspendLayout();
             this.texturePanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.texturePreviewPictureBox)).BeginInit();
             this.vramTabPage.SuspendLayout();
@@ -176,8 +178,6 @@
             this.groupBox1.SuspendLayout();
             this.tableLayoutPanel1.SuspendLayout();
             this.flowLayoutPanel1.SuspendLayout();
-            this.tableLayoutPanel5.SuspendLayout();
-            this.tableLayoutPanel4.SuspendLayout();
             this.SuspendLayout();
             // 
             // entitiesTabPage
@@ -234,18 +234,21 @@
             this.entitiesTreeView.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.entitiesTreeView_AfterCheck);
             this.entitiesTreeView.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.entitiesTreeView_AfterSelect);
             // 
-            // modelPropertyGrid
+            // tableLayoutPanel5
             // 
-            this.modelPropertyGrid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.modelPropertyGrid.HelpVisible = false;
-            this.modelPropertyGrid.Location = new System.Drawing.Point(0, 0);
-            this.modelPropertyGrid.Margin = new System.Windows.Forms.Padding(0);
-            this.modelPropertyGrid.Name = "modelPropertyGrid";
-            this.modelPropertyGrid.PropertySort = System.Windows.Forms.PropertySort.NoSort;
-            this.modelPropertyGrid.Size = new System.Drawing.Size(251, 404);
-            this.modelPropertyGrid.TabIndex = 14;
-            this.modelPropertyGrid.ToolbarVisible = false;
-            this.modelPropertyGrid.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.modelPropertyGrid_PropertyValueChanged);
+            this.tableLayoutPanel5.ColumnCount = 1;
+            this.tableLayoutPanel5.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel5.Controls.Add(this.exportEntityButton, 0, 1);
+            this.tableLayoutPanel5.Controls.Add(this.modelPropertyGrid, 0, 0);
+            this.tableLayoutPanel5.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tableLayoutPanel5.Location = new System.Drawing.Point(0, 0);
+            this.tableLayoutPanel5.Margin = new System.Windows.Forms.Padding(0);
+            this.tableLayoutPanel5.Name = "tableLayoutPanel5";
+            this.tableLayoutPanel5.RowCount = 2;
+            this.tableLayoutPanel5.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel5.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tableLayoutPanel5.Size = new System.Drawing.Size(251, 441);
+            this.tableLayoutPanel5.TabIndex = 1;
             // 
             // exportEntityButton
             // 
@@ -258,6 +261,19 @@
             this.exportEntityButton.Text = "Export Checked Models";
             this.exportEntityButton.UseVisualStyleBackColor = true;
             this.exportEntityButton.Click += new System.EventHandler(this.exportEntityButton_Click);
+            // 
+            // modelPropertyGrid
+            // 
+            this.modelPropertyGrid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.modelPropertyGrid.HelpVisible = false;
+            this.modelPropertyGrid.Location = new System.Drawing.Point(0, 0);
+            this.modelPropertyGrid.Margin = new System.Windows.Forms.Padding(0);
+            this.modelPropertyGrid.Name = "modelPropertyGrid";
+            this.modelPropertyGrid.PropertySort = System.Windows.Forms.PropertySort.NoSort;
+            this.modelPropertyGrid.Size = new System.Drawing.Size(251, 404);
+            this.modelPropertyGrid.TabIndex = 14;
+            this.modelPropertyGrid.ToolbarVisible = false;
+            this.modelPropertyGrid.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.modelPropertyGrid_PropertyValueChanged);
             // 
             // menusTabControl
             // 
@@ -341,18 +357,23 @@
             this.thumbsImageList.ImageSize = new System.Drawing.Size(64, 64);
             this.thumbsImageList.TransparentColor = System.Drawing.Color.Transparent;
             // 
-            // texturePropertyGrid
+            // tableLayoutPanel4
             // 
-            this.texturePropertyGrid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.texturePropertyGrid.HelpVisible = false;
-            this.texturePropertyGrid.Location = new System.Drawing.Point(0, 0);
-            this.texturePropertyGrid.Margin = new System.Windows.Forms.Padding(0);
-            this.texturePropertyGrid.Name = "texturePropertyGrid";
-            this.texturePropertyGrid.PropertySort = System.Windows.Forms.PropertySort.NoSort;
-            this.texturePropertyGrid.Size = new System.Drawing.Size(251, 367);
-            this.texturePropertyGrid.TabIndex = 15;
-            this.texturePropertyGrid.ToolbarVisible = false;
-            this.texturePropertyGrid.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.texturePropertyGrid_PropertyValueChanged);
+            this.tableLayoutPanel4.ColumnCount = 1;
+            this.tableLayoutPanel4.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel4.Controls.Add(this.drawToVRAMButton, 0, 2);
+            this.tableLayoutPanel4.Controls.Add(this.texturePropertyGrid, 0, 0);
+            this.tableLayoutPanel4.Controls.Add(this.exportBitmapButton, 0, 1);
+            this.tableLayoutPanel4.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tableLayoutPanel4.Location = new System.Drawing.Point(0, 0);
+            this.tableLayoutPanel4.Margin = new System.Windows.Forms.Padding(0);
+            this.tableLayoutPanel4.Name = "tableLayoutPanel4";
+            this.tableLayoutPanel4.RowCount = 3;
+            this.tableLayoutPanel4.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel4.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tableLayoutPanel4.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tableLayoutPanel4.Size = new System.Drawing.Size(251, 441);
+            this.tableLayoutPanel4.TabIndex = 1;
             // 
             // drawToVRAMButton
             // 
@@ -365,6 +386,19 @@
             this.drawToVRAMButton.Text = "Draw to VRAM";
             this.drawToVRAMButton.UseVisualStyleBackColor = true;
             this.drawToVRAMButton.Click += new System.EventHandler(this.drawToVRAMButton_Click);
+            // 
+            // texturePropertyGrid
+            // 
+            this.texturePropertyGrid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.texturePropertyGrid.HelpVisible = false;
+            this.texturePropertyGrid.Location = new System.Drawing.Point(0, 0);
+            this.texturePropertyGrid.Margin = new System.Windows.Forms.Padding(0);
+            this.texturePropertyGrid.Name = "texturePropertyGrid";
+            this.texturePropertyGrid.PropertySort = System.Windows.Forms.PropertySort.NoSort;
+            this.texturePropertyGrid.Size = new System.Drawing.Size(251, 367);
+            this.texturePropertyGrid.TabIndex = 15;
+            this.texturePropertyGrid.ToolbarVisible = false;
+            this.texturePropertyGrid.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.texturePropertyGrid_PropertyValueChanged);
             // 
             // exportBitmapButton
             // 
@@ -1103,8 +1137,8 @@
             this.tableLayoutPanel2.ColumnCount = 2;
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tableLayoutPanel2.Controls.Add(this.label5, 0, 1);
-            this.tableLayoutPanel2.Controls.Add(this.animationProggressBar, 1, 1);
+            this.tableLayoutPanel2.Controls.Add(this.label6, 0, 1);
+            this.tableLayoutPanel2.Controls.Add(this.animationFrameLabel, 0, 1);
             this.tableLayoutPanel2.Controls.Add(this.label3, 0, 0);
             this.tableLayoutPanel2.Controls.Add(this.animationSpeedTrackbar, 1, 0);
             this.tableLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Top;
@@ -1116,23 +1150,14 @@
             this.tableLayoutPanel2.Size = new System.Drawing.Size(230, 55);
             this.tableLayoutPanel2.TabIndex = 22;
             // 
-            // label5
+            // animationFrameLabel
             // 
-            this.label5.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.label5.Location = new System.Drawing.Point(3, 26);
-            this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(109, 29);
-            this.label5.TabIndex = 22;
-            this.label5.Text = "Progress:";
-            this.label5.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // animationProggressBar
-            // 
-            this.animationProggressBar.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.animationProggressBar.Location = new System.Drawing.Point(118, 29);
-            this.animationProggressBar.Name = "animationProggressBar";
-            this.animationProggressBar.Size = new System.Drawing.Size(109, 23);
-            this.animationProggressBar.TabIndex = 2;
+            this.animationFrameLabel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.animationFrameLabel.Location = new System.Drawing.Point(118, 26);
+            this.animationFrameLabel.Name = "animationFrameLabel";
+            this.animationFrameLabel.Size = new System.Drawing.Size(109, 29);
+            this.animationFrameLabel.TabIndex = 22;
+            this.animationFrameLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // groupBox1
             // 
@@ -1193,39 +1218,15 @@
             this.flowLayoutPanel1.Size = new System.Drawing.Size(147, 26);
             this.flowLayoutPanel1.TabIndex = 17;
             // 
-            // tableLayoutPanel5
+            // label6
             // 
-            this.tableLayoutPanel5.ColumnCount = 1;
-            this.tableLayoutPanel5.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel5.Controls.Add(this.exportEntityButton, 0, 1);
-            this.tableLayoutPanel5.Controls.Add(this.modelPropertyGrid, 0, 0);
-            this.tableLayoutPanel5.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tableLayoutPanel5.Location = new System.Drawing.Point(0, 0);
-            this.tableLayoutPanel5.Margin = new System.Windows.Forms.Padding(0);
-            this.tableLayoutPanel5.Name = "tableLayoutPanel5";
-            this.tableLayoutPanel5.RowCount = 2;
-            this.tableLayoutPanel5.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel5.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel5.Size = new System.Drawing.Size(251, 441);
-            this.tableLayoutPanel5.TabIndex = 1;
-            // 
-            // tableLayoutPanel4
-            // 
-            this.tableLayoutPanel4.ColumnCount = 1;
-            this.tableLayoutPanel4.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel4.Controls.Add(this.drawToVRAMButton, 0, 2);
-            this.tableLayoutPanel4.Controls.Add(this.texturePropertyGrid, 0, 0);
-            this.tableLayoutPanel4.Controls.Add(this.exportBitmapButton, 0, 1);
-            this.tableLayoutPanel4.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tableLayoutPanel4.Location = new System.Drawing.Point(0, 0);
-            this.tableLayoutPanel4.Margin = new System.Windows.Forms.Padding(0);
-            this.tableLayoutPanel4.Name = "tableLayoutPanel4";
-            this.tableLayoutPanel4.RowCount = 3;
-            this.tableLayoutPanel4.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel4.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel4.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel4.Size = new System.Drawing.Size(251, 441);
-            this.tableLayoutPanel4.TabIndex = 1;
+            this.label6.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.label6.Location = new System.Drawing.Point(3, 26);
+            this.label6.Name = "label6";
+            this.label6.Size = new System.Drawing.Size(109, 29);
+            this.label6.TabIndex = 23;
+            this.label6.Text = "Progress:";
+            this.label6.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // PreviewForm
             // 
@@ -1249,6 +1250,7 @@
             this.splitContainer6.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer6)).EndInit();
             this.splitContainer6.ResumeLayout(false);
+            this.tableLayoutPanel5.ResumeLayout(false);
             this.menusTabControl.ResumeLayout(false);
             this.bitmapsTabPage.ResumeLayout(false);
             this.splitContainer2.Panel1.ResumeLayout(false);
@@ -1259,6 +1261,7 @@
             this.splitContainer3.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer3)).EndInit();
             this.splitContainer3.ResumeLayout(false);
+            this.tableLayoutPanel4.ResumeLayout(false);
             this.texturePanel.ResumeLayout(false);
             this.texturePanel.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.texturePreviewPictureBox)).EndInit();
@@ -1298,8 +1301,6 @@
             this.tableLayoutPanel1.ResumeLayout(false);
             this.tableLayoutPanel1.PerformLayout();
             this.flowLayoutPanel1.ResumeLayout(false);
-            this.tableLayoutPanel5.ResumeLayout(false);
-            this.tableLayoutPanel4.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -1393,8 +1394,7 @@
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.GroupBox groupBox2;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel2;
-        private System.Windows.Forms.ProgressBar animationProggressBar;
-        private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.Label animationFrameLabel;
         private System.Windows.Forms.SplitContainer splitContainer2;
         private System.Windows.Forms.SplitContainer splitContainer3;
         private System.Windows.Forms.SplitContainer modelsSplitContainer;
@@ -1403,5 +1403,6 @@
         private System.Windows.Forms.SplitContainer animationsSplitContainer;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel5;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel4;
+        private System.Windows.Forms.Label label6;
     }
 }
