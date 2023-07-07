@@ -60,10 +60,9 @@ namespace PSXPrev.Classes
             Write(format, args);
         }
 
-        public void WritePositiveLine(string format, object value)
+        public void WritePositiveLine(object text)
         {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Write(format, new[] { value });
+            WritePositiveLine("{0}", new[] { text });
         }
 
         public void Dispose()

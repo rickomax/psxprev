@@ -1,70 +1,36 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 
 namespace PSXPrev.Classes
 {
-    public class TIMParser
+    public class TIMParser : FileOffsetScanner
     {
-        private long _offset;
-        private readonly Action<Texture, long> _textureAddedAction;
-
-        public TIMParser(Action<Texture, long> textureAdded)
+        public TIMParser(TextureAddedAction textureAdded)
+            : base(textureAdded: textureAdded)
         {
-            _textureAddedAction = textureAdded;
         }
 
-        public void LookForTim(BinaryReader reader, string fileTitle)
+        public override string FormatName => "TIM";
+
+        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
         {
-            if (reader == null)
+            entities = null;
+            animations = null;
+            textures = null;
+
+            var id = reader.ReadUInt16();
+            if (id == 0x10)
             {
-                throw (new Exception("File must be opened"));
-            }
-
-            reader.BaseStream.Seek(0, SeekOrigin.Begin);
-
-            //var textures = new List<Texture>();
-
-            while (reader.BaseStream.CanRead)
-            {
-                var passed = false;
-                try
+                var version = reader.ReadUInt16();
+                if (version == 0x00)
                 {
-                    var id = reader.ReadUInt16();
-                    if (id == 0x10)
+                    var texture = ParseTim(reader);
+                    if (texture != null)
                     {
-                        var version = reader.ReadUInt16();
-                        if (version == 0x00)
-                        {
-                            var texture = ParseTim(reader);
-                            if (texture != null)
-                            {
-                                texture.TextureName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                                //textures.Add(texture);
-                                _textureAddedAction(texture, _offset);
-                                Program.Logger.WritePositiveLine("Found TIM Image at offset {0:X}", _offset);
-                                _offset = reader.BaseStream.Position;
-                                passed = true;
-                            }
-                        }
+                        textures = new List<Texture> { texture };
                     }
-
-                }
-                catch (Exception exp)
-                {
-                    //if (Program.Debug)
-                    //{
-                    //    Program.Logger.WriteLine(exp);
-                    //}
-                }
-                if (!passed)
-                {
-                    if (++_offset > reader.BaseStream.Length)
-                    {
-                        Program.Logger.WriteLine($"TIM - Reached file end: {fileTitle}");
-                        return;
-                    }
-                    reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
                 }
             }
         }
