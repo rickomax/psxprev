@@ -291,6 +291,10 @@ namespace PSXPrev.Classes
             reader.BaseStream.Seek(offset + ctrlTop, SeekOrigin.Begin);
 
             var instructionCount = (paramTop - ctrlTop) / 4;
+            if (instructionCount > Program.MaxHMDAnimInstructions)
+            {
+                return;
+            }
             var instructions = new uint[instructionCount];
             for (var i = 0; i < instructionCount; i++)
             {
@@ -316,7 +320,7 @@ namespace PSXPrev.Classes
                 }
             }
 
-            // Print starting Indices#StreamIDs for each TMDID object.
+            // Print starting Index#StreamID's for each TMDID object.
             if (tmdidStarts != null)
             {
                 Console.ForegroundColor = ConsoleColor.White;

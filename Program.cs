@@ -77,6 +77,7 @@ namespace PSXPrev
 
         public const string DefaultFilter = "*.*";
 
+        // Sanity check values
         public static ulong MaxTODPackets = 10000;
         public static ulong MaxTODFrames = 10000;
         public static ulong MaxTMDPrimitives = 10000;
@@ -88,8 +89,14 @@ namespace PSXPrev
         public static ulong MaxVDFObjects = 512;
         public static ulong MaxPSXObjectCount = 1024;
         public static ulong MaxHMDBlockCount = 1024;
+        public static ulong MaxHMDCoordCount = 1024; // Same as BlockCount, because they're related
         public static ulong MaxHMDTypeCount = 1024;
-        public static ulong MaxHMDDataSize = 5000;
+        public static ulong MaxHMDDataSize = 20000;
+        public static ulong MaxHMDDataCount = 5000;
+        public static ulong MaxHMDPrimitiveChainLength = 512;
+        public static ulong MaxHMDAnimSequenceSize = 20000;
+        public static ulong MaxHMDAnimSequenceCount = 1024;
+        public static ulong MaxHMDAnimInstructions = ushort.MaxValue + 1; // Hard cap
         public static ulong MaxHMDMimeDiffs = 100;
         public static ulong MaxHMDVertCount = 5000;
         public static uint MaxANJoints = 512;

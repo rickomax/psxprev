@@ -105,6 +105,8 @@ namespace PSXPrev.Classes
                 var primitiveSetTop = reader.ReadUInt32() * 4;
                 if (primitiveSetTop == 0)
                 {
+                    // We may be skipping the first (pre-process) block, or last (post-process) block.
+                    // This also happens if we have a coord used as a parent, but no primitives directly tied to it.
                     continue;
                 }
                 var blockTop = reader.BaseStream.Position;
@@ -129,6 +131,19 @@ namespace PSXPrev.Classes
             // Read hierarchical coordinates table.
             var coordTop = (uint)(reader.BaseStream.Position - _offset);
             var coordCount = reader.ReadUInt32();
+            if (coordCount > blockCount - 2)
+            {
+                // Coord units start after the first (pre-process) block and end before the last (post-process) block.
+                // We need to allow at least blockCount - 2 coords, so only check the max cap if we're over that.
+                if (coordCount > Program.MaxHMDCoordCount)
+                {
+                    return null;
+                }
+                if (Program.Debug)
+                {
+                    Program.Logger.WriteLine($"coordCount {coordCount} exceeds blockCount - 2 ({blockCount - 2})");
+                }
+            }
             var coords = new CoordUnit[coordCount];
             for (uint c = 0; c < coordCount; c++)
             {
@@ -140,16 +155,17 @@ namespace PSXPrev.Classes
                 coords[c] = coord;
             }
             // Now that the table is fully read, ensure no circular references in coord parents.
-            foreach (var coord in coords)
+            if (CoordUnit.FindCircularReferences(coords))
             {
-                if (coord.HasCircularReference())
-                {
-                    return null; // Bad coord with parents that reference themselves.
-                }
+                return null; // Bad coords with parents that reference themselves.
             }
             // All coords are safe to use. Assign coords to models.
             foreach (var coord in coords)
             {
+                if (coord.ID + 2 >= blockCount)
+                {
+                    break; // Coord units can't be assigned to post-process primitives.
+                }
                 var localMatrix = coord.WorldMatrix;
                 foreach (var modelEntity in modelEntities)
                 {
@@ -249,12 +265,19 @@ namespace PSXPrev.Classes
             var groupedTriangles = new Dictionary<uint, List<Triangle>>();
             var sharedVertices = new Dictionary<uint, Vector3>();
             var sharedNormals = new Dictionary<uint, Vector3>();
+            uint chainLength = 0;
             while (true)
             {
+                if (++chainLength > Program.MaxHMDPrimitiveChainLength)
+                {
+                    return;
+                }
+
                 reader.BaseStream.Seek(_offset + primitiveSetTop, SeekOrigin.Begin);
                 var nextPrimitivePointer = reader.ReadUInt32();
                 var primitiveHeaderPointer = reader.ReadUInt32() * 4;
                 ReadMappedValue(reader, out var typeCountMapped, out var typeCount);
+                // Note: typeCount==0 is valid.
                 if (typeCount > Program.MaxHMDTypeCount)
                 {
                     return;
@@ -275,12 +298,13 @@ namespace PSXPrev.Classes
 
                     ReadMappedValue16(reader, out var dataSizeMapped, out var dataSize);
                     ReadMappedValue16(reader, out var dataCountMapped, out var dataCount);
-
-                    if (dataSize > Program.MaxHMDDataSize)
+                    dataSize *= 4;
+                    
+                    if (dataSize == 0 || dataSize > Program.MaxHMDDataSize)
                     {
                         return;
                     }
-                    if (dataCount > Program.MaxHMDDataSize)
+                    if (dataCount > Program.MaxHMDDataCount)
                     {
                         return;
                     }
@@ -404,14 +428,20 @@ namespace PSXPrev.Classes
                         // TODO: Is this actually supposed to pass dataCount and not dataSize?
                         // Originally dataSize/dataCount were read in the wrong order, so what was assumed to be the dataCount variable was used here (but was really dataSize).
                         // Is the divide-by-4 here because the value needed to be transformed into something that passed the tests?
-                        ProcessGroundData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, dataSize / 4, gridIndex, vertexIndex);
+                        // Note: Second divide-by-4 added since dataSize is now stored in byte units, not 4-byte units.
+                        var groundDataCount = (dataSize / 4) / 4;
+                        ProcessGroundData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, groundDataCount, gridIndex, vertexIndex);
                     }
 
                     // Seek to the next type. This is necessary since not all types will fully read up to the next type (i.e. Image Data).
-                    reader.BaseStream.Seek(typeDataPosition + dataSize * 4, SeekOrigin.Begin);
+                    reader.BaseStream.Seek(typeDataPosition + dataSize, SeekOrigin.Begin);
                 }
                 if (nextPrimitivePointer != 0xFFFFFFFF)
                 {
+                    if (primitiveSetTop == nextPrimitivePointer * 4)
+                    {
+                        return; // Infinite loop
+                    }
                     primitiveSetTop = nextPrimitivePointer * 4;
                     continue;
                 }
@@ -675,12 +705,10 @@ namespace PSXPrev.Classes
 
 
             // Debug: Print instruction set. Programmatically disabled by default since it wastes a lot of time.
-#if false
-            if (Program.Debug)
+            if (Program.Debug && false)
             {
                 HMDHelper.PrintAnimInstructions(reader, ctrlTop, paramTop, _offset);
             }
-#endif
             
             var tgt = ((driver     ) & 0xf);
             var cat = ((driver >> 4) & 0x7);
@@ -711,7 +739,7 @@ namespace PSXPrev.Classes
                 var sequencePointerPosition = reader.BaseStream.Position;
 
                 ReadMappedValue(reader, out _, out var updateIndex);
-                var updateSectionOffset = updateIndex >> 24;
+                var updateSectionIndex = updateIndex >> 24;
                 var updateOffsetInSection = (updateIndex & 0xffffff) * 4;
 
                 if (updateOffsetInSection < 4 || (updateOffsetInSection - 4) % 80 != 0)
@@ -726,7 +754,17 @@ namespace PSXPrev.Classes
 
                 ReadMappedValue16(reader, out _, out var sequenceSize);
                 ReadMappedValue16(reader, out _, out var sequenceCount);
-                
+                sequenceSize *= 4;
+
+                if (sequenceSize == 0 || sequenceSize > Program.MaxHMDAnimSequenceSize)
+                {
+                    return null;
+                }
+                if (sequenceCount > Program.MaxHMDAnimSequenceCount)
+                {
+                    return null;
+                }
+
                 var interpIdx = reader.ReadUInt16();
                 var aframe = reader.ReadUInt16();
                 
@@ -915,7 +953,7 @@ namespace PSXPrev.Classes
                 }
 
                 // Seek to the start of the next sequence pointer.
-                reader.BaseStream.Seek(sequencePointerPosition + sequenceSize * 4, SeekOrigin.Begin);
+                reader.BaseStream.Seek(sequencePointerPosition + sequenceSize, SeekOrigin.Begin);
             }
 
             if (speeds.Count > 1)

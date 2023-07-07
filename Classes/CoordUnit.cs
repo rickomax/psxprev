@@ -79,28 +79,43 @@ namespace PSXPrev.Classes
             Rotation = OriginalRotation;
             RotationOrder = OriginalRotationOrder;
         }
-
-        // Check to see if the coord unit has parents that eventually reference themselves.
-        public bool HasCircularReference()
+        
+        // Check to see if any coord units have parents that eventually reference themselves.
+        public static bool FindCircularReferences(CoordUnit[] coords)
         {
-            if (ParentID == ID)
+            // Optimized circular reference detection so we only need to visit N coords, instead of N^2 coords.
+            var visitedCoords = new uint[coords.Length];
+            foreach (var coord in coords)
             {
-                return true; // Parent is self. We can check this even without the coords table.
-            }
-            else if (Coords != null)
-            {
-                var coord = this;
-                for (var depth = 0; depth < Coords.Length; depth++)
+                // Used to compare visitedCoords to see if we've already visited this loop or in a previous loop.
+                var currentValue = coord.ID + 1; // +1 because 0 is unvisited.
+                var super = coord;
+                var depth = 0;
+                for (; depth < coords.Length; depth++)
                 {
-                    coord = coord.Parent;
-                    if (coord == null)
+                    var visitedValue = visitedCoords[super.ID];
+                    if (visitedValue == currentValue)
                     {
-                        return false; // End of parents.
+                        return true; // Circular reference. We've already visited this coord this loop.
+                    }
+                    else if (visitedValue > 0)
+                    {
+                        break; // Safe. Coord that was already checked during a previous loop.
+                    }
+                    // Coord hasn't been checked yet.
+                    visitedCoords[super.ID] = currentValue;
+                    super = super.Parent;
+                    if (super == null)
+                    {
+                        break; // Safe. End of parents.
                     }
                 }
-                return true; // More parents than number of coords means infinite recursion.
+                if (depth == coords.Length)
+                {
+                    return true; // Circular reference. More parents than number of coords means infinite recursion.
+                }
             }
-            return false; // Can't test because there's no coords table.
+            return false; // Safe. No circular references found.
         }
     }
 }
