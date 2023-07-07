@@ -120,34 +120,37 @@ namespace PSXPrev.Classes
                                 if (sumFrame.Rotation != null)
                                 {
                                     var r = Matrix4.CreateFromQuaternion(sumFrame.Rotation.Value);
-                                    frameMatrix = frameMatrix * r;
+                                    frameMatrix *= r;
                                 }
                                 else if (sumFrame.EulerRotation != null)
                                 {
                                     var r = GeomUtils.CreateR(sumFrame.EulerRotation.Value);
-                                    frameMatrix = frameMatrix * r;
+                                    frameMatrix *= r;
                                 }
                                 if (sumFrame.Scale != null)
                                 {
                                     var scale = (Vector3)sumFrame.Scale;
                                     var s = GeomUtils.CreateS(scale);
-                                    frameMatrix = frameMatrix * s;
+                                    frameMatrix *= s;
                                 }
                                 if (sumFrame.Translation != null)
                                 {
                                     var translation = (Vector3)sumFrame.Translation;
                                     var t = GeomUtils.CreateT(translation);
-                                    frameMatrix = frameMatrix * t;
+                                    frameMatrix *= t;
                                 }
                                 var absoluteMatrixValue = sumFrame.AbsoluteMatrix;
                                 if (!absoluteMatrixValue)
                                 {
                                     frameMatrix = localMatrix * frameMatrix;
                                 }
-
                                 localMatrix = frameMatrix;
                             }
-                            worldMatrix = worldMatrix * localMatrix;
+                            if (animationObject.Parent != null && _scene.ShowSkeleton)
+                            {
+                                _scene.SkeletonBatch.AddLine(Vector3.TransformPosition(Vector3.One, worldMatrix), Vector3.TransformPosition(Vector3.One, worldMatrix * localMatrix), Color.Blue);
+                            }
+                            worldMatrix *= localMatrix;
                             if (animationObject.HandlesRoot)
                             {
                                 selectedRootEntity.TempMatrix = worldMatrix;
