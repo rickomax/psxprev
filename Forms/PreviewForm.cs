@@ -244,6 +244,11 @@ namespace PSXPrev
                     _curAnimationFrame = 0f;
                     _curAnimationTime = 0f;
                 }
+                else
+                {
+                    // Update attached limbs while animating.
+                    (_selectedRootEntity ?? _selectedModelEntity?.GetRootEntity())?.FixConnections();
+                }
             }
             _scene.Draw();
             _openTkControl.SwapBuffers();

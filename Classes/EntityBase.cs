@@ -72,7 +72,23 @@ namespace PSXPrev.Classes
                 var entity = this;
                 do
                 {
-                    matrix = matrix * entity.LocalMatrix;
+                    matrix *= entity.LocalMatrix;
+                    entity = entity.ParentEntity;
+                } while (entity != null);
+                return matrix;
+            }
+        }
+
+        [Browsable(false)]
+        public Matrix4 OriginalWorldMatrix
+        {
+            get
+            {
+                var matrix = Matrix4.Identity;
+                var entity = this;
+                do
+                {
+                    matrix *= entity.OriginalLocalMatrix;
                     entity = entity.ParentEntity;
                 } while (entity != null);
                 return matrix;
@@ -125,6 +141,9 @@ namespace PSXPrev.Classes
 
         [Browsable(false)]
         public Matrix4 TempMatrix { get; set; } = Matrix4.Identity;
+
+        [Browsable(false)]
+        public Matrix4 TempWorldMatrix => TempMatrix * WorldMatrix;
 
         protected EntityBase()
         {
@@ -229,6 +248,16 @@ namespace PSXPrev.Classes
                 modelEntity.FinalVertices = null;
                 modelEntity.InitialNormals = null;
                 modelEntity.FinalNormals = null;
+            }
+            if (this is RootEntity rootEntity)
+            {
+                if (rootEntity.Coords != null)
+                {
+                    foreach (var coord in rootEntity.Coords)
+                    {
+                        coord.ResetTransform();
+                    }
+                }
             }
             TempMatrix = Matrix4.Identity;
             if (ChildEntities != null)

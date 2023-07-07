@@ -108,8 +108,8 @@ namespace PSXPrev.Classes
                                     {
                                         if (subTriangle.AttachableIndices[j] == attachedIndex)
                                         {
-                                            var newVertex = Vector3.TransformPosition(subTriangle.Vertices[j], subModel.WorldMatrix);
-                                            newVertex = Vector3.TransformPosition(newVertex, WorldMatrix.Inverted());
+                                            var newVertex = Vector3.TransformPosition(subTriangle.Vertices[j], subModel.TempWorldMatrix);
+                                            newVertex = Vector3.TransformPosition(newVertex, TempWorldMatrix.Inverted());
                                             triangle.Vertices[i] = newVertex;
                                             break;
                                         }
@@ -119,11 +119,11 @@ namespace PSXPrev.Classes
                                 // HMD: Check for attachable vertices and normals that aren't associated with an existing triangle.
                                 if (subModel.AttachableVertices != null && subModel.AttachableVertices.TryGetValue(attachedIndex, out var attachedVertex))
                                 {
-                                    var newVertex = Vector3.TransformPosition(attachedVertex, subModel.WorldMatrix);
+                                    var newVertex = Vector3.TransformPosition(attachedVertex, subModel.TempWorldMatrix);
                                     // WorldMatrix.Inverted() here prevents transforms for this model from being
                                     // applied, which they shouldn't be since attached vertices should only transform
                                     // based on their attached model.
-                                    newVertex = Vector3.TransformPosition(newVertex, WorldMatrix.Inverted());
+                                    newVertex = Vector3.TransformPosition(newVertex, TempWorldMatrix.Inverted());
                                     triangle.Vertices[i] = newVertex;
                                 }
                                 if (subModel.AttachableNormals != null && subModel.AttachableNormals.TryGetValue(attachedNormalIndex, out var attachedNormal))

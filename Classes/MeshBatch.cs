@@ -81,7 +81,7 @@ namespace PSXPrev
                     }
                     foreach (ModelEntity modelEntity in entity.ChildEntities)
                     {
-                        BindMesh(modelEntity, modelEntity.TempMatrix * modelEntity.WorldMatrix, textureBinder, updateMeshData, modelEntity.InitialVertices, modelEntity.InitialNormals, modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
+                        BindMesh(modelEntity, modelEntity.TempWorldMatrix, textureBinder, updateMeshData, modelEntity.InitialVertices, modelEntity.InitialNormals, modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
                     }
                 }
             }
@@ -93,7 +93,7 @@ namespace PSXPrev
             {
                 foreach (ModelEntity modelEntity in selectedRootEntity.ChildEntities)
                 {
-                    BindMesh(modelEntity, selectedRootEntity.TempMatrix * modelEntity.TempMatrix * modelEntity.WorldMatrix, textureBinder, updateMeshData, modelEntity.InitialVertices, modelEntity.InitialNormals, modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
+                    BindMesh(modelEntity, selectedRootEntity.TempMatrix * modelEntity.TempWorldMatrix, textureBinder, updateMeshData, modelEntity.InitialVertices, modelEntity.InitialNormals, modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
                 }
             }
             //}

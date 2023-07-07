@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.ComponentModel;
 using OpenTK;
 
 namespace PSXPrev.Classes
@@ -6,6 +7,9 @@ namespace PSXPrev.Classes
     public class RootEntity : EntityBase
     {
         private readonly List<ModelEntity> _groupedModels = new List<ModelEntity>();
+
+        [Browsable(false)]
+        public CoordUnit[] Coords { get; set; }
 
         public override void ComputeBounds()
         {

@@ -1,5 +1,7 @@
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
+using System;
+using System.Linq;
 
 namespace PSXPrev.Classes
 {
@@ -172,6 +174,133 @@ namespace PSXPrev.Classes
                         }
                         break;
                     }
+                case AnimationType.HMD:
+                    {
+                        if (selectedRootEntity != null && selectedRootEntity.Coords != null)
+                        {
+                            var animationFrames = animationObject.AnimationFrames;
+                            if (animationFrames.Count == 0)
+                            {
+                                break; // No frames to interpolate
+                            }
+                            var totalFrames = animationFrames.Values.Max(af => af.FrameTime + Math.Max(1u, af.FrameDuration));
+
+                            // Reset coordinate matrices in-case a frame requires the last state of the matrix.
+                            // This is important because there's no guarantee the animation won't skip a frame due to lag.
+                            foreach (var tmdid in animationObject.TMDID)
+                            {
+                                if (tmdid <= 0 || tmdid > selectedRootEntity.Coords.Length)
+                                {
+                                    continue;
+                                }
+                                var coord = selectedRootEntity.Coords[tmdid - 1];
+
+                                coord.ResetTransform();
+                            }
+
+                            for (uint f = 0; f <= frameIndex && f < totalFrames; f++)
+                            {
+                                if (!animationFrames.TryGetValue(f, out var srcFrame))
+                                {
+                                    continue;
+                                }
+                                /*AnimationFrame dstFrame = null;
+                                for (uint fdst = f + 1; fdst < totalFrames; fdst++)
+                                {
+                                    if (animationFrames.TryGetValue(fdst, out dstFrame))
+                                    {
+                                        break;
+                                    }
+                                }
+                                if (dstFrame == null)
+                                {
+                                    dstFrame = srcFrame;
+                                }*/
+
+                                // todo: How to properly handle certain None interpolation types is not fully understood.
+
+                                foreach (var tmdid in animationObject.TMDID)
+                                {
+                                    if (tmdid <= 0 || tmdid > selectedRootEntity.Coords.Length)
+                                    {
+                                        continue;
+                                    }
+                                    var coord = selectedRootEntity.Coords[tmdid - 1];
+
+                                    float start = srcFrame.FrameTime;
+                                    //float range = dstFrame.FrameTime - srcFrame.FrameTime;
+                                    float range = srcFrame.FrameDuration;
+                                    float delta = (range != 0f ? Math.Max(0f, Math.Min(1f, (frameIndex - start) / range)) : 1f);
+
+                                    Matrix4 frameMatrix;
+                                    if (srcFrame.RotationType == InterpolationType.Linear || srcFrame.ScaleType == InterpolationType.Linear)
+                                    {
+                                        // Use new matrix.
+                                        frameMatrix = Matrix4.Identity;
+
+                                        if (srcFrame.ScaleType == InterpolationType.Linear) // has supported scale
+                                        {
+                                            var srcS = srcFrame.Scale.Value;
+                                            //var dstS = dstFrame.Scale ?? srcS;
+                                            var dstS = srcFrame.FinalScale ?? srcS;
+                                            var scale = GeomUtils.InterpolateVector(srcS, dstS, delta);
+                                            //var scale = HMDHelper.Interpolate(srcFrame.ScaleType, srcFrame.Scale, srcFrame.CurveScales, srcFrame.FinalScale, delta);
+                                            var s = GeomUtils.CreateS(scale);
+                                            frameMatrix *= s;
+                                        }
+
+                                        Vector3 e;
+                                        RotationOrder rotOrder;
+                                        if (srcFrame.RotationType == InterpolationType.Linear) // has supported rotation
+                                        {
+                                            var srcR = srcFrame.EulerRotation.Value;
+                                            //var dstR = dstFrame.EulerRotation ?? srcR;
+                                            var dstR = srcFrame.FinalEulerRotation ?? srcR;
+                                            e = GeomUtils.InterpolateVector(srcR, dstR, delta);
+                                            //e = HMDHelper.Interpolate(srcFrame.RotationType, srcFrame.EulerRotation, srcFrame.CurveEulerRotations, srcFrame.FinalEulerRotation, delta);
+                                            rotOrder = srcFrame.RotationOrder;
+                                        }
+                                        else
+                                        {
+                                            // todo: Are we supposed to use the original rotation here?
+                                            e = coord.Rotation;
+                                            rotOrder = coord.OriginalRotationOrder; // Observed in Gods98 (PSX) source as the default rotation order.
+                                        }
+                                        var r = GeomUtils.CreateR(e, rotOrder);
+                                        frameMatrix *= r;
+                                    }
+                                    else
+                                    {
+                                        // Use original coord matrix...?
+                                        frameMatrix = coord.LocalMatrix;
+                                    }
+
+                                    if (srcFrame.TranslationType == InterpolationType.Linear) // has supported translation
+                                    {
+                                        var origT = GeomUtils.CreateT(frameMatrix.ExtractTranslation());
+                                        var srcT = srcFrame.Translation.Value;
+                                        //var dstT = dstFrame.Translation ?? srcT;
+                                        var dstT = srcFrame.FinalTranslation ?? srcT;
+                                        var translation = GeomUtils.InterpolateVector(srcT, dstT, delta);
+                                        //var translation = HMDHelper.Interpolate(srcFrame.TranslationType, srcFrame.Translation, srcFrame.CurveTranslations, srcFrame.FinalTranslation, delta);
+                                        var t = GeomUtils.CreateT(translation);
+                                        frameMatrix *= origT.Inverted(); // Overwrite old translation
+                                        frameMatrix *= t;
+                                    }
+
+                                    coord.LocalMatrix = frameMatrix;
+
+                                    // Hierarchy isn't supported for HMD animations. The coordinates do that already.
+                                    //worldMatrix *= frameMatrix;
+                                    // Not supported by HMD, which modifies coordinates of individual models.
+                                    //if (animationObject.HandlesRoot)
+                                    //{
+                                    //}
+                                }
+                            }
+                        }
+                        break;
+                    }
             }
             foreach (var childAnimationObject in animationObject.Children)
             {
@@ -180,6 +309,32 @@ namespace PSXPrev.Classes
                     return false;
                 }
             }
+
+            // HMD: Update the temporary matrices of all models, now that the coordinate system has been updated.
+            if (_animation.RootAnimationObject == animationObject && _animation.AnimationType == AnimationType.HMD)
+            {
+                var coords = selectedRootEntity?.Coords;
+                if (coords != null)
+                {
+                    foreach (var coord in coords)
+                    {
+                        var models = selectedRootEntity.GetModelsWithTMDID(coord.TMDID);
+                        foreach (var childModel in models)
+                        {
+                            childModel.Interpolator = 0;
+                            childModel.InitialVertices = null;
+                            childModel.FinalVertices = null;
+                            childModel.InitialNormals = null;
+                            childModel.FinalNormals = null;
+                            childModel.TempMatrix =
+                                coord.WorldMatrix * // Transform by new coord matrix
+                                childModel.OriginalWorldMatrix.Inverted() * childModel.WorldMatrix * // Preserve gizmo translations
+                                childModel.WorldMatrix.Inverted(); // Overwrite original transforms of models
+                        }
+                    }
+                }
+            }
+
             return true;
         }
     }

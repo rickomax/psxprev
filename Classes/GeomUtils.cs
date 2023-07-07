@@ -63,10 +63,25 @@ namespace PSXPrev.Classes
 
         public static Matrix4 CreateR(Vector3 rotation)
         {
+            // todo: Should this actually be RotationOrder.XYZ (zRot * yRot * xRot)?
+            return CreateR(rotation, RotationOrder.ZYX); // RotationOrder.XYZ);
+        }
+
+        public static Matrix4 CreateR(Vector3 rotation, RotationOrder order)
+        {
             var xRot = Matrix4.CreateRotationX(rotation.X);
             var yRot = Matrix4.CreateRotationY(rotation.Y);
             var zRot = Matrix4.CreateRotationZ(rotation.Z);
-            return xRot * yRot * zRot;
+            switch (order)
+            {
+                case RotationOrder.XYZ: return zRot * yRot * xRot;
+                case RotationOrder.XZY: return yRot * zRot * xRot;
+                case RotationOrder.YXZ: return zRot * xRot * yRot;
+                case RotationOrder.YZX: return xRot * zRot * yRot;
+                case RotationOrder.ZXY: return yRot * xRot * zRot;
+                case RotationOrder.ZYX: return xRot * yRot * zRot;
+            }
+            return Matrix4.Identity; // Invalid rotation order
         }
 
         public static Vector3 UnProject(this Vector3 position, Matrix4 projection, Matrix4 view, float width, float height)
@@ -150,6 +165,22 @@ namespace PSXPrev.Classes
                 outMin = min;
                 outMax = max;
             }
+        }
+
+        public static float InterpolateValue(float src, float dst, float delta)
+        {
+            // Uncomment if we want clamping. Or add bool clamp as an optional parameter.
+            //if (delta <= 0f) return src;
+            //if (delta >= 1f) return dst;
+            return (src * (1f - delta)) + (dst * (delta));
+        }
+
+        public static Vector3 InterpolateVector(Vector3 src, Vector3 dst, float delta)
+        {
+            // Uncomment if we want clamping. Or add bool clamp as an optional parameter.
+            //if (delta <= 0f) return src;
+            //if (delta >= 1f) return dst;
+            return (src * (1f - delta)) + (dst * (delta));
         }
     }
 }
