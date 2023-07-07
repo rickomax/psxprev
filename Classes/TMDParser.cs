@@ -10,7 +10,6 @@ namespace PSXPrev.Classes
     public class TMDParser
     {
         private long _offset;
-
         private readonly Action<RootEntity, long> _entityAddedAction;
 
         public TMDParser(Action<RootEntity, long> entityAddedAction)
@@ -39,7 +38,7 @@ namespace PSXPrev.Classes
                         if (entity != null)
                         {
                             entity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            _entityAddedAction(entity, reader.BaseStream.Position);
+                            _entityAddedAction(entity, _offset);
                             Program.Logger.WritePositiveLine("Found TMD Model at offset {0:X}", _offset);
                             _offset = reader.BaseStream.Position;
                             passed = true;

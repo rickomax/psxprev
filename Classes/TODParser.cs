@@ -8,11 +8,11 @@ namespace PSXPrev.Classes
     public class TODParser
     {
         private long _offset;
-        private Action<Animation, long> entityAddedAction;
+        private readonly Action<Animation, long> _animationAddedAction;
 
-        public TODParser(Action<Animation, long> entityAdded)
+        public TODParser(Action<Animation, long> animationAdded)
         {
-            entityAddedAction = entityAdded;
+            _animationAddedAction = animationAdded;
         }
 
         public void LookForTOD(BinaryReader reader, string fileTitle)
@@ -35,7 +35,7 @@ namespace PSXPrev.Classes
                         if (animation != null)
                         {
                             animation.AnimationName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            entityAddedAction(animation, reader.BaseStream.Position);
+                            _animationAddedAction(animation, _offset);
                             Program.Logger.WritePositiveLine("Found TOD Animation at offset {0:X}", _offset);
                             _offset = reader.BaseStream.Position;
                             passed = true;
