@@ -308,7 +308,7 @@ namespace PSXPrev.Classes
                             var r0 = (data1 & 0x1F);
                             var g0 = (data1 & 0x3E0) >> 5;
                             var b0 = (data1 & 0x7C00) >> 10;
-                            var a0 = (data1 & 0x8000) >> 11;
+                            var stpBit = ((data1 & 0x8000) >> 11) == 1; // Likely same semi-transparency bit seen in ReadPalette.
 
                             var color1 = System.Drawing.Color.FromArgb(255, r0 * 8, g0 * 8, b0 * 8);
 
@@ -346,8 +346,8 @@ namespace PSXPrev.Classes
                             var g1 = (data3 & 0xFF);
                             var b1 = (data3 & 0xFF00) >> 8;
 
-                            var color1 = System.Drawing.Color.FromArgb(255, r0 * 8, g0 * 8, b0 * 8);
-                            var color2 = System.Drawing.Color.FromArgb(255, r1 * 8, g1 * 8, b1 * 8);
+                            var color1 = System.Drawing.Color.FromArgb(255, r0, g0, b0);
+                            var color2 = System.Drawing.Color.FromArgb(255, r1, g1, b1);
 
                             bitmap.SetPixel((x * 2), y, color1);
                             bitmap.SetPixel((x * 2) + 1, y, color2);
