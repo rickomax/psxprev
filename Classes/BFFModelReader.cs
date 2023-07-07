@@ -36,7 +36,7 @@ namespace PSXPrev.Classes
                     if (model != null)
                     {
                         model.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                        _entityAddedAction(model, reader.BaseStream.Position);
+                        _entityAddedAction(model, _offset);
                         Program.Logger.WritePositiveLine("Found BFF Model at offset {0:X}", _offset);
                         _offset = reader.BaseStream.Position;
                         passed = true;

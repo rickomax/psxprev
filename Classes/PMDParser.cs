@@ -8,12 +8,11 @@ namespace PSXPrev.Classes
     public class PMDParser
     {
         private long _offset;
+        private readonly Action<RootEntity, long> _entityAddedAction;
 
-        private Action<RootEntity, long> entityAddedAction;
-
-        public PMDParser(Action<RootEntity, long> entityAddedAction)
+        public PMDParser(Action<RootEntity, long> entityAdded)
         {
-            this.entityAddedAction = entityAddedAction;
+            _entityAddedAction = entityAdded;
         }
 
         public void LookForPMD(BinaryReader reader, string fileTitle)
@@ -40,7 +39,7 @@ namespace PSXPrev.Classes
                         {
                             entity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
                             //entities.Add(entity);
-                            entityAddedAction(entity, reader.BaseStream.Position);
+                            _entityAddedAction(entity, _offset);
                             Program.Logger.WritePositiveLine("Found PMD Model at offset {0:X}", _offset);
                             passed = true;
                         }

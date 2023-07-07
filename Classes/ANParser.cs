@@ -8,11 +8,11 @@ namespace PSXPrev.Classes
     public class ANParser
     {
         private long _offset;
-        private readonly Action<Animation, long> _entityAddedAction;
+        private readonly Action<Animation, long> _animationAddedAction;
 
-        public ANParser(Action<Animation, long> entityAdded)
+        public ANParser(Action<Animation, long> animationAdded)
         {
-            _entityAddedAction = entityAdded;
+            _animationAddedAction = animationAdded;
         }
 
         public void LookForAN(BinaryReader reader, string fileTitle)
@@ -35,7 +35,7 @@ namespace PSXPrev.Classes
                         if (animation != null)
                         {
                             animation.AnimationName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            _entityAddedAction(animation, reader.BaseStream.Position);
+                            _animationAddedAction(animation, _offset);
                             Program.Logger.WritePositiveLine("Found AN Animation at offset {0:X}", _offset);
                             _offset = reader.BaseStream.Position;
                             passed = true;

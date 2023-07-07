@@ -11,16 +11,15 @@ namespace PSXPrev.Classes
     public class HMDParser
     {
         private long _offset;
-
         private readonly Action<RootEntity, long> _entityAddedAction;
         private readonly Action<Animation, long> _animationAddedAction;
         private readonly Action<Texture, long> _textureAddedAction;
 
-        public HMDParser(Action<RootEntity, long> entityAddedAction, Action<Animation, long> animationAddedAction, Action<Texture, long> textureAddedAction)
+        public HMDParser(Action<RootEntity, long> entityAdded, Action<Animation, long> animationAdded, Action<Texture, long> textureAdded)
         {
-            _entityAddedAction = entityAddedAction;
-            _animationAddedAction = animationAddedAction;
-            _textureAddedAction = textureAddedAction;
+            _entityAddedAction = entityAdded;
+            _animationAddedAction = animationAdded;
+            _textureAddedAction = textureAdded;
         }
 
         public void LookForHMDEntities(BinaryReader reader, string fileTitle)
@@ -44,26 +43,23 @@ namespace PSXPrev.Classes
                         if (rootEntity != null)
                         {
                             rootEntity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            _entityAddedAction(rootEntity, reader.BaseStream.Position);
+                            _entityAddedAction(rootEntity, _offset);
                             Program.Logger.WritePositiveLine("Found HMD Model at offset {0:X}", _offset);
-                            _offset = reader.BaseStream.Position;
                             passed = true;
                         }
                         foreach (var animation in animations)
                         {
                             animation.AnimationName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            _animationAddedAction(animation, reader.BaseStream.Position);
+                            _animationAddedAction(animation, _offset);
                             Program.Logger.WritePositiveLine("Found HMD Animation at offset {0:X}", _offset);
-                            _offset = reader.BaseStream.Position;
                             passed = true;
                         }
 
                         foreach (var texture in textures)
                         {
                             texture.TextureName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            _textureAddedAction(texture, reader.BaseStream.Position);
+                            _textureAddedAction(texture, _offset);
                             Program.Logger.WritePositiveLine("Found HMD Image at offset {0:X}", _offset);
-                            _offset = reader.BaseStream.Position;
                             passed = true;
                         }
                     }
@@ -74,6 +70,12 @@ namespace PSXPrev.Classes
                     //{
                     //    Program.Logger.WriteLine(exp);
                     //}
+                }
+
+                // Handle passed here, and not inside try/catch in-case something unexpected happens with the added callbacks.
+                if (passed)
+                {
+                    _offset = reader.BaseStream.Position;
                 }
 
                 if (!passed)
