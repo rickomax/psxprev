@@ -78,10 +78,13 @@
     <Compile Include="Classes\BoundingBox.cs" />
     <Compile Include="Classes\BRenderHelper.cs" />
     <Compile Include="Classes\collada_schema_1_4.cs" />
+    <Compile Include="Classes\CoordUnit.cs" />
     <Compile Include="Classes\DaeExporter.cs" />
     <Compile Include="Classes\EntityBase.cs" />
     <Compile Include="Classes\FInt.cs" />
+    <Compile Include="Classes\HMDHelper.cs" />
     <Compile Include="Classes\HMDParser.cs" />
+    <Compile Include="Classes\InterpolationType.cs" />
     <Compile Include="Classes\Line.cs" />
     <Compile Include="Classes\LineMesh.cs" />
     <Compile Include="Classes\LineBatch.cs" />
@@ -92,6 +95,7 @@
     <Compile Include="Classes\PrimitiveDataType.cs" />
     <Compile Include="Classes\CrocModelReader.cs" />
     <Compile Include="Classes\PSXParser.cs" />
+    <Compile Include="Classes\RotationOrder.cs" />
     <Compile Include="Classes\Texture.cs" />
     <Compile Include="Classes\Color.cs" />
     <Compile Include="Classes\FileReader.cs" />

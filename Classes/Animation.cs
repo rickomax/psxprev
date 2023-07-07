@@ -9,7 +9,8 @@ namespace PSXPrev.Classes
         NormalDiff,
         RPYDiff,
         MatrixDiff,
-        AxisDiff
+        AxisDiff,
+        HMD, // Multiple methods of interpolation that can change between frames.
     }
 
     public class Animation

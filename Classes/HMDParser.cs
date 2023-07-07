@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using OpenTK;
 
 namespace PSXPrev.Classes
@@ -125,53 +126,95 @@ namespace PSXPrev.Classes
             {
                 rootEntity = null;
             }
+            // Read hierarchical coordinates table.
+            var coordTop = (uint)(reader.BaseStream.Position - _offset);
             var coordCount = reader.ReadUInt32();
-            for (var c = 0; c < coordCount; c++)
+            var coords = new CoordUnit[coordCount];
+            for (uint c = 0; c < coordCount; c++)
             {
-                uint nestLevel = 0;
-                var localMatrix = ReadCoord(reader, ref nestLevel);
+                var coord = ReadCoord(reader, coordTop, c, coords);
+                if (coord == null)
+                {
+                    return null; // Bad coord unit.
+                }
+                coords[c] = coord;
+            }
+            // Now that the table is fully read, ensure no circular references in coord parents.
+            foreach (var coord in coords)
+            {
+                if (coord.HasCircularReference())
+                {
+                    return null; // Bad coord with parents that reference themselves.
+                }
+            }
+            // All coords are safe to use. Assign coords to models.
+            foreach (var coord in coords)
+            {
+                var localMatrix = coord.WorldMatrix;
                 foreach (var modelEntity in modelEntities)
                 {
-                    if (modelEntity.TMDID == c + 1)
+                    if (modelEntity.TMDID == coord.TMDID)
                     {
                         modelEntity.OriginalLocalMatrix = localMatrix;
                     }
                 }
             }
+            // Assign coords table to root entity so that they can be used in animations.
+            if (rootEntity != null)
+            {
+                rootEntity.Coords = coords;
+            }
             var primitiveHeaderCount = reader.ReadUInt32();
             return rootEntity;
         }
 
-        private Matrix4 ReadCoord(BinaryReader reader, ref uint nestLevel)
+        private CoordUnit ReadCoord(BinaryReader reader, uint coordTop, uint coordID, CoordUnit[] coords)
         {
             var flag = reader.ReadUInt32();
-            var worldMatrix = ReadMatrix(reader);
-            var workMatrix = ReadMatrix(reader);
-
-            short rx, ry, rz;
-            rx = reader.ReadInt16();
-            ry = reader.ReadInt16();
-            rz = reader.ReadInt16();
+            var localMatrix = ReadMatrix(reader, out var translation);
+            var workMatrix = ReadMatrix(reader, out _);
+            
+            var rx = (float)(reader.ReadInt16() / 4096.0 * (Math.PI * 2.0));
+            var ry = (float)(reader.ReadInt16() / 4096.0 * (Math.PI * 2.0));
+            var rz = (float)(reader.ReadInt16() / 4096.0 * (Math.PI * 2.0));
             var pad = reader.ReadInt16();
+            var rotation = new Vector3(rx, ry, rz);
 
             var super = reader.ReadUInt32() * 4;
-            if (nestLevel ++ >= 1000)
-            {
-                return default;
-            }
             if (super != 0)
             {
-                var position = reader.BaseStream.Position;
-                reader.BaseStream.Seek(_offset + super, SeekOrigin.Begin);
-                var superMatrix = ReadCoord(reader, ref nestLevel);
-                reader.BaseStream.Seek(position, SeekOrigin.Begin);
-                return worldMatrix * superMatrix;
+                if (super < coordTop + 4)
+                {
+                    return null; // Before coord table.
+                }
+                super -= coordTop + 4; // Change to start of coord table.
+                if (super % 80 != 0)
+                {
+                    return null; // Not aligned to coord table.
+                }
+                super /= 80; // Divide by size of CoordUnit to get super ID.
+                if (super == coordID || super >= coords.Length)
+                {
+                    return null; // Bad parent ID.
+                }
             }
-            // todo: Most matrices at coord index 0 are an identity matrix, but we should still really return the actual matrix.
-            return Matrix4.Identity; //worldMatrix;
+            else
+            {
+                super = CoordUnit.NoID;
+            }
+
+            return new CoordUnit
+            {
+                OriginalLocalMatrix = localMatrix,
+                OriginalTranslation = translation,
+                OriginalRotation = rotation,
+                ID = coordID,
+                ParentID = super,
+                Coords = coords,
+            };
         }
 
-        private static Matrix4 ReadMatrix(BinaryReader reader)
+        private static Matrix4 ReadMatrix(BinaryReader reader, out Vector3 translation)
         {
             float r00 = reader.ReadInt16() / 4096f;
             float r01 = reader.ReadInt16() / 4096f;
@@ -188,6 +231,8 @@ namespace PSXPrev.Classes
             var x = reader.ReadInt32() / 65536f;
             var y = reader.ReadInt32() / 65536f;
             var z = reader.ReadInt32() / 65536f;
+            translation = new Vector3(x, y, z);
+
             var matrix = new Matrix4(
                 new Vector4(r00, r10, r20, 0f),
                 new Vector4(r01, r11, r21, 0f),
@@ -302,6 +347,25 @@ namespace PSXPrev.Classes
                         if (Program.Debug)
                         {
                             Program.Logger.WriteLine($"HMD Animation");
+                        }
+                        try
+                        {
+                            var addedAnimations = ProcessAnimationData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, dataCount);
+                            if (addedAnimations != null)
+                            {
+                                foreach (var animation in addedAnimations)
+                                {
+                                    animations.Add(animation);
+                                }
+                            }
+                        }
+                        catch (Exception exp)
+                        {
+                            // Animation support is still experimental, continue reading HMD models even if we fail here.
+                            //if (Program.Debug)
+                            //{
+                            //    Program.Logger.WriteLine(exp);
+                            //}
                         }
                     }
                     else if (category == 4)
@@ -552,6 +616,352 @@ namespace PSXPrev.Classes
             }
 
             reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
+        }
+
+        private List<Animation> ProcessAnimationData(Dictionary<uint, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint dataCount)
+        {
+            var primitivePosition = reader.BaseStream.Position;
+            ProcessAnimationPrimitiveHeader(reader, primitiveHeaderPointer, out var interpTop, out var ctrlTop, out var paramTop, out var coordTop, out var sectionList);
+
+            reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
+
+
+            var animationList = new List<Animation>();
+            var animationObjectsList = new List<Dictionary<uint, AnimationObject>>();
+
+            AnimationFrame GetNextAnimationFrame(int index, AnimationObject animationObject, uint frameTime, bool assignFrame)
+            {
+                var animationFrames = animationObject.AnimationFrames;
+                var frame = new AnimationFrame { FrameTime = frameTime, AnimationObject = animationObject };
+
+                // We need to support overwriting frames with the same time due to tframe=0 normal instructions.
+                // These instructions are used to transition between different interpolation types,
+                // and also act as the start of the sequence.
+                if (assignFrame)
+                {
+                    //animationFrames.Add(frameTime, frame);
+                    animationFrames[frameTime] = frame;
+                }
+
+                if (frameTime >= animationList[index].FrameCount)
+                {
+                    animationList[index].FrameCount = frameTime + 1;
+                }
+                return frame;
+            }
+            AnimationObject GetAnimationObject(int index, uint objectId)
+            {
+                while (index >= animationObjectsList.Count)
+                {
+                    animationObjectsList.Add(new Dictionary<uint, AnimationObject>());
+                }
+                if (animationObjectsList[index].ContainsKey(objectId))
+                {
+                    return animationObjectsList[index][objectId];
+                }
+                var animationObject = new AnimationObject { Animation = animationList[index], ID = objectId };
+                animationObject.TMDID.Add(objectId); // TMDID and objectId are the same.
+                animationObjectsList[index].Add(objectId, animationObject);
+                return animationObject;
+            }
+            Animation GetAnimation(int index)
+            {
+                while (index >= animationList.Count)
+                {
+                    animationList.Add(new Animation());
+                }
+                return animationList[index];
+            }
+
+
+            // Debug: Print instruction set. Programmatically disabled by default since it wastes a lot of time.
+#if false
+            if (Program.Debug)
+            {
+                HMDHelper.PrintAnimInstructions(reader, ctrlTop, paramTop, _offset);
+            }
+#endif
+            
+            var tgt = ((driver     ) & 0xf);
+            var cat = ((driver >> 4) & 0x7);
+            var ini = ((driver >> 7) & 0x1) == 1;
+
+            if (tgt != 0)
+            {
+                // TGT = 1:
+                // General update driver
+                // Not supported yet. This would be updates to individual vertices or normals.
+                if (Program.Debug)
+                {
+                    Program.Logger.WriteLine($"Unsupported animation TGT {tgt}");
+                }
+                return null;
+            }
+
+            // Cache places we're going to be reading from multiple times.
+            var descriptors = new Dictionary<uint, uint>();
+            var interpTypes = new Dictionary<uint, uint>();
+            // Debug: Track if we can support the model's speed.
+            var speeds = new HashSet<int>();
+
+            // TGT = 0:
+            // Coordinate update driver
+            for (uint i = 0; i < dataCount; i++)
+            {
+                var sequencePointerPosition = reader.BaseStream.Position;
+
+                ReadMappedValue(reader, out _, out var updateIndex);
+                var updateSectionOffset = updateIndex >> 24;
+                var updateOffsetInSection = (updateIndex & 0xffffff) * 4;
+
+                if (updateOffsetInSection < 4 || (updateOffsetInSection - 4) % 80 != 0)
+                {
+                    if (Program.Debug)
+                    {
+                        Program.Logger.WriteLine($"Invalid animation updateOffsetInSection {updateOffsetInSection}");
+                    }
+                    return null; // Coordinate offset starts before table, or offset is not aligned.
+                }
+                var tmdid = (updateOffsetInSection - 4) / 80 + 1; // Divide by size of coord uint. Coord TMDIDs are 1-indexed.
+
+                ReadMappedValue16(reader, out _, out var sequenceSize);
+                ReadMappedValue16(reader, out _, out var sequenceCount);
+                
+                var interpIdx = reader.ReadUInt16();
+                var aframe = reader.ReadUInt16();
+                
+                var streamID = reader.ReadByte();
+                var speed = reader.ReadSByte();
+                var srcInterpIdx = reader.ReadUInt16();
+                
+                var rframe = reader.ReadUInt16();
+                var tframe = reader.ReadUInt16();
+                
+                var ctrIdx = reader.ReadUInt16();
+                var tctrIdx = reader.ReadUInt16();
+                
+                var startIdx = new ushort[sequenceCount];
+                var startSID = new byte[sequenceCount];
+                var traveling = new byte[sequenceCount]; // Note: Only the first index is used
+
+                for (var j = 0; j < sequenceCount; j++)
+                {
+                    startIdx[j] = reader.ReadUInt16();
+                    startSID[j] = reader.ReadByte();
+                    traveling[j] = reader.ReadByte();
+                }
+
+                // Track if multiple speeds are defined for different objects, we can't handle that yet.
+                speeds.Add(Math.Abs((int)speed));
+                
+                for (var j = 0; j < sequenceCount; j++)
+                {
+                    // This is the first animation object for this sequence, rely on this for frame rate.
+                    if (j >= animationList.Count) // i == 0)
+                    {
+                        var animation = GetAnimation(j);
+                        // Speed is stored in fixed point with lowest 4 bits representing fraction.
+                        // todo: Handle difference between PAL (25fps) and US (30fps) speeds.
+                        animation.FPS = 25f * (Math.Abs(speed) / 16f); // todo: Should we really rely on this?
+                    }
+
+                    var animationObject = GetAnimationObject(j, tmdid);
+
+                    AnimationFrame lastAnimationFrame = null;
+                    uint lastTFrame = 0;
+
+                    uint idx = startIdx[j]; // Current starting instruction pointer.
+                    uint sid = startSID[j]; // Current StreamID, acts like a control flow variable.
+                    uint time = 0; // Current frame time.
+                    var processedCount = 0; // Debug information: Number of instructions encountered
+                    var halted = false; // Debug information: END instruction encountered
+
+                    // List of encountered instructions with SIDs they were encountered with.
+                    // Once we reach an instruction that we've already reached with the same SID, then we've hit an infinite loop.
+                    var visited = new Dictionary<uint, HashSet<uint>>();
+
+                    // Execute instructions to find all frames (Normal instructions).
+                    while (idx < ushort.MaxValue)
+                    {
+                        // Infinite loop check.
+                        if (!visited.TryGetValue(idx, out var sidSet))
+                        {
+                            sidSet = new HashSet<uint>();
+                            visited.Add(idx, sidSet);
+                        }
+                        if (!sidSet.Add(sid))
+                        {
+                            // Infinite loop.
+                            // todo: Animation looping might rely on the first frame of the infinite loop,
+                            //       so we may need to parse one more normal frame.
+                            // todo: Handle animation loops that don't have the same frame lengths for different objects.
+                            if (Program.Debug)
+                            {
+                                Program.Logger.WriteLine($"Infinite loop in animation @{idx} #{sid}");
+                            }
+                            break;
+                        }
+
+                        // Cache already-read instructions.
+                        if (!descriptors.TryGetValue(idx, out var descriptor))
+                        {
+                            reader.BaseStream.Seek(_offset + ctrlTop + idx * 4, SeekOrigin.Begin);
+                            descriptor = reader.ReadUInt32();
+                            descriptors.Add(idx, descriptor);
+                        }
+                        var descriptorType = (descriptor >> 30) & 0x3;
+
+                        if ((descriptorType & 0x2) == 0x0) // Normal (second MSB is used by instruction)
+                        {
+                            // SPAGHETTI ALERT:
+                            // The way frames, next frames, final parameters and interpolation is
+                            // handled makes the processing of nextTFrame parameters very clunky.
+                            // Especially because we need to pre-compute animations.
+
+                            // Standard instruction used for interpolation.
+                            var paramIndex  = (descriptor >>  0) & 0xffff; // Index to parameter data for key frame referred to by sequence descriptor.
+                            var nextTFrame  = (descriptor >> 16) & 0xff; // Frame number of next sequence descriptor (int).
+                            var interpIndex = (descriptor >> 24) & 0x7f; // Index into interpolation table. Specifies function to be used.
+                            
+                            // Cache already-read interpolation (animation) types.
+                            if (!interpTypes.TryGetValue(interpIndex, out var animationType))
+                            {
+                                // +4 to skip type count
+                                reader.BaseStream.Seek(_offset + interpTop + 4 + interpIndex * 4, SeekOrigin.Begin);
+                                animationType = reader.ReadUInt32();
+                                interpTypes.Add(interpIndex, animationType);
+                            }
+                            
+                            // We don't know if we want to assign this frame until we run into an instruction where TFrame!=0.
+                            // Make a special exception for the first animation frame.
+                            var assignFrame = (animationObject.AnimationFrames.Count == 0 || nextTFrame != 0);
+                            var animationFrame = GetNextAnimationFrame(j, animationObject, time + nextTFrame, assignFrame);
+
+                            // Don't overwrite the last animation frame when we run into a chain of TFrame==0 instructions.
+                            // Only overwrite once we encounter an instruction where TFrame!=0.
+                            if (lastTFrame == 0 && nextTFrame != 0)
+                            {
+                                animationObject.AnimationFrames[time] = lastAnimationFrame;
+                            }
+
+                            // Don't assign the Final* interpolation parameters to lastAnimationFrame if TFrame==0.
+                            // This frame is a dummy frame used to transition to the next interpolation type. Or is used in some other incorrect way.
+                            var argLastAnimationFrame = (nextTFrame != 0 ? lastAnimationFrame : null);
+
+                            reader.BaseStream.Seek(_offset + paramTop + paramIndex * 4, SeekOrigin.Begin);
+                            if (!HMDHelper.ReadAnimPacket(reader, animationType, animationFrame, argLastAnimationFrame))
+                            {
+                                if (Program.Debug)
+                                {
+                                    Program.Logger.WriteLine($"Invalid/unsupported animation type 0x{animationType:x08} @{idx} #{sid}");
+                                }
+                                return null; // Unsupported animation packet.
+                            }
+                            lastAnimationFrame = animationFrame;
+                            lastTFrame = nextTFrame;
+                            time += nextTFrame;
+                        }
+                        else if (descriptorType == 0x2) // Jump
+                        {
+                            var seqIndex = (descriptor >>  0) & 0xffff; // Next control descriptor to jump to.
+                            var cnd      = (descriptor >> 16) & 0x7f; // Stream ID conditional jump.
+                            var dst      = (descriptor >> 23) & 0x7f; // Stream ID destination of jump.
+                            // todo: How to handle SID 127, is this for sid, or cnd???
+                            if (cnd == 0 || cnd == sid || (cnd == 127 && sid == 0))
+                            {
+                                if (cnd != 0 || dst != 0)
+                                {
+                                    sid = dst;
+                                }
+                                idx = seqIndex;
+                                processedCount++;
+                                continue;
+                            }
+                        }
+                        else if (descriptorType == 0x3) // Control
+                        {
+                            var code = (descriptor >> 23) & 0x7f;
+                            var p1   = (descriptor >> 16) & 0x7f;
+                            var p2   = (descriptor >>  0) & 0xffff;
+                            if (code == 1) // End
+                            {
+                                // If P1 matches current Stream ID, sequence is halted.
+                                // todo: Is the SID 127 condition supported here too?
+                                if (p1 == 0 || p1 == sid || (p1 == 127 && sid == 0))
+                                {
+                                    halted = true;
+                                    processedCount++;
+                                    break;
+                                }
+                            }
+                            else if (code == 2) // Work
+                            {
+                                // Work area for sequence pointer required by B-Spline interpolation.
+                                // p1: 127 fixed
+                                // p2: Offset (in 4-byte units) in parameter section indicates work area.
+                                // B-Splines arent't supported yet.
+                            }
+                            else
+                            {
+                                // Invalid code. Should we return null here?
+                                return null;
+                            }
+                        }
+
+                        if (speed >= 0) idx++;
+                        else            idx--;
+                        processedCount++;
+                    }
+                }
+
+                // Seek to the start of the next sequence pointer.
+                reader.BaseStream.Seek(sequencePointerPosition + sequenceSize * 4, SeekOrigin.Begin);
+            }
+
+            if (speeds.Count > 1)
+            {
+                if (Program.Debug)
+                {
+                    Program.Logger.WriteLine($"Unsupported multiple speeds defined for different animation objects");
+                }
+            }
+
+            for (var j = 0; j < animationList.Count; j++)
+            {
+                var animation = animationList[j];
+                var animationObjects = animationObjectsList[j];
+                var rootAnimationObject = new AnimationObject();
+                foreach (var animationObject in animationObjects.Values)
+                {
+                    // Assign frame durations.
+                    var animationFrames = animationObject.AnimationFrames;
+                    AnimationFrame lastAnimationFrame = null;
+                    foreach (var animationFrame in animationFrames.Values.OrderBy(af => af.FrameTime))
+                    {
+                        if (lastAnimationFrame != null)
+                        {
+                            lastAnimationFrame.FrameDuration = animationFrame.FrameTime - lastAnimationFrame.FrameTime;
+                        }
+                        lastAnimationFrame = animationFrame;
+                    }
+
+                    // No parenting.
+                    /*if (animationObject.ParentID != 0 && animationObjects.ContainsKey(animationObject.ParentID))
+                    {
+                        var parent = animationObjects[animationObject.ParentID];
+                        animationObject.Parent = parent;
+                        parent.Children.Add(animationObject);
+                        continue;
+                    }*/
+                    animationObject.Parent = rootAnimationObject;
+                    rootAnimationObject.Children.Add(animationObject);
+                }
+                animation.AnimationType = AnimationType.HMD;
+                animation.RootAnimationObject = rootAnimationObject;
+                animation.ObjectCount = animationObjects.Count;
+            }
+
+            return animationList;
         }
 
         private Animation ProcessMimeVertexData(Dictionary<uint, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint diffTop, uint dataCount, bool rst)
@@ -824,6 +1234,31 @@ namespace PSXPrev.Classes
 
             imageTop *= 4;
             clutTop *= 4;
+
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+        }
+
+        private void ProcessAnimationPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint interpTop, out uint ctrlTop, out uint paramTop, out uint coordTop, out uint[] sectionList)
+        {
+            var position = reader.BaseStream.Position;
+
+            reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
+
+            var headerSize = reader.ReadUInt32();
+            var animHeaderSize = reader.ReadUInt32();
+
+            sectionList = new uint[animHeaderSize];
+            sectionList[0] = animHeaderSize; // Not a valid section index.
+            for (var i = 1; i < animHeaderSize; i++)
+            {
+                ReadMappedValue(reader, out _, out sectionList[i]);
+                sectionList[i] *= 4;
+            }
+
+            interpTop = (headerSize >= 2 ? sectionList[1] : 0u);
+            ctrlTop   = (headerSize >= 3 ? sectionList[2] : 0u);
+            paramTop  = (headerSize >= 4 ? sectionList[3] : 0u);
+            coordTop  = (headerSize >= 5 ? sectionList[4] : 0u);
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
