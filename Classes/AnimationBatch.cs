@@ -142,7 +142,7 @@ namespace PSXPrev.Classes
                                 var absoluteMatrixValue = sumFrame.AbsoluteMatrix;
                                 if (!absoluteMatrixValue)
                                 {
-                                    frameMatrix *= localMatrix;
+                                    frameMatrix = localMatrix * frameMatrix;
                                 }
 
                                 localMatrix = frameMatrix;
