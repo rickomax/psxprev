@@ -42,6 +42,7 @@ namespace PSXPrev
             public bool SelectFirstModel { get; set; }
             public bool DrawAllToVRAM { get; set; }
             public bool AutoAttachLimbs { get; set; }
+            public bool NoOffset { get; set; }
 
             public ScanOptions Clone()
             {
@@ -73,6 +74,7 @@ namespace PSXPrev
         public static bool Debug => _options.Debug;
         public static bool LogToFile => _options.LogToFile;
         public static bool NoVerbose => _options.NoVerbose;
+        public static bool NoOffset => _options.NoOffset;
 
 
         public const string DefaultFilter = "*.*";
@@ -115,7 +117,7 @@ namespace PSXPrev
                 + " [-an] [-bff] [-croc] [-hmd] [-pmd] [-psx] [-tim] [-tmd] [-tod] [-vdf]" // scanner formats (alphabetical)
                 + " [-ignoretmdversion]" // scanner options
                 + " [-log] [-noverbose] [-debug]" // log options
-                + " [-selectmodel] [-drawvram] [-attachlimbs]" // program options
+                + " [-selectmodel] [-drawvram] [-attachlimbs] [-nooffset]" // program options
                 );
 
             Console.ResetColor();
@@ -136,7 +138,7 @@ namespace PSXPrev
             Console.WriteLine("scanner options: (default: all formats)");
             Console.WriteLine("  -an    : scan for AN animations");
             Console.WriteLine("  -bff   : scan for BFF models");
-            Console.WriteLine("  -croc  : scan for CROC models");
+            Console.WriteLine("  -croc  : scan for Croc models");
             Console.WriteLine("  -hmd   : scan for HMD models, textures, and animations");
             Console.WriteLine("  -pmd   : scan for PMD models");
             Console.WriteLine("  -psx   : scan for PSX models");
@@ -156,6 +158,7 @@ namespace PSXPrev
             Console.WriteLine("  -selectmodel : select and display the first-loaded model");
             Console.WriteLine("  -drawvram    : draw all loaded textures to VRAM (not advised when scanning a lot of files)");
             Console.WriteLine("  -attachlimbs : enable Auto Attach Limbs by default");
+            Console.WriteLine("  -nooffset    : only scan files at offset 0");
 
             Console.ResetColor();
         }
@@ -240,6 +243,9 @@ namespace PSXPrev
                     break;
                 case "-attachlimbs":
                     options.AutoAttachLimbs = true;
+                    break;
+                case "-nooffset":
+                    options.NoOffset = true;
                     break;
 
                 default:
@@ -474,8 +480,7 @@ namespace PSXPrev
                 {
                     var timParser = new TIMParser(AddTexture);
                     //Program.Logger.WriteLine("");
-                    Program.Logger.WriteLine("Scanning for TIM at file {0}", fileTitle);
-                    timParser.LookForTim(binaryReader, fileTitle);
+                    timParser.ScanFile(binaryReader, fileTitle);
                 });
             }
 
@@ -485,8 +490,7 @@ namespace PSXPrev
                 {
                     var crocModelReader = new CrocModelReader(AddEntity);
                     //Program.Logger.WriteLine("");
-                    Program.Logger.WriteLine("Scanning for Croc at file {0}", fileTitle);
-                    crocModelReader.LookForCrocModel(binaryReader, fileTitle);
+                    crocModelReader.ScanFile(binaryReader, fileTitle);
                 });
             }
 
@@ -496,8 +500,7 @@ namespace PSXPrev
                 {
                     var bffModelReader = new BFFModelReader(AddEntity);
                     //Program.Logger.WriteLine("");
-                    Program.Logger.WriteLine("Scanning for BFF at file {0}", fileTitle);
-                    bffModelReader.LookForBFF(binaryReader, fileTitle);
+                    bffModelReader.ScanFile(binaryReader, fileTitle);
                 });
             }
 
@@ -507,8 +510,7 @@ namespace PSXPrev
                 {
                     var psxParser = new PSXParser(AddEntity);
                     //Program.Logger.WriteLine("");
-                    Program.Logger.WriteLine("Scanning for PSX at file {0}", fileTitle);
-                    psxParser.LookForPSX(binaryReader, fileTitle);
+                    psxParser.ScanFile(binaryReader, fileTitle);
                 });
             }
 
@@ -518,8 +520,7 @@ namespace PSXPrev
                 {
                     var tmdParser = new TMDParser(AddEntity);
                     //Program.Logger.WriteLine("");
-                    Program.Logger.WriteLine("Scanning for TMD at file {0}", fileTitle);
-                    tmdParser.LookForTmd(binaryReader, fileTitle);
+                    tmdParser.ScanFile(binaryReader, fileTitle);
                 });
             }
 
@@ -529,8 +530,7 @@ namespace PSXPrev
                 {
                     var vdfParser = new VDFParser(AddAnimation);
                     //Program.Logger.WriteLine("");
-                    Program.Logger.WriteLine("Scanning for VDF at file {0}", fileTitle);
-                    vdfParser.LookForVDF(binaryReader, fileTitle);
+                    vdfParser.ScanFile(binaryReader, fileTitle);
                 });
             }
 
@@ -540,8 +540,7 @@ namespace PSXPrev
                 {
                     var anParser = new ANParser(AddAnimation);
                     //Program.Logger.WriteLine("");
-                    Program.Logger.WriteLine("Scanning for AN at file {0}", fileTitle);
-                    anParser.LookForAN(binaryReader, fileTitle);
+                    anParser.ScanFile(binaryReader, fileTitle);
                 });
             }
 
@@ -551,8 +550,7 @@ namespace PSXPrev
                 {
                     var pmdParser = new PMDParser(AddEntity);
                     //Program.Logger.WriteLine("");
-                    Program.Logger.WriteLine("Scanning for PMD at file {0}", fileTitle);
-                    pmdParser.LookForPMD(binaryReader, fileTitle);
+                    pmdParser.ScanFile(binaryReader, fileTitle);
                 });
             }
 
@@ -562,8 +560,7 @@ namespace PSXPrev
                 {
                     var todParser = new TODParser(AddAnimation);
                     //Program.Logger.WriteLine("");
-                    Program.Logger.WriteLine("Scanning for TOD at file {0}", fileTitle);
-                    todParser.LookForTOD(binaryReader, fileTitle);
+                    todParser.ScanFile(binaryReader, fileTitle);
                 });
             }
 
@@ -573,8 +570,7 @@ namespace PSXPrev
                 {
                     var hmdParser = new HMDParser(AddEntity, AddAnimation, AddTexture);
                     //Program.Logger.WriteLine("");
-                    Program.Logger.WriteLine("Scanning for HMD at file {0}", fileTitle);
-                    hmdParser.LookForHMDEntities(binaryReader, fileTitle);
+                    hmdParser.ScanFile(binaryReader, fileTitle);
                 });
             }
 

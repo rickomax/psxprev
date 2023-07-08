@@ -8,84 +8,28 @@ using OpenTK;
 
 namespace PSXPrev.Classes
 {
-    public class HMDParser
+    public class HMDParser : FileOffsetScanner
     {
-        private long _offset;
-        private readonly Action<RootEntity, long> _entityAddedAction;
-        private readonly Action<Animation, long> _animationAddedAction;
-        private readonly Action<Texture, long> _textureAddedAction;
-
-        public HMDParser(Action<RootEntity, long> entityAdded, Action<Animation, long> animationAdded, Action<Texture, long> textureAdded)
+        public HMDParser(EntityAddedAction entityAdded, AnimationAddedAction animationAdded, TextureAddedAction textureAdded)
+            : base(entityAdded, animationAdded, textureAdded)
         {
-            _entityAddedAction = entityAdded;
-            _animationAddedAction = animationAdded;
-            _textureAddedAction = textureAdded;
         }
 
-        public void LookForHMDEntities(BinaryReader reader, string fileTitle)
+        public override string FormatName => "HMD";
+
+        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
         {
-            if (reader == null)
+            entities = null;
+            animations = null;
+            textures = null;
+
+            var version = reader.ReadUInt32();
+            if (version == 0x00000050)
             {
-                throw (new Exception("File must be opened"));
-            }
-
-            reader.BaseStream.Seek(0, SeekOrigin.Begin);
-
-            while (reader.BaseStream.CanRead)
-            {
-                var passed = false;
-                try
+                var rootEntity = ParseHMD(reader, out animations, out textures);
+                if (rootEntity != null)
                 {
-                    var version = reader.ReadUInt32();
-                    if (version == 0x00000050)
-                    {
-                        var rootEntity = ParseHMD(reader, out var animations, out var textures);
-                        if (rootEntity != null)
-                        {
-                            rootEntity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            _entityAddedAction(rootEntity, _offset);
-                            Program.Logger.WritePositiveLine("Found HMD Model at offset {0:X}", _offset);
-                            passed = true;
-                        }
-                        foreach (var animation in animations)
-                        {
-                            animation.AnimationName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            _animationAddedAction(animation, _offset);
-                            Program.Logger.WritePositiveLine("Found HMD Animation at offset {0:X}", _offset);
-                            passed = true;
-                        }
-
-                        foreach (var texture in textures)
-                        {
-                            texture.TextureName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            _textureAddedAction(texture, _offset);
-                            Program.Logger.WritePositiveLine("Found HMD Image at offset {0:X}", _offset);
-                            passed = true;
-                        }
-                    }
-                }
-                catch (Exception exp)
-                {
-                    //if (Program.Debug)
-                    //{
-                    //    Program.Logger.WriteLine(exp);
-                    //}
-                }
-
-                // Handle passed here, and not inside try/catch in-case something unexpected happens with the added callbacks.
-                if (passed)
-                {
-                    _offset = reader.BaseStream.Position;
-                }
-
-                if (!passed)
-                {
-                    if (++_offset > reader.BaseStream.Length)
-                    {
-                        Program.Logger.WriteLine($"HMD - Reached file end: {fileTitle}");
-                        return;
-                    }
-                    reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
+                    entities = new List<RootEntity> { rootEntity };
                 }
             }
         }

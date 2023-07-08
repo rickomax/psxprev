@@ -5,59 +5,25 @@ using OpenTK;
 
 namespace PSXPrev.Classes
 {
-    public class CrocModelReader
+    public class CrocModelReader : FileOffsetScanner
     {
-        private long _offset;
-        private readonly Action<RootEntity, long> _entityAddedAction;
-
-        public CrocModelReader(Action<RootEntity, long> entityAdded)
+        public CrocModelReader(EntityAddedAction entityAdded)
+            : base(entityAdded: entityAdded)
         {
-            _entityAddedAction = entityAdded;
         }
 
-        public void LookForCrocModel(BinaryReader reader, string fileTitle)
-        {
-            if (reader == null)
-            {
-                throw (new Exception("File must be opened"));
-            }
+        public override string FormatName => "Croc";
 
-            reader.BaseStream.Seek(0, SeekOrigin.Begin);
-            while (reader.BaseStream.CanRead)
+        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
+        {
+            entities = null;
+            animations = null;
+            textures = null;
+
+            var model = ReadModels(reader);
+            if (model != null)
             {
-                var passed = false;
-                try
-                {
-                    var model = ReadModels(reader);
-                    if (model != null)
-                    {
-                        model.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                        _entityAddedAction(model, _offset);
-                        Program.Logger.WritePositiveLine("Found Croc Model at offset {0:X}", _offset);
-                        _offset = reader.BaseStream.Position;
-                        passed = true;
-                    }
-                    //else
-                    //{
-                    //    return;
-                    //}
-                }
-                catch (Exception exp)
-                {
-                    //if (Program.Debug)
-                    //{
-                    //    Program.Logger.WriteLine(exp);
-                    //}
-                }
-                if (!passed)
-                {
-                    if (++_offset > reader.BaseStream.Length)
-                    {
-                        Program.Logger.WriteLine($"Croc - Reached file end: {fileTitle}");
-                        return;
-                    }
-                    reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
-                }
+                entities = new List<RootEntity> { model };
             }
         }
 

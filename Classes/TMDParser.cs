@@ -7,59 +7,28 @@ using OpenTK;
 
 namespace PSXPrev.Classes
 {
-    public class TMDParser
+    public class TMDParser : FileOffsetScanner
     {
-        private long _offset;
-        private readonly Action<RootEntity, long> _entityAddedAction;
-
-        public TMDParser(Action<RootEntity, long> entityAddedAction)
+        public TMDParser(EntityAddedAction entityAdded)
+            : base(entityAdded: entityAdded)
         {
-            _entityAddedAction = entityAddedAction;
         }
 
-        public void LookForTmd(BinaryReader reader, string fileTitle)
+        public override string FormatName => "TMD";
+
+        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
         {
-            if (reader == null)
-            {
-                throw new Exception("File must be opened");
-            }
+            entities = null;
+            animations = null;
+            textures = null;
 
-            reader.BaseStream.Seek(0, SeekOrigin.Begin);
-
-            while (reader.BaseStream.CanRead)
+            var version = reader.ReadUInt32();
+            if (Program.IgnoreTmdVersion || version == 0x00000041)
             {
-                var passed = false;
-                try
+                var entity = ParseTmd(reader, fileTitle);
+                if (entity != null)
                 {
-                    var version = reader.ReadUInt32();
-                    if (Program.IgnoreTmdVersion || version == 0x00000041)
-                    {
-                        var entity = ParseTmd(reader, fileTitle);
-                        if (entity != null)
-                        {
-                            entity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            _entityAddedAction(entity, _offset);
-                            Program.Logger.WritePositiveLine("Found TMD Model at offset {0:X}", _offset);
-                            _offset = reader.BaseStream.Position;
-                            passed = true;
-                        }
-                    }
-                }
-                catch (Exception exp)
-                {
-                    //if (Program.Debug)
-                    //{
-                    //    Program.Logger.WriteLine(exp);
-                    //}
-                }
-                if (!passed)
-                {
-                    if (++_offset > reader.BaseStream.Length)
-                    {
-                        Program.Logger.WriteLine($"TMD - Reached file end: {fileTitle}");
-                        return;
-                    }
-                    reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
+                    entities = new List<RootEntity> { entity };
                 }
             }
         }
