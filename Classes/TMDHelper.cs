@@ -9,7 +9,7 @@ namespace PSXPrev.Classes
 {
     public static class TMDHelper
     {
-        public static Dictionary<PrimitiveDataType, uint> CreateTMDPacketStructure(byte flag, byte mode, BinaryReader reader, int index)
+        public static Dictionary<PrimitiveDataType, uint> CreateTMDPacketStructure(byte flag, byte mode, BinaryReader reader, int index, out RenderFlags renderFlags)
         {
             var option = (mode & 0x1F);
 
@@ -23,6 +23,12 @@ namespace PSXPrev.Classes
             var isqBit = ((option >> 3) & 0x01) == 1; //1-quad, 0-tri
             var iipBit = ((option >> 4) & 0x01) == 1; //shading mode: 0-flat, 1-goraund
             var code = ((mode >> 5) & 0x03);
+
+            renderFlags = RenderFlags.None;
+            if (!lgtBit) renderFlags |= RenderFlags.Unlit;
+            if (fceBit) renderFlags |= RenderFlags.DoubleSided;
+            if (abeBit) renderFlags |= RenderFlags.SemiTransparent;
+
             if (Program.Debug)
             {
                 Program.Logger.WriteLine("[{9}] mode: {8:x2} light:{0} double-faced:{1} gradation:{2} brightness:{3} translucency:{4} texture:{5} quad:{6} gouraud:{7}",
@@ -48,7 +54,7 @@ namespace PSXPrev.Classes
             return ParsePrimitiveData(reader, false, lgtBit, iipBit, tmeBit, grdBit, isqBit, abeBit, false);
         }
 
-        public static Dictionary<PrimitiveDataType, uint> CreateHMDPacketStructure(uint driver, uint primitiveType, BinaryReader reader)
+        public static Dictionary<PrimitiveDataType, uint> CreateHMDPacketStructure(uint driver, uint primitiveType, BinaryReader reader, out RenderFlags renderFlags)
         {
             var tmeBit = ((primitiveType >> 0) & 0x01) == 1; // Texture: 0-Off, 1-On
             var colBit = ((primitiveType >> 1) & 0x01) == 1; // Color: 0-Single, 1-Separate
@@ -62,12 +68,18 @@ namespace PSXPrev.Classes
             var fogBit = ((driver >> 1) & 0x01) == 1; // Fog: 0-Off, 1-On
             var lgtBit = ((driver >> 2) & 0x01) == 0; // Light: 0-Lit, 1-Unlit
             var advBit = ((driver >> 3) & 0x01) == 1; // Automatic division: 0-Off, 1-On
-            var botBit = ((driver >> 4) & 0x01) == 1; // Sides: 0-Single sided, 1-Double sided
+            var botBit = ((driver >> 4) & 0x01) == 1; // Both sides: 0-Single sided, 1-Double sided
             var stpBit = ((driver >> 5) & 0x01) == 1; // Semi-transparency: 0-Preserve, 1-On
+            
+            renderFlags = RenderFlags.None;
+            if (divBit) renderFlags |= RenderFlags.Subdivision;
+            if (fogBit) renderFlags |= RenderFlags.Fog;
+            if (!lgtBit) renderFlags |= RenderFlags.Unlit;
+            if (advBit) renderFlags |= RenderFlags.AutomaticDivision;
+            if (botBit) renderFlags |= RenderFlags.DoubleSided;
+            if (stpBit) renderFlags |= RenderFlags.SemiTransparent;
 
-            // Note that lgtBit should equal lmdBit.
-
-            return ParsePrimitiveData(reader, true, lgtBit, iipBit, tmeBit, colBit, quad, stpBit, tileBit); //todo: translucency
+            return ParsePrimitiveData(reader, true, lgtBit, iipBit, tmeBit, colBit, quad, stpBit, tileBit);
         }
 
         public static string ToString(Dictionary<PrimitiveDataType, uint> primitiveDataDictionary)
@@ -398,22 +410,43 @@ namespace PSXPrev.Classes
             return primitiveDataDictionary;
         }
 
-        public static void AddTrianglesToGroup(Dictionary<uint, List<Triangle>> groupedTriangles, Dictionary<PrimitiveDataType, uint> primitiveData, bool attached, Func<uint, Vector3> vertexCallback, Func<uint, Vector3> normalCallback)
+        public static HashSet<MixtureRate> mixtureRates = new HashSet<MixtureRate>();
+
+        public static void AddTrianglesToGroup(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, Dictionary<PrimitiveDataType, uint> primitiveData, RenderFlags renderFlags, bool attached, Func<uint, Vector3> vertexCallback, Func<uint, Vector3> normalCallback)
         {
             var tPage = primitiveData.TryGetValue(PrimitiveDataType.TSB, out var tsbValue) ? tsbValue & 0x1F : 0;
-            //var abrValue = (tsbValue >> 5) & 0x3; // if translucency: 0- 50%back+50%poly, 1- 100%back+100%poly, 2- 100%back-100%poly, 3- 100%back+25%poly
-            //var tpfValue = (tsbValue >> 7) & 0x3; // 0-4bit, 1-8bit, 2-15bit
+
+            var abr = (tsbValue >> 5) & 0x3; // Mixture rate: 0- 50%back+50%poly, 1- 100%back+100%poly, 2- 100%back-100%poly, 3- 100%back+25%poly
+            //var tpf = (tsbValue >> 7) & 0x3; // Color mode: 0-4bit, 1-8bit, 2-15bit
+
+            var mixtureRate = MixtureRate.None;
+            if (renderFlags.HasFlag(RenderFlags.SemiTransparent))
+            {
+                switch (abr)
+                {
+                    case 0:
+                        mixtureRate = MixtureRate.Back50_Poly50;
+                        break;
+                    case 1:
+                        mixtureRate = MixtureRate.Back100_Poly100;
+                        break;
+                    case 2:
+                        mixtureRate = MixtureRate.Back100_PolyM100;
+                        break;
+                    case 3:
+                        mixtureRate = MixtureRate.Back100_Poly25;
+                        break;
+                }
+            }
+
+            var renderInfo = new RenderInfo(tPage, renderFlags, mixtureRate);
+
             void AddTriangle(Triangle triangle)
             {
-                List<Triangle> triangles;
-                if (groupedTriangles.ContainsKey(tPage))
-                {
-                    triangles = groupedTriangles[tPage];
-                }
-                else
+                if (!groupedTriangles.TryGetValue(renderInfo, out var triangles))
                 {
                     triangles = new List<Triangle>();
-                    groupedTriangles.Add(tPage, triangles);
+                    groupedTriangles.Add(renderInfo, triangles);
                 }
                 foreach (var kvp in primitiveData)
                 {

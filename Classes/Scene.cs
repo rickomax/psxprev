@@ -35,6 +35,7 @@ namespace PSXPrev.Classes
         public static int UniformMaskColor;
         public static int UniformAmbientColor;
         public static int UniformRenderMode;
+        public static int UniformSemiTransparentMode;
         public static int UniformLightIntensity;
 
         public const string AttributeNamePosition = "in_Position";
@@ -48,6 +49,7 @@ namespace PSXPrev.Classes
         public const string UniformMaskColorName = "maskColor";
         public const string UniformAmbientColorName = "ambientColor";
         public const string UniformRenderModeName = "renderMode";
+        public const string UniformSemiTransparentModeName = "semiTransparentMode";
         public const string UniformLightIntensityName = "lightIntensity";
 
         public enum GizmoId
@@ -101,6 +103,10 @@ namespace PSXPrev.Classes
         public bool ShowBounds { get; set; } = true;
 
         public bool ShowSkeleton { get; set; }
+
+        public bool SemiTransparencyEnabled { get; set; } = true;
+
+        public bool ForceDoubleSided { get; set; }
 
         public float CameraDistanceIncrement => CameraDistanceToOrigin * CameraDistanceIncrementFactor;
 
@@ -229,6 +235,7 @@ namespace PSXPrev.Classes
             UniformMaskColor = GL.GetUniformLocation(_shaderProgram, UniformMaskColorName);
             UniformAmbientColor = GL.GetUniformLocation(_shaderProgram, UniformAmbientColorName);
             UniformRenderMode = GL.GetUniformLocation(_shaderProgram, UniformRenderModeName);
+            UniformSemiTransparentMode = GL.GetUniformLocation(_shaderProgram, UniformSemiTransparentModeName);
             UniformLightIntensity = GL.GetUniformLocation(_shaderProgram, UniformLightIntensityName);
         }
 
@@ -280,7 +287,8 @@ namespace PSXPrev.Classes
             GL.Uniform3(UniformAmbientColor, AmbientColor.R / 255f, AmbientColor.G / 255f, AmbientColor.B / 255f);
             GL.Uniform1(UniformLightIntensity, LightIntensity);
             GL.Uniform1(UniformRenderMode, LightEnabled ? 0 : 1);
-            MeshBatch.Draw(_viewMatrix, _projectionMatrix, TextureBinder, Wireframe);
+            GL.Uniform1(UniformSemiTransparentMode, 0);
+            MeshBatch.Draw(_viewMatrix, _projectionMatrix, TextureBinder, Wireframe, standard: true);
             GL.Uniform1(UniformRenderMode, 2);
             if (ShowBounds)
             {
@@ -289,7 +297,7 @@ namespace PSXPrev.Classes
             GL.Clear(ClearBufferMask.DepthBufferBit);
             if (ShowGizmos)
             {
-                GizmosMeshBatch.Draw(_viewMatrix, _projectionMatrix);
+                GizmosMeshBatch.Draw(_viewMatrix, _projectionMatrix, standard: false);
             }
             GL.Disable(EnableCap.DepthTest);
             GL.Disable(EnableCap.Texture2D);

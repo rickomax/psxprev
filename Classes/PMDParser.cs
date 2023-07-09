@@ -61,13 +61,22 @@ namespace PSXPrev.Classes
                         return null;
                     }
                     var primType = reader.ReadUInt16();
-                    if (primType > 15)
+
+                    var lgtCalcBit = ((primType >> 4) & 0x1) == 1; // Light source calc: 0-Off, 1-On
+                    var botBit     = ((primType >> 5) & 0x1) == 1; // Both sides: 0-Single sided, 1-Double sided
+
+                    var renderFlags = RenderFlags.None;
+                    if (botBit) renderFlags |= RenderFlags.DoubleSided;
+
+                    var primTypeSwitch = primType & ~0x30; // These two bits don't effect packet structure
+                    if (primTypeSwitch > 15)
                     {
                         return null;
                     }
+
                     for (var pk = 0; pk < nPacket; pk++)
                     {
-                        switch (primType)
+                        switch (primTypeSwitch)
                         {
                             case 0x00:
                                 triangles.Add(ReadPolyFT3(reader));

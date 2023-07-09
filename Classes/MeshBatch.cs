@@ -209,6 +209,10 @@ namespace PSXPrev
             {
                 return;
             }
+            // Copy render info.
+            mesh.RenderFlags = modelEntity.RenderFlags;
+            mesh.MixtureRate = modelEntity.MixtureRate;
+
             //var rootEntity = modelEntity.ParentEntity as RootEntity; //todo
             mesh.WorldMatrix = matrix ?? modelEntity.WorldMatrix;
             if (updateMeshData)
@@ -367,22 +371,112 @@ namespace PSXPrev
             return _meshes[index];
         }
 
-        public void Draw(Matrix4 viewMatrix, Matrix4 projectionMatrix, TextureBinder textureBinder = null, bool wireframe = false)
+        private void DrawMesh(Mesh mesh, Matrix4 viewMatrix, Matrix4 projectionMatrix, TextureBinder textureBinder, bool wireframe, bool standard)
+        {
+            if (standard)
+            {
+                if (!_scene.LightEnabled || mesh.RenderFlags.HasFlag(RenderFlags.Unlit))
+                {
+                    GL.Uniform1(Scene.UniformRenderMode, 1); // Disable lighting
+                }
+                else
+                {
+                    GL.Uniform1(Scene.UniformRenderMode, 0); // Enable lighting
+                }
+            }
+            if (_scene.ForceDoubleSided || mesh.RenderFlags.HasFlag(RenderFlags.DoubleSided))
+            {
+                GL.Disable(EnableCap.CullFace);
+            }
+            else
+            {
+                GL.Enable(EnableCap.CullFace);
+                GL.CullFace(CullFaceMode.Front);
+            }
+            var modelMatrix = mesh.WorldMatrix;
+            var mvpMatrix = modelMatrix * viewMatrix * projectionMatrix;
+            GL.UniformMatrix4(Scene.UniformIndexMVP, false, ref mvpMatrix);
+            mesh.Draw(textureBinder, wireframe);
+        }
+
+        public void Draw(Matrix4 viewMatrix, Matrix4 projectionMatrix, TextureBinder textureBinder = null, bool wireframe = false, bool standard = false)
         {
             if (!IsValid)
             {
                 return;
             }
+
+            // Pass 1: Draw opaque meshes.
+            GL.DepthMask(true);
+            GL.Disable(EnableCap.Blend);
+            GL.Uniform1(Scene.UniformSemiTransparentMode, 0);
             foreach (var mesh in _meshes)
             {
-                if (mesh == null)
+                if (mesh == null || (_scene.SemiTransparencyEnabled && mesh.RenderFlags.HasFlag(RenderFlags.SemiTransparent)))
                 {
-                    continue;
+                    continue; // Not an opaque mesh
                 }
-                var modelMatrix = mesh.WorldMatrix;
-                var mvpMatrix = modelMatrix * viewMatrix * projectionMatrix;
-                GL.UniformMatrix4(Scene.UniformIndexMVP, false, ref mvpMatrix);
-                mesh.Draw(textureBinder, wireframe);
+                DrawMesh(mesh, viewMatrix, projectionMatrix, textureBinder, wireframe, standard);
+            }
+
+            // Draw semi-transparent meshes.
+            if (standard && _scene.SemiTransparencyEnabled)
+            {
+                // Pass 2: Draw opaque pixels when the stp bit is UNSET.
+                GL.Uniform1(Scene.UniformSemiTransparentMode, 1);
+                foreach (var mesh in _meshes)
+                {
+                    if (mesh == null || !mesh.RenderFlags.HasFlag(RenderFlags.SemiTransparent))
+                    {
+                        continue; // Not a semi-transparent mesh
+                    }
+                    DrawMesh(mesh, viewMatrix, projectionMatrix, textureBinder, wireframe, standard);
+                }
+
+                // Pass 3: Draw semi-transparent pixels when the stp bit is SET.
+                GL.DepthMask(false); // Disable so that transparent surfaces can show behind other transparent surfaces.
+                GL.Enable(EnableCap.Blend);
+                GL.Uniform1(Scene.UniformSemiTransparentMode, 2);
+                foreach (var mesh in _meshes)
+                {
+                    if (mesh == null || !mesh.RenderFlags.HasFlag(RenderFlags.SemiTransparent))
+                    {
+                        continue; // Not a semi-transparent mesh
+                    }
+                    switch (mesh.MixtureRate)
+                    {
+                        case MixtureRate.Back50_Poly50:    //  50% back +  50% poly
+                            GL.BlendFunc(BlendingFactor.ConstantColor, BlendingFactor.ConstantColor); // C poly, C back
+                            GL.BlendColor(0.50f, 0.50f, 0.50f, 1.0f); // C = 50%
+                            GL.BlendEquation(BlendEquationMode.FuncAdd);
+                            break;
+                        case MixtureRate.Back100_Poly100:  // 100% back + 100% poly
+                            GL.BlendFunc(BlendingFactor.One, BlendingFactor.One); // 100% poly, 100% back
+                            GL.BlendEquation(BlendEquationMode.FuncAdd);
+                            break;
+                        case MixtureRate.Back100_PolyM100: // 100% back - 100% poly
+                            GL.BlendFunc(BlendingFactor.One, BlendingFactor.One);    // 100% poly, 100% back
+                            GL.BlendEquation(BlendEquationMode.FuncReverseSubtract); // back - poly
+                            break;
+                        case MixtureRate.Back100_Poly25:   // 100% back +  25% poly
+                            GL.BlendFunc(BlendingFactor.ConstantColor, BlendingFactor.One); // C poly, 100% back
+                            GL.BlendColor(0.25f, 0.25f, 0.25f, 1.0f); // C = 25%
+                            GL.BlendEquation(BlendEquationMode.FuncAdd);
+                            break;
+                    }
+                    DrawMesh(mesh, viewMatrix, projectionMatrix, textureBinder, wireframe, standard);
+                }
+
+                // Restore settings.
+                GL.DepthMask(true);
+                GL.Disable(EnableCap.Blend);
+                GL.Uniform1(Scene.UniformSemiTransparentMode, 0);
+            }
+            // Restore settings.
+            GL.Disable(EnableCap.CullFace);
+            if (standard)
+            {
+                GL.Uniform1(Scene.UniformRenderMode, (_scene.LightEnabled ? 0 : 1)); // Restore lighting
             }
         }
     }
