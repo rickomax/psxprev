@@ -410,8 +410,6 @@ namespace PSXPrev.Classes
             return primitiveDataDictionary;
         }
 
-        public static HashSet<MixtureRate> mixtureRates = new HashSet<MixtureRate>();
-
         public static void AddTrianglesToGroup(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, Dictionary<PrimitiveDataType, uint> primitiveData, RenderFlags renderFlags, bool attached, Func<uint, Vector3> vertexCallback, Func<uint, Vector3> normalCallback)
         {
             var tPage = primitiveData.TryGetValue(PrimitiveDataType.TSB, out var tsbValue) ? tsbValue & 0x1F : 0;
