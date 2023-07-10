@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Printing;
 using System.Reflection;
 using System.Timers;
 using System.Windows.Forms;
@@ -47,6 +49,7 @@ namespace PSXPrev
         private Bitmap _maskColorBitmap;
         private Bitmap _ambientColorBitmap;
         private Bitmap _backgroundColorBitmap;
+        private float _texturePreviewScale = 1f;
 
         public PreviewForm(Action<PreviewForm> refreshAction)
         {
@@ -212,16 +215,38 @@ namespace PSXPrev
         {
             _openTkControl = new GLControl { BackColor = Color.Black, Name = "openTKControl", TabIndex = 15, VSync = true };
             _openTkControl.Load += openTKControl_Load;
-            _openTkControl.MouseDown += delegate(object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Down); };
-            _openTkControl.MouseUp += delegate(object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Up); };
-            _openTkControl.MouseWheel += delegate(object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Wheel); };
-            _openTkControl.MouseMove += delegate(object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Move); };
+            _openTkControl.MouseDown += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Down); };
+            _openTkControl.MouseUp += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Up); };
+            _openTkControl.MouseWheel += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Wheel); };
+            _openTkControl.MouseMove += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Move); };
             _openTkControl.Paint += _openTkControl_Paint;
             _openTkControl.Resize += _openTkControl_Resize;
             _openTkControl.Dock = DockStyle.Fill;
             _openTkControl.Parent = modelsSplitContainer.Panel2;
+            texturePanel.MouseWheel += TexturePanelOnMouseWheel;
             UpdateLightDirection();
             ResizeToolStrip();
+        }
+
+        private void TexturePanelOnMouseWheel(object sender, MouseEventArgs e)
+        {
+            if (e.Delta > 0)
+            {
+                _texturePreviewScale *= 2f;
+            }
+            else
+            {
+                _texturePreviewScale /= 2f;
+            }
+            _texturePreviewScale = Math.Max(0.25f, Math.Min(8.0f, _texturePreviewScale));
+            var texture = GetSelectedTexture();
+            if (texture == null)
+            {
+                return;
+            }
+            texturePreviewPictureBox.Width = (int)(texture.Width * _texturePreviewScale);
+            texturePreviewPictureBox.Height = (int)(texture.Height * _texturePreviewScale);
+            zoomLabel.Text = string.Format("{0:P0}", _texturePreviewScale);
         }
 
         private void _openTkControl_Resize(object sender, EventArgs e)
@@ -843,8 +868,11 @@ namespace PSXPrev
             {
                 return;
             }
+            _texturePreviewScale = 1f;
             var bitmap = texture.Bitmap;
             texturePreviewPictureBox.Image = bitmap;
+            texturePreviewPictureBox.Width = bitmap.Width;
+            texturePreviewPictureBox.Height = bitmap.Height;
             texturePreviewPictureBox.Refresh();
             texturePropertyGrid.SelectedObject = texture;
         }
@@ -1293,6 +1321,23 @@ namespace PSXPrev
         {
             _scene.ForceDoubleSided = forceDoubleSidedToolStripMenuItem.Checked;
             Redraw();
+        }
+
+        private void texturePreviewPictureBox_Paint(object sender, PaintEventArgs e)
+        {
+            if (texturePreviewPictureBox.Image == null)
+            {
+                return;
+            }
+            e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+            e.Graphics.DrawImage(
+                texturePreviewPictureBox.Image,
+                new Rectangle(0, 0, texturePreviewPictureBox.Width, texturePreviewPictureBox.Height),
+                0,
+                0, 
+                texturePreviewPictureBox.Image.Width,  
+                texturePreviewPictureBox.Image.Height, 
+                GraphicsUnit.Pixel);
         }
     }
 }

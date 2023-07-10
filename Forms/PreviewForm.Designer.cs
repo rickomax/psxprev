@@ -48,6 +48,7 @@
             this.drawToVRAMButton = new System.Windows.Forms.Button();
             this.texturePropertyGrid = new System.Windows.Forms.PropertyGrid();
             this.exportBitmapButton = new System.Windows.Forms.Button();
+            this.zoomLabel = new System.Windows.Forms.Label();
             this.texturePanel = new System.Windows.Forms.Panel();
             this.texturePreviewPictureBox = new System.Windows.Forms.PictureBox();
             this.vramTabPage = new System.Windows.Forms.TabPage();
@@ -314,6 +315,7 @@
             // 
             // splitContainer2.Panel2
             // 
+            this.splitContainer2.Panel2.Controls.Add(this.zoomLabel);
             this.splitContainer2.Panel2.Controls.Add(this.texturePanel);
             this.splitContainer2.Size = new System.Drawing.Size(754, 593);
             this.splitContainer2.SplitterDistance = 251;
@@ -414,6 +416,19 @@
             this.exportBitmapButton.UseVisualStyleBackColor = true;
             this.exportBitmapButton.Click += new System.EventHandler(this.exportBitmapButton_Click);
             // 
+            // zoomLabel
+            // 
+            this.zoomLabel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.zoomLabel.BackColor = System.Drawing.SystemColors.Control;
+            this.zoomLabel.Location = new System.Drawing.Point(450, 0);
+            this.zoomLabel.Margin = new System.Windows.Forms.Padding(0);
+            this.zoomLabel.Name = "zoomLabel";
+            this.zoomLabel.Padding = new System.Windows.Forms.Padding(6, 3, 6, 3);
+            this.zoomLabel.Size = new System.Drawing.Size(50, 30);
+            this.zoomLabel.TabIndex = 10;
+            this.zoomLabel.Text = "100%";
+            this.zoomLabel.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
             // texturePanel
             // 
             this.texturePanel.AutoScroll = true;
@@ -430,9 +445,10 @@
             this.texturePreviewPictureBox.Location = new System.Drawing.Point(0, 0);
             this.texturePreviewPictureBox.Name = "texturePreviewPictureBox";
             this.texturePreviewPictureBox.Size = new System.Drawing.Size(256, 256);
-            this.texturePreviewPictureBox.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
+            this.texturePreviewPictureBox.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
             this.texturePreviewPictureBox.TabIndex = 9;
             this.texturePreviewPictureBox.TabStop = false;
+            this.texturePreviewPictureBox.Paint += new System.Windows.Forms.PaintEventHandler(this.texturePreviewPictureBox_Paint);
             // 
             // vramTabPage
             // 
@@ -926,21 +942,21 @@
             // clearPageToolStripMenuItem
             // 
             this.clearPageToolStripMenuItem.Name = "clearPageToolStripMenuItem";
-            this.clearPageToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.clearPageToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.clearPageToolStripMenuItem.Text = "Clear Page";
             this.clearPageToolStripMenuItem.Click += new System.EventHandler(this.btnClearPage_Click);
             // 
             // clearAllPagesToolStripMenuItem
             // 
             this.clearAllPagesToolStripMenuItem.Name = "clearAllPagesToolStripMenuItem";
-            this.clearAllPagesToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.clearAllPagesToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.clearAllPagesToolStripMenuItem.Text = "Clear All Pages";
             this.clearAllPagesToolStripMenuItem.Click += new System.EventHandler(this.clearAllPagesToolStripMenuItem_Click);
             // 
             // toolStripSeparator4
             // 
             this.toolStripSeparator4.Name = "toolStripSeparator4";
-            this.toolStripSeparator4.Size = new System.Drawing.Size(177, 6);
+            this.toolStripSeparator4.Size = new System.Drawing.Size(149, 6);
             // 
             // showUVToolStripMenuItem
             // 
@@ -948,7 +964,7 @@
             this.showUVToolStripMenuItem.CheckOnClick = true;
             this.showUVToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.showUVToolStripMenuItem.Name = "showUVToolStripMenuItem";
-            this.showUVToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.showUVToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.showUVToolStripMenuItem.Text = "Show UV";
             this.showUVToolStripMenuItem.Click += new System.EventHandler(this.showUVToolStripMenuItem_Click);
             // 
@@ -964,7 +980,7 @@
             // 
             this.showSkeletonToolStripMenuItem.CheckOnClick = true;
             this.showSkeletonToolStripMenuItem.Name = "showSkeletonToolStripMenuItem";
-            this.showSkeletonToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.showSkeletonToolStripMenuItem.Size = new System.Drawing.Size(151, 22);
             this.showSkeletonToolStripMenuItem.Text = "Show Skeleton";
             this.showSkeletonToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showSkeletonToolStripMenuItem_CheckedChanged);
             // 
@@ -1295,7 +1311,6 @@
             this.splitContainer3.ResumeLayout(false);
             this.tableLayoutPanel4.ResumeLayout(false);
             this.texturePanel.ResumeLayout(false);
-            this.texturePanel.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.texturePreviewPictureBox)).EndInit();
             this.vramTabPage.ResumeLayout(false);
             this.vramTabPage.PerformLayout();
@@ -1438,5 +1453,6 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.ToolStripMenuItem enableTransparencyToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem forceDoubleSidedToolStripMenuItem;
+        private System.Windows.Forms.Label zoomLabel;
     }
 }
