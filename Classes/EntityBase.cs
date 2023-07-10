@@ -116,6 +116,27 @@ namespace PSXPrev.Classes
             set => Translation = new Vector3(Translation.X, Translation.Y, value);
         }
 
+        [DisplayName("Scale X")]
+        public float ScaleX
+        {
+            get => Scale.X;
+            set => Scale = new Vector3(value, Scale.Y, Scale.Z);
+        }
+
+        [DisplayName("Scale Y")]
+        public float ScaleY
+        {
+            get => Scale.Y;
+            set => Scale = new Vector3(Scale.X, value, Scale.Z);
+        }
+
+        [DisplayName("Scale Z")]
+        public float ScaleZ
+        {
+            get => Scale.Z;
+            set => Scale = new Vector3(Scale.X, Scale.Y, value);
+        }
+
         [ReadOnly(true), DisplayName("Sub-Models")]
         public string ChildCount => ChildEntities == null ? "0" : ChildEntities.Length.ToString(CultureInfo.InvariantCulture);
 
