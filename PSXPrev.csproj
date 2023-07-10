@@ -96,6 +96,7 @@
     <Compile Include="Classes\PrimitiveDataType.cs" />
     <Compile Include="Classes\CrocModelReader.cs" />
     <Compile Include="Classes\PSXParser.cs" />
+    <Compile Include="Classes\RenderInfo.cs" />
     <Compile Include="Classes\RotationOrder.cs" />
     <Compile Include="Classes\Texture.cs" />
     <Compile Include="Classes\Color.cs" />
@@ -119,6 +120,7 @@
     <Compile Include="Classes\Triangle.cs" />
     <Compile Include="Classes\Utils.cs" />
     <Compile Include="Classes\VDFParser.cs" />
+    <Compile Include="Classes\VRAMPages.cs" />
     <Compile Include="Forms\DialogForm.cs">
       <SubType>Form</SubType>
     </Compile>

@@ -10,6 +10,8 @@ namespace PSXPrev.Classes
 
         public Matrix4 WorldMatrix { get; set; }
         public uint Texture { get; set; }
+        public RenderFlags RenderFlags { get; set; }
+        public MixtureRate MixtureRate { get; set; }
 
         private readonly uint _meshId;
         private int _numElements;

@@ -147,7 +147,7 @@ namespace PSXPrev.Classes
                     normals[n] = normal.Normalized();
                 }
 
-                var groupedTriangles = new Dictionary<uint, List<Triangle>>();
+                var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
 
                 reader.BaseStream.Seek(objBlock.PrimitiveTop, SeekOrigin.Begin);
                 if (Program.IgnoreTmdVersion && objBlock.PrimitiveTop < _offset)
@@ -166,10 +166,10 @@ namespace PSXPrev.Classes
                     var flag = reader.ReadByte();
                     var mode = reader.ReadByte();
                     var offset = reader.BaseStream.Position;
-                    var packetStructure = TMDHelper.CreateTMDPacketStructure(flag, mode, reader, p);
+                    var packetStructure = TMDHelper.CreateTMDPacketStructure(flag, mode, reader, p, out var renderFlags);
                     if (packetStructure != null)
                     {
-                        TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, false, delegate (uint index)
+                        TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, renderFlags, false, delegate (uint index)
                         {
                             if (index >= vertices.Length)
                             {
@@ -205,13 +205,16 @@ namespace PSXPrev.Classes
 
                 foreach (var kvp in groupedTriangles)
                 {
+                    var renderInfo = kvp.Key;
                     var triangles = kvp.Value;
                     if (triangles.Count > 0)
                     {
                         var model = new ModelEntity
                         {
                             Triangles = triangles.ToArray(),
-                            TexturePage = kvp.Key,
+                            TexturePage = renderInfo.TexturePage,
+                            RenderFlags = renderInfo.RenderFlags,
+                            MixtureRate = renderInfo.MixtureRate,
                             TMDID = o
                         };
                         models.Add(model);

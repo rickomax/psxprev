@@ -14,6 +14,7 @@ uniform vec3 lightDirection;
 uniform vec3 maskColor;
 uniform vec3 ambientColor;
 uniform int renderMode;
+uniform int semiTransparentMode;
 uniform float lightIntensity;
 uniform sampler2D mainTex;
 
@@ -22,20 +23,28 @@ void main(void) {
 		discard;
 	}
 	vec4 finalColor;
-	if (renderMode == 0) {
-		vec4 tex2D = texture(mainTex, pass_Uv);		
-		if (tex2D.xyz == maskColor) {
-			discard;
+	if (renderMode == 0 || renderMode == 1) {
+		vec4 tex2D = texture(mainTex, vec2(pass_Uv.x * 0.5,       pass_Uv.y));
+		vec4 stp2D = texture(mainTex, vec2(pass_Uv.x * 0.5 + 0.5, pass_Uv.y));
+		int stp = (stp2D.x == 0.0 ? 0 : 1);
+		if (stp == 0 && tex2D.xyz == maskColor) {
+			discard; // Black surfaces are transparent when stp bit is unset.
+		} else if (semiTransparentMode == 1) {
+			if (stp == 1) {
+				discard; // Semi-transparent surface during no-stp bit pass.
+			}
+		} else if (semiTransparentMode == 2) {
+			if (stp == 0) {
+				discard; // Opaque surface during stp bit pass.
+			}
 		}
-		finalColor = (pass_Ambient + pass_NormalDotLight) * tex2D * pass_Color;
-	} else if (renderMode == 1) {
-		vec4 tex2D = texture(mainTex, pass_Uv);		
-		if (tex2D.xyz == maskColor) {
-			discard;
+		if (renderMode == 0) {
+			finalColor = (pass_Ambient + pass_NormalDotLight) * tex2D * pass_Color;
+		} else {
+			finalColor = (pass_Ambient) * tex2D * pass_Color * 2.0;
 		}
-		finalColor = (pass_Ambient) * tex2D * pass_Color * 2.0;
 	} else {
 		finalColor = pass_Color;
 	}
-	out_Color = finalColor; 
+	out_Color = finalColor;
 }

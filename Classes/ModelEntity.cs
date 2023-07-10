@@ -6,9 +6,18 @@ namespace PSXPrev.Classes
 {
     public class ModelEntity : EntityBase
     {
+        // Default flags for when a reader doesn't assign any.
+        public const RenderFlags DefaultRenderFlags = RenderFlags.DoubleSided;
+
         [DisplayName("VRAM Page")]
         public uint TexturePage { get; set; }
         
+        [DisplayName("Render Flags")]
+        public RenderFlags RenderFlags { get; set; } = DefaultRenderFlags;
+        
+        [DisplayName("Mixture Rate")]
+        public MixtureRate MixtureRate { get; set; }
+
         [ReadOnly(true), DisplayName("Total Triangles")]
         public int TrianglesCount => Triangles.Length;
 
