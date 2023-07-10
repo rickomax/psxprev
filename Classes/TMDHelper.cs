@@ -43,14 +43,14 @@ namespace PSXPrev.Classes
                     mode,
                     index);
             }
-            //if (code != 0b001)
-            //{
-            //    if (Program.Debug)
-            //    {
-            //        Program.Logger.WriteErrorLine($"Unsupported primitive code:{code}");
-            //    }
-            //}
             primitiveType = (PrimitiveType)code;
+            if (primitiveType != PrimitiveType.Polygon)
+            {
+                if (Program.Debug)
+                {
+                    Program.Logger.WriteErrorLine($"Unsupported primitive code:{primitiveType}");
+                }
+            }
             return ParsePrimitiveData(reader, false, lgtBit, iipBit, tmeBit, grdBit, isqBit, abeBit, false);
         }
 
@@ -80,6 +80,13 @@ namespace PSXPrev.Classes
             if (stpBit) renderFlags |= RenderFlags.SemiTransparent;
 
             primitiveType = (PrimitiveType)code;
+            if (primitiveType != PrimitiveType.Polygon)
+            {
+                if (Program.Debug)
+                {
+                    Program.Logger.WriteErrorLine($"Unsupported primitive code:{primitiveType}");
+                }
+            }
 
             return ParsePrimitiveData(reader, true, lgtBit, iipBit, tmeBit, colBit, quad, stpBit, tileBit);
         }
