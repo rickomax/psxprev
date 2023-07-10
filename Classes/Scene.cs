@@ -28,7 +28,8 @@ namespace PSXPrev.Classes
         public static int AttributeIndexColour = 1;
         public static int AttributeIndexNormal = 2;
         public static int AttributeIndexUv = 3;
-        public static int AttributeIndexTexture = 4;
+        public static int AttributeIndexTiledArea = 4;
+        public static int AttributeIndexTexture = 5;
 
         public static int UniformIndexMVP;
         public static int UniformIndexLightDirection;
@@ -42,6 +43,7 @@ namespace PSXPrev.Classes
         public const string AttributeNameColour = "in_Color";
         public const string AttributeNameNormal = "in_Normal";
         public const string AttributeNameUv = "in_Uv";
+        public const string AttributeNameTiledArea = "in_TiledArea";
         public const string AttributeNameTexture = "mainTex";
 
         public const string UniformNameMVP = "mvpMatrix";
@@ -219,6 +221,7 @@ namespace PSXPrev.Classes
                 {AttributeIndexNormal, AttributeNameNormal},
                 {AttributeIndexColour, AttributeNameColour},
                 {AttributeIndexUv, AttributeNameUv},
+                {AttributeIndexTiledArea, AttributeNameTiledArea},
                 {AttributeIndexTexture, AttributeNameTexture}
             };
             foreach (var vertexAttributeLocation in attributes)

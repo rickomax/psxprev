@@ -214,10 +214,10 @@ namespace PSXPrev.Classes
                         var normal1 = normals[planeIndex];
                         var normal2 = normals[planeIndex];
                         var normal3 = normals[planeIndex];
-                        var uv0 = Vector3.Zero;
-                        var uv1 = Vector3.Zero;
-                        var uv2 = Vector3.Zero;
-                        var uv3 = Vector3.Zero;
+                        var uv0 = Vector2.Zero;
+                        var uv1 = Vector2.Zero;
+                        var uv2 = Vector2.Zero;
+                        var uv3 = Vector2.Zero;
                         uint tPage = 0;
                         if (textured)
                         {
@@ -230,10 +230,10 @@ namespace PSXPrev.Classes
                             var v2 = reader.ReadByte() / 255f;
                             var u3 = reader.ReadByte() / 255f;
                             var v3 = reader.ReadByte() / 255f;
-                            uv0 = new Vector3(u0, v0, 0f);
-                            uv1 = new Vector3(u1, v1, 0f);
-                            uv2 = new Vector3(u2, v2, 0f);
-                            uv3 = new Vector3(u3, v3, 0f);
+                            uv0 = new Vector2(u0, v0);
+                            uv1 = new Vector2(u1, v1);
+                            uv2 = new Vector2(u2, v2);
+                            uv3 = new Vector2(u3, v3);
                         }
                         if (!invisible)
                         {
@@ -311,10 +311,10 @@ namespace PSXPrev.Classes
                         var normal1 = normals[planeIndex];
                         var normal2 = normals[planeIndex];
                         var normal3 = normals[planeIndex];
-                        var uv0 = Vector3.Zero;
-                        var uv1 = Vector3.Zero;
-                        var uv2 = Vector3.Zero;
-                        var uv3 = Vector3.Zero;
+                        var uv0 = Vector2.Zero;
+                        var uv1 = Vector2.Zero;
+                        var uv2 = Vector2.Zero;
+                        var uv3 = Vector2.Zero;
                         uint tPage = 0;
                         if (textured)
                         {
@@ -327,10 +327,10 @@ namespace PSXPrev.Classes
                             var v2 = reader.ReadByte() / 255f;
                             var u3 = reader.ReadByte() / 255f;
                             var v3 = reader.ReadByte() / 255f;
-                            uv0 = new Vector3(u0, v0, 0f);
-                            uv1 = new Vector3(u1, v1, 0f);
-                            uv2 = new Vector3(u2, v2, 0f);
-                            uv3 = new Vector3(u3, v3, 0f);
+                            uv0 = new Vector2(u0, v0);
+                            uv1 = new Vector2(u1, v1);
+                            uv2 = new Vector2(u2, v2);
+                            uv3 = new Vector2(u3, v3);
                         }
                         if (!invisible)
                         {

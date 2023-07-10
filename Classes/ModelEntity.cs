@@ -30,6 +30,20 @@ namespace PSXPrev.Classes
         [DisplayName("TMD ID")]
         public uint TMDID { get; set; }
 
+        [ReadOnly(true), DisplayName("Has Tiled Texture")]
+        public bool HasTiled
+        {
+            get
+            {
+                foreach (var triangle in Triangles)
+                {
+                    if (triangle.IsTiled)
+                        return true;
+                }
+                return false;
+            }
+        }
+
        //[ReadOnly(true)]
        //public uint PrimitiveIndex { get; set; }
 

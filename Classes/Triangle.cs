@@ -56,7 +56,14 @@ namespace PSXPrev.Classes
         public Vector3[] Normals { get; set; }
 
         [Browsable(false)]
-        public Vector3[] Uv { get; set; }
+        public Vector2[] Uv { get; set; }
+
+        // Defines the area of the texture page that Uv is wrapped around.
+        [Browsable(false)]
+        public TiledUV TiledUv { get; set; }
+
+        [Browsable(false)]
+        public bool IsTiled => TiledUv != null;
 
         [Browsable(false)]
         public Color[] Colors { get; set; }
@@ -89,11 +96,13 @@ namespace PSXPrev.Classes
             Vertices = fromTriangle.Vertices;
             Normals = fromTriangle.Normals;
             Uv = fromTriangle.Uv;
+            TiledUv = fromTriangle.TiledUv;
             Colors = fromTriangle.Colors;
             OriginalVertexIndices = fromTriangle.OriginalVertexIndices;
             OriginalNormalIndices = fromTriangle.OriginalNormalIndices;
             AttachableIndices = fromTriangle.AttachableIndices;
             AttachedIndices = fromTriangle.AttachedIndices;
+            AttachedNormalIndices = fromTriangle.AttachedNormalIndices;
         }
     }
 }

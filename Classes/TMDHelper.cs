@@ -494,28 +494,60 @@ namespace PSXPrev.Classes
                 normalIndex2 = normalIndex0;
             }
 
+            // Note: It seems that dividing UVs by 256f instead of 255f fixes some texture misalignment.
+            // However, this can't be used because it causes texture glitching at pixel boundaries.
+            // There are a ton of other issues to consider when only changing this for TMDHelper.
+            // More research is needed...
+            const float UV_DIV = 255f;
+
             // HMD: Tiled information for textures.
             // Default values when there's no tiled information.
-            uint tum = 0;
-            uint tvm = 0;
-            uint tua = 0;
-            uint tva = 0;
-            if (primitiveData.TryGetValue(PrimitiveDataType.TILE, out var tile))
+            uint tumValue = 0;
+            uint tvmValue = 0;
+            uint tuaValue = 0;
+            uint tvaValue = 0;
+            var tum = 0f;
+            var tvm = 0f;
+            var tua = 0f;
+            var tva = 0f;
+            var isTiled = false;
+            // Confirm that tiled information is non-zero, otherwise we can just ignore it.
+            if (primitiveData.TryGetValue(PrimitiveDataType.TILE, out var tile) && (tile & 0xfffff) != 0)
             {
-                tum = (tile >>  0) & 0x1f;
-                tvm = (tile >>  5) & 0x1f;
-                tua = (tile >> 10) & 0x1f;
-                tva = (tile >> 15) & 0x1f;
+                isTiled = true;
+                tumValue = (tile >>  0) & 0x1f;
+                tvmValue = (tile >>  5) & 0x1f;
+                tuaValue = (tile >> 10) & 0x1f;
+                tvaValue = (tile >> 15) & 0x1f;
+                // tum, tvm, tua, and tva are the upper 5 bits of a byte.
+                // tum and tvm are created by: (~(wh - 1) & 0xff) >> 3;
+                // tua and tva are created by: (xy & 0xff) >> 3;
+
+                // Note how width/height have 1 subtracted from them before being negated then shifted.
+                // This is because all four values are required to be multiples of 8.
+                // So to recover tum and tvm, we need to unshift, negate, and then (realistically) add 1 to get the original value.
+                // However, adding 1 right now produces gaps in the textures. We can only add 1 when UV_DIV == 256f.
+                if (UV_DIV == 256f)
+                {
+                    tum = (((tumValue << 3) ^ 0xff) + 1) / UV_DIV;
+                    tvm = (((tvmValue << 3) ^ 0xff) + 1) / UV_DIV;
+                }
+                else
+                {
+                    tum = ((tumValue << 3) ^ 0xff) / UV_DIV;
+                    tvm = ((tvmValue << 3) ^ 0xff) / UV_DIV;
+                }
+                tua = (tuaValue << 3) / UV_DIV;
+                tva = (tvaValue << 3) / UV_DIV;
             }
-            // We can wrap these around all S/T getters since these functions
-            // will not change S/T values if there is no tiled information.
-            uint TileS(uint sValue)
+
+            // Converts UV base coordinates to tiled UV coordinates (for use with display/exporter).
+            // Same as TiledUV.Convert but without float math.
+            Vector2 TileUV(uint uValue, uint vValue)
             {
-                return (~(tum << 3) & sValue) | ((tum << 3) & (tua << 3));
-            }
-            uint TileT(uint tValue)
-            {
-                return (~(tvm << 3) & tValue) | ((tvm << 3) & (tva << 3));
+                uValue = (~(tumValue << 3) & uValue) | ((tumValue << 3) & (tuaValue << 3));
+                vValue = (~(tvmValue << 3) & vValue) | ((tvmValue << 3) & (tvaValue << 3));
+                return new Vector2(uValue / UV_DIV, vValue / UV_DIV);
             }
 
             var r0 = primitiveData.TryGetValue(PrimitiveDataType.R0, out var r0Value) ? r0Value / 255f : Color.DefaultColorTone;
@@ -527,12 +559,12 @@ namespace PSXPrev.Classes
             var b0 = primitiveData.TryGetValue(PrimitiveDataType.B0, out var b0Value) ? b0Value / 255f : Color.DefaultColorTone;
             var b1 = primitiveData.TryGetValue(PrimitiveDataType.B1, out var b1Value) ? b1Value / 255f : b0;
             var b2 = primitiveData.TryGetValue(PrimitiveDataType.B2, out var b2Value) ? b2Value / 255f : b0;
-            var s0 = primitiveData.TryGetValue(PrimitiveDataType.S0, out var s0Value) ? TileS(s0Value) / 255f : 0f;
-            var s1 = primitiveData.TryGetValue(PrimitiveDataType.S1, out var s1Value) ? TileS(s1Value) / 255f : 0f;
-            var s2 = primitiveData.TryGetValue(PrimitiveDataType.S2, out var s2Value) ? TileS(s2Value) / 255f : 0f;
-            var t0 = primitiveData.TryGetValue(PrimitiveDataType.T0, out var t0Value) ? TileT(t0Value) / 255f : 0f;
-            var t1 = primitiveData.TryGetValue(PrimitiveDataType.T1, out var t1Value) ? TileT(t1Value) / 255f : 0f;
-            var t2 = primitiveData.TryGetValue(PrimitiveDataType.T2, out var t2Value) ? TileT(t2Value) / 255f : 0f;
+            var s0 = primitiveData.TryGetValue(PrimitiveDataType.S0, out var s0Value) ? s0Value / UV_DIV : 0f;
+            var s1 = primitiveData.TryGetValue(PrimitiveDataType.S1, out var s1Value) ? s1Value / UV_DIV : 0f;
+            var s2 = primitiveData.TryGetValue(PrimitiveDataType.S2, out var s2Value) ? s2Value / UV_DIV : 0f;
+            var t0 = primitiveData.TryGetValue(PrimitiveDataType.T0, out var t0Value) ? t0Value / UV_DIV : 0f;
+            var t1 = primitiveData.TryGetValue(PrimitiveDataType.T1, out var t1Value) ? t1Value / UV_DIV : 0f;
+            var t2 = primitiveData.TryGetValue(PrimitiveDataType.T2, out var t2Value) ? t2Value / UV_DIV : 0f;
             var triangle1 = new Triangle
             {
                 Vertices = new[] { vertex0, vertex1, vertex2 },
@@ -540,9 +572,16 @@ namespace PSXPrev.Classes
                 Normals = new[] { normal0, normal1, normal2 },
                 OriginalNormalIndices = new[] { normalIndex0, normalIndex1, normalIndex2 },
                 Colors = new[] { new Color(r0, g0, b0), new Color(r1, g1, b1), new Color(r2, g2, b2) },
-                Uv = new[] { new Vector3(s0, t0, 0f), new Vector3(s1, t1, 0f), new Vector3(s2, t2, 0f) },
+                Uv = new[] { new Vector2(s0, t0), new Vector2(s1, t1), new Vector2(s2, t2) },
                 AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
             };
+            if (isTiled)
+            {
+                // Use triangle's UV as baseUv, and give the triangle a new converted UV array (for display/exporter purposes).
+                triangle1.TiledUv = new TiledUV(triangle1.Uv, tua, tva, tum, tvm);
+                triangle1.Uv = new[] { TileUV(s0Value, t0Value), TileUV(s1Value, t1Value), TileUV(s2Value, t2Value) };
+                //triangle1.Uv = triangle1.TiledUv.ConvertBaseUv();
+            }
             if (attached)
             {
                 // HMD: Attached (shared) indices from other model entities.
@@ -560,8 +599,8 @@ namespace PSXPrev.Classes
                 var g3 = primitiveData.TryGetValue(PrimitiveDataType.G3, out var g3Value) ? g3Value / 255f : g0;
                 var r3 = primitiveData.TryGetValue(PrimitiveDataType.R3, out var r3Value) ? r3Value / 255f : r0;
                 var b3 = primitiveData.TryGetValue(PrimitiveDataType.B3, out var b3Value) ? b3Value / 255f : b0;
-                var s3 = primitiveData.TryGetValue(PrimitiveDataType.S3, out var s3Value) ? TileS(s3Value) / 255f : 0f;
-                var t3 = primitiveData.TryGetValue(PrimitiveDataType.T3, out var t3Value) ? TileT(t3Value) / 255f : 0f;
+                var s3 = primitiveData.TryGetValue(PrimitiveDataType.S3, out var s3Value) ? s3Value / UV_DIV : 0f;
+                var t3 = primitiveData.TryGetValue(PrimitiveDataType.T3, out var t3Value) ? t3Value / UV_DIV : 0f;
                 var triangle2 = new Triangle
                 {
                     Vertices = new[] { vertex1, vertex3, vertex2 },
@@ -569,9 +608,16 @@ namespace PSXPrev.Classes
                     Normals = new[] { normal1, normal3, normal2 },
                     OriginalNormalIndices = new[] { normalIndex1, normalIndex3, normalIndex2 },
                     Colors = new[] { new Color(r1, g1, b1), new Color(r3, g3, b3), new Color(r2, g2, b2) },
-                    Uv = new[] { new Vector3(s1, t1, 0f), new Vector3(s3, t3, 0f), new Vector3(s2, t2, 0f) },
+                    Uv = new[] { new Vector2(s1, t1), new Vector2(s3, t3), new Vector2(s2, t2) },
                     AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
                 };
+                if (isTiled)
+                {
+                    // Use triangle's UV as baseUv, and give the triangle a new converted UV array (for display/exporter purposes).
+                    triangle2.TiledUv = new TiledUV(triangle2.Uv, tua, tva, tum, tvm);
+                    triangle2.Uv = new[] { TileUV(s1Value, t1Value), TileUV(s3Value, t3Value), TileUV(s2Value, t2Value) };
+                    //triangle2.Uv = triangle2.TiledUv.ConvertBaseUv();
+                }
                 if (attached)
                 {
                     // HMD: Attached (shared) indices from other model entities.

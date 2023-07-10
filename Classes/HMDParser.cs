@@ -1089,7 +1089,7 @@ namespace PSXPrev.Classes
                         uint tPage;
                         Color color;
                         Vector3 n0, n1, n2, n3;
-                        Vector3 uv0, uv1, uv2, uv3;
+                        Vector2 uv0, uv1, uv2, uv3;
 
                         var renderFlags = RenderFlags.None; // todo
                         var mixtureRate = MixtureRate.None;
@@ -1108,7 +1108,7 @@ namespace PSXPrev.Classes
 
                             reader.ReadUInt16();
                             tPage = 0;
-                            uv0 = uv1 = uv2 = uv3 = Vector3.Zero;
+                            uv0 = uv1 = uv2 = uv3 = Vector2.Zero;
                         }
                         else
                         {
@@ -1117,7 +1117,7 @@ namespace PSXPrev.Classes
 
                             //todo
                             tPage = 0;
-                            uv0 = uv1 = uv2 = uv3 = Vector3.Zero;
+                            uv0 = uv1 = uv2 = uv3 = Vector2.Zero;
 
                             color = Color.Grey;
                             n0 = n1 = n2 = n3 = Vector3.Zero;

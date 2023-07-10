@@ -37,10 +37,13 @@ namespace PSXPrev.Classes
             Console.ForegroundColor = ConsoleColor.White;
             Write(format, args);
         }
-
         public void WriteLine(object text)
         {
-            WriteLine("{0}", new[] { text });
+            WriteLine("{0}", text);
+        }
+        public void WriteLine(string text)
+        {
+            WriteLine("{0}", text);
         }
 
         public void WriteErrorLine(string format, params object[] args)
@@ -50,7 +53,11 @@ namespace PSXPrev.Classes
         }
         public void WriteErrorLine(object text)
         {
-            WriteErrorLine("{0}", new[] { text });
+            WriteErrorLine("{0}", text);
+        }
+        public void WriteErrorLine(string text)
+        {
+            WriteErrorLine("{0}", text);
         }
 
 
@@ -59,10 +66,13 @@ namespace PSXPrev.Classes
             Console.ForegroundColor = ConsoleColor.Green;
             Write(format, args);
         }
-
         public void WritePositiveLine(object text)
         {
-            WritePositiveLine("{0}", new[] { text });
+            WritePositiveLine("{0}", text);
+        }
+        public void WritePositiveLine(string text)
+        {
+            WritePositiveLine("{0}", text);
         }
 
         public void Dispose()
