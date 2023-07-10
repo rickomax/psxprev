@@ -8,82 +8,28 @@ using OpenTK;
 
 namespace PSXPrev.Classes
 {
-    public class HMDParser
+    public class HMDParser : FileOffsetScanner
     {
-        private long _offset;
-
-        private readonly Action<RootEntity, long> _entityAddedAction;
-        private readonly Action<Animation, long> _animationAddedAction;
-        private readonly Action<Texture, long> _textureAddedAction;
-
-        public HMDParser(Action<RootEntity, long> entityAddedAction, Action<Animation, long> animationAddedAction, Action<Texture, long> textureAddedAction)
+        public HMDParser(EntityAddedAction entityAdded, AnimationAddedAction animationAdded, TextureAddedAction textureAdded)
+            : base(entityAdded, animationAdded, textureAdded)
         {
-            _entityAddedAction = entityAddedAction;
-            _animationAddedAction = animationAddedAction;
-            _textureAddedAction = textureAddedAction;
         }
 
-        public void LookForHMDEntities(BinaryReader reader, string fileTitle)
+        public override string FormatName => "HMD";
+
+        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
         {
-            if (reader == null)
+            entities = null;
+            animations = null;
+            textures = null;
+
+            var version = reader.ReadUInt32();
+            if (version == 0x00000050)
             {
-                throw (new Exception("File must be opened"));
-            }
-
-            reader.BaseStream.Seek(0, SeekOrigin.Begin);
-
-            while (reader.BaseStream.CanRead)
-            {
-                var passed = false;
-                try
+                var rootEntity = ParseHMD(reader, out animations, out textures);
+                if (rootEntity != null)
                 {
-                    var version = reader.ReadUInt32();
-                    if (version == 0x00000050)
-                    {
-                        var rootEntity = ParseHMD(reader, out var animations, out var textures);
-                        if (rootEntity != null)
-                        {
-                            rootEntity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            _entityAddedAction(rootEntity, reader.BaseStream.Position);
-                            Program.Logger.WritePositiveLine("Found HMD Model at offset {0:X}", _offset);
-                            _offset = reader.BaseStream.Position;
-                            passed = true;
-                        }
-                        foreach (var animation in animations)
-                        {
-                            animation.AnimationName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            _animationAddedAction(animation, reader.BaseStream.Position);
-                            Program.Logger.WritePositiveLine("Found HMD Animation at offset {0:X}", _offset);
-                            _offset = reader.BaseStream.Position;
-                            passed = true;
-                        }
-
-                        foreach (var texture in textures)
-                        {
-                            texture.TextureName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            _textureAddedAction(texture, reader.BaseStream.Position);
-                            Program.Logger.WritePositiveLine("Found HMD Image at offset {0:X}", _offset);
-                            _offset = reader.BaseStream.Position;
-                            passed = true;
-                        }
-                    }
-                }
-                catch (Exception exp)
-                {
-                    //if (Program.Debug)
-                    //{
-                    //    Program.Logger.WriteLine(exp);
-                    //}
-                }
-
-                if (!passed)
-                {
-                    if (++_offset > reader.BaseStream.Length)
-                    {
-                        Program.Logger.WriteLine($"HMD - Reached file end: {fileTitle}");
-                        return;
-                    }
-                    reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
+                    entities = new List<RootEntity> { rootEntity };
                 }
             }
         }
@@ -262,7 +208,7 @@ namespace PSXPrev.Classes
 
         private void ProccessPrimitive(BinaryReader reader, List<ModelEntity> modelEntities, List<Animation> animations, List<Texture> textures, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop)
         {
-            var groupedTriangles = new Dictionary<uint, List<Triangle>>();
+            var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
             var sharedVertices = new Dictionary<uint, Vector3>();
             var sharedNormals = new Dictionary<uint, Vector3>();
             uint chainLength = 0;
@@ -447,13 +393,16 @@ namespace PSXPrev.Classes
                 }
                 break;
             }
-            foreach (var key in groupedTriangles.Keys)
+            foreach (var kvp in groupedTriangles)
             {
-                var triangles = groupedTriangles[key];
+                var renderInfo = kvp.Key;
+                var triangles = kvp.Value;
                 var model = new ModelEntity
                 {
                     Triangles = triangles.ToArray(),
-                    TexturePage = key,
+                    TexturePage = renderInfo.TexturePage,
+                    RenderFlags = renderInfo.RenderFlags,
+                    MixtureRate = renderInfo.MixtureRate,
                     TMDID = primitiveIndex, //todo
                     //PrimitiveIndex = primitiveIndex
                 };
@@ -475,6 +424,7 @@ namespace PSXPrev.Classes
                 var sharedModel = new ModelEntity
                 {
                     Triangles = new Triangle[0], // No triangles. Is it possible this could break exporters?
+                    RenderFlags = RenderFlags.None,
                     TMDID = primitiveIndex, //todo
                     //PrimitiveIndex = primitiveIndex
                     Visible = false,
@@ -503,6 +453,7 @@ namespace PSXPrev.Classes
             var imageIndex = reader.ReadUInt32() * 4;
             uint pmode;
             System.Drawing.Color[] palette;
+            bool[] semiTransparentPalette;
             if (hasClut)
             {
                 var clutX = reader.ReadUInt16();
@@ -520,16 +471,17 @@ namespace PSXPrev.Classes
                 
                 reader.BaseStream.Seek(_offset + clutTop + clutIndex, SeekOrigin.Begin);
                 // Allow out of bounds to support HMDs with invalid image data, but valid model data.
-                palette = TIMParser.ReadPalette(reader, pmode, clutWidth, clutHeight, true);
+                palette = TIMParser.ReadPalette(reader, pmode, clutWidth, clutHeight, out semiTransparentPalette, true);
             }
             else
             {
                 pmode = 3u; // 24bpp
                 palette = null;
+                semiTransparentPalette = null;
             }
             reader.BaseStream.Seek(_offset + imageTop + imageIndex, SeekOrigin.Begin);
             // Allow out of bounds to support HMDs with invalid image data, but valid model data.
-            var texture = TIMParser.ReadTexture(reader, width, height, x, y, pmode, palette, true);
+            var texture = TIMParser.ReadTexture(reader, width, height, x, y, pmode, palette, semiTransparentPalette, true);
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
             return texture;
@@ -575,7 +527,7 @@ namespace PSXPrev.Classes
             return normal;
         }
 
-        private void ProcessNonSharedGeometryData(Dictionary<uint, List<Triangle>> groupedTriangles, BinaryReader reader, bool shared, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount)
+        private void ProcessNonSharedGeometryData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, bool shared, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount)
         {
             var primitivePosition = reader.BaseStream.Position;
             uint dataTop, vertTop, normTop, coordTop;
@@ -589,13 +541,13 @@ namespace PSXPrev.Classes
                 ProcessSharedGeometryPrimitiveHeader(reader, primitiveHeaderPointer, out dataTop, out vertTop, out var calcVertTop, out normTop, out var calcNormTop, out coordTop);
             }
             reader.BaseStream.Seek(_offset + dataTop + polygonIndex, SeekOrigin.Begin);
+
             for (var j = 0; j < dataCount; j++)
             {
-                var packetStructure = TMDHelper.CreateHMDPacketStructure(driver, primitiveType, reader);
-                //var offset = reader.BaseStream.Position;
+                var packetStructure = TMDHelper.CreateHMDPacketStructure(driver, primitiveType, reader, out var renderFlags);
                 if (packetStructure != null)
                 {
-                    TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, shared,
+                    TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, renderFlags, shared,
                         index =>
                         {
                             if (shared)
@@ -648,7 +600,7 @@ namespace PSXPrev.Classes
             reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
         }
 
-        private List<Animation> ProcessAnimationData(Dictionary<uint, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint dataCount)
+        private List<Animation> ProcessAnimationData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint dataCount)
         {
             var primitivePosition = reader.BaseStream.Position;
             ProcessAnimationPrimitiveHeader(reader, primitiveHeaderPointer, out var interpTop, out var ctrlTop, out var paramTop, out var coordTop, out var sectionList);
@@ -1002,7 +954,7 @@ namespace PSXPrev.Classes
             return animationList;
         }
 
-        private Animation ProcessMimeVertexData(Dictionary<uint, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint diffTop, uint dataCount, bool rst)
+        private Animation ProcessMimeVertexData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint diffTop, uint dataCount, bool rst)
         {
             Animation animation;
             Dictionary<uint, AnimationObject> animationObjects;
@@ -1096,19 +1048,15 @@ namespace PSXPrev.Classes
             return animation;
         }
 
-        private void ProcessGroundData(Dictionary<uint, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount, uint gridIndex, uint vertexIndex)
+        private void ProcessGroundData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount, uint gridIndex, uint vertexIndex)
         {
-            void AddTriangle(Triangle triangle, uint tPageNum)
+            void AddTriangle(Triangle triangle, uint tPageNum, RenderFlags renderFlags, MixtureRate mixtureRate)
             {
-                List<Triangle> triangles;
-                if (groupedTriangles.ContainsKey(tPageNum))
-                {
-                    triangles = groupedTriangles[tPageNum];
-                }
-                else
+                var renderInfo = new RenderInfo(tPageNum, renderFlags, mixtureRate);
+                if (!groupedTriangles.TryGetValue(renderInfo, out var triangles))
                 {
                     triangles = new List<Triangle>();
-                    groupedTriangles.Add(tPageNum, triangles);
+                    groupedTriangles.Add(renderInfo, triangles);
                 }
                 triangles.Add(triangle);
             }
@@ -1142,6 +1090,9 @@ namespace PSXPrev.Classes
                         Color color;
                         Vector3 n0, n1, n2, n3;
                         Vector3 uv0, uv1, uv2, uv3;
+
+                        var renderFlags = RenderFlags.None; // todo
+                        var mixtureRate = MixtureRate.None;
 
                         if (primitiveType == 0)
                         {
@@ -1195,7 +1146,7 @@ namespace PSXPrev.Classes
                             Colors = new[] { color, color, color },
                             Uv = new[] { uv0, uv1, uv2 },
                             AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
-                        }, tPage);
+                        }, tPage, renderFlags, mixtureRate);
 
                         AddTriangle(new Triangle
                         {
@@ -1204,7 +1155,7 @@ namespace PSXPrev.Classes
                             Colors = new[] { color, color, color },
                             Uv = new[] { uv2, uv3, uv0 },
                             AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
-                        }, tPage);
+                        }, tPage, renderFlags, mixtureRate);
                     }
                     reader.BaseStream.Seek(rowPosition, SeekOrigin.Begin);
 

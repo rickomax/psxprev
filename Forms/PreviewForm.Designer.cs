@@ -82,6 +82,8 @@
             this.showGizmosToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.showBoundsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.enableLightToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.enableTransparencyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.forceDoubleSidedToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoAttachLimbsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator7 = new System.Windows.Forms.ToolStripSeparator();
             this.setAmbientColorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -705,6 +707,8 @@
             this.showGizmosToolStripMenuItem,
             this.showBoundsToolStripMenuItem,
             this.enableLightToolStripMenuItem,
+            this.enableTransparencyToolStripMenuItem,
+            this.forceDoubleSidedToolStripMenuItem,
             this.autoAttachLimbsToolStripMenuItem,
             this.toolStripSeparator7,
             this.setAmbientColorToolStripMenuItem,
@@ -789,6 +793,24 @@
             this.enableLightToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
             this.enableLightToolStripMenuItem.Text = "Enable Light";
             this.enableLightToolStripMenuItem.Click += new System.EventHandler(this.enableLightToolStripMenuItem_Click);
+            // 
+            // enableTransparencyToolStripMenuItem
+            // 
+            this.enableTransparencyToolStripMenuItem.Checked = true;
+            this.enableTransparencyToolStripMenuItem.CheckOnClick = true;
+            this.enableTransparencyToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.enableTransparencyToolStripMenuItem.Name = "enableTransparencyToolStripMenuItem";
+            this.enableTransparencyToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.enableTransparencyToolStripMenuItem.Text = "Enable Transparency";
+            this.enableTransparencyToolStripMenuItem.Click += new System.EventHandler(this.enableTransparencyToolStripMenuItem_Click);
+            // 
+            // forceDoubleSidedToolStripMenuItem
+            // 
+            this.forceDoubleSidedToolStripMenuItem.CheckOnClick = true;
+            this.forceDoubleSidedToolStripMenuItem.Name = "forceDoubleSidedToolStripMenuItem";
+            this.forceDoubleSidedToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.forceDoubleSidedToolStripMenuItem.Text = "Force Double-Sided";
+            this.forceDoubleSidedToolStripMenuItem.Click += new System.EventHandler(this.forceDoubleSidedToolStripMenuItem_Click);
             // 
             // autoAttachLimbsToolStripMenuItem
             // 
@@ -1414,5 +1436,7 @@
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel5;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel4;
         private System.Windows.Forms.Label label6;
+        private System.Windows.Forms.ToolStripMenuItem enableTransparencyToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem forceDoubleSidedToolStripMenuItem;
     }
 }

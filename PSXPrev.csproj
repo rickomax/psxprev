@@ -90,11 +90,13 @@
     <Compile Include="Classes\LineBatch.cs" />
     <Compile Include="Classes\MtlExporter.cs" />
     <Compile Include="Classes\ObjBlock.cs" />
+    <Compile Include="Classes\FileOffsetScanner.cs" />
     <Compile Include="Classes\PlyExporter.cs" />
     <Compile Include="Classes\PMDParser.cs" />
     <Compile Include="Classes\PrimitiveDataType.cs" />
     <Compile Include="Classes\CrocModelReader.cs" />
     <Compile Include="Classes\PSXParser.cs" />
+    <Compile Include="Classes\RenderInfo.cs" />
     <Compile Include="Classes\RotationOrder.cs" />
     <Compile Include="Classes\Texture.cs" />
     <Compile Include="Classes\Color.cs" />
@@ -118,6 +120,7 @@
     <Compile Include="Classes\Triangle.cs" />
     <Compile Include="Classes\Utils.cs" />
     <Compile Include="Classes\VDFParser.cs" />
+    <Compile Include="Classes\VRAMPages.cs" />
     <Compile Include="Forms\DialogForm.cs">
       <SubType>Form</SubType>
     </Compile>

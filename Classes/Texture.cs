@@ -1,10 +1,14 @@
-﻿using System.ComponentModel;
+﻿using System;
+using System.ComponentModel;
 using System.Drawing;
 
 namespace PSXPrev.Classes
 {
-    public class Texture
+    public class Texture : IDisposable
     {
+        public static readonly System.Drawing.Color NoSemiTransparentFlag = System.Drawing.Color.FromArgb(255, 0, 0, 0);
+        public static readonly System.Drawing.Color SemiTransparentFlag = System.Drawing.Color.FromArgb(255, 255, 255, 255);
+
         public Texture(int width, int height, int x, int y, int bpp, int texturePage)
         {
             Bitmap = new Bitmap(width, height);
@@ -37,5 +41,27 @@ namespace PSXPrev.Classes
 
         [Browsable(false)]
         public Bitmap Bitmap { get; set; }
+
+        [Browsable(false)]
+        public Bitmap SemiTransparentMap { get; set; }
+
+        public Bitmap SetupSemiTransparentMap()
+        {
+            if (SemiTransparentMap == null)
+            {
+                SemiTransparentMap = new Bitmap(Width, Height);
+                using (var graphics = Graphics.FromImage(SemiTransparentMap))
+                {
+                    graphics.Clear(Texture.NoSemiTransparentFlag);
+                }
+            }
+            return SemiTransparentMap;
+        }
+
+        public void Dispose()
+        {
+            Bitmap?.Dispose();
+            SemiTransparentMap?.Dispose();
+        }
     }
 }

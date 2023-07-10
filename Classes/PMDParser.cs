@@ -5,62 +5,28 @@ using OpenTK;
 
 namespace PSXPrev.Classes
 {
-    public class PMDParser
+    public class PMDParser : FileOffsetScanner
     {
-        private long _offset;
-
-        private Action<RootEntity, long> entityAddedAction;
-
-        public PMDParser(Action<RootEntity, long> entityAddedAction)
+        public PMDParser(EntityAddedAction entityAdded)
+            : base(entityAdded: entityAdded)
         {
-            this.entityAddedAction = entityAddedAction;
         }
 
-        public void LookForPMD(BinaryReader reader, string fileTitle)
+        public override string FormatName => "PMD";
+
+        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
         {
-            if (reader == null)
+            entities = null;
+            animations = null;
+            textures = null;
+
+            var version = reader.ReadUInt32();
+            if (version == 0x00000042)
             {
-                throw (new Exception("File must be opened"));
-            }
-
-            reader.BaseStream.Seek(0, SeekOrigin.Begin);
-
-
-            while (reader.BaseStream.CanRead)
-            {
-                var passed = false;
-                try
+                var entity = ParsePMD(reader);
+                if (entity != null)
                 {
-                    _offset = reader.BaseStream.Position;
-                    var version = reader.ReadUInt32();
-                    if (version == 0x00000042)
-                    {
-                        var entity = ParsePMD(reader);
-                        if (entity != null)
-                        {
-                            entity.EntityName = string.Format("{0}{1:X}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            //entities.Add(entity);
-                            entityAddedAction(entity, reader.BaseStream.Position);
-                            Program.Logger.WritePositiveLine("Found PMD Model at offset {0:X}", _offset);
-                            passed = true;
-                        }
-                    }
-                }
-                catch (Exception exp)
-                {
-                    //if (Program.Debug)
-                    //{
-                    //    Program.Logger.WriteLine(exp);
-                    //}
-                }
-                if (!passed)
-                {
-                    if (++_offset > reader.BaseStream.Length)
-                    {
-                        Program.Logger.WriteLine($"PMD - Reached file end: {fileTitle}");
-                        return;
-                    }
-                    reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
+                    entities = new List<RootEntity> { entity };
                 }
             }
         }
@@ -95,13 +61,22 @@ namespace PSXPrev.Classes
                         return null;
                     }
                     var primType = reader.ReadUInt16();
-                    if (primType > 15)
+
+                    var lgtCalcBit = ((primType >> 4) & 0x1) == 1; // Light source calc: 0-Off, 1-On
+                    var botBit     = ((primType >> 5) & 0x1) == 1; // Both sides: 0-Single sided, 1-Double sided
+
+                    var renderFlags = RenderFlags.None;
+                    if (botBit) renderFlags |= RenderFlags.DoubleSided;
+
+                    var primTypeSwitch = primType & ~0x30; // These two bits don't effect packet structure
+                    if (primTypeSwitch > 15)
                     {
                         return null;
                     }
+
                     for (var pk = 0; pk < nPacket; pk++)
                     {
-                        switch (primType)
+                        switch (primTypeSwitch)
                         {
                             case 0x00:
                                 triangles.Add(ReadPolyFT3(reader));

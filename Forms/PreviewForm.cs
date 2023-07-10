@@ -43,7 +43,10 @@ namespace PSXPrev
         private RootEntity _selectedRootEntity;
         private EntitySelectionSource _selectionSource;
         private bool _showUv = true;
-        private readonly Texture[] _vramPage;
+        private readonly VRAMPages _vram;
+        private Bitmap _maskColorBitmap;
+        private Bitmap _ambientColorBitmap;
+        private Bitmap _backgroundColorBitmap;
 
         public PreviewForm(Action<PreviewForm> refreshAction)
         {
@@ -51,8 +54,8 @@ namespace PSXPrev
             _animations = new List<Animation>();
             _textures = new List<Texture>();
             _rootEntities = new List<RootEntity>();
-            _vramPage = new Texture[32];
             _scene = new Scene();
+            _vram = new VRAMPages(_scene);
             refreshAction(this);
             Toolkit.Init();
             InitializeComponent();
@@ -83,8 +86,8 @@ namespace PSXPrev
             foreach (var entityBase in entity.ChildEntities)
             {
                 var model = (ModelEntity)entityBase;
-                model.TexturePage = Math.Min(31, Math.Max(0, model.TexturePage));
-                model.Texture = _vramPage[model.TexturePage];
+                model.TexturePage = VRAMPages.ClampTexturePage(model.TexturePage);
+                model.Texture = _vram[model.TexturePage];
             }
             entitiesTreeView.BeginUpdate();
             var entityNode = entitiesTreeView.Nodes.Add(entity.EntityName);
@@ -199,8 +202,9 @@ namespace PSXPrev
             {
                 foreach (var texture in _textures)
                 {
-                    DrawTextureToVRAM(texture);
+                    _vram.DrawTexture(texture, true); // Suppress updates to scene until all textures are drawn.
                 }
+                _vram.UpdateAllPages();
             }
         }
 
@@ -304,17 +308,9 @@ namespace PSXPrev
             }
         }
 
-        private void SetupVram()
+        private void SetupVRAM()
         {
-            for (var i = 0; i < 32; i++)
-            {
-                var texture = new Texture(256, 256, 0, 0, 32, i);
-                var textureBitmap = texture.Bitmap;
-                var graphics = Graphics.FromImage(textureBitmap);
-                graphics.Clear(Color.White);
-                _vramPage[i] = texture;
-                _scene.UpdateTexture(textureBitmap, i);
-            }
+            _vram.Setup();
         }
 
         private void previewForm_Load(object sender, EventArgs e)
@@ -678,20 +674,6 @@ namespace PSXPrev
             return _textures[textureIndex];
         }
 
-        private void DrawTextureToVRAM(Texture texture)
-        {
-            var texturePage = texture.TexturePage;
-            var textureX = texture.X;
-            var textureY = texture.Y;
-            var textureBitmap = texture.Bitmap;
-            var textureWidth = textureBitmap.Width;
-            var textureHeight = textureBitmap.Height;
-            var vramPageBitmap = _vramPage[texturePage].Bitmap;
-            var vramPageGraphics = Graphics.FromImage(vramPageBitmap);
-            vramPageGraphics.DrawImage(textureBitmap, textureX, textureY, textureWidth, textureHeight);
-            _scene.UpdateTexture(vramPageBitmap, texturePage);
-        }
-
         private void drawToVRAMButton_Click(object sender, EventArgs e)
         {
             var selectedIndices = texturesListView.SelectedIndices;
@@ -702,8 +684,9 @@ namespace PSXPrev
             }
             foreach (int index in texturesListView.SelectedIndices)
             {
-                DrawTextureToVRAM(GetSelectedTexture(index));
+                _vram.DrawTexture(GetSelectedTexture(index), true); // Suppress updates to scene until all textures are drawn.
             }
+            _vram.UpdateAllPages();
         }
 
         private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
@@ -711,7 +694,7 @@ namespace PSXPrev
             var index = vramComboBox.SelectedIndex;
             if (index > -1)
             {
-                vramPagePictureBox.Image = _vramPage[index].Bitmap;
+                vramPagePictureBox.Image = _vram[index].Bitmap;
             }
         }
 
@@ -724,8 +707,8 @@ namespace PSXPrev
             }
             if (_selectedModelEntity != null)
             {
-                _selectedModelEntity.TexturePage = Math.Min(31, Math.Max(0, _selectedModelEntity.TexturePage));
-                _selectedModelEntity.Texture = _vramPage[_selectedModelEntity.TexturePage];
+                _selectedModelEntity.TexturePage = VRAMPages.ClampTexturePage(_selectedModelEntity.TexturePage);
+                _selectedModelEntity.Texture = _vram[_selectedModelEntity.TexturePage];
             }
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
             if (selectedEntityBase != null)
@@ -760,9 +743,9 @@ namespace PSXPrev
             {
                 return;
             }
-            texture.X = Math.Min(255, Math.Max(0, texture.X));
-            texture.Y = Math.Min(255, Math.Max(0, texture.Y));
-            texture.TexturePage = Math.Min(31, Math.Max(0, texture.TexturePage));
+            texture.X = VRAMPages.ClampTextureX(texture.X);
+            texture.Y = VRAMPages.ClampTextureY(texture.Y);
+            texture.TexturePage = VRAMPages.ClampTexturePage(texture.TexturePage);
             selectedNode.Text = texture.TextureName;
         }
 
@@ -780,11 +763,8 @@ namespace PSXPrev
 
         private void ClearPage(int index)
         {
-            var bitmap = _vramPage[index].Bitmap;
-            var graphics = Graphics.FromImage(bitmap);
-            graphics.Clear(Color.White);
-            vramPagePictureBox.Image = bitmap;
-            _scene.UpdateTexture(bitmap, index);
+            _vram.ClearPage(index);
+            vramPagePictureBox.Image = _vram[index].Bitmap;
         }
 
         private void cmsModelExport_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
@@ -920,10 +900,7 @@ namespace PSXPrev
 
         private void clearAllPagesToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            for (var i = 0; i < 32; i++)
-            {
-                ClearPage(i);
-            }
+            _vram.ClearAllPages();
             MessageBox.Show("Pages cleared");
         }
 
@@ -931,7 +908,7 @@ namespace PSXPrev
         {
             SetupScene();
             SetupColors();
-            SetupVram();
+            SetupVRAM();
             SetupEntities();
             SetupTextures();
             SetupAnimations();
@@ -940,28 +917,43 @@ namespace PSXPrev
         private void SetMaskColor(Color color)
         {
             _scene.MaskColor = color;
-            var bitmap = new Bitmap(16, 16);
-            var graphics = Graphics.FromImage(bitmap);
-            graphics.Clear(color);
-            setMaskColorToolStripMenuItem.Image = bitmap;
+            if (_maskColorBitmap == null)
+            {
+                _maskColorBitmap = new Bitmap(16, 16);
+            }
+            using (var graphics = Graphics.FromImage(_maskColorBitmap))
+            {
+                graphics.Clear(color);
+            }
+            setMaskColorToolStripMenuItem.Image = _maskColorBitmap;
         }
 
         private void SetAmbientColor(Color color)
         {
             _scene.AmbientColor = color;
-            var bitmap = new Bitmap(16, 16);
-            var graphics = Graphics.FromImage(bitmap);
-            graphics.Clear(color);
-            setAmbientColorToolStripMenuItem.Image = bitmap;
+            if (_ambientColorBitmap == null)
+            {
+                _ambientColorBitmap = new Bitmap(16, 16);
+            }
+            using (var graphics = Graphics.FromImage(_ambientColorBitmap))
+            {
+                graphics.Clear(color);
+            }
+            setAmbientColorToolStripMenuItem.Image = _ambientColorBitmap;
         }
 
         private void SetBackgroundColor(Color color)
         {
             _scene.ClearColor = new Classes.Color(color.R / 255f, color.G / 255f, color.B / 255f);
-            var bitmap = new Bitmap(16, 16);
-            var graphics = Graphics.FromImage(bitmap);
-            graphics.Clear(color);
-            setBackgroundColorToolStripMenuItem.Image = bitmap;
+            if (_backgroundColorBitmap == null)
+            {
+                _backgroundColorBitmap = new Bitmap(16, 16);
+            }
+            using (var graphics = Graphics.FromImage(_backgroundColorBitmap))
+            {
+                graphics.Clear(color);
+            }
+            setBackgroundColorToolStripMenuItem.Image = _backgroundColorBitmap;
         }
 
         private void Redraw()
@@ -1289,6 +1281,18 @@ namespace PSXPrev
         {
             toolStripStatusLabel1.Width = (int)(statusStrip1.Width * 0.35f);
             toolStripProgressBar1.Width = (int)(statusStrip1.Width * 0.65f);
+        }
+
+        private void enableTransparencyToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _scene.SemiTransparencyEnabled = enableTransparencyToolStripMenuItem.Checked;
+            Redraw();
+        }
+
+        private void forceDoubleSidedToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _scene.ForceDoubleSided = forceDoubleSidedToolStripMenuItem.Checked;
+            Redraw();
         }
     }
 }

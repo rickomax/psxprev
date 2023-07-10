@@ -5,58 +5,28 @@ using OpenTK;
 
 namespace PSXPrev.Classes
 {
-    public class TODParser
+    public class TODParser : FileOffsetScanner
     {
-        private long _offset;
-        private Action<Animation, long> entityAddedAction;
-
-        public TODParser(Action<Animation, long> entityAdded)
+        public TODParser(AnimationAddedAction animationAdded)
+            : base(animationAdded: animationAdded)
         {
-            entityAddedAction = entityAdded;
         }
 
-        public void LookForTOD(BinaryReader reader, string fileTitle)
+        public override string FormatName => "TOD";
+
+        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
         {
-            if (reader == null)
+            entities = null;
+            animations = null;
+            textures = null;
+
+            var fileID = reader.ReadByte();
+            if (fileID == 0x50)
             {
-                throw (new Exception("File must be opened"));
-            }
-            reader.BaseStream.Seek(0, SeekOrigin.Begin);
-            while (reader.BaseStream.CanRead)
-            {
-                var passed = false;
-                try
+                var animation = ParseTOD(reader);
+                if (animation != null)
                 {
-                    _offset = reader.BaseStream.Position;
-                    var fileID = reader.ReadByte();
-                    if (fileID == 0x50)
-                    {
-                        var animation = ParseTOD(reader);
-                        if (animation != null)
-                        {
-                            animation.AnimationName = string.Format("{0}{1:x}", fileTitle, _offset > 0 ? "_" + _offset : string.Empty);
-                            entityAddedAction(animation, reader.BaseStream.Position);
-                            Program.Logger.WritePositiveLine("Found TOD Animation at offset {0:X}", _offset);
-                            _offset = reader.BaseStream.Position;
-                            passed = true;
-                        }
-                    }
-                }
-                catch (Exception exp)
-                {
-                    //if (Program.Debug)
-                    //{
-                    //    Program.Logger.WriteLine(exp);
-                    //}
-                }
-                if (!passed)
-                {
-                    if (++_offset > reader.BaseStream.Length)
-                    {
-                        Program.Logger.WriteLine($"TOD - Reached file end: {fileTitle}");
-                        return;
-                    }
-                    reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
+                    animations = new List<Animation> { animation };
                 }
             }
         }
