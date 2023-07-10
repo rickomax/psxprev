@@ -527,7 +527,7 @@ namespace PSXPrev.Classes
             return normal;
         }
 
-        private void ProcessNonSharedGeometryData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, bool shared, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount)
+        private void ProcessNonSharedGeometryData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, bool shared, uint driver, uint flag, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount)
         {
             var primitivePosition = reader.BaseStream.Position;
             uint dataTop, vertTop, normTop, coordTop;
@@ -544,10 +544,10 @@ namespace PSXPrev.Classes
 
             for (var j = 0; j < dataCount; j++)
             {
-                var packetStructure = TMDHelper.CreateHMDPacketStructure(driver, primitiveType, reader, out var renderFlags);
+                var packetStructure = TMDHelper.CreateHMDPacketStructure(driver, flag, reader, out var renderFlags, out var primitiveType);
                 if (packetStructure != null)
                 {
-                    TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, renderFlags, shared,
+                    TMDHelper.AddTrianglesToGroup(primitiveType, groupedTriangles, packetStructure, renderFlags, shared,
                         index =>
                         {
                             if (shared)

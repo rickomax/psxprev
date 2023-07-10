@@ -130,6 +130,9 @@
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
             this.label4 = new System.Windows.Forms.Label();
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
+            this.verticesOnlyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.label5 = new System.Windows.Forms.Label();
+            this.vertexSizeUpDown = new System.Windows.Forms.NumericUpDown();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -181,6 +184,7 @@
             this.groupBox1.SuspendLayout();
             this.tableLayoutPanel1.SuspendLayout();
             this.flowLayoutPanel1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).BeginInit();
             this.SuspendLayout();
             // 
             // entitiesTabPage
@@ -720,6 +724,7 @@
             this.resetTransformToolStripMenuItem,
             this.toolStripSeparator2,
             this.wireframeToolStripMenuItem,
+            this.verticesOnlyToolStripMenuItem,
             this.showGizmosToolStripMenuItem,
             this.showBoundsToolStripMenuItem,
             this.enableLightToolStripMenuItem,
@@ -885,46 +890,46 @@
             // exportSelectedToolStripMenuItem1
             // 
             this.exportSelectedToolStripMenuItem1.Name = "exportSelectedToolStripMenuItem1";
-            this.exportSelectedToolStripMenuItem1.Size = new System.Drawing.Size(155, 22);
+            this.exportSelectedToolStripMenuItem1.Size = new System.Drawing.Size(180, 22);
             this.exportSelectedToolStripMenuItem1.Text = "Export Selected";
             this.exportSelectedToolStripMenuItem1.Click += new System.EventHandler(this.exportBitmapButton_Click);
             // 
             // toolStripSeparator3
             // 
             this.toolStripSeparator3.Name = "toolStripSeparator3";
-            this.toolStripSeparator3.Size = new System.Drawing.Size(152, 6);
+            this.toolStripSeparator3.Size = new System.Drawing.Size(177, 6);
             // 
             // drawToVRAMToolStripMenuItem
             // 
             this.drawToVRAMToolStripMenuItem.Name = "drawToVRAMToolStripMenuItem";
-            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(155, 22);
+            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.drawToVRAMToolStripMenuItem.Text = "Draw to VRAM";
             this.drawToVRAMToolStripMenuItem.Click += new System.EventHandler(this.drawToVRAMButton_Click);
             // 
             // findByPageToolStripMenuItem
             // 
             this.findByPageToolStripMenuItem.Name = "findByPageToolStripMenuItem";
-            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(155, 22);
+            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.findByPageToolStripMenuItem.Text = "Find by Page";
             this.findByPageToolStripMenuItem.Click += new System.EventHandler(this.findByPageToolStripMenuItem_Click);
             // 
             // clearSearchToolStripMenuItem
             // 
             this.clearSearchToolStripMenuItem.Name = "clearSearchToolStripMenuItem";
-            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(155, 22);
+            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.clearSearchToolStripMenuItem.Text = "Clear Results";
             this.clearSearchToolStripMenuItem.Click += new System.EventHandler(this.clearSearchToolStripMenuItem_Click);
             // 
             // toolStripSeparator1
             // 
             this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(152, 6);
+            this.toolStripSeparator1.Size = new System.Drawing.Size(177, 6);
             // 
             // setMaskColorToolStripMenuItem
             // 
             this.setMaskColorToolStripMenuItem.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.setMaskColorToolStripMenuItem.Name = "setMaskColorToolStripMenuItem";
-            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(155, 22);
+            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.setMaskColorToolStripMenuItem.Text = "Set Mask Color";
             this.setMaskColorToolStripMenuItem.Click += new System.EventHandler(this.setMaskColorToolStripMenuItem_Click);
             // 
@@ -1171,7 +1176,7 @@
             this.groupBox2.Controls.Add(this.tableLayoutPanel2);
             this.groupBox2.Controls.Add(this.animationPlayButton);
             this.groupBox2.Dock = System.Windows.Forms.DockStyle.Top;
-            this.groupBox2.Location = new System.Drawing.Point(0, 97);
+            this.groupBox2.Location = new System.Drawing.Point(0, 123);
             this.groupBox2.Name = "groupBox2";
             this.groupBox2.Size = new System.Drawing.Size(236, 108);
             this.groupBox2.TabIndex = 1;
@@ -1224,7 +1229,7 @@
             this.groupBox1.Dock = System.Windows.Forms.DockStyle.Top;
             this.groupBox1.Location = new System.Drawing.Point(0, 0);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(236, 97);
+            this.groupBox1.Size = new System.Drawing.Size(236, 123);
             this.groupBox1.TabIndex = 0;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Settings";
@@ -1236,20 +1241,23 @@
             this.tableLayoutPanel1.ColumnCount = 2;
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 147F));
+            this.tableLayoutPanel1.Controls.Add(this.label5, 0, 3);
             this.tableLayoutPanel1.Controls.Add(this.label4, 0, 2);
             this.tableLayoutPanel1.Controls.Add(this.label2, 0, 0);
             this.tableLayoutPanel1.Controls.Add(this.label1, 0, 1);
             this.tableLayoutPanel1.Controls.Add(this.lightIntensityNumericUpDown, 1, 2);
             this.tableLayoutPanel1.Controls.Add(this.flowLayoutPanel1, 1, 1);
             this.tableLayoutPanel1.Controls.Add(this.gridSizeNumericUpDown, 1, 0);
+            this.tableLayoutPanel1.Controls.Add(this.vertexSizeUpDown, 1, 3);
             this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Top;
             this.tableLayoutPanel1.Location = new System.Drawing.Point(3, 16);
             this.tableLayoutPanel1.Name = "tableLayoutPanel1";
-            this.tableLayoutPanel1.RowCount = 3;
+            this.tableLayoutPanel1.RowCount = 4;
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel1.Size = new System.Drawing.Size(230, 78);
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tableLayoutPanel1.Size = new System.Drawing.Size(230, 104);
             this.tableLayoutPanel1.TabIndex = 0;
             // 
             // label4
@@ -1275,6 +1283,42 @@
             this.flowLayoutPanel1.Name = "flowLayoutPanel1";
             this.flowLayoutPanel1.Size = new System.Drawing.Size(147, 26);
             this.flowLayoutPanel1.TabIndex = 17;
+            // 
+            // verticesOnlyToolStripMenuItem
+            // 
+            this.verticesOnlyToolStripMenuItem.CheckOnClick = true;
+            this.verticesOnlyToolStripMenuItem.Name = "verticesOnlyToolStripMenuItem";
+            this.verticesOnlyToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.verticesOnlyToolStripMenuItem.Text = "Vertices Only";
+            this.verticesOnlyToolStripMenuItem.Click += new System.EventHandler(this.verticesOnlyToolStripMenuItem_Click);
+            // 
+            // label5
+            // 
+            this.label5.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.label5.Location = new System.Drawing.Point(3, 78);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(77, 26);
+            this.label5.TabIndex = 20;
+            this.label5.Text = "Point Size:";
+            this.label5.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // vertexSizeUpDown
+            // 
+            this.vertexSizeUpDown.Location = new System.Drawing.Point(86, 81);
+            this.vertexSizeUpDown.Maximum = new decimal(new int[] {
+            1000,
+            0,
+            0,
+            0});
+            this.vertexSizeUpDown.Name = "vertexSizeUpDown";
+            this.vertexSizeUpDown.Size = new System.Drawing.Size(43, 20);
+            this.vertexSizeUpDown.TabIndex = 21;
+            this.vertexSizeUpDown.Value = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.vertexSizeUpDown.ValueChanged += new System.EventHandler(this.vertexSizeUpDown_ValueChanged);
             // 
             // PreviewForm
             // 
@@ -1348,6 +1392,7 @@
             this.tableLayoutPanel1.ResumeLayout(false);
             this.tableLayoutPanel1.PerformLayout();
             this.flowLayoutPanel1.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -1454,5 +1499,8 @@
         private System.Windows.Forms.ToolStripMenuItem enableTransparencyToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem forceDoubleSidedToolStripMenuItem;
         private System.Windows.Forms.Label zoomLabel;
+        private System.Windows.Forms.ToolStripMenuItem verticesOnlyToolStripMenuItem;
+        private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.NumericUpDown vertexSizeUpDown;
     }
 }

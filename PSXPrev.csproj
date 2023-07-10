@@ -95,6 +95,7 @@
     <Compile Include="Classes\PMDParser.cs" />
     <Compile Include="Classes\PrimitiveDataType.cs" />
     <Compile Include="Classes\CrocModelReader.cs" />
+    <Compile Include="Classes\PrimitiveType.cs" />
     <Compile Include="Classes\PSXParser.cs" />
     <Compile Include="Classes\RenderInfo.cs" />
     <Compile Include="Classes\RotationOrder.cs" />

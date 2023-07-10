@@ -1339,5 +1339,15 @@ namespace PSXPrev
                 texturePreviewPictureBox.Image.Height, 
                 GraphicsUnit.Pixel);
         }
+
+        private void verticesOnlyToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _scene.VerticesOnly = verticesOnlyToolStripMenuItem.Checked;
+        }
+
+        private void vertexSizeUpDown_ValueChanged(object sender, EventArgs e)
+        {
+            _scene.VertexSize = vertexSizeUpDown.Value;
+        }
     }
 }

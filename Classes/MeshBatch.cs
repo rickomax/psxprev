@@ -371,7 +371,7 @@ namespace PSXPrev
             return _meshes[index];
         }
 
-        private void DrawMesh(Mesh mesh, Matrix4 viewMatrix, Matrix4 projectionMatrix, TextureBinder textureBinder, bool wireframe, bool standard)
+        private void DrawMesh(Mesh mesh, Matrix4 viewMatrix, Matrix4 projectionMatrix, TextureBinder textureBinder, bool wireframe, bool standard, bool verticesOnly = false)
         {
             if (standard)
             {
@@ -396,10 +396,10 @@ namespace PSXPrev
             var modelMatrix = mesh.WorldMatrix;
             var mvpMatrix = modelMatrix * viewMatrix * projectionMatrix;
             GL.UniformMatrix4(Scene.UniformIndexMVP, false, ref mvpMatrix);
-            mesh.Draw(textureBinder, wireframe);
+            mesh.Draw(textureBinder, wireframe, verticesOnly);
         }
 
-        public void Draw(Matrix4 viewMatrix, Matrix4 projectionMatrix, TextureBinder textureBinder = null, bool wireframe = false, bool standard = false)
+        public void Draw(Matrix4 viewMatrix, Matrix4 projectionMatrix, TextureBinder textureBinder = null, bool wireframe = false, bool standard = false, bool verticesOnly = false)
         {
             if (!IsValid)
             {
@@ -416,7 +416,7 @@ namespace PSXPrev
                 {
                     continue; // Not an opaque mesh
                 }
-                DrawMesh(mesh, viewMatrix, projectionMatrix, textureBinder, wireframe, standard);
+                DrawMesh(mesh, viewMatrix, projectionMatrix, textureBinder, wireframe, standard, verticesOnly);
             }
 
             // Draw semi-transparent meshes.
@@ -430,7 +430,7 @@ namespace PSXPrev
                     {
                         continue; // Not a semi-transparent mesh
                     }
-                    DrawMesh(mesh, viewMatrix, projectionMatrix, textureBinder, wireframe, standard);
+                    DrawMesh(mesh, viewMatrix, projectionMatrix, textureBinder, wireframe, standard, verticesOnly);
                 }
 
                 // Pass 3: Draw semi-transparent pixels when the stp bit is SET.
@@ -464,7 +464,7 @@ namespace PSXPrev
                             GL.BlendEquation(BlendEquationMode.FuncAdd);
                             break;
                     }
-                    DrawMesh(mesh, viewMatrix, projectionMatrix, textureBinder, wireframe, standard);
+                    DrawMesh(mesh, viewMatrix, projectionMatrix, textureBinder, wireframe, standard, verticesOnly);
                 }
 
                 // Restore settings.

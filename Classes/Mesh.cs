@@ -45,7 +45,7 @@ namespace PSXPrev.Classes
             _uvBuffer = _ids[3];
         }
 
-        public void Draw(TextureBinder textureBinder = null, bool wireframe = false)
+        public void Draw(TextureBinder textureBinder = null, bool wireframe = false, bool verticesOnly = false)
         {
             GL.BindVertexArray(_meshId);
 
@@ -71,7 +71,7 @@ namespace PSXPrev.Classes
             }
 
             GL.PolygonMode(MaterialFace.FrontAndBack, wireframe ? PolygonMode.Line : PolygonMode.Fill);
-            GL.DrawArrays(PrimitiveType.Triangles, 0, _numElements);
+            GL.DrawArrays(verticesOnly ? OpenTK.Graphics.OpenGL.PrimitiveType.Points : OpenTK.Graphics.OpenGL.PrimitiveType.Triangles, 0, _numElements);
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
 
             if (textureBinder != null && Texture != 0)

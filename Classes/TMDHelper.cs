@@ -9,7 +9,7 @@ namespace PSXPrev.Classes
 {
     public static class TMDHelper
     {
-        public static Dictionary<PrimitiveDataType, uint> CreateTMDPacketStructure(byte flag, byte mode, BinaryReader reader, int index, out RenderFlags renderFlags)
+        public static Dictionary<PrimitiveDataType, uint> CreateTMDPacketStructure(byte flag, byte mode, BinaryReader reader, int index, out RenderFlags renderFlags, out PrimitiveType primitiveType)
         {
             var option = (mode & 0x1F);
 
@@ -43,25 +43,25 @@ namespace PSXPrev.Classes
                     mode,
                     index);
             }
-            if (code != 0b001)
-            {
-                if (Program.Debug)
-                {
-                    Program.Logger.WriteErrorLine($"Unsupported primitive code:{code}");
-                }
-                return null;
-            }
+            //if (code != 0b001)
+            //{
+            //    if (Program.Debug)
+            //    {
+            //        Program.Logger.WriteErrorLine($"Unsupported primitive code:{code}");
+            //    }
+            //}
+            primitiveType = (PrimitiveType)code;
             return ParsePrimitiveData(reader, false, lgtBit, iipBit, tmeBit, grdBit, isqBit, abeBit, false);
         }
 
-        public static Dictionary<PrimitiveDataType, uint> CreateHMDPacketStructure(uint driver, uint primitiveType, BinaryReader reader, out RenderFlags renderFlags)
+        public static Dictionary<PrimitiveDataType, uint> CreateHMDPacketStructure(uint driver, uint flag, BinaryReader reader, out RenderFlags renderFlags, out PrimitiveType primitiveType)
         {
-            var tmeBit = ((primitiveType >> 0) & 0x01) == 1; // Texture: 0-Off, 1-On
-            var colBit = ((primitiveType >> 1) & 0x01) == 1; // Color: 0-Single, 1-Separate
-            var iipBit = ((primitiveType >> 2) & 0x01) == 1; // Shading: 0-Flat, 1-Gouraud
-            var code   = ((primitiveType >> 3) & 0x07); // Polygon: 1-Triangle, 2-Quad, 3-Mesh
-            var lmdBit = ((primitiveType >> 6) & 0x01) == 1; // Normal: 0-Off, 1-On
-            var tileBit = ((primitiveType >> 9) & 0x01) == 1; // Tile: 0-Off, 1-On
+            var tmeBit = ((flag >> 0) & 0x01) == 1; // Texture: 0-Off, 1-On
+            var colBit = ((flag >> 1) & 0x01) == 1; // Color: 0-Single, 1-Separate
+            var iipBit = ((flag >> 2) & 0x01) == 1; // Shading: 0-Flat, 1-Gouraud
+            var code   = ((flag >> 3) & 0x07); // Polygon: 1-Triangle, 2-Quad, 3-Mesh
+            var lmdBit = ((flag >> 6) & 0x01) == 1; // Normal: 0-Off, 1-On
+            var tileBit = ((flag >> 9) & 0x01) == 1; // Tile: 0-Off, 1-On
             var quad = code == 2;
 
             var divBit = ((driver >> 0) & 0x01) == 1; // Subdivision: 0-Off, 1-On
@@ -78,6 +78,8 @@ namespace PSXPrev.Classes
             if (advBit) renderFlags |= RenderFlags.AutomaticDivision;
             if (botBit) renderFlags |= RenderFlags.DoubleSided;
             if (stpBit) renderFlags |= RenderFlags.SemiTransparent;
+
+            primitiveType = (PrimitiveType)code;
 
             return ParsePrimitiveData(reader, true, lgtBit, iipBit, tmeBit, colBit, quad, stpBit, tileBit);
         }
@@ -412,7 +414,7 @@ namespace PSXPrev.Classes
 
         public static HashSet<MixtureRate> mixtureRates = new HashSet<MixtureRate>();
 
-        public static void AddTrianglesToGroup(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, Dictionary<PrimitiveDataType, uint> primitiveData, RenderFlags renderFlags, bool attached, Func<uint, Vector3> vertexCallback, Func<uint, Vector3> normalCallback)
+        public static void AddTrianglesToGroup(PrimitiveType primitiveType, Dictionary<RenderInfo, List<Triangle>> groupedTriangles, Dictionary<PrimitiveDataType, uint> primitiveData, RenderFlags renderFlags, bool attached, Func<uint, Vector3> vertexCallback, Func<uint, Vector3> normalCallback)
         {
             var tPage = primitiveData.TryGetValue(PrimitiveDataType.TSB, out var tsbValue) ? tsbValue & 0x1F : 0;
 

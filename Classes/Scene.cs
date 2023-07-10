@@ -103,6 +103,7 @@ namespace PSXPrev.Classes
         public bool ShowBounds { get; set; } = true;
 
         public bool ShowSkeleton { get; set; }
+        public bool VerticesOnly { get; set; }
 
         public bool SemiTransparencyEnabled { get; set; } = true;
 
@@ -163,6 +164,12 @@ namespace PSXPrev.Classes
         public bool LightEnabled { get; set; } = true;
 
         public float LightIntensity { get; set; } = 1f;
+
+        public decimal VertexSize
+        {
+            get => (decimal)GL.GetFloat(GetPName.PointSize);
+            set => GL.PointSize((float)value);
+        }
 
         public void Initialize(float width, float height)
         {
@@ -288,7 +295,7 @@ namespace PSXPrev.Classes
             GL.Uniform1(UniformLightIntensity, LightIntensity);
             GL.Uniform1(UniformRenderMode, LightEnabled ? 0 : 1);
             GL.Uniform1(UniformSemiTransparentMode, 0);
-            MeshBatch.Draw(_viewMatrix, _projectionMatrix, TextureBinder, Wireframe, standard: true);
+            MeshBatch.Draw(_viewMatrix, _projectionMatrix, TextureBinder, Wireframe, standard: true, VerticesOnly);
             GL.Uniform1(UniformRenderMode, 2);
             if (ShowBounds)
             {
