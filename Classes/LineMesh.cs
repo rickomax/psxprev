@@ -59,7 +59,7 @@ namespace PSXPrev.Classes
             GL.VertexAttribPointer((uint)Scene.AttributeIndexUv, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
 
             GL.LineWidth(width);
-            GL.DrawArrays(PrimitiveType.Lines, 0, _numElements);
+            GL.DrawArrays(OpenTK.Graphics.OpenGL.PrimitiveType.Lines, 0, _numElements);
             GL.LineWidth(1f);
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);

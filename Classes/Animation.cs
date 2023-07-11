@@ -30,6 +30,7 @@ namespace PSXPrev.Classes
         [Browsable(false)]
         public AnimationObject RootAnimationObject { get; set; }
 
+        [DisplayName("Animation Type")]
         public AnimationType AnimationType { get; set; }
 
     }

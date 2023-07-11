@@ -48,6 +48,7 @@
             this.drawToVRAMButton = new System.Windows.Forms.Button();
             this.texturePropertyGrid = new System.Windows.Forms.PropertyGrid();
             this.exportBitmapButton = new System.Windows.Forms.Button();
+            this.zoomLabel = new System.Windows.Forms.Label();
             this.texturePanel = new System.Windows.Forms.Panel();
             this.texturePreviewPictureBox = new System.Windows.Forms.PictureBox();
             this.vramTabPage = new System.Windows.Forms.TabPage();
@@ -79,6 +80,7 @@
             this.resetSelectedModelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.wireframeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.verticesOnlyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.showGizmosToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.showBoundsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.enableLightToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -127,8 +129,12 @@
             this.animationFrameLabel = new System.Windows.Forms.Label();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
+            this.label5 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
+            this.vertexSizeUpDown = new System.Windows.Forms.NumericUpDown();
+            this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
+            this.pauseScanningToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -180,6 +186,7 @@
             this.groupBox1.SuspendLayout();
             this.tableLayoutPanel1.SuspendLayout();
             this.flowLayoutPanel1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).BeginInit();
             this.SuspendLayout();
             // 
             // entitiesTabPage
@@ -314,6 +321,7 @@
             // 
             // splitContainer2.Panel2
             // 
+            this.splitContainer2.Panel2.Controls.Add(this.zoomLabel);
             this.splitContainer2.Panel2.Controls.Add(this.texturePanel);
             this.splitContainer2.Size = new System.Drawing.Size(754, 593);
             this.splitContainer2.SplitterDistance = 251;
@@ -414,6 +422,19 @@
             this.exportBitmapButton.UseVisualStyleBackColor = true;
             this.exportBitmapButton.Click += new System.EventHandler(this.exportBitmapButton_Click);
             // 
+            // zoomLabel
+            // 
+            this.zoomLabel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.zoomLabel.BackColor = System.Drawing.SystemColors.Control;
+            this.zoomLabel.Location = new System.Drawing.Point(450, 0);
+            this.zoomLabel.Margin = new System.Windows.Forms.Padding(0);
+            this.zoomLabel.Name = "zoomLabel";
+            this.zoomLabel.Padding = new System.Windows.Forms.Padding(6, 3, 6, 3);
+            this.zoomLabel.Size = new System.Drawing.Size(50, 30);
+            this.zoomLabel.TabIndex = 10;
+            this.zoomLabel.Text = "100%";
+            this.zoomLabel.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
             // texturePanel
             // 
             this.texturePanel.AutoScroll = true;
@@ -430,9 +451,10 @@
             this.texturePreviewPictureBox.Location = new System.Drawing.Point(0, 0);
             this.texturePreviewPictureBox.Name = "texturePreviewPictureBox";
             this.texturePreviewPictureBox.Size = new System.Drawing.Size(256, 256);
-            this.texturePreviewPictureBox.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
+            this.texturePreviewPictureBox.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
             this.texturePreviewPictureBox.TabIndex = 9;
             this.texturePreviewPictureBox.TabStop = false;
+            this.texturePreviewPictureBox.Paint += new System.Windows.Forms.PaintEventHandler(this.texturePreviewPictureBox_Paint);
             // 
             // vramTabPage
             // 
@@ -685,6 +707,8 @@
             // fileToolStripMenuItem
             // 
             this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.pauseScanningToolStripMenuItem,
+            this.toolStripMenuItem1,
             this.exitToolStripMenuItem});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
             this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
@@ -693,7 +717,7 @@
             // exitToolStripMenuItem
             // 
             this.exitToolStripMenuItem.Name = "exitToolStripMenuItem";
-            this.exitToolStripMenuItem.Size = new System.Drawing.Size(93, 22);
+            this.exitToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.exitToolStripMenuItem.Text = "Exit";
             this.exitToolStripMenuItem.Click += new System.EventHandler(this.exitToolStripMenuItem_Click);
             // 
@@ -704,6 +728,7 @@
             this.resetTransformToolStripMenuItem,
             this.toolStripSeparator2,
             this.wireframeToolStripMenuItem,
+            this.verticesOnlyToolStripMenuItem,
             this.showGizmosToolStripMenuItem,
             this.showBoundsToolStripMenuItem,
             this.enableLightToolStripMenuItem,
@@ -763,6 +788,14 @@
             this.wireframeToolStripMenuItem.Text = "Wireframe";
             this.wireframeToolStripMenuItem.CheckedChanged += new System.EventHandler(this.wireframeToolStripMenuItem_CheckedChanged);
             this.wireframeToolStripMenuItem.Click += new System.EventHandler(this.wireframeToolStripMenuItem_Click);
+            // 
+            // verticesOnlyToolStripMenuItem
+            // 
+            this.verticesOnlyToolStripMenuItem.CheckOnClick = true;
+            this.verticesOnlyToolStripMenuItem.Name = "verticesOnlyToolStripMenuItem";
+            this.verticesOnlyToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.verticesOnlyToolStripMenuItem.Text = "Vertices Only";
+            this.verticesOnlyToolStripMenuItem.Click += new System.EventHandler(this.verticesOnlyToolStripMenuItem_Click);
             // 
             // showGizmosToolStripMenuItem
             // 
@@ -926,21 +959,21 @@
             // clearPageToolStripMenuItem
             // 
             this.clearPageToolStripMenuItem.Name = "clearPageToolStripMenuItem";
-            this.clearPageToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.clearPageToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.clearPageToolStripMenuItem.Text = "Clear Page";
             this.clearPageToolStripMenuItem.Click += new System.EventHandler(this.btnClearPage_Click);
             // 
             // clearAllPagesToolStripMenuItem
             // 
             this.clearAllPagesToolStripMenuItem.Name = "clearAllPagesToolStripMenuItem";
-            this.clearAllPagesToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.clearAllPagesToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.clearAllPagesToolStripMenuItem.Text = "Clear All Pages";
             this.clearAllPagesToolStripMenuItem.Click += new System.EventHandler(this.clearAllPagesToolStripMenuItem_Click);
             // 
             // toolStripSeparator4
             // 
             this.toolStripSeparator4.Name = "toolStripSeparator4";
-            this.toolStripSeparator4.Size = new System.Drawing.Size(177, 6);
+            this.toolStripSeparator4.Size = new System.Drawing.Size(149, 6);
             // 
             // showUVToolStripMenuItem
             // 
@@ -948,7 +981,7 @@
             this.showUVToolStripMenuItem.CheckOnClick = true;
             this.showUVToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.showUVToolStripMenuItem.Name = "showUVToolStripMenuItem";
-            this.showUVToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.showUVToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.showUVToolStripMenuItem.Text = "Show UV";
             this.showUVToolStripMenuItem.Click += new System.EventHandler(this.showUVToolStripMenuItem_Click);
             // 
@@ -964,7 +997,7 @@
             // 
             this.showSkeletonToolStripMenuItem.CheckOnClick = true;
             this.showSkeletonToolStripMenuItem.Name = "showSkeletonToolStripMenuItem";
-            this.showSkeletonToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.showSkeletonToolStripMenuItem.Size = new System.Drawing.Size(151, 22);
             this.showSkeletonToolStripMenuItem.Text = "Show Skeleton";
             this.showSkeletonToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showSkeletonToolStripMenuItem_CheckedChanged);
             // 
@@ -1155,7 +1188,7 @@
             this.groupBox2.Controls.Add(this.tableLayoutPanel2);
             this.groupBox2.Controls.Add(this.animationPlayButton);
             this.groupBox2.Dock = System.Windows.Forms.DockStyle.Top;
-            this.groupBox2.Location = new System.Drawing.Point(0, 97);
+            this.groupBox2.Location = new System.Drawing.Point(0, 123);
             this.groupBox2.Name = "groupBox2";
             this.groupBox2.Size = new System.Drawing.Size(236, 108);
             this.groupBox2.TabIndex = 1;
@@ -1208,7 +1241,7 @@
             this.groupBox1.Dock = System.Windows.Forms.DockStyle.Top;
             this.groupBox1.Location = new System.Drawing.Point(0, 0);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(236, 97);
+            this.groupBox1.Size = new System.Drawing.Size(236, 123);
             this.groupBox1.TabIndex = 0;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Settings";
@@ -1220,21 +1253,34 @@
             this.tableLayoutPanel1.ColumnCount = 2;
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 147F));
+            this.tableLayoutPanel1.Controls.Add(this.label5, 0, 3);
             this.tableLayoutPanel1.Controls.Add(this.label4, 0, 2);
             this.tableLayoutPanel1.Controls.Add(this.label2, 0, 0);
             this.tableLayoutPanel1.Controls.Add(this.label1, 0, 1);
             this.tableLayoutPanel1.Controls.Add(this.lightIntensityNumericUpDown, 1, 2);
             this.tableLayoutPanel1.Controls.Add(this.flowLayoutPanel1, 1, 1);
             this.tableLayoutPanel1.Controls.Add(this.gridSizeNumericUpDown, 1, 0);
+            this.tableLayoutPanel1.Controls.Add(this.vertexSizeUpDown, 1, 3);
             this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Top;
             this.tableLayoutPanel1.Location = new System.Drawing.Point(3, 16);
             this.tableLayoutPanel1.Name = "tableLayoutPanel1";
-            this.tableLayoutPanel1.RowCount = 3;
+            this.tableLayoutPanel1.RowCount = 4;
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel1.Size = new System.Drawing.Size(230, 78);
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tableLayoutPanel1.Size = new System.Drawing.Size(230, 104);
             this.tableLayoutPanel1.TabIndex = 0;
+            // 
+            // label5
+            // 
+            this.label5.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.label5.Location = new System.Drawing.Point(3, 78);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(77, 26);
+            this.label5.TabIndex = 20;
+            this.label5.Text = "Point Size:";
+            this.label5.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // label4
             // 
@@ -1259,6 +1305,37 @@
             this.flowLayoutPanel1.Name = "flowLayoutPanel1";
             this.flowLayoutPanel1.Size = new System.Drawing.Size(147, 26);
             this.flowLayoutPanel1.TabIndex = 17;
+            // 
+            // vertexSizeUpDown
+            // 
+            this.vertexSizeUpDown.Location = new System.Drawing.Point(86, 81);
+            this.vertexSizeUpDown.Maximum = new decimal(new int[] {
+            1000,
+            0,
+            0,
+            0});
+            this.vertexSizeUpDown.Name = "vertexSizeUpDown";
+            this.vertexSizeUpDown.Size = new System.Drawing.Size(43, 20);
+            this.vertexSizeUpDown.TabIndex = 21;
+            this.vertexSizeUpDown.Value = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.vertexSizeUpDown.ValueChanged += new System.EventHandler(this.vertexSizeUpDown_ValueChanged);
+            // 
+            // toolStripMenuItem1
+            // 
+            this.toolStripMenuItem1.Name = "toolStripMenuItem1";
+            this.toolStripMenuItem1.Size = new System.Drawing.Size(177, 6);
+            // 
+            // pauseScanningToolStripMenuItem
+            // 
+            this.pauseScanningToolStripMenuItem.CheckOnClick = true;
+            this.pauseScanningToolStripMenuItem.Name = "pauseScanningToolStripMenuItem";
+            this.pauseScanningToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.pauseScanningToolStripMenuItem.Text = "Pause Scanning";
+            this.pauseScanningToolStripMenuItem.CheckedChanged += new System.EventHandler(this.pauseScanningToolStripMenuItem_CheckedChanged);
             // 
             // PreviewForm
             // 
@@ -1295,7 +1372,6 @@
             this.splitContainer3.ResumeLayout(false);
             this.tableLayoutPanel4.ResumeLayout(false);
             this.texturePanel.ResumeLayout(false);
-            this.texturePanel.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.texturePreviewPictureBox)).EndInit();
             this.vramTabPage.ResumeLayout(false);
             this.vramTabPage.PerformLayout();
@@ -1333,6 +1409,7 @@
             this.tableLayoutPanel1.ResumeLayout(false);
             this.tableLayoutPanel1.PerformLayout();
             this.flowLayoutPanel1.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -1438,5 +1515,11 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.ToolStripMenuItem enableTransparencyToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem forceDoubleSidedToolStripMenuItem;
+        private System.Windows.Forms.Label zoomLabel;
+        private System.Windows.Forms.ToolStripMenuItem verticesOnlyToolStripMenuItem;
+        private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.NumericUpDown vertexSizeUpDown;
+        private System.Windows.Forms.ToolStripMenuItem pauseScanningToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
     }
 }
