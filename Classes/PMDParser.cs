@@ -62,10 +62,11 @@ namespace PSXPrev.Classes
                     }
                     var primType = reader.ReadUInt16();
 
-                    var lgtCalcBit = ((primType >> 4) & 0x1) == 1; // Light source calc: 0-Off, 1-On
-                    var botBit     = ((primType >> 5) & 0x1) == 1; // Both sides: 0-Single sided, 1-Double sided
+                    var lgtBit = ((primType >> 4) & 0x1) == 1; // Light: 0-Unlit, 1-Lit
+                    var botBit = ((primType >> 5) & 0x1) == 1; // Both sides: 0-Single sided, 1-Double sided
 
                     var renderFlags = RenderFlags.None;
+                    if (!lgtBit) renderFlags |= RenderFlags.Unlit;
                     if (botBit) renderFlags |= RenderFlags.DoubleSided;
 
                     var primTypeSwitch = primType & ~0x30; // These two bits don't effect packet structure

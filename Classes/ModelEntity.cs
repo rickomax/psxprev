@@ -44,18 +44,23 @@ namespace PSXPrev.Classes
             }
         }
 
-       //[ReadOnly(true)]
-       //public uint PrimitiveIndex { get; set; }
+        //[ReadOnly(true)]
+        //public uint PrimitiveIndex { get; set; }
 
         [Browsable(false)]
         public int MeshIndex { get; set; }
 
         public bool Visible { get; set; } = true;
 
+        [Browsable(false)]
         public float Interpolator { get; set; }
+        [Browsable(false)]
         public Vector3[] InitialVertices { get; set; }
+        [Browsable(false)]
         public Vector3[] FinalVertices { get; set; }
+        [Browsable(false)]
         public Vector3[] FinalNormals { get; set; }
+        [Browsable(false)]
         public Vector3[] InitialNormals { get; set; }
 
         // HMD: Attachable (shared) vertices and normals that aren't tied to an existing triangle.

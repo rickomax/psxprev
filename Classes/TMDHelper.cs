@@ -43,25 +43,48 @@ namespace PSXPrev.Classes
                     mode,
                     index);
             }
-            primitiveType = (PrimitiveType)code;
-            if (primitiveType != PrimitiveType.Polygon)
+            primitiveType = PrimitiveType.None; // invalid
+            var supported = false;
+            switch (code)
+            {
+                case 1 when !isqBit:
+                    primitiveType = PrimitiveType.Triangle;
+                    supported = true;
+                    break;
+                case 1:
+                    primitiveType = PrimitiveType.Quad;
+                    supported = true;
+                    break;
+                case 2:
+                    primitiveType = PrimitiveType.StraightLine;
+                    break;
+                case 3:
+                    primitiveType = PrimitiveType.Sprite;
+                    break;
+            }
+
+            if (!supported)
             {
                 if (Program.Debug)
                 {
-                    Program.Logger.WriteErrorLine($"Unsupported primitive code:{primitiveType}");
+                    Program.Logger.WriteErrorLine($"Unsupported TMD primitive code:{code}");
                 }
             }
+
             return ParsePrimitiveData(reader, false, lgtBit, iipBit, tmeBit, grdBit, isqBit, abeBit, false);
         }
 
         public static Dictionary<PrimitiveDataType, uint> CreateHMDPacketStructure(uint driver, uint flag, BinaryReader reader, out RenderFlags renderFlags, out PrimitiveType primitiveType)
         {
             var tmeBit = ((flag >> 0) & 0x01) == 1; // Texture: 0-Off, 1-On
-            var colBit = ((flag >> 1) & 0x01) == 1; // Color: 0-Single, 1-Separate
-            var iipBit = ((flag >> 2) & 0x01) == 1; // Shading: 0-Flat, 1-Gouraud
-            var code   = ((flag >> 3) & 0x07); // Polygon: 1-Triangle, 2-Quad, 3-Mesh
-            var lmdBit = ((flag >> 6) & 0x01) == 1; // Normal: 0-Off, 1-On
-            var tileBit = ((flag >> 9) & 0x01) == 1; // Tile: 0-Off, 1-On
+            var colBit = ((flag >> 1) & 0x01) == 1; // Colors: 0-Single, 1-Separate
+            var iipBit = ((flag >> 2) & 0x01) == 1; // Shading: 0-Flat, 1-Gouraud (separate colors when !lgtBit)
+            var code   = ((flag >> 3) & 0x07);      // Polygon: 1-Triangle, 2-Quad, 3-Strip Mesh
+            var lmdBit = ((flag >> 6) & 0x01) == 0; // Normals: 0-On, 1-Off
+            var mipBit = ((flag >> 7) & 0x01) == 1; // MIP map: 0-Off, 1-On (not implemented by spec)
+            var pstBit = ((flag >> 8) & 0x01) == 1; // Presets: 0-Off, 1-On
+            var tileBit = ((flag >> 9) & 0x01) == 1; // Tiled: 0-Off, 1-On
+            var mimeBit = ((flag >> 10) & 0x01) == 1; // MIMe polygon: 0-Normal, 1-MIMe (not implemented by spec)
             var quad = code == 2;
 
             var divBit = ((driver >> 0) & 0x01) == 1; // Subdivision: 0-Off, 1-On
@@ -69,8 +92,10 @@ namespace PSXPrev.Classes
             var lgtBit = ((driver >> 2) & 0x01) == 0; // Light: 0-Lit, 1-Unlit
             var advBit = ((driver >> 3) & 0x01) == 1; // Automatic division: 0-Off, 1-On
             var botBit = ((driver >> 4) & 0x01) == 1; // Both sides: 0-Single sided, 1-Double sided
-            var stpBit = ((driver >> 5) & 0x01) == 1; // Semi-transparency: 0-Preserve, 1-On
+            var stpBit = ((driver >> 5) & 0x01) == 1; // Semi-transparency: 0-Off, 1-On
             
+            // Note: lmdBit should always match lgtBit (normals are only used with light source calculation).
+
             renderFlags = RenderFlags.None;
             if (divBit) renderFlags |= RenderFlags.Subdivision;
             if (fogBit) renderFlags |= RenderFlags.Fog;
@@ -79,12 +104,28 @@ namespace PSXPrev.Classes
             if (botBit) renderFlags |= RenderFlags.DoubleSided;
             if (stpBit) renderFlags |= RenderFlags.SemiTransparent;
 
-            primitiveType = (PrimitiveType)code;
-            if (primitiveType != PrimitiveType.Polygon)
+            primitiveType = PrimitiveType.None; // invalid
+            var supported = false;
+            switch (code)
+            {
+                case 1:
+                    primitiveType = PrimitiveType.Triangle;
+                    supported = true;
+                    break;
+                case 2:
+                    primitiveType = PrimitiveType.Quad;
+                    supported = true;
+                    break;
+                case 3:
+                    primitiveType = PrimitiveType.StripMesh;
+                    break;
+            }
+
+            if (!supported)
             {
                 if (Program.Debug)
                 {
-                    Program.Logger.WriteErrorLine($"Unsupported primitive code:{primitiveType}");
+                    Program.Logger.WriteErrorLine($"Unsupported HMD primitive code:{code}");
                 }
             }
 
@@ -229,6 +270,12 @@ namespace PSXPrev.Classes
                             (hmd && gradation);
 
             var numVerts = quad ? 4 : 3;
+            var numColors = gradation ? numVerts : 1;
+            // HMD: Gouraud surfaces without light have colors for each vertex (regardless of gradation).
+            if (hmd && !light && gouraud)
+            {
+                numColors = numVerts;
+            }
 
 
             // HMD: PAD2 appearing after vertices. Handle this differently from TMD since it's more complex.
@@ -278,7 +325,6 @@ namespace PSXPrev.Classes
             // HMD: Colors come before UVs.
             if (hmd && hasColors)
             {
-                var numColors = gradation ? numVerts : 1;
                 for (var i = 0; i < numColors; ++i)
                 {
                     AddData(PrimitiveDataType.R0 + i);
@@ -331,7 +377,6 @@ namespace PSXPrev.Classes
             // TMD: Colors come after UVs.
             if (!hmd && hasColors)
             {
-                var numColors = gradation ? numVerts : 1;
                 for (var i = 0; i < numColors; ++i)
                 {
                     AddData(PrimitiveDataType.R0 + i);
@@ -418,8 +463,6 @@ namespace PSXPrev.Classes
 
             return primitiveDataDictionary;
         }
-
-        public static HashSet<MixtureRate> mixtureRates = new HashSet<MixtureRate>();
 
         public static void AddTrianglesToGroup(PrimitiveType primitiveType, Dictionary<RenderInfo, List<Triangle>> groupedTriangles, Dictionary<PrimitiveDataType, uint> primitiveData, RenderFlags renderFlags, bool attached, Func<uint, Vector3> vertexCallback, Func<uint, Vector3> normalCallback)
 
