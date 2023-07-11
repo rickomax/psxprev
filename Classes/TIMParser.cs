@@ -207,11 +207,11 @@ namespace PSXPrev.Classes
                     {
                         for (var x = 0; x < imgWidth; x++)
                         {
-                            var color = reader.ReadUInt16();
-                            var index1 = (color & 0xF);
-                            var index2 = (color & 0xF0) >> 4;
-                            var index3 = (color & 0xF00) >> 8;
-                            var index4 = (color & 0xF000) >> 12;
+                            var data1 = reader.ReadUInt16();
+                            var index1 = (data1 & 0xF);
+                            var index2 = (data1 & 0xF0) >> 4;
+                            var index3 = (data1 & 0xF00) >> 8;
+                            var index4 = (data1 & 0xF000) >> 12;
 
                             if (palette == null || index1 >= palette.Length || index2 >= palette.Length || index3 >= palette.Length || index4 >= palette.Length)
                             {
@@ -281,9 +281,9 @@ namespace PSXPrev.Classes
                     {
                         for (var x = 0; x < imgWidth; x++)
                         {
-                            var color = reader.ReadUInt16();
-                            var index1 = (color & 0xFF);
-                            var index2 = (color & 0xFF00) >> 8;
+                            var data1 = reader.ReadUInt16();
+                            var index1 = (data1 & 0xFF);
+                            var index2 = (data1 & 0xFF00) >> 8;
 
                             if (palette == null || index1 >= palette.Length || index2 >= palette.Length)
                             {
@@ -361,6 +361,13 @@ namespace PSXPrev.Classes
                     textureHeight = imgHeight;
                     textureBpp = 24;
 
+                    if (imgWidth % 2 != 0)
+                    {
+                        if (Program.Debug)
+                        {
+                            Program.Logger.WriteLine("24bpp texture has odd-numbered width, unsure how to handle row padding.");
+                        }
+                    }
                     // HMD: Support models with invalid image data, but valid model data.
                     if (allowOutOfBounds && (textureWidth * textureHeight * 3) + reader.BaseStream.Position > reader.BaseStream.Length)
                     {
@@ -372,26 +379,18 @@ namespace PSXPrev.Classes
 
                     for (var y = 0; y < imgHeight; y++)
                     {
-                        for (var x = 0; x < imgWidth - 1; x++)
+                        for (var x = 0; x < imgWidth; x++)
                         {
-                            var data1 = reader.ReadUInt16();
-                            var r0 = (data1 & 0xFF);
-                            var g0 = (data1 & 0xFF00) >> 8;
-
-                            var data2 = reader.ReadUInt16();
-                            var b0 = (data2 & 0xFF);
-                            var r1 = (data2 & 0xFF00) >> 8;
-
-                            var data3 = reader.ReadUInt16();
-                            var g1 = (data3 & 0xFF);
-                            var b1 = (data3 & 0xFF00) >> 8;
+                            var r0 = reader.ReadByte();
+                            var g0 = reader.ReadByte();
+                            var b0 = reader.ReadByte();
 
                             var color1 = System.Drawing.Color.FromArgb(255, r0, g0, b0);
-                            var color2 = System.Drawing.Color.FromArgb(255, r1, g1, b1);
 
-                            bitmap.SetPixel((x * 2) + 0, y, color1);
-                            bitmap.SetPixel((x * 2) + 1, y, color2);
+                            bitmap.SetPixel(x, y, color1);
                         }
+                        // todo: Is there padding at the end of rows?
+                        //       It's probably padding to 2-bytes if there is any, rather than 4-bytes.
                     }
 
                     break;
