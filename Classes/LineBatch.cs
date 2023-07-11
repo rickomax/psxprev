@@ -35,45 +35,37 @@ namespace PSXPrev.Classes
             {
                 return;
             }
-            var numPoints = numLines * 2;
-            var elementCount = numPoints * 3;
+            var numElements = numLines * 2;
             var baseIndex = 0;
-            var positionList = new float[elementCount];
-            var normalList = new float[elementCount];
-            var colorList = new float[elementCount];
-            var uvList = new float[elementCount];
+            var positionList = new float[numElements * 3]; // Vector3
+            var colorList    = new float[numElements * 3]; // Vector3 (Color)
             for (var l = 0; l < numLines; l++)
             {
                 var line = _lines[l];
-                FillVertex(line.P1, line.Color, ref baseIndex, ref positionList, ref normalList, ref colorList, ref uvList);
-                FillVertex(line.P2, line.Color, ref baseIndex, ref positionList, ref normalList, ref colorList, ref uvList);
+                FillVertex(line.P1, line.Color, ref baseIndex, ref positionList, ref colorList);
+                FillVertex(line.P2, line.Color, ref baseIndex, ref positionList, ref colorList);
             }
             var lineMesh = GetLine(0);
-            lineMesh.SetData(numPoints, positionList, normalList, colorList, uvList);
+            lineMesh.SetData(numElements, positionList, null, colorList, null);
             Draw(viewMatrix, projectionMatrix, width);
         }
 
-        private static void FillVertex(Vector4 position, Color color, ref int baseIndex, ref float[] positionList, ref float[] normalList, ref float[] colorList, ref float[] uvList)
+        private static void FillVertex(Vector4 position, Color color, ref int baseIndex, ref float[] positionList, ref float[] colorList)
         {
-            var index1 = baseIndex++;
-            var index2 = baseIndex++;
-            var index3 = baseIndex++;
+            var index3d = baseIndex * 3;
+            baseIndex++;
 
-            positionList[index1] = position.X;
-            positionList[index2] = position.Y;
-            positionList[index3] = position.Z;
+            positionList[index3d + 0] = position.X;
+            positionList[index3d + 1] = position.Y;
+            positionList[index3d + 2] = position.Z;
 
-            normalList[index1] = 0f;
-            normalList[index2] = 0f;
-            normalList[index3] = 0f;
+            // Normals are all 0f (passing null will default to a zeroed list).
 
-            colorList[index1] = color.R;
-            colorList[index2] = color.G;
-            colorList[index3] = color.B;
+            colorList[index3d + 0] = color.R;
+            colorList[index3d + 1] = color.G;
+            colorList[index3d + 2] = color.B;
 
-            uvList[index1] = 0f;
-            uvList[index2] = 0f;
-            uvList[index3] = 0f;
+            // UVs are all 0f (passing null will default to a zeroed list).
         }
 
         private void ResetMeshes(int nLines)
