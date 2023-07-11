@@ -80,6 +80,7 @@
             this.resetSelectedModelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.wireframeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.verticesOnlyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.showGizmosToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.showBoundsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.enableLightToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -128,11 +129,12 @@
             this.animationFrameLabel = new System.Windows.Forms.Label();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
+            this.label5 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
-            this.verticesOnlyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.label5 = new System.Windows.Forms.Label();
             this.vertexSizeUpDown = new System.Windows.Forms.NumericUpDown();
+            this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
+            this.pauseScanningToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -705,6 +707,8 @@
             // fileToolStripMenuItem
             // 
             this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.pauseScanningToolStripMenuItem,
+            this.toolStripMenuItem1,
             this.exitToolStripMenuItem});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
             this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
@@ -713,7 +717,7 @@
             // exitToolStripMenuItem
             // 
             this.exitToolStripMenuItem.Name = "exitToolStripMenuItem";
-            this.exitToolStripMenuItem.Size = new System.Drawing.Size(93, 22);
+            this.exitToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.exitToolStripMenuItem.Text = "Exit";
             this.exitToolStripMenuItem.Click += new System.EventHandler(this.exitToolStripMenuItem_Click);
             // 
@@ -784,6 +788,14 @@
             this.wireframeToolStripMenuItem.Text = "Wireframe";
             this.wireframeToolStripMenuItem.CheckedChanged += new System.EventHandler(this.wireframeToolStripMenuItem_CheckedChanged);
             this.wireframeToolStripMenuItem.Click += new System.EventHandler(this.wireframeToolStripMenuItem_Click);
+            // 
+            // verticesOnlyToolStripMenuItem
+            // 
+            this.verticesOnlyToolStripMenuItem.CheckOnClick = true;
+            this.verticesOnlyToolStripMenuItem.Name = "verticesOnlyToolStripMenuItem";
+            this.verticesOnlyToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.verticesOnlyToolStripMenuItem.Text = "Vertices Only";
+            this.verticesOnlyToolStripMenuItem.Click += new System.EventHandler(this.verticesOnlyToolStripMenuItem_Click);
             // 
             // showGizmosToolStripMenuItem
             // 
@@ -890,46 +902,46 @@
             // exportSelectedToolStripMenuItem1
             // 
             this.exportSelectedToolStripMenuItem1.Name = "exportSelectedToolStripMenuItem1";
-            this.exportSelectedToolStripMenuItem1.Size = new System.Drawing.Size(180, 22);
+            this.exportSelectedToolStripMenuItem1.Size = new System.Drawing.Size(155, 22);
             this.exportSelectedToolStripMenuItem1.Text = "Export Selected";
             this.exportSelectedToolStripMenuItem1.Click += new System.EventHandler(this.exportBitmapButton_Click);
             // 
             // toolStripSeparator3
             // 
             this.toolStripSeparator3.Name = "toolStripSeparator3";
-            this.toolStripSeparator3.Size = new System.Drawing.Size(177, 6);
+            this.toolStripSeparator3.Size = new System.Drawing.Size(152, 6);
             // 
             // drawToVRAMToolStripMenuItem
             // 
             this.drawToVRAMToolStripMenuItem.Name = "drawToVRAMToolStripMenuItem";
-            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(155, 22);
             this.drawToVRAMToolStripMenuItem.Text = "Draw to VRAM";
             this.drawToVRAMToolStripMenuItem.Click += new System.EventHandler(this.drawToVRAMButton_Click);
             // 
             // findByPageToolStripMenuItem
             // 
             this.findByPageToolStripMenuItem.Name = "findByPageToolStripMenuItem";
-            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(155, 22);
             this.findByPageToolStripMenuItem.Text = "Find by Page";
             this.findByPageToolStripMenuItem.Click += new System.EventHandler(this.findByPageToolStripMenuItem_Click);
             // 
             // clearSearchToolStripMenuItem
             // 
             this.clearSearchToolStripMenuItem.Name = "clearSearchToolStripMenuItem";
-            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(155, 22);
             this.clearSearchToolStripMenuItem.Text = "Clear Results";
             this.clearSearchToolStripMenuItem.Click += new System.EventHandler(this.clearSearchToolStripMenuItem_Click);
             // 
             // toolStripSeparator1
             // 
             this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(177, 6);
+            this.toolStripSeparator1.Size = new System.Drawing.Size(152, 6);
             // 
             // setMaskColorToolStripMenuItem
             // 
             this.setMaskColorToolStripMenuItem.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.setMaskColorToolStripMenuItem.Name = "setMaskColorToolStripMenuItem";
-            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(155, 22);
             this.setMaskColorToolStripMenuItem.Text = "Set Mask Color";
             this.setMaskColorToolStripMenuItem.Click += new System.EventHandler(this.setMaskColorToolStripMenuItem_Click);
             // 
@@ -1260,6 +1272,16 @@
             this.tableLayoutPanel1.Size = new System.Drawing.Size(230, 104);
             this.tableLayoutPanel1.TabIndex = 0;
             // 
+            // label5
+            // 
+            this.label5.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.label5.Location = new System.Drawing.Point(3, 78);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(77, 26);
+            this.label5.TabIndex = 20;
+            this.label5.Text = "Point Size:";
+            this.label5.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
             // label4
             // 
             this.label4.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1284,24 +1306,6 @@
             this.flowLayoutPanel1.Size = new System.Drawing.Size(147, 26);
             this.flowLayoutPanel1.TabIndex = 17;
             // 
-            // verticesOnlyToolStripMenuItem
-            // 
-            this.verticesOnlyToolStripMenuItem.CheckOnClick = true;
-            this.verticesOnlyToolStripMenuItem.Name = "verticesOnlyToolStripMenuItem";
-            this.verticesOnlyToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
-            this.verticesOnlyToolStripMenuItem.Text = "Vertices Only";
-            this.verticesOnlyToolStripMenuItem.Click += new System.EventHandler(this.verticesOnlyToolStripMenuItem_Click);
-            // 
-            // label5
-            // 
-            this.label5.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.label5.Location = new System.Drawing.Point(3, 78);
-            this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(77, 26);
-            this.label5.TabIndex = 20;
-            this.label5.Text = "Point Size:";
-            this.label5.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
             // vertexSizeUpDown
             // 
             this.vertexSizeUpDown.Location = new System.Drawing.Point(86, 81);
@@ -1319,6 +1323,19 @@
             0,
             0});
             this.vertexSizeUpDown.ValueChanged += new System.EventHandler(this.vertexSizeUpDown_ValueChanged);
+            // 
+            // toolStripMenuItem1
+            // 
+            this.toolStripMenuItem1.Name = "toolStripMenuItem1";
+            this.toolStripMenuItem1.Size = new System.Drawing.Size(177, 6);
+            // 
+            // pauseScanningToolStripMenuItem
+            // 
+            this.pauseScanningToolStripMenuItem.CheckOnClick = true;
+            this.pauseScanningToolStripMenuItem.Name = "pauseScanningToolStripMenuItem";
+            this.pauseScanningToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.pauseScanningToolStripMenuItem.Text = "Pause Scanning";
+            this.pauseScanningToolStripMenuItem.CheckedChanged += new System.EventHandler(this.pauseScanningToolStripMenuItem_CheckedChanged);
             // 
             // PreviewForm
             // 
@@ -1502,5 +1519,7 @@
         private System.Windows.Forms.ToolStripMenuItem verticesOnlyToolStripMenuItem;
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.NumericUpDown vertexSizeUpDown;
+        private System.Windows.Forms.ToolStripMenuItem pauseScanningToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
     }
 }

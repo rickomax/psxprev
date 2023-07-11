@@ -104,6 +104,8 @@ namespace PSXPrev
         public static uint MaxANJoints = 512;
         public static uint MaxANFrames = 5000;
 
+        public  static bool HaltRequested; //Field used to pause/resume scanning
+
         private static void Main(string[] args)
         {
             Initialize(args);
@@ -597,6 +599,10 @@ namespace PSXPrev
                                 }
                             }
                         }
+                        while (HaltRequested)
+                        {
+
+                        }
                     }
                 }
             }
@@ -607,6 +613,10 @@ namespace PSXPrev
                     using (var fs = File.Open(_path, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
                         ProcessFile(fs, _path, parser);
+                    } 
+                    while (HaltRequested)
+                    {
+
                     }
                 });
             }
@@ -637,6 +647,10 @@ namespace PSXPrev
             foreach (var directory in directories)
             {
                 ProcessFiles(directory, filter, parsers);
+                while (HaltRequested)
+                {
+
+                }
             }
         }
 

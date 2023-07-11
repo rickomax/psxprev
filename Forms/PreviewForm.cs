@@ -1349,5 +1349,10 @@ namespace PSXPrev
         {
             _scene.VertexSize = vertexSizeUpDown.Value;
         }
+
+        private void pauseScanningToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            Program.HaltRequested = pauseScanningToolStripMenuItem.Checked;
+        }
     }
 }
