@@ -640,6 +640,10 @@ namespace PSXPrev
                     using (var fs = File.Open(file, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
                         ProcessFile(fs, file, parser);
+                    } 
+                    while (HaltRequested)
+                    {
+
                     }
                 });
             }
