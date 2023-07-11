@@ -623,17 +623,17 @@ namespace PSXPrev.Classes
                 },
                 Uv = new[]
                 {
-                    new Vector3
+                    new Vector2
                     {
                         X = u0/255f,
                         Y = v0/255f
                     },
-                    new Vector3
+                    new Vector2
                     {
                         X = u1/255f,
                         Y = v1/255f
                     },
-                    new Vector3
+                    new Vector2
                     {
                         X = u2/255f,
                         Y = v2/255f

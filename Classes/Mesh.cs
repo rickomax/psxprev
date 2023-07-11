@@ -6,7 +6,7 @@ namespace PSXPrev.Classes
 {
     public class Mesh
     {
-        private const int BufferCount = 4;
+        private const int BufferCount = 5;
 
         public Matrix4 WorldMatrix { get; set; }
         public uint Texture { get; set; }
@@ -20,6 +20,7 @@ namespace PSXPrev.Classes
         private uint _colorBuffer;
         private uint _normalBuffer;
         private uint _uvBuffer;
+        private uint _tiledAreaBuffer;
 
         private readonly uint[] _ids;
 
@@ -39,10 +40,11 @@ namespace PSXPrev.Classes
         private void GenBuffer()
         {
             GL.GenBuffers(BufferCount, _ids);
-            _positionBuffer = _ids[0];
-            _colorBuffer = _ids[1];
-            _normalBuffer = _ids[2];
-            _uvBuffer = _ids[3];
+            _positionBuffer  = _ids[0];
+            _colorBuffer     = _ids[1];
+            _normalBuffer    = _ids[2];
+            _uvBuffer        = _ids[3];
+            _tiledAreaBuffer = _ids[4];
         }
 
         public void Draw(TextureBinder textureBinder = null, bool wireframe = false, bool verticesOnly = false)
@@ -63,7 +65,11 @@ namespace PSXPrev.Classes
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, _uvBuffer);
             GL.EnableVertexAttribArray((uint)Scene.AttributeIndexUv);
-            GL.VertexAttribPointer((uint)Scene.AttributeIndexUv, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
+            GL.VertexAttribPointer((uint)Scene.AttributeIndexUv, 2, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
+
+            GL.BindBuffer(BufferTarget.ArrayBuffer, _tiledAreaBuffer);
+            GL.EnableVertexAttribArray((uint)Scene.AttributeIndexTiledArea);
+            GL.VertexAttribPointer((uint)Scene.AttributeIndexTiledArea, 4, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
 
             if (textureBinder != null && Texture != 0)
             {
@@ -83,37 +89,42 @@ namespace PSXPrev.Classes
             GL.BindVertexArray(0);
         }
 
-        public void SetData(int numElements, float[] positionList, float[] normalList, float[] colorList, float[] uvList)//, int[] indexList)
+        public void SetData(int numElements, float[] positionList, float[] normalList, float[] colorList, float[] uvList, float[] tiledAreaList = null)
         {
             _numElements = numElements;
 
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _positionBuffer);
-            BufferData(positionList);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _normalBuffer);
-            BufferData(normalList);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _colorBuffer);
-            BufferData(colorList);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _uvBuffer);
-            BufferData(uvList);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+            BufferData(_positionBuffer,  positionList,  3);
+            BufferData(_normalBuffer,    normalList,    3);
+            BufferData(_colorBuffer,     colorList,     3);
+            BufferData(_uvBuffer,        uvList,        2);
+            BufferData(_tiledAreaBuffer, tiledAreaList, 4);
         }
 
-        private void BufferData(float[] list)
+        // Passing null for list will fill the data with zeros.
+        private void BufferData(uint buffer, float[] list, int elementSize)
         {
+            if (list == null)
+            {
+                list = new float[_numElements * elementSize]; // Treat null as zeroed data.
+            }
             var size = (IntPtr)(list.Length * sizeof(float));
+
+            GL.BindBuffer(BufferTarget.ArrayBuffer, buffer);
             GL.BufferData(BufferTarget.ArrayBuffer, size, list, BufferUsageHint.StaticDraw);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
         }
 
-        //private void BufferData(int[] list)
+        //private void BufferData(uint buffer, int[] list, int elementSize)
         //{
+        //    if (list == null)
+        //    {
+        //        list = new float[_numElements * elementSize]; // Treat null as zeroed data.
+        //    }
         //    var size = (IntPtr)(list.Length * sizeof(int));
+        //
+        //    GL.BindBuffer(BufferTarget.ArrayBuffer, buffer);
         //    GL.BufferData(BufferTarget.ArrayBuffer, size, list, BufferUsageHint.StaticDraw);
+        //    GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
         //}
     }
 }

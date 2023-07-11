@@ -113,6 +113,7 @@
     <Compile Include="Classes\PngExporter.cs" />
     <Compile Include="Classes\PXLParser.cs" />
     <Compile Include="Classes\TextureBinder.cs" />
+    <Compile Include="Classes\TiledUV.cs" />
     <Compile Include="Classes\TMDHelper.cs" />
     <Compile Include="Classes\TMDParser.cs" />
     <Compile Include="Classes\RootEntitySelectorEditor.cs" />

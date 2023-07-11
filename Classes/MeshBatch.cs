@@ -119,12 +119,10 @@ namespace PSXPrev
             if (updateMeshData)
             {
                 const int numTriangles = 12;
-                const int elementCount = numTriangles * 3 * 3;
+                const int numElements = numTriangles * 3;
                 var baseIndex = 0;
-                var positionList = new float[elementCount];
-                var normalList = new float[elementCount];
-                var colorList = new float[elementCount];
-                var uvList = new float[elementCount];
+                var positionList = new float[numElements * 3]; // Vector3
+                var colorList    = new float[numElements * 3]; // Vector3 (Color)
                 var vertices = new[]
                 {
                 center.X-size.X, center.Y-size.Y, center.Z-size.Z,
@@ -168,28 +166,23 @@ namespace PSXPrev
                 {
                     for (var i = 0; i < 3; i++)
                     {
-                        var index1 = baseIndex++;
-                        var index2 = baseIndex++;
-                        var index3 = baseIndex++;
+                        var index3d = baseIndex * 3;
+                        baseIndex++;
 
-                        positionList[index1] = vertices[index1];
-                        positionList[index2] = vertices[index2];
-                        positionList[index3] = vertices[index3];
+                        positionList[index3d + 0] = vertices[index3d + 0];
+                        positionList[index3d + 1] = vertices[index3d + 1];
+                        positionList[index3d + 2] = vertices[index3d + 2];
 
-                        normalList[index1] = 0f;
-                        normalList[index2] = 0f;
-                        normalList[index3] = 0f;
+                        // Normals are all 0f (passing null will default to a zeroed list).
 
-                        colorList[index1] = color.R;
-                        colorList[index2] = color.G;
-                        colorList[index3] = color.B;
+                        colorList[index3d + 0] = color.R;
+                        colorList[index3d + 1] = color.G;
+                        colorList[index3d + 2] = color.B;
 
-                        uvList[index1] = 0f;
-                        uvList[index2] = 0f;
-                        uvList[index3] = 0f;
+                        // UVs are all 0f (passing null will default to a zeroed list).
                     }
                 }
-                mesh.SetData(numTriangles * 3, positionList, normalList, colorList, uvList);
+                mesh.SetData(numElements, positionList, null, colorList, null);
             }
             mesh.WorldMatrix = matrix;
             if (textureBinder != null)
@@ -218,24 +211,27 @@ namespace PSXPrev
             if (updateMeshData)
             {
                 var numTriangles = modelEntity.Triangles.Length;
-                var elementCount = numTriangles * 3 * 3;
+                var numElements = numTriangles * 3;
                 var baseIndex = 0;
-                var positionList = new float[elementCount];
-                var normalList = new float[elementCount];
-                var colorList = new float[elementCount];
-                var uvList = new float[elementCount];
+                var positionList  = new float[numElements * 3]; // Vector3
+                var normalList    = new float[numElements * 3]; // Vector3
+                var colorList     = new float[numElements * 3]; // Vector3 (Color)
+                var uvList        = new float[numElements * 2]; // Vector2
+                var tiledAreaList = new float[numElements * 4]; // Vector4
                 for (var t = 0; t < numTriangles; t++)
                 {
-                    var lastVertex = Vector3.Zero;
-                    var lastNormal = Vector3.Zero;
-                    var lastColor = Color.White;
-                    var lastUv = Vector3.Zero;
+                    var lastVertex    = Vector3.Zero;
+                    var lastNormal    = Vector3.Zero;
+                    var lastColor     = Color.White;
+                    var lastUv        = Vector2.Zero;
+                    var lastTiledArea = Vector4.Zero;
                     var triangle = modelEntity.Triangles[t];
                     for (var i = 0; i < 3; i++)
                     {
-                        var index1 = baseIndex++;
-                        var index2 = baseIndex++;
-                        var index3 = baseIndex++;
+                        var index2d = baseIndex * 2;
+                        var index3d = baseIndex * 3;
+                        var index4d = baseIndex * 4;
+                        baseIndex++;
 
                         var sourceVertex = triangle.Vertices[i];
                         if (triangle.AttachedIndices != null)
@@ -269,9 +265,9 @@ namespace PSXPrev
                             }
                         }
 
-                        positionList[index1] = vertex.X;
-                        positionList[index2] = vertex.Y;
-                        positionList[index3] = vertex.Z;
+                        positionList[index3d + 0] = vertex.X;
+                        positionList[index3d + 1] = vertex.Y;
+                        positionList[index3d + 2] = vertex.Z;
 
                         Vector3 normal;
                         if (_scene.VibRibbonWireframe && i == 2)
@@ -292,9 +288,9 @@ namespace PSXPrev
                             }
                         }
 
-                        normalList[index1] = normal.X;
-                        normalList[index2] = normal.Y;
-                        normalList[index3] = normal.Z;
+                        normalList[index3d + 0] = normal.X;
+                        normalList[index3d + 1] = normal.Y;
+                        normalList[index3d + 2] = normal.Z;
 
                         Color color;
                         if (_scene.VibRibbonWireframe && i == 2)
@@ -305,30 +301,46 @@ namespace PSXPrev
                         {
                             color = triangle.Colors[i];
                         }
-                        colorList[index1] = color.R;
-                        colorList[index2] = color.G;
-                        colorList[index3] = color.B;
+                        colorList[index3d + 0] = color.R;
+                        colorList[index3d + 1] = color.G;
+                        colorList[index3d + 2] = color.B;
 
-                        Vector3 uv;
+                        Vector2 uv;
                         if (_scene.VibRibbonWireframe && i == 2)
                         {
                             uv = lastUv;
                         }
                         else
                         {
-                            uv = triangle.Uv[i];
+                            // If we're tiled, then the shader needs the base UV, not the converted UV.
+                            uv = triangle.TiledUv?.BaseUv[i] ?? triangle.Uv[i];
                         }
-                        uvList[index1] = uv.X;
-                        uvList[index2] = uv.Y;
-                        uvList[index3] = uv.Z;
+                        uvList[index2d + 0] = uv.X;
+                        uvList[index2d + 1] = uv.Y;
+
+                        Vector4 tiledArea;
+                        if (_scene.VibRibbonWireframe && i == 2)
+                        {
+                            tiledArea = lastTiledArea;
+                        }
+                        else
+                        {
+                            tiledArea = triangle.TiledUv?.Area ?? Vector4.Zero;
+                        }
+                        tiledAreaList[index4d + 0] = tiledArea.X; // U offset
+                        tiledAreaList[index4d + 1] = tiledArea.Y; // V offset
+                        tiledAreaList[index4d + 2] = tiledArea.Z; // U wrap
+                        tiledAreaList[index4d + 3] = tiledArea.W; // V wrap
+
 
                         lastVertex = vertex;
                         lastNormal = normal;
                         lastColor = color;
                         lastUv = uv;
+                        lastTiledArea = tiledArea;
                     }
                 }
-                mesh.SetData(numTriangles * 3, positionList, normalList, colorList, uvList);
+                mesh.SetData(numElements, positionList, normalList, colorList, uvList, tiledAreaList);
             }
             if (textureBinder != null)
             {

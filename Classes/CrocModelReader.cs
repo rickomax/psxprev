@@ -115,7 +115,7 @@ namespace PSXPrev.Classes
                         Vertices = new[] { vertex0, vertex1, vertex2 },
                         Normals = new[] { normal0, normal1, normal2 },
                         Colors = new[] { Color.Grey, Color.Grey, Color.Grey },
-                        Uv = new[] { Vector3.Zero, Vector3.Zero, Vector3.Zero },
+                        Uv = new[] { Vector2.Zero, Vector2.Zero, Vector2.Zero },
                         AttachableIndices = new [] {uint.MaxValue, uint.MaxValue, uint.MaxValue}
                     });
                     if ((primFlags & 0x8) != 0)
@@ -133,7 +133,7 @@ namespace PSXPrev.Classes
                             Vertices = new[] { vertex1, vertex3, vertex2 },
                             Normals = new[] { normal1, normal3, normal2 },
                             Colors = new[] { Color.Grey, Color.Grey, Color.Grey },
-                            Uv = new[] { Vector3.Zero, Vector3.Zero, Vector3.Zero },
+                            Uv = new[] { Vector2.Zero, Vector2.Zero, Vector2.Zero },
                             AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
                         });
                     }
