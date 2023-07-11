@@ -171,7 +171,8 @@ namespace PSXPrev.Classes
                     {
                         switch (primitiveType)
                         {
-                            case PrimitiveType.Polygon:
+                            case PrimitiveType.Triangle:
+                            case PrimitiveType.Quad:
                                 TMDHelper.AddTrianglesToGroup(primitiveType, groupedTriangles, packetStructure, renderFlags, false, delegate (uint index)
                                 {
                                     if (index >= vertices.Length)

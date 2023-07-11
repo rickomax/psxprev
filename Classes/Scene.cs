@@ -298,7 +298,7 @@ namespace PSXPrev.Classes
             GL.Uniform1(UniformLightIntensity, LightIntensity);
             GL.Uniform1(UniformRenderMode, LightEnabled ? 0 : 1);
             GL.Uniform1(UniformSemiTransparentMode, 0);
-            MeshBatch.Draw(_viewMatrix, _projectionMatrix, TextureBinder, Wireframe, standard: true, VerticesOnly);
+            MeshBatch.Draw(_viewMatrix, _projectionMatrix, TextureBinder, Wireframe, true, VerticesOnly);
             GL.Uniform1(UniformRenderMode, 2);
             if (ShowBounds)
             {

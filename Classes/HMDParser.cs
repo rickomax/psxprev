@@ -547,24 +547,32 @@ namespace PSXPrev.Classes
                 var packetStructure = TMDHelper.CreateHMDPacketStructure(driver, flag, reader, out var renderFlags, out var primitiveType);
                 if (packetStructure != null)
                 {
-                    TMDHelper.AddTrianglesToGroup(primitiveType, groupedTriangles, packetStructure, renderFlags, shared,
-                        index =>
-                        {
-                            if (shared)
-                            {
-                                return Vector3.Zero; // This is an attached vertex.
-                            }
-                            return ReadVertex(reader, vertTop, index);
-                        },
-                        index =>
-                        {
-                            if (shared)
-                            {
-                                return Vector3.UnitZ; // This is an attached normal. Return Unit vector in-case it somehow gets used in a calculation.
-                            }
-                            return ReadNormal(reader, normTop, index);
-                        }
-                    );
+                    switch (primitiveType)
+                    {
+                        case PrimitiveType.Triangle:
+                        case PrimitiveType.Quad:
+                            TMDHelper.AddTrianglesToGroup(primitiveType, groupedTriangles, packetStructure, renderFlags, shared,
+                                index =>
+                                {
+                                    if (shared)
+                                    {
+                                        return Vector3.Zero; // This is an attached vertex.
+                                    }
+                                    return ReadVertex(reader, vertTop, index);
+                                },
+                                index =>
+                                {
+                                    if (shared)
+                                    {
+                                        return Vector3.UnitZ; // This is an attached normal. Return Unit vector in-case it somehow gets used in a calculation.
+                                    }
+                                    return ReadNormal(reader, normTop, index);
+                                }
+                            );
+                            break;
+                        case PrimitiveType.StripMesh:
+                            break;
+                    }
                 }
             }
             reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
