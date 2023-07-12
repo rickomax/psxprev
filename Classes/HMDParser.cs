@@ -544,14 +544,15 @@ namespace PSXPrev.Classes
 
             for (var j = 0; j < dataCount; j++)
             {
-                var packetStructure = TMDHelper.CreateHMDPacketStructure(driver, flag, reader, out var renderFlags, out var primitiveType);
+                var packetStructure = TMDHelper.CreateHMDPacketStructure(driver, flag, reader);
                 if (packetStructure != null)
                 {
-                    switch (primitiveType)
+                    switch (packetStructure.PrimitiveType)
                     {
                         case PrimitiveType.Triangle:
                         case PrimitiveType.Quad:
-                            TMDHelper.AddTrianglesToGroup(primitiveType, groupedTriangles, packetStructure, renderFlags, shared,
+                        case PrimitiveType.StripMesh:
+                            TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, shared,
                                 index =>
                                 {
                                     if (shared)
@@ -567,10 +568,7 @@ namespace PSXPrev.Classes
                                         return Vector3.UnitZ; // This is an attached normal. Return Unit vector in-case it somehow gets used in a calculation.
                                     }
                                     return ReadNormal(reader, normTop, index);
-                                }
-                            );
-                            break;
-                        case PrimitiveType.StripMesh:
+                                });
                             break;
                     }
                 }
