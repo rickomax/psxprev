@@ -1,15 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
 using OpenTK;
 
 namespace PSXPrev.Classes
 {
     public static class TMDHelper
     {
-        public static Dictionary<PrimitiveDataType, uint> CreateTMDPacketStructure(byte flag, byte mode, BinaryReader reader, int index, out RenderFlags renderFlags, out PrimitiveType primitiveType)
+        public static PrimitiveData CreateTMDPacketStructure(byte flag, byte mode, BinaryReader reader, int index)
         {
             var option = (mode & 0x1F);
 
@@ -24,7 +22,7 @@ namespace PSXPrev.Classes
             var iipBit = ((option >> 4) & 0x01) == 1; //shading mode: 0-flat, 1-goraund
             var code = ((mode >> 5) & 0x03);
 
-            renderFlags = RenderFlags.None;
+            var renderFlags = RenderFlags.None;
             if (!lgtBit) renderFlags |= RenderFlags.Unlit;
             if (fceBit) renderFlags |= RenderFlags.DoubleSided;
             if (abeBit) renderFlags |= RenderFlags.SemiTransparent;
@@ -43,7 +41,7 @@ namespace PSXPrev.Classes
                     mode,
                     index);
             }
-            primitiveType = PrimitiveType.None; // invalid
+            var primitiveType = PrimitiveType.None; // invalid
             var supported = false;
             switch (code)
             {
@@ -71,10 +69,10 @@ namespace PSXPrev.Classes
                 }
             }
 
-            return ParsePrimitiveData(reader, false, lgtBit, iipBit, tmeBit, grdBit, isqBit, abeBit, false);
+            return ParsePrimitiveData(reader, primitiveType, renderFlags, false, lgtBit, iipBit, tmeBit, grdBit, false);
         }
 
-        public static Dictionary<PrimitiveDataType, uint> CreateHMDPacketStructure(uint driver, uint flag, BinaryReader reader, out RenderFlags renderFlags, out PrimitiveType primitiveType)
+        public static PrimitiveData CreateHMDPacketStructure(uint driver, uint flag, BinaryReader reader)
         {
             var tmeBit = ((flag >> 0) & 0x01) == 1; // Texture: 0-Off, 1-On
             var colBit = ((flag >> 1) & 0x01) == 1; // Colors: 0-Single, 1-Separate
@@ -96,7 +94,7 @@ namespace PSXPrev.Classes
             
             // Note: lmdBit should always match lgtBit (normals are only used with light source calculation).
 
-            renderFlags = RenderFlags.None;
+            var renderFlags = RenderFlags.None;
             if (divBit) renderFlags |= RenderFlags.Subdivision;
             if (fogBit) renderFlags |= RenderFlags.Fog;
             if (!lgtBit) renderFlags |= RenderFlags.Unlit;
@@ -104,7 +102,7 @@ namespace PSXPrev.Classes
             if (botBit) renderFlags |= RenderFlags.DoubleSided;
             if (stpBit) renderFlags |= RenderFlags.SemiTransparent;
 
-            primitiveType = PrimitiveType.None; // invalid
+            var primitiveType = PrimitiveType.None; // invalid
             var supported = false;
             switch (code)
             {
@@ -118,8 +116,12 @@ namespace PSXPrev.Classes
                     break;
                 case 3:
                     primitiveType = PrimitiveType.StripMesh;
+                    supported = true;
                     break;
             }
+
+            //Program.Logger.WriteLine($"  div:{(divBit?1:0)} fog:{(fogBit?1:0)} lgt:{(lgtBit?1:0)} adv:{(advBit?1:0)} bot:{(botBit?1:0)} stp:{(stpBit?1:0)}");
+            //Program.Logger.WriteLine($"  tme:{(tmeBit?1:0)} col:{(colBit?1:0)} iip:{(iipBit?1:0)} code:{code} lmd:{(lmdBit?1:0)} mip:{(mipBit?1:0)} pst:{(pstBit?1:0)} tile:{(tileBit?1:0)} mime:{(mimeBit?1:0)}");
 
             if (!supported)
             {
@@ -128,145 +130,39 @@ namespace PSXPrev.Classes
                     Program.Logger.WriteErrorLine($"Unsupported HMD primitive code:{code}");
                 }
             }
-
-            return ParsePrimitiveData(reader, true, lgtBit, iipBit, tmeBit, colBit, quad, stpBit, tileBit);
-        }
-
-        public static string ToString(Dictionary<PrimitiveDataType, uint> primitiveDataDictionary)
-        {
-            return primitiveDataDictionary.Keys.Aggregate("", (current, key) => current + (key + "-"));
-        }
-
-        private static Dictionary<PrimitiveDataType, uint> ParsePrimitiveData(BinaryReader reader, bool hmd, bool light, bool gouraud, bool texture, bool gradation, bool quad, bool translucency, bool tiled)
-        {
-            var primitiveDataDictionary = new Dictionary<PrimitiveDataType, uint>();
-
-            var padCount = 0;
-
-            int GetDataLength(PrimitiveDataType dataType)
+            if (pstBit)
             {
-                switch (dataType)
+                if (Program.Debug)
                 {
-                    case PrimitiveDataType.S0:
-                    case PrimitiveDataType.S1:
-                    case PrimitiveDataType.S2:
-                    case PrimitiveDataType.S3:
-                    case PrimitiveDataType.T0:
-                    case PrimitiveDataType.T1:
-                    case PrimitiveDataType.T2:
-                    case PrimitiveDataType.T3:
-                    case PrimitiveDataType.R0:
-                    case PrimitiveDataType.R1:
-                    case PrimitiveDataType.R2:
-                    case PrimitiveDataType.R3:
-                    case PrimitiveDataType.G0:
-                    case PrimitiveDataType.G1:
-                    case PrimitiveDataType.G2:
-                    case PrimitiveDataType.G3:
-                    case PrimitiveDataType.B0:
-                    case PrimitiveDataType.B1:
-                    case PrimitiveDataType.B2:
-                    case PrimitiveDataType.B3:
-                    case PrimitiveDataType.PAD1:
-                    case PrimitiveDataType.Mode:
-                        return 1;
-                        break;
-                    case PrimitiveDataType.CBA:
-                    case PrimitiveDataType.TSB:
-                    case PrimitiveDataType.PAD2:
-                    case PrimitiveDataType.VERTEX0:
-                    case PrimitiveDataType.VERTEX1:
-                    case PrimitiveDataType.VERTEX2:
-                    case PrimitiveDataType.VERTEX3:
-                    case PrimitiveDataType.NORMAL0:
-                    case PrimitiveDataType.NORMAL1:
-                    case PrimitiveDataType.NORMAL2:
-                    case PrimitiveDataType.NORMAL3:
-                        return 2;
-                        break;
-                    case PrimitiveDataType.TILE:
-                        return 4;
+                    Program.Logger.WriteErrorLine("Unsupported HMD primitive flag:Presets");
                 }
-                return 0;
             }
 
-            void AddData(PrimitiveDataType dataType, int? dataLength = null)
+            return ParsePrimitiveData(reader, primitiveType, renderFlags, true, lgtBit, iipBit, tmeBit, colBit, tileBit);
+        }
+
+        private static PrimitiveData ParsePrimitiveData(BinaryReader reader, PrimitiveType primitiveType, RenderFlags renderFlags, bool hmd, bool light, bool gouraud, bool texture, bool gradation, bool tiled)
+        {
+            var primitiveData = new PrimitiveData
             {
-                uint value = 0;
-                if (dataLength == null)
-                {
-                    switch (dataType)
-                    {
-                        case PrimitiveDataType.S0:
-                        case PrimitiveDataType.S1:
-                        case PrimitiveDataType.S2:
-                        case PrimitiveDataType.S3:
-                        case PrimitiveDataType.T0:
-                        case PrimitiveDataType.T1:
-                        case PrimitiveDataType.T2:
-                        case PrimitiveDataType.T3:
-                        case PrimitiveDataType.R0:
-                        case PrimitiveDataType.R1:
-                        case PrimitiveDataType.R2:
-                        case PrimitiveDataType.R3:
-                        case PrimitiveDataType.G0:
-                        case PrimitiveDataType.G1:
-                        case PrimitiveDataType.G2:
-                        case PrimitiveDataType.G3:
-                        case PrimitiveDataType.B0:
-                        case PrimitiveDataType.B1:
-                        case PrimitiveDataType.B2:
-                        case PrimitiveDataType.B3:
-                        case PrimitiveDataType.Mode:
-                            value = reader.ReadByte();
-                            break;
-                        case PrimitiveDataType.CBA:
-                        case PrimitiveDataType.TSB:
-                        case PrimitiveDataType.VERTEX0:
-                        case PrimitiveDataType.VERTEX1:
-                        case PrimitiveDataType.VERTEX2:
-                        case PrimitiveDataType.VERTEX3:
-                        case PrimitiveDataType.NORMAL0:
-                        case PrimitiveDataType.NORMAL1:
-                        case PrimitiveDataType.NORMAL2:
-                        case PrimitiveDataType.NORMAL3:
-                            value = reader.ReadUInt16();
-                            break;
-                        case PrimitiveDataType.TILE:
-                            value = reader.ReadUInt32();
-                            break;
-                        case PrimitiveDataType.PAD1:
-                            value = reader.ReadByte();
-                            //if (value != 0)
-                            //{
-                            //    var xx = 1;
-                            //}
-                            break;
-                        case PrimitiveDataType.PAD2:
-                            value = reader.ReadUInt16();
-                            //if (value != 0)
-                            //{
-                            //    var xx = 1;
-                            //}
-                            break;
-                    }
-                }
-                else
-                {
-                    for (var i = 0; i < dataLength.Value; i++)
-                    {
-                        reader.ReadByte();
-                    }
-                    value = (uint)dataLength.Value;
-                }
-                var key = dataType >= PrimitiveDataType.PAD1 ? PrimitiveDataType.PAD1 + padCount++ : dataType;
-                primitiveDataDictionary.Add(key, value);
+                PrimitiveType = primitiveType,
+                RenderFlags = renderFlags,
+            };
+
+            void ReadData(int index, PrimitiveDataType dataType, int? dataLength = null)
+            {
+                primitiveData.ReadData(reader, index, dataType, dataLength);
             }
 
-            var hasColors = (!quad &&  light && !texture) ||
-                            ( quad &&  light && !texture) ||
-                            (!quad && !light) ||
-                            ( quad && !light) ||
+            // Mesh packet structure is the same as a triangle in most cases.
+            var mesh = primitiveType == PrimitiveType.StripMesh;// || primitiveType == PrimitiveType.RoundedMesh;
+            var tri  = primitiveType == PrimitiveType.Triangle || mesh;
+            var quad = primitiveType == PrimitiveType.Quad;
+
+            var hasColors = ( tri &&  light && !texture) ||
+                            (quad &&  light && !texture) ||
+                            ( tri && !light) ||
+                            (quad && !light) ||
                             (hmd && gradation);
 
             var numVerts = quad ? 4 : 3;
@@ -278,13 +174,15 @@ namespace PSXPrev.Classes
             }
 
 
-            // HMD: PAD2 appearing after vertices. Handle this differently from TMD since it's more complex.
-            var hmdVertexEndPad = hmd && (( quad &&  light && !texture && !gouraud) ||
-                                          (!quad && !light && !texture));
+            // PAD2 appearing after vertices and normals.
+            var vertexEndPad = ( hmd && quad &&  light && !texture && !gouraud) ||
+                               ( hmd &&  tri && !light && !texture) ||
+                               (!hmd && quad &&  light && !gouraud) ||
+                               (!hmd &&  tri && !light);
 
             // HMD: Early definitions of Normal0, Vertex0, and/or Vertex1 after UV coordinates (instead of padding).
-            var uv2PostData = PrimitiveDataType.PAD1;
-            var uv3PostData = PrimitiveDataType.PAD1;
+            var uv2PostData = PrimitiveDataType.PAD2;
+            var uv3PostData = PrimitiveDataType.PAD2;
             var skipFirstVertexNormal = false;
             var skipSecondVertexNormal = false;
             if (hmd)
@@ -301,7 +199,7 @@ namespace PSXPrev.Classes
                     skipFirstVertexNormal = true;
                     skipSecondVertexNormal = true;
                 }
-                else if (!quad && !light && texture)
+                else if (tri && !light && texture)
                 {
                     uv2PostData = PrimitiveDataType.VERTEX0;
                     skipFirstVertexNormal = true;
@@ -314,185 +212,163 @@ namespace PSXPrev.Classes
                     skipSecondVertexNormal = true;
                 }
             }
-            
-            
-            // HMD: Tiled texture information.
-            if (tiled)
-            {
-                AddData(PrimitiveDataType.TILE);
-            }
 
-            // HMD: Colors come before UVs.
-            if (hmd && hasColors)
+            // HMD: Meshes define a base packet, then repeat packets with 1 vertex defined per repeat.
+            if (mesh)
             {
-                for (var i = 0; i < numColors; ++i)
+                var meshLength = reader.ReadUInt16(); // Number of triangles (including initial packet data)
+                // For now, don't check the lower bounds of meshLength.
+                // It's possible that 0 is treated as 1 because its not accounted for.
+                // And note that SetMeshLength already ensures length is at least 1.
+                //if (meshLength < Program.MinHMDStripMeshLength)
+                //{
+                //    return null;
+                //}
+                if (meshLength > Program.MaxHMDStripMeshLength)
                 {
-                    AddData(PrimitiveDataType.R0 + i);
-                    AddData(PrimitiveDataType.G0 + i);
-                    AddData(PrimitiveDataType.B0 + i);
-                    AddData(primitiveDataDictionary.Count == 0 ? PrimitiveDataType.Mode : PrimitiveDataType.PAD1);
+                    return null;
                 }
+                primitiveData.SetMeshLength(meshLength);
+                reader.ReadUInt16(); //pad
             }
 
-            if (texture)
+            for (var m = 0; m < primitiveData.MeshLength; m++)
             {
-                for (var i = 0; i < numVerts; ++i)
+                // HMD: Tiled texture information.
+                if (tiled)
                 {
-                    AddData(PrimitiveDataType.S0 + i);
-                    AddData(PrimitiveDataType.T0 + i);
-                    switch (i)
+                    ReadData(m, PrimitiveDataType.TILE);
+                }
+
+                // HMD: Colors come before UVs.
+                if (hmd && hasColors)
+                {
+                    for (var i = 0; i < numColors; i++)
                     {
-                        case 0:
-                            AddData(PrimitiveDataType.CBA);
+                        ReadData(m, PrimitiveDataType.R0 + i);
+                        ReadData(m, PrimitiveDataType.G0 + i);
+                        ReadData(m, PrimitiveDataType.B0 + i);
+                        ReadData(m, i == 0 ? PrimitiveDataType.Mode : PrimitiveDataType.PAD1);
+                    }
+                }
+
+                if (texture)
+                {
+                    for (var i = 0; i < numVerts; i++)
+                    {
+                        ReadData(m, PrimitiveDataType.S0 + i);
+                        ReadData(m, PrimitiveDataType.T0 + i);
+                        switch (i)
+                        {
+                            case 0:
+                                ReadData(m, PrimitiveDataType.CBA);
+                                break;
+                            case 1:
+                                ReadData(m, PrimitiveDataType.TSB);
+                                break;
+                            case 2:
+                                ReadData(m, uv2PostData); // PAD2, NORMAL0, or VERTEX0
+                                break;
+                            case 3:
+                                ReadData(m, uv3PostData); // PAD2, NORMAL0, VERTEX0, or VERTEX1
+                                break;
+                        }
+                    }
+                }
+
+                // TMD: Colors come after UVs.
+                if (!hmd && hasColors)
+                {
+                    for (var i = 0; i < numColors; i++)
+                    {
+                        ReadData(m, PrimitiveDataType.R0 + i);
+                        ReadData(m, PrimitiveDataType.G0 + i);
+                        ReadData(m, PrimitiveDataType.B0 + i);
+                        ReadData(m, i == 0 ? PrimitiveDataType.Mode : PrimitiveDataType.PAD1);
+                    }
+                }
+
+                if (light)
+                {
+                    switch (numVerts)
+                    {
+                        case 3 when m > 0 && !gouraud: // HMD: Strip mesh repeat
+                            if (!skipFirstVertexNormal)  ReadData(m, PrimitiveDataType.NORMAL0);
+                            if (!skipSecondVertexNormal) ReadData(m, PrimitiveData.MESHVERTEX);
                             break;
-                        case 1:
-                            AddData(PrimitiveDataType.TSB);
+                        case 3 when m > 0:             // HMD: Strip mesh repeat
+                            if (!skipFirstVertexNormal)  ReadData(m, PrimitiveDataType.NORMAL0);
+                            if (!skipSecondVertexNormal) ReadData(m, PrimitiveDataType.NORMAL1);
+                            ReadData(m, PrimitiveDataType.NORMAL2);
+                            ReadData(m, PrimitiveData.MESHVERTEX);
                             break;
-                        case 2:
-                            if (uv2PostData < PrimitiveDataType.PAD1)
-                            {
-                                AddData(uv2PostData); // NORMAL0 or VERTEX0
-                            }
-                            else
-                            {
-                                AddData(PrimitiveDataType.PAD1); //pad
-                                AddData(PrimitiveDataType.PAD1); //pad
-                            }
+                        case 3 when !gouraud:
+                            if (!skipFirstVertexNormal)  ReadData(m, PrimitiveDataType.NORMAL0);
+                            if (!skipSecondVertexNormal) ReadData(m, PrimitiveDataType.VERTEX0);
+                            ReadData(m, PrimitiveDataType.VERTEX1);
+                            ReadData(m, PrimitiveDataType.VERTEX2);
                             break;
                         case 3:
-                            if (uv3PostData < PrimitiveDataType.PAD1)
-                            {
-                                AddData(uv3PostData); // NORMAL0, VERTEX0, or VERTEX1
-                            }
-                            else
-                            {
-                                AddData(PrimitiveDataType.PAD1); //pad
-                                AddData(PrimitiveDataType.PAD1); //pad
-                            }
+                            if (!skipFirstVertexNormal)  ReadData(m, PrimitiveDataType.NORMAL0);
+                            if (!skipSecondVertexNormal) ReadData(m, PrimitiveDataType.VERTEX0);
+                            ReadData(m, PrimitiveDataType.NORMAL1);
+                            ReadData(m, PrimitiveDataType.VERTEX1);
+                            ReadData(m, PrimitiveDataType.NORMAL2);
+                            ReadData(m, PrimitiveDataType.VERTEX2);
+                            break;
+                        case 4 when !gouraud:
+                            if (!skipFirstVertexNormal)  ReadData(m, PrimitiveDataType.NORMAL0);
+                            if (!skipSecondVertexNormal) ReadData(m, PrimitiveDataType.VERTEX0);
+                            ReadData(m, PrimitiveDataType.VERTEX1);
+                            ReadData(m, PrimitiveDataType.VERTEX2);
+                            ReadData(m, PrimitiveDataType.VERTEX3);
+                            break;
+                        case 4:
+                            if (!skipFirstVertexNormal)  ReadData(m, PrimitiveDataType.NORMAL0);
+                            if (!skipSecondVertexNormal) ReadData(m, PrimitiveDataType.VERTEX0);
+                            ReadData(m, PrimitiveDataType.NORMAL1);
+                            ReadData(m, PrimitiveDataType.VERTEX1);
+                            ReadData(m, PrimitiveDataType.NORMAL2);
+                            ReadData(m, PrimitiveDataType.VERTEX2);
+                            ReadData(m, PrimitiveDataType.NORMAL3);
+                            ReadData(m, PrimitiveDataType.VERTEX3);
                             break;
                     }
                 }
-            }
-
-            // TMD: Colors come after UVs.
-            if (!hmd && hasColors)
-            {
-                for (var i = 0; i < numColors; ++i)
+                else
                 {
-                    AddData(PrimitiveDataType.R0 + i);
-                    AddData(PrimitiveDataType.G0 + i);
-                    AddData(PrimitiveDataType.B0 + i);
-                    AddData(primitiveDataDictionary.Count == 0 ? PrimitiveDataType.Mode : PrimitiveDataType.PAD1);
+                    switch (numVerts)
+                    {
+                        case 3 when m > 0: // HMD: Strip mesh repeat
+                            if (!skipFirstVertexNormal)  ReadData(m, PrimitiveData.MESHVERTEX);
+                            break;
+                        case 3:
+                            if (!skipFirstVertexNormal)  ReadData(m, PrimitiveDataType.VERTEX0);
+                            if (!skipSecondVertexNormal) ReadData(m, PrimitiveDataType.VERTEX1);
+                            ReadData(m, PrimitiveDataType.VERTEX2);
+                            break;
+                        case 4:
+                            if (!skipFirstVertexNormal)  ReadData(m, PrimitiveDataType.VERTEX0);
+                            if (!skipSecondVertexNormal) ReadData(m, PrimitiveDataType.VERTEX1);
+                            ReadData(m, PrimitiveDataType.VERTEX2);
+                            ReadData(m, PrimitiveDataType.VERTEX3);
+                            break;
+                    }
+                }
+
+                if (vertexEndPad)
+                {
+                    ReadData(m, PrimitiveDataType.PAD2); //pad
                 }
             }
 
-            if (light)
-            {
-                switch (numVerts)
-                {
-                    case 3 when !gouraud:
-                        if (!skipFirstVertexNormal)  AddData(PrimitiveDataType.NORMAL0);
-                        if (!skipSecondVertexNormal) AddData(PrimitiveDataType.VERTEX0);
-                        AddData(PrimitiveDataType.VERTEX1);
-                        AddData(PrimitiveDataType.VERTEX2);
-                        break;
-                    case 3:
-                        if (!skipFirstVertexNormal)  AddData(PrimitiveDataType.NORMAL0);
-                        if (!skipSecondVertexNormal) AddData(PrimitiveDataType.VERTEX0);
-                        AddData(PrimitiveDataType.NORMAL1);
-                        AddData(PrimitiveDataType.VERTEX1);
-                        AddData(PrimitiveDataType.NORMAL2);
-                        AddData(PrimitiveDataType.VERTEX2);
-                        break;
-                    case 4 when !gouraud:
-                        if (!skipFirstVertexNormal)  AddData(PrimitiveDataType.NORMAL0);
-                        if (!skipSecondVertexNormal) AddData(PrimitiveDataType.VERTEX0);
-                        AddData(PrimitiveDataType.VERTEX1);
-                        AddData(PrimitiveDataType.VERTEX2);
-                        AddData(PrimitiveDataType.VERTEX3);
-                        if (!hmd)
-                        {
-                            AddData(PrimitiveDataType.PAD2); //pad
-                        }
-                        break;
-                    case 4:
-                        if (!skipFirstVertexNormal)  AddData(PrimitiveDataType.NORMAL0);
-                        if (!skipSecondVertexNormal) AddData(PrimitiveDataType.VERTEX0);
-                        AddData(PrimitiveDataType.NORMAL1);
-                        AddData(PrimitiveDataType.VERTEX1);
-                        AddData(PrimitiveDataType.NORMAL2);
-                        AddData(PrimitiveDataType.VERTEX2);
-                        AddData(PrimitiveDataType.NORMAL3);
-                        AddData(PrimitiveDataType.VERTEX3);
-                        break;
-                }
-            }
-            else
-            {
-                switch (numVerts)
-                {
-                    case 3:
-                        if (!skipFirstVertexNormal)  AddData(PrimitiveDataType.VERTEX0);
-                        if (!skipSecondVertexNormal) AddData(PrimitiveDataType.VERTEX1);
-                        AddData(PrimitiveDataType.VERTEX2);
-                        if (!hmd)
-                        {
-                            AddData(PrimitiveDataType.PAD2); //pad
-                        }
-                        break;
-                    case 4:
-                        if (!skipFirstVertexNormal)  AddData(PrimitiveDataType.VERTEX0);
-                        if (!skipSecondVertexNormal) AddData(PrimitiveDataType.VERTEX1);
-                        AddData(PrimitiveDataType.VERTEX2);
-                        AddData(PrimitiveDataType.VERTEX3);
-                        break;
-                }
-            }
-
-            if (hmdVertexEndPad)
-            {
-                AddData(PrimitiveDataType.PAD2); //pad
-            }
-
-            //var modBytes = packetDataLength % 4;
-            //if (modBytes != 0)
-            //{
-            //    var padding = 4 - modBytes;
-            //    AddData(PrimitiveDataType.PAD1, padding);
-            //}
-
-            return primitiveDataDictionary;
+            return primitiveData;
         }
 
-        public static void AddTrianglesToGroup(PrimitiveType primitiveType, Dictionary<RenderInfo, List<Triangle>> groupedTriangles, Dictionary<PrimitiveDataType, uint> primitiveData, RenderFlags renderFlags, bool attached, Func<uint, Vector3> vertexCallback, Func<uint, Vector3> normalCallback)
-
+        public static void AddTrianglesToGroup(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, PrimitiveData primitiveData, bool attached, Func<uint, Vector3> vertexCallback, Func<uint, Vector3> normalCallback)
         {
-            var tPage = primitiveData.TryGetValue(PrimitiveDataType.TSB, out var tsbValue) ? tsbValue & 0x1F : 0;
-
-            var abr = (tsbValue >> 5) & 0x3; // Mixture rate: 0- 50%back+50%poly, 1- 100%back+100%poly, 2- 100%back-100%poly, 3- 100%back+25%poly
-            //var tpf = (tsbValue >> 7) & 0x3; // Color mode: 0-4bit, 1-8bit, 2-15bit
-
-            var mixtureRate = MixtureRate.None;
-            if (renderFlags.HasFlag(RenderFlags.SemiTransparent))
-            {
-                switch (abr)
-                {
-                    case 0:
-                        mixtureRate = MixtureRate.Back50_Poly50;
-                        break;
-                    case 1:
-                        mixtureRate = MixtureRate.Back100_Poly100;
-                        break;
-                    case 2:
-                        mixtureRate = MixtureRate.Back100_PolyM100;
-                        break;
-                    case 3:
-                        mixtureRate = MixtureRate.Back100_Poly25;
-                        break;
-                }
-            }
-
-            var renderInfo = new RenderInfo(tPage, renderFlags, mixtureRate);
+            RenderInfo renderInfo;
+            int m; // MeshLength loop variable
 
             void AddTriangle(Triangle triangle)
             {
@@ -501,7 +377,7 @@ namespace PSXPrev.Classes
                     triangles = new List<Triangle>();
                     groupedTriangles.Add(renderInfo, triangles);
                 }
-                foreach (var kvp in primitiveData)
+                foreach (var kvp in primitiveData.GetData(m))
                 {
                     if (kvp.Key >= PrimitiveDataType.PAD1 && kvp.Value != 0)
                     {
@@ -511,187 +387,218 @@ namespace PSXPrev.Classes
                 triangles.Add(triangle);
             }
 
-            if (!primitiveData.TryGetValue(PrimitiveDataType.VERTEX0, out var vertexIndex0))
+            // todo: We should cache vertex (and normal maybe?) lookups when MeshLength > 1.
+            for (m = 0; m < primitiveData.MeshLength; m++)
             {
-                return;
-            }
+                var tPage = primitiveData.TryGetValue(m, PrimitiveDataType.TSB, out var tsbValue) ? tsbValue & 0x1F : 0;
 
-            if (Program.Debug)
-            {
-                Program.Logger.WriteLine($"Primitive data: {PrintPrimitiveData(primitiveData)}");
-            }
+                var abr = (tsbValue >> 5) & 0x3; // Mixture rate: 0- 50%back+50%poly, 1- 100%back+100%poly, 2- 100%back-100%poly, 3- 100%back+25%poly
+                //var tpf = (tsbValue >> 7) & 0x3; // Color mode: 0-4bit, 1-8bit, 2-15bit
 
-            var vertex0 = vertexCallback(vertexIndex0);
-            var vertex1 = primitiveData.TryGetValue(PrimitiveDataType.VERTEX1, out var vertexIndex1) ? vertexCallback(vertexIndex1) : Vector3.Zero;
-            var vertex2 = primitiveData.TryGetValue(PrimitiveDataType.VERTEX2, out var vertexIndex2) ? vertexCallback(vertexIndex2) : Vector3.Zero;
-            bool hasNormals;
-            Vector3 normal0;
-            Vector3 normal1;
-            Vector3 normal2;
-            uint normalIndex1;
-            uint normalIndex2;
-            if (primitiveData.TryGetValue(PrimitiveDataType.NORMAL0, out var normalIndex0))
-            {
-                hasNormals = true;
-                normal0 = normalCallback(normalIndex0);
-                normal1 = primitiveData.TryGetValue(PrimitiveDataType.NORMAL1, out normalIndex1) ? normalCallback(normalIndex1) : normal0;
-                normal2 = primitiveData.TryGetValue(PrimitiveDataType.NORMAL2, out normalIndex2) ? normalCallback(normalIndex2) : normal0;
-            }
-            else
-            {
-                hasNormals = false;
-                normal0 = Vector3.Cross((vertex1 - vertex0).Normalized(), (vertex2 - vertex1).Normalized());
-                normal1 = normal0;
-                normal2 = normal0;
-                normalIndex1 = normalIndex0;
-                normalIndex2 = normalIndex0;
-            }
-
-            // Note: It seems that dividing UVs by 256f instead of 255f fixes some texture misalignment.
-            // However, this can't be used because it causes texture glitching at pixel boundaries.
-            // There are a ton of other issues to consider when only changing this for TMDHelper.
-            // More research is needed...
-            const float UV_DIV = 255f;
-
-            // HMD: Tiled information for textures.
-            // Default values when there's no tiled information.
-            uint tumValue = 0;
-            uint tvmValue = 0;
-            uint tuaValue = 0;
-            uint tvaValue = 0;
-            var tum = 0f;
-            var tvm = 0f;
-            var tua = 0f;
-            var tva = 0f;
-            var isTiled = false;
-            // Confirm that tiled information is non-zero, otherwise we can just ignore it.
-            if (primitiveData.TryGetValue(PrimitiveDataType.TILE, out var tile) && (tile & 0xfffff) != 0)
-            {
-                isTiled = true;
-                tumValue = (tile >>  0) & 0x1f;
-                tvmValue = (tile >>  5) & 0x1f;
-                tuaValue = (tile >> 10) & 0x1f;
-                tvaValue = (tile >> 15) & 0x1f;
-                // tum, tvm, tua, and tva are the upper 5 bits of a byte.
-                // tum and tvm are created by: (~(wh - 1) & 0xff) >> 3;
-                // tua and tva are created by: (xy & 0xff) >> 3;
-
-                // Note how width/height have 1 subtracted from them before being negated then shifted.
-                // This is because all four values are required to be multiples of 8.
-                // So to recover tum and tvm, we need to unshift, negate, and then (realistically) add 1 to get the original value.
-                // However, adding 1 right now produces gaps in the textures. We can only add 1 when UV_DIV == 256f.
-                if (UV_DIV == 256f)
+                var mixtureRate = MixtureRate.None;
+                if (primitiveData.RenderFlags.HasFlag(RenderFlags.SemiTransparent))
                 {
-                    tum = (((tumValue << 3) ^ 0xff) + 1) / UV_DIV;
-                    tvm = (((tvmValue << 3) ^ 0xff) + 1) / UV_DIV;
+                    switch (abr)
+                    {
+                        case 0:
+                            mixtureRate = MixtureRate.Back50_Poly50;
+                            break;
+                        case 1:
+                            mixtureRate = MixtureRate.Back100_Poly100;
+                            break;
+                        case 2:
+                            mixtureRate = MixtureRate.Back100_PolyM100;
+                            break;
+                        case 3:
+                            mixtureRate = MixtureRate.Back100_Poly25;
+                            break;
+                    }
+                }
+
+                renderInfo = new RenderInfo(tPage, primitiveData.RenderFlags, mixtureRate);
+
+
+                var even = m % 2 == 0;
+                var vertexOrder0 = (even ? 0 : 0);
+                var vertexOrder1 = (even ? 1 : 2);
+                var vertexOrder2 = (even ? 2 : 1);
+                //var vertexOrder3 = (even ? 3 : 3);
+
+                if (!primitiveData.TryGetVertex(m, vertexOrder0, out var vertexIndex0))
+                {
+                    return;
+                }
+
+                if (Program.Debug)
+                {
+                    Program.Logger.WriteLine($"Primitive data: {primitiveData.PrintPrimitiveData()}");
+                }
+
+                var vertex0 = vertexCallback(vertexIndex0);
+                var vertex1 = primitiveData.TryGetVertex(m, vertexOrder1, out var vertexIndex1) ? vertexCallback(vertexIndex1) : Vector3.Zero;
+                var vertex2 = primitiveData.TryGetVertex(m, vertexOrder2, out var vertexIndex2) ? vertexCallback(vertexIndex2) : Vector3.Zero;
+                Vector3 normal0, normal1, normal2;
+                uint normalIndex1, normalIndex2;
+                bool hasNormals;
+                if (primitiveData.TryGetNormal(m, vertexOrder0, out var normalIndex0))
+                {
+                    hasNormals = true;
+                    normal0 = normalCallback(normalIndex0);
+                    normal1 = primitiveData.TryGetNormal(m, vertexOrder1, out normalIndex1) ? normalCallback(normalIndex1) : normal0;
+                    normal2 = primitiveData.TryGetNormal(m, vertexOrder2, out normalIndex2) ? normalCallback(normalIndex2) : normal0;
                 }
                 else
                 {
-                    tum = ((tumValue << 3) ^ 0xff) / UV_DIV;
-                    tvm = ((tvmValue << 3) ^ 0xff) / UV_DIV;
+                    hasNormals = false;
+                    normal0 = Vector3.Cross((vertex1 - vertex0).Normalized(), (vertex2 - vertex1).Normalized());
+                    normal1 = normal0;
+                    normal2 = normal0;
+                    normalIndex1 = normalIndex0;
+                    normalIndex2 = normalIndex0;
                 }
-                tua = (tuaValue << 3) / UV_DIV;
-                tva = (tvaValue << 3) / UV_DIV;
-            }
 
-            // Converts UV base coordinates to tiled UV coordinates (for use with display/exporter).
-            // Same as TiledUV.Convert but without float math.
-            Vector2 TileUV(uint uValue, uint vValue)
-            {
-                uValue = (~(tumValue << 3) & uValue) | ((tumValue << 3) & (tuaValue << 3));
-                vValue = (~(tvmValue << 3) & vValue) | ((tvmValue << 3) & (tvaValue << 3));
-                return new Vector2(uValue / UV_DIV, vValue / UV_DIV);
-            }
+                // Note: It seems that dividing UVs by 256f instead of 255f fixes some texture misalignment.
+                // However, this can't be used because it causes texture glitching at pixel boundaries.
+                // There are a ton of other issues to consider when only changing this for TMDHelper.
+                // More research is needed...
+                const float UV_DIV = 255f;
 
-            var r0 = primitiveData.TryGetValue(PrimitiveDataType.R0, out var r0Value) ? r0Value / 255f : Color.DefaultColorTone;
-            var r1 = primitiveData.TryGetValue(PrimitiveDataType.R1, out var r1Value) ? r1Value / 255f : r0;
-            var r2 = primitiveData.TryGetValue(PrimitiveDataType.R2, out var r2Value) ? r2Value / 255f : r0;
-            var g0 = primitiveData.TryGetValue(PrimitiveDataType.G0, out var g0Value) ? g0Value / 255f : Color.DefaultColorTone;
-            var g1 = primitiveData.TryGetValue(PrimitiveDataType.G1, out var g1Value) ? g1Value / 255f : g0;
-            var g2 = primitiveData.TryGetValue(PrimitiveDataType.G2, out var g2Value) ? g2Value / 255f : g0;
-            var b0 = primitiveData.TryGetValue(PrimitiveDataType.B0, out var b0Value) ? b0Value / 255f : Color.DefaultColorTone;
-            var b1 = primitiveData.TryGetValue(PrimitiveDataType.B1, out var b1Value) ? b1Value / 255f : b0;
-            var b2 = primitiveData.TryGetValue(PrimitiveDataType.B2, out var b2Value) ? b2Value / 255f : b0;
-            var s0 = primitiveData.TryGetValue(PrimitiveDataType.S0, out var s0Value) ? s0Value / UV_DIV : 0f;
-            var s1 = primitiveData.TryGetValue(PrimitiveDataType.S1, out var s1Value) ? s1Value / UV_DIV : 0f;
-            var s2 = primitiveData.TryGetValue(PrimitiveDataType.S2, out var s2Value) ? s2Value / UV_DIV : 0f;
-            var t0 = primitiveData.TryGetValue(PrimitiveDataType.T0, out var t0Value) ? t0Value / UV_DIV : 0f;
-            var t1 = primitiveData.TryGetValue(PrimitiveDataType.T1, out var t1Value) ? t1Value / UV_DIV : 0f;
-            var t2 = primitiveData.TryGetValue(PrimitiveDataType.T2, out var t2Value) ? t2Value / UV_DIV : 0f;
-            var triangle1 = new Triangle
-            {
-                Vertices = new[] { vertex0, vertex1, vertex2 },
-                OriginalVertexIndices = new[] { vertexIndex0, vertexIndex1, vertexIndex2 },
-                Normals = new[] { normal0, normal1, normal2 },
-                OriginalNormalIndices = new[] { normalIndex0, normalIndex1, normalIndex2 },
-                Colors = new[] { new Color(r0, g0, b0), new Color(r1, g1, b1), new Color(r2, g2, b2) },
-                Uv = new[] { new Vector2(s0, t0), new Vector2(s1, t1), new Vector2(s2, t2) },
-                AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
-            };
-            if (isTiled)
-            {
-                // Use triangle's UV as baseUv, and give the triangle a new converted UV array (for display/exporter purposes).
-                triangle1.TiledUv = new TiledUV(triangle1.Uv, tua, tva, tum, tvm);
-                triangle1.Uv = new[] { TileUV(s0Value, t0Value), TileUV(s1Value, t1Value), TileUV(s2Value, t2Value) };
-                //triangle1.Uv = triangle1.TiledUv.ConvertBaseUv();
-            }
-            if (attached)
-            {
-                // HMD: Attached (shared) indices from other model entities.
-                triangle1.AttachedIndices = (uint[])triangle1.OriginalVertexIndices.Clone();
-                if (hasNormals)
+                // HMD: Tiled information for textures.
+                // Default values when there's no tiled information.
+                uint tumValue = 0;
+                uint tvmValue = 0;
+                uint tuaValue = 0;
+                uint tvaValue = 0;
+                var tum = 0f;
+                var tvm = 0f;
+                var tua = 0f;
+                var tva = 0f;
+                var isTiled = false;
+                // Confirm that tiled information is non-zero, otherwise we can just ignore it.
+                if (primitiveData.TryGetValue(m, PrimitiveDataType.TILE, out var tile) && (tile & 0xfffff) != 0)
                 {
-                    triangle1.AttachedNormalIndices = (uint[])triangle1.OriginalNormalIndices.Clone();
+                    isTiled = true;
+                    tumValue = (tile >>  0) & 0x1f;
+                    tvmValue = (tile >>  5) & 0x1f;
+                    tuaValue = (tile >> 10) & 0x1f;
+                    tvaValue = (tile >> 15) & 0x1f;
+                    // tum, tvm, tua, and tva are the upper 5 bits of a byte.
+                    // tum and tvm are created by: (~(wh - 1) & 0xff) >> 3;
+                    // tua and tva are created by: (xy & 0xff) >> 3;
+
+                    // Note how width/height have 1 subtracted from them before being negated then shifted.
+                    // This is because all four values are required to be multiples of 8.
+                    // So to recover tum and tvm, we need to unshift, negate, and then (realistically) add 1 to get the original value.
+                    // However, adding 1 right now produces gaps in the textures. We can only add 1 when UV_DIV == 256f.
+                    if (UV_DIV == 256f)
+                    {
+                        tum = (((tumValue << 3) ^ 0xff) + 1) / UV_DIV;
+                        tvm = (((tvmValue << 3) ^ 0xff) + 1) / UV_DIV;
+                    }
+                    else
+                    {
+                        tum = ((tumValue << 3) ^ 0xff) / UV_DIV;
+                        tvm = ((tvmValue << 3) ^ 0xff) / UV_DIV;
+                    }
+                    tua = (tuaValue << 3) / UV_DIV;
+                    tva = (tvaValue << 3) / UV_DIV;
                 }
-            }
-            AddTriangle(triangle1);
-            if (primitiveData.TryGetValue(PrimitiveDataType.VERTEX3, out var vertexIndex3))
-            {
-                var vertex3 = vertexCallback(vertexIndex3);
-                var normal3 = primitiveData.TryGetValue(PrimitiveDataType.NORMAL3, out var normalIndex3) ? normalCallback(normalIndex3) : normal0;
-                var g3 = primitiveData.TryGetValue(PrimitiveDataType.G3, out var g3Value) ? g3Value / 255f : g0;
-                var r3 = primitiveData.TryGetValue(PrimitiveDataType.R3, out var r3Value) ? r3Value / 255f : r0;
-                var b3 = primitiveData.TryGetValue(PrimitiveDataType.B3, out var b3Value) ? b3Value / 255f : b0;
-                var s3 = primitiveData.TryGetValue(PrimitiveDataType.S3, out var s3Value) ? s3Value / UV_DIV : 0f;
-                var t3 = primitiveData.TryGetValue(PrimitiveDataType.T3, out var t3Value) ? t3Value / UV_DIV : 0f;
-                var triangle2 = new Triangle
+
+                // Converts UV base coordinates to tiled UV coordinates (for use with display/exporter).
+                // Same as TiledUV.Convert but without float math.
+                Vector2 TileUV(uint uValue, uint vValue)
                 {
-                    Vertices = new[] { vertex1, vertex3, vertex2 },
-                    OriginalVertexIndices = new[] { vertexIndex1, vertexIndex3, vertexIndex2 },
-                    Normals = new[] { normal1, normal3, normal2 },
-                    OriginalNormalIndices = new[] { normalIndex1, normalIndex3, normalIndex2 },
-                    Colors = new[] { new Color(r1, g1, b1), new Color(r3, g3, b3), new Color(r2, g2, b2) },
-                    Uv = new[] { new Vector2(s1, t1), new Vector2(s3, t3), new Vector2(s2, t2) },
+                    uValue = (~(tumValue << 3) & uValue) | ((tumValue << 3) & (tuaValue << 3));
+                    vValue = (~(tvmValue << 3) & vValue) | ((tvmValue << 3) & (tvaValue << 3));
+                    return new Vector2(uValue / UV_DIV, vValue / UV_DIV);
+                }
+
+                var r0 = primitiveData.TryGetValue(m, PrimitiveDataType.R0, out var r0Value) ? r0Value / 255f : Color.DefaultColorTone;
+                var r1 = primitiveData.TryGetValue(m, PrimitiveDataType.R1, out var r1Value) ? r1Value / 255f : r0;
+                var r2 = primitiveData.TryGetValue(m, PrimitiveDataType.R2, out var r2Value) ? r2Value / 255f : r0;
+                var g0 = primitiveData.TryGetValue(m, PrimitiveDataType.G0, out var g0Value) ? g0Value / 255f : Color.DefaultColorTone;
+                var g1 = primitiveData.TryGetValue(m, PrimitiveDataType.G1, out var g1Value) ? g1Value / 255f : g0;
+                var g2 = primitiveData.TryGetValue(m, PrimitiveDataType.G2, out var g2Value) ? g2Value / 255f : g0;
+                var b0 = primitiveData.TryGetValue(m, PrimitiveDataType.B0, out var b0Value) ? b0Value / 255f : Color.DefaultColorTone;
+                var b1 = primitiveData.TryGetValue(m, PrimitiveDataType.B1, out var b1Value) ? b1Value / 255f : b0;
+                var b2 = primitiveData.TryGetValue(m, PrimitiveDataType.B2, out var b2Value) ? b2Value / 255f : b0;
+                var s0 = primitiveData.TryGetValue(m, PrimitiveDataType.S0, out var s0Value) ? s0Value / UV_DIV : 0f;
+                var s1 = primitiveData.TryGetValue(m, PrimitiveDataType.S1, out var s1Value) ? s1Value / UV_DIV : 0f;
+                var s2 = primitiveData.TryGetValue(m, PrimitiveDataType.S2, out var s2Value) ? s2Value / UV_DIV : 0f;
+                var t0 = primitiveData.TryGetValue(m, PrimitiveDataType.T0, out var t0Value) ? t0Value / UV_DIV : 0f;
+                var t1 = primitiveData.TryGetValue(m, PrimitiveDataType.T1, out var t1Value) ? t1Value / UV_DIV : 0f;
+                var t2 = primitiveData.TryGetValue(m, PrimitiveDataType.T2, out var t2Value) ? t2Value / UV_DIV : 0f;
+                var triangle1 = new Triangle
+                {
+                    Vertices = new[] { vertex0, vertex1, vertex2 },
+                    OriginalVertexIndices = new[] { vertexIndex0, vertexIndex1, vertexIndex2 },
+                    Normals = new[] { normal0, normal1, normal2 },
+                    OriginalNormalIndices = new[] { normalIndex0, normalIndex1, normalIndex2 },
+                    Colors = new[] { new Color(r0, g0, b0), new Color(r1, g1, b1), new Color(r2, g2, b2) },
+                    Uv = new[] { new Vector2(s0, t0), new Vector2(s1, t1), new Vector2(s2, t2) },
                     AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
                 };
                 if (isTiled)
                 {
                     // Use triangle's UV as baseUv, and give the triangle a new converted UV array (for display/exporter purposes).
-                    triangle2.TiledUv = new TiledUV(triangle2.Uv, tua, tva, tum, tvm);
-                    triangle2.Uv = new[] { TileUV(s1Value, t1Value), TileUV(s3Value, t3Value), TileUV(s2Value, t2Value) };
-                    //triangle2.Uv = triangle2.TiledUv.ConvertBaseUv();
+                    triangle1.TiledUv = new TiledUV(triangle1.Uv, tua, tva, tum, tvm);
+                    triangle1.Uv = new[] { TileUV(s0Value, t0Value), TileUV(s1Value, t1Value), TileUV(s2Value, t2Value) };
+                    //triangle1.Uv = triangle1.TiledUv.ConvertBaseUv();
                 }
                 if (attached)
                 {
                     // HMD: Attached (shared) indices from other model entities.
-                    triangle2.AttachedIndices = (uint[])triangle2.OriginalVertexIndices.Clone();
+                    triangle1.AttachedIndices = (uint[])triangle1.OriginalVertexIndices.Clone();
                     if (hasNormals)
                     {
-                        triangle2.AttachedNormalIndices = (uint[])triangle2.OriginalNormalIndices.Clone();
+                        triangle1.AttachedNormalIndices = (uint[])triangle1.OriginalNormalIndices.Clone();
                     }
                 }
-                AddTriangle(triangle2);
+                AddTriangle(triangle1);
+                // If this is a quad, then we need to handle the second triangle on the first loop.
+                // Don't use TryGetVertex, since that may return the next vertex for strip meshes.
+                var quad = m == 0 && primitiveData.PrimitiveType == PrimitiveType.Quad;
+                //if (quad && primitiveData.TryGetVertex(m, vertexOrder3, out var vertexIndex3))
+                if (quad && primitiveData.TryGetValue(m, PrimitiveDataType.VERTEX3, out var vertexIndex3))
+                {
+                    var vertex3 = vertexCallback(vertexIndex3);
+                    //var normal3 = primitiveData.TryGetNormal(m, vertexOrder3, out var normalIndex3) ? normalCallback(normalIndex3) : normal0;
+                    var normal3 = primitiveData.TryGetValue(m, PrimitiveDataType.NORMAL3, out var normalIndex3) ? normalCallback(normalIndex3) : normal0;
+                    // todo: Do we need normal calculation for this triangle if !hasNormals?
+                    var g3 = primitiveData.TryGetValue(m, PrimitiveDataType.G3, out var g3Value) ? g3Value / 255f : g0;
+                    var r3 = primitiveData.TryGetValue(m, PrimitiveDataType.R3, out var r3Value) ? r3Value / 255f : r0;
+                    var b3 = primitiveData.TryGetValue(m, PrimitiveDataType.B3, out var b3Value) ? b3Value / 255f : b0;
+                    var s3 = primitiveData.TryGetValue(m, PrimitiveDataType.S3, out var s3Value) ? s3Value / UV_DIV : 0f;
+                    var t3 = primitiveData.TryGetValue(m, PrimitiveDataType.T3, out var t3Value) ? t3Value / UV_DIV : 0f;
+                    var triangle2 = new Triangle
+                    {
+                        Vertices = new[] { vertex1, vertex3, vertex2 },
+                        OriginalVertexIndices = new[] { vertexIndex1, vertexIndex3, vertexIndex2 },
+                        Normals = new[] { normal1, normal3, normal2 },
+                        OriginalNormalIndices = new[] { normalIndex1, normalIndex3, normalIndex2 },
+                        Colors = new[] { new Color(r1, g1, b1), new Color(r3, g3, b3), new Color(r2, g2, b2) },
+                        Uv = new[] { new Vector2(s1, t1), new Vector2(s3, t3), new Vector2(s2, t2) },
+                        AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
+                    };
+                    if (isTiled)
+                    {
+                        // Use triangle's UV as baseUv, and give the triangle a new converted UV array (for display/exporter purposes).
+                        triangle2.TiledUv = new TiledUV(triangle2.Uv, tua, tva, tum, tvm);
+                        triangle2.Uv = new[] { TileUV(s1Value, t1Value), TileUV(s3Value, t3Value), TileUV(s2Value, t2Value) };
+                        //triangle2.Uv = triangle2.TiledUv.ConvertBaseUv();
+                    }
+                    if (attached)
+                    {
+                        // HMD: Attached (shared) indices from other model entities.
+                        triangle2.AttachedIndices = (uint[])triangle2.OriginalVertexIndices.Clone();
+                        if (hasNormals)
+                        {
+                            triangle2.AttachedNormalIndices = (uint[])triangle2.OriginalNormalIndices.Clone();
+                        }
+                    }
+                    AddTriangle(triangle2);
+                }
             }
-        }
-
-        private static string PrintPrimitiveData(Dictionary<PrimitiveDataType, uint> primitiveData)
-        {
-            var value = new StringBuilder();
-            foreach (var kvp in primitiveData)
-            {
-                value.Append("\t").Append(kvp.Key).Append(":").Append(kvp.Value);
-            }
-            return value.ToString();
         }
 
         public static float ConvertNormal(int value)

@@ -166,38 +166,40 @@ namespace PSXPrev.Classes
                     var flag = reader.ReadByte();
                     var mode = reader.ReadByte();
                     var offset = reader.BaseStream.Position;
-                    var packetStructure = TMDHelper.CreateTMDPacketStructure(flag, mode, reader, p, out var renderFlags, out var primitiveType);
+                    var packetStructure = TMDHelper.CreateTMDPacketStructure(flag, mode, reader, p);
                     if (packetStructure != null)
                     {
-                        switch (primitiveType)
+                        switch (packetStructure.PrimitiveType)
                         {
                             case PrimitiveType.Triangle:
                             case PrimitiveType.Quad:
-                                TMDHelper.AddTrianglesToGroup(primitiveType, groupedTriangles, packetStructure, renderFlags, false, delegate (uint index)
-                                {
-                                    if (index >= vertices.Length)
+                                TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, false,
+                                    index =>
                                     {
-                                        if (Program.IgnoreTmdVersion)
+                                        if (index >= vertices.Length)
                                         {
-                                            return new Vector3(index, 0, 0);
+                                            if (Program.IgnoreTmdVersion)
+                                            {
+                                                return new Vector3(index, 0, 0);
+                                            }
+                                            Program.Logger.WriteErrorLine("Vertex index error : " + fileTitle);
+                                            throw new Exception("Vertex index error: " + fileTitle);
                                         }
-                                        Program.Logger.WriteErrorLine("Vertex index error : " + fileTitle);
-                                        throw new Exception("Vertex index error: " + fileTitle);
-                                    }
-                                    return vertices[index];
-                                }, delegate (uint index)
-                                {
-                                    if (index >= normals.Length)
+                                        return vertices[index];
+                                    },
+                                    index =>
                                     {
-                                        if (Program.IgnoreTmdVersion)
+                                        if (index >= normals.Length)
                                         {
-                                            return new Vector3(index, 0, 0);
+                                            if (Program.IgnoreTmdVersion)
+                                            {
+                                                return new Vector3(index, 0, 0);
+                                            }
+                                            Program.Logger.WriteErrorLine("Vertex index error: " + fileTitle);
+                                            throw new Exception("Vertex index error: " + fileTitle);
                                         }
-                                        Program.Logger.WriteErrorLine("Vertex index error: " + fileTitle);
-                                        throw new Exception("Vertex index error: " + fileTitle);
-                                    }
-                                    return normals[index];
-                                });
+                                        return normals[index];
+                                    });
                                 break;
                             case PrimitiveType.StraightLine:
                                 break;

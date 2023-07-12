@@ -93,6 +93,7 @@
     <Compile Include="Classes\FileOffsetScanner.cs" />
     <Compile Include="Classes\PlyExporter.cs" />
     <Compile Include="Classes\PMDParser.cs" />
+    <Compile Include="Classes\PrimitiveData.cs" />
     <Compile Include="Classes\PrimitiveDataType.cs" />
     <Compile Include="Classes\CrocModelReader.cs" />
     <Compile Include="Classes\PrimitiveType.cs" />

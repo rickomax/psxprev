@@ -96,7 +96,7 @@ namespace PSXPrev.Classes
                 {
                     //if (Program.Debug)
                     //{
-                    //    Program.Logger.WriteLine(exp);
+                    //    Program.Logger.WriteErrorLine(exp);
                     //}
                 }
 
