@@ -9,13 +9,14 @@ namespace PSXPrev.Classes
         public static readonly System.Drawing.Color NoSemiTransparentFlag = System.Drawing.Color.FromArgb(255, 0, 0, 0);
         public static readonly System.Drawing.Color SemiTransparentFlag = System.Drawing.Color.FromArgb(255, 255, 255, 255);
 
-        public Texture(int width, int height, int x, int y, int bpp, int texturePage)
+        public Texture(int width, int height, int x, int y, int bpp, int texturePage, bool isVRAMPage = false)
         {
             Bitmap = new Bitmap(width, height);
             X = x;
             Y = y;
             Bpp = bpp;
             TexturePage = texturePage;
+            IsVRAMPage = isVRAMPage;
         }
 
         [DisplayName("Name")]
@@ -38,6 +39,9 @@ namespace PSXPrev.Classes
 
         [ReadOnly(true), DisplayName("Height")]
         public int Height => Bitmap.Height;
+
+        [Browsable(false)]
+        public bool IsVRAMPage { get; set; }
 
         [Browsable(false)]
         public Bitmap Bitmap { get; set; }

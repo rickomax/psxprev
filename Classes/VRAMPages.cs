@@ -54,7 +54,7 @@ namespace PSXPrev.Classes
                 {
                     // X coordinates [0,256) store texture data.
                     // X coordinates [256,512) store semi-transparency information for textures.
-                    _vramPage[i] = new Texture(PageSize * 2, PageSize, 0, 0, 32, i);
+                    _vramPage[i] = new Texture(PageSize * 2, PageSize, 0, 0, 32, i, true); // Is VRAM page
                     ClearPage(i, suppressUpdate);
                 }
             }
@@ -164,6 +164,29 @@ namespace PSXPrev.Classes
             }
         }
 
+
+        // Returns a bitmap of the VRAM texture page without the semi-transparency section.
+        // Must dispose of Bitmap after use.
+        public static Bitmap GetTextureOnly(Texture texture)
+        {
+            var bitmap = new Bitmap(PageSize, PageSize);
+            try
+            {
+                using (var graphics = Graphics.FromImage(bitmap))
+                {
+                    graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                    graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+
+                    graphics.DrawImage(texture.Bitmap, 0, 0, texture.Width, texture.Height);
+                }
+                return bitmap;
+            }
+            catch
+            {
+                bitmap?.Dispose();
+                throw;
+            }
+        }
 
         public static uint ClampTexturePage(uint index) => (uint)ClampTexturePage((int)index);
 

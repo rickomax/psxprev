@@ -6,7 +6,19 @@ namespace PSXPrev.Classes
     {
         public void Export(Texture selectedTexture, int textureIndex, string selectedPath)
         {
-            selectedTexture.Bitmap.Save(selectedPath + "/" + textureIndex + ".png", ImageFormat.Png);
+            var filePath = $"{selectedPath}/{textureIndex}.png";
+            if (selectedTexture.IsVRAMPage)
+            {
+                // Remove the semi-transparency section from the exported bitmap.
+                using (var bitmap = VRAMPages.GetTextureOnly(selectedTexture))
+                {
+                    bitmap.Save(filePath, ImageFormat.Png);
+                }
+            }
+            else
+            {
+                selectedTexture.Bitmap.Save(filePath, ImageFormat.Png);
+            }
         }
 
         public void Export(Texture[] selectedTextures, string selectedPath)

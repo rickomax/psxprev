@@ -123,6 +123,7 @@ namespace PSXPrev.Classes
                         var g = (clut & 0x3E0) >> 5;
                         var b = (clut & 0x7C00) >> 10;
                         var stpBit = ((clut & 0x8000) >> 15) == 1; // Semi-transparency: 0-Off, 1-On
+                        var a = 255;
 
                         // Note: stpMode (not stpBit) is defined on a per polygon basis. We can't apply alpha now, only during rendering.
                         if (stpBit)
@@ -133,8 +134,12 @@ namespace PSXPrev.Classes
                             }
                             semiTransparentPalette[c] = true;
                         }
+                        else if (r == 0 && g == 0 && b == 0)
+                        {
+                            a = 0; // Transparent when black and !stpBit
+                        }
 
-                        color = System.Drawing.Color.FromArgb(255, r * 8, g * 8, b * 8);
+                        color = System.Drawing.Color.FromArgb(a, r * 8, g * 8, b * 8);
                     }
                     palette[c] = color;
                 }
@@ -336,10 +341,7 @@ namespace PSXPrev.Classes
                             var g0 = (data1 & 0x3E0) >> 5;
                             var b0 = (data1 & 0x7C00) >> 10;
                             var stpBit = ((data1 & 0x8000) >> 11) == 1; // Semi-transparency: 0-Off, 1-On
-
-                            var color1 = System.Drawing.Color.FromArgb(255, r0 * 8, g0 * 8, b0 * 8);
-
-                            bitmap.SetPixel(x, y, color1);
+                            var a0 = 255;
 
                             // Note: stpMode (not stpBit) is defined on a per polygon basis. We can't apply alpha now, only during rendering.
                             if (stpBit)
@@ -350,6 +352,14 @@ namespace PSXPrev.Classes
                                 }
                                 semiTransparentMap.SetPixel(x, y, Texture.SemiTransparentFlag);
                             }
+                            else if (r0 == 0 && g0 == 0 && b0 == 0)
+                            {
+                                a0 = 0; // Transparent when black and !stpBit
+                            }
+
+                            var color1 = System.Drawing.Color.FromArgb(a0, r0 * 8, g0 * 8, b0 * 8);
+
+                            bitmap.SetPixel(x, y, color1);
                         }
                     }
 
