@@ -674,7 +674,9 @@ namespace PSXPrev
             // handle unselecting triangle when clicking on a node in the tree view if that node is already selected.
             if (e.Node != null)
             {
-                UnselectTriangle();
+                // Removed for now, because this also triggers when pressing
+                // the expand button (which doesn't perform selection).
+                //UnselectTriangle();
             }
         }
 
