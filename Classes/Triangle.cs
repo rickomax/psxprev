@@ -49,23 +49,32 @@ namespace PSXPrev.Classes
             _poly_g4c
         }
 
-        [Browsable(false)]
+        [ReadOnly(true), DisplayName("Parent")]
+        public EntityBase ParentEntity { get; set; }
+
+        [ReadOnly(true)]
         public Vector3[] Vertices { get; set; }
 
-        [Browsable(false)]
+        [ReadOnly(true)]
         public Vector3[] Normals { get; set; }
 
-        [Browsable(false)]
+        [ReadOnly(true), DisplayName("UVs")]
         public Vector2[] Uv { get; set; }
 
         // Defines the area of the texture page that Uv is wrapped around.
-        [Browsable(false)]
+        [ReadOnly(true), Browsable(false)]
         public TiledUV TiledUv { get; set; }
 
-        [Browsable(false)]
+        [ReadOnly(true), DisplayName("Tiled Base UVs")]
+        public Vector2[] TiledBaseUv => TiledUv?.BaseUv;
+
+        [ReadOnly(true), DisplayName("Tiled Area UVs")]
+        public Vector4? TiledArea => TiledUv?.Area;
+
+        [ReadOnly(true), DisplayName("Is Tiled Texture")]
         public bool IsTiled => TiledUv != null;
 
-        [Browsable(false)]
+        [ReadOnly(true)]
         public Color[] Colors { get; set; }
 
         [Browsable(false)]
@@ -83,6 +92,9 @@ namespace PSXPrev.Classes
         // HMD: Attached (shared) normal indices from other model entities.
         [Browsable(false)]
         public uint[] AttachedNormalIndices { get; set; }
+
+        [Browsable(false)]
+        public float IntersectionDistance { get; set; }
 
         public List<Tuple<uint, uint>> ExtraPaddingData { get; set; } = new List<Tuple<uint, uint>>();
 

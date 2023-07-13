@@ -67,6 +67,7 @@ namespace PSXPrev.Classes
         public MeshBatch MeshBatch { get; private set; }
         public MeshBatch GizmosMeshBatch { get; private set; }
         public LineBatch BoundsBatch { get; private set; }
+        public LineBatch TriangleOutlineBatch { get; private set; }
         public LineBatch SkeletonBatch { get; private set; }
         public AnimationBatch AnimationBatch { get; private set; }
         public TextureBinder TextureBinder { get; private set; }
@@ -81,7 +82,9 @@ namespace PSXPrev.Classes
         private Vector3 _rayDirection;
         private Vector3? _intersected;
         private List<EntityBase> _lastPickedEntities;
-        private int _lastPickedIndex;
+        private List<Tuple<ModelEntity, Triangle>> _lastPickedTriangles;
+        private int _lastPickedEntityIndex;
+        private int _lastPickedTriangleIndex;
 
         private Color _clearColor;
         public Color ClearColor
@@ -197,6 +200,7 @@ namespace PSXPrev.Classes
             MeshBatch = new MeshBatch(this);
             GizmosMeshBatch = new MeshBatch(this);
             BoundsBatch = new LineBatch();
+            TriangleOutlineBatch = new LineBatch();
             SkeletonBatch = new LineBatch();
             AnimationBatch = new AnimationBatch(this);
             TextureBinder = new TextureBinder();
@@ -305,6 +309,11 @@ namespace PSXPrev.Classes
                 BoundsBatch.SetupAndDraw(_viewMatrix, _projectionMatrix);
             }
             GL.Clear(ClearBufferMask.DepthBufferBit);
+            if (ShowBounds)
+            {
+                TriangleOutlineBatch.SetupAndDraw(_viewMatrix, _projectionMatrix, 2f);
+            }
+            GL.Clear(ClearBufferMask.DepthBufferBit);
             if (ShowGizmos)
             {
                 GizmosMeshBatch.Draw(_viewMatrix, _projectionMatrix, standard: false);
@@ -351,19 +360,67 @@ namespace PSXPrev.Classes
             pickedEntities.Sort((a, b) => a.IntersectionDistance.CompareTo(b.IntersectionDistance));
             if (!ListsMatches(pickedEntities, _lastPickedEntities))
             {
-                _lastPickedIndex = 0;
+                _lastPickedEntityIndex = 0;
             }
-            var pickedEntity = pickedEntities.Count > 0 ? pickedEntities[_lastPickedIndex] : null;
-            if (_lastPickedIndex < pickedEntities.Count - 1)
+            var pickedEntity = pickedEntities.Count > 0 ? pickedEntities[_lastPickedEntityIndex] : null;
+            if (_lastPickedEntityIndex < pickedEntities.Count - 1)
             {
-                _lastPickedIndex++;
+                _lastPickedEntityIndex++;
             }
             else
             {
-                _lastPickedIndex = 0;
+                _lastPickedEntityIndex = 0;
             }
             _lastPickedEntities = pickedEntities;
             return pickedEntity;
+        }
+
+        public Tuple<ModelEntity, Triangle> GetTriangleUnderMouse(RootEntity[] checkedEntities, RootEntity selectedRootEntity, int x, int y, float width, float height, bool selectRoot = false)
+        {
+            UpdatePicking(x, y, width, height);
+            var pickedTriangles = new List<Tuple<ModelEntity, Triangle>>();
+            if (!selectRoot)
+            {
+                if (checkedEntities != null)
+                {
+                    foreach (var entity in checkedEntities)
+                    {
+                        if (entity.ChildEntities != null)
+                        {
+                            foreach (var subEntity in entity.ChildEntities)
+                            {
+                                CheckTriangles(subEntity, pickedTriangles);
+                            }
+                        }
+                    }
+                }
+                else if (selectedRootEntity != null)
+                {
+                    if (selectedRootEntity.ChildEntities != null)
+                    {
+                        foreach (var subEntity in selectedRootEntity.ChildEntities)
+                        {
+                            CheckTriangles(subEntity, pickedTriangles);
+                        }
+                    }
+                }
+            }
+            pickedTriangles.Sort((a, b) => a.Item2.IntersectionDistance.CompareTo(b.Item2.IntersectionDistance));
+            if (!ListsMatches(pickedTriangles, _lastPickedTriangles))
+            {
+                _lastPickedTriangleIndex = 0;
+            }
+            var pickedTriangle = pickedTriangles.Count > 0 ? pickedTriangles[_lastPickedTriangleIndex] : null;
+            if (_lastPickedTriangleIndex < pickedTriangles.Count - 1)
+            {
+                _lastPickedTriangleIndex++;
+            }
+            else
+            {
+                _lastPickedTriangleIndex = 0;
+            }
+            _lastPickedTriangles = pickedTriangles;
+            return pickedTriangle;
         }
 
         private static bool ListsMatches<T>(List<T> a, List<T> b)
@@ -394,6 +451,27 @@ namespace PSXPrev.Classes
             {
                 entity.IntersectionDistance = intersectionDistance;
                 pickedEntities.Add(entity);
+            }
+        }
+
+        private void CheckTriangles(EntityBase entity, List<Tuple<ModelEntity, Triangle>> pickedTriangles)
+        {
+            if (entity is ModelEntity modelEntity && modelEntity.Triangles.Length > 0)
+            {
+                var worldMatrix = modelEntity.WorldMatrix;
+                foreach (var triangle in modelEntity.Triangles)
+                {
+                    var vertex0 = Vector3.TransformPosition(triangle.Vertices[0], worldMatrix);
+                    var vertex1 = Vector3.TransformPosition(triangle.Vertices[1], worldMatrix);
+                    var vertex2 = Vector3.TransformPosition(triangle.Vertices[2], worldMatrix);
+
+                    var intersectionDistance = GeomUtils.TriangleIntersect(_rayOrigin, _rayDirection, vertex0, vertex1, vertex2);
+                    if (intersectionDistance > 0f)
+                    {
+                        triangle.IntersectionDistance = intersectionDistance;
+                        pickedTriangles.Add(new Tuple<ModelEntity, Triangle>(modelEntity, triangle));
+                    }
+                }
             }
         }
 

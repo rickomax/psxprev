@@ -129,5 +129,15 @@ namespace PSXPrev.Classes
             AddLine(corners[1], corners[5], Color.White);
             AddLine(corners[3], corners[0], Color.White);
         }
+
+        public void SetupTriangleOutline(Triangle triangle, Matrix4 worldMatrix)
+        {
+            var vertex0 = Vector3.TransformPosition(triangle.Vertices[0], worldMatrix);
+            var vertex1 = Vector3.TransformPosition(triangle.Vertices[1], worldMatrix);
+            var vertex2 = Vector3.TransformPosition(triangle.Vertices[2], worldMatrix);
+            AddLine(vertex0, vertex1, Color.White);
+            AddLine(vertex1, vertex2, Color.White);
+            AddLine(vertex2, vertex0, Color.White);
+        }
     }
 }
