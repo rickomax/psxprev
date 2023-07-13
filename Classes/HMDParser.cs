@@ -255,7 +255,8 @@ namespace PSXPrev.Classes
                         return;
                     }
 
-                    if (category > 5)
+                    // Categories 0-5 and 7 are defined by the spec, but there's no category 6.
+                    if (category == 6 || category > 7)
                     {
                         return;
                     }
@@ -377,6 +378,32 @@ namespace PSXPrev.Classes
                         // Note: Second divide-by-4 added since dataSize is now stored in byte units, not 4-byte units.
                         var groundDataCount = (dataSize / 4) / 4;
                         ProcessGroundData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, groundDataCount, gridIndex, vertexIndex);
+                    }
+                    else if (category == 7)
+                    {
+                        if (primitiveType == 0x100)
+                        {
+                            if (Program.Debug)
+                            {
+                                Program.Logger.WriteLine($"HMD Device Camera");
+                                // driver: 0-Projection, 1-World camera, 2-Fix camera, 3-Aim camera
+                            }
+                        }
+                        else if (primitiveType == 0x200)
+                        {
+                            if (Program.Debug)
+                            {
+                                Program.Logger.WriteLine($"HMD Device Light");
+                                // driver: 0-Ambient color, 1-World light, 2-Fix light, 3-Aim light
+                            }
+                        }
+                        else
+                        {
+                            if (Program.Debug)
+                            {
+                                Program.Logger.WriteLine($"HMD Device 0x{primitiveType:x}");
+                            }
+                        }
                     }
 
                     // Seek to the next type. This is necessary since not all types will fully read up to the next type (i.e. Image Data).
