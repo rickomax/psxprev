@@ -63,10 +63,13 @@ namespace PSXPrev.Classes
         [Browsable(false)]
         public Vector3[] InitialNormals { get; set; }
 
+        // HMD: Attachable (shared) geometry can only be used when attachable.SharedID <= attached.SharedID.
+        [Browsable(false)]
+        public uint SharedID { get; set; }
+
         // HMD: Attachable (shared) vertices and normals that aren't tied to an existing triangle.
         [Browsable(false)]
         public Dictionary<uint, Vector3> AttachableVertices { get; set; }
-
         [Browsable(false)]
         public Dictionary<uint, Vector3> AttachableNormals { get; set; }
 
@@ -75,7 +78,7 @@ namespace PSXPrev.Classes
             base.ComputeBounds();
             var bounds = new BoundingBox();
             var worldMatrix = WorldMatrix;
-            bool hasBounds = false;
+            var hasBounds = false;
             foreach (var triangle in Triangles)
             {
                 if (triangle.Vertices != null)
@@ -126,37 +129,46 @@ namespace PSXPrev.Classes
                         {
                             foreach (ModelEntity subModel in rootEntity.ChildEntities)
                             {
-                                if (subModel == this)
+                                if (subModel != this)
                                 {
-                                    continue;
-                                }
-                                foreach (var subTriangle in subModel.Triangles)
-                                {
-                                    for (var j = 0; j < subTriangle.Vertices.Length; j++)
+                                    foreach (var subTriangle in subModel.Triangles)
                                     {
-                                        if (subTriangle.AttachableIndices[j] == attachedIndex)
+                                        for (var j = 0; j < subTriangle.Vertices.Length; j++)
                                         {
-                                            var newVertex = Vector3.TransformPosition(subTriangle.Vertices[j], subModel.TempWorldMatrix);
-                                            newVertex = Vector3.TransformPosition(newVertex, TempWorldMatrix.Inverted());
-                                            triangle.Vertices[i] = newVertex;
-                                            break;
+                                            if (subTriangle.AttachableIndices[j] == attachedIndex)
+                                            {
+                                                var newVertex = Vector3.TransformPosition(subTriangle.Vertices[j], subModel.TempWorldMatrix);
+                                                newVertex = Vector3.TransformPosition(newVertex, TempWorldMatrix.Inverted());
+                                                triangle.Vertices[i] = newVertex;
+                                                break;
+                                            }
                                         }
                                     }
                                 }
 
-                                // HMD: Check for attachable vertices and normals that aren't associated with an existing triangle.
-                                if (subModel.AttachableVertices != null && subModel.AttachableVertices.TryGetValue(attachedIndex, out var attachedVertex))
+                                // HMD: Check for attachable (shared) vertices and normals that aren't associated with an existing triangle.
+                                // Shared geometry can only be attached to shared indices defined before it.
+                                if (subModel.SharedID <= SharedID)
                                 {
-                                    var newVertex = Vector3.TransformPosition(attachedVertex, subModel.TempWorldMatrix);
-                                    // WorldMatrix.Inverted() here prevents transforms for this model from being
-                                    // applied, which they shouldn't be since attached vertices should only transform
-                                    // based on their attached model.
-                                    newVertex = Vector3.TransformPosition(newVertex, TempWorldMatrix.Inverted());
-                                    triangle.Vertices[i] = newVertex;
-                                }
-                                if (subModel.AttachableNormals != null && subModel.AttachableNormals.TryGetValue(attachedNormalIndex, out var attachedNormal))
-                                {
-                                    triangle.Normals[i] = attachedNormal;
+                                    if (subModel.AttachableVertices != null && subModel.AttachableVertices.TryGetValue(attachedIndex, out var attachedVertex))
+                                    {
+                                        var newVertex = attachedVertex;
+                                        // We only need to transform the vertex if it's not attached to the same model.
+                                        if (subModel != this)
+                                        {
+                                            newVertex = Vector3.TransformPosition(attachedVertex, subModel.TempWorldMatrix);
+                                            // WorldMatrix.Inverted() here prevents transforms for this model from being
+                                            // applied, which they shouldn't be since attached vertices should only transform
+                                            // based on their attached model.
+                                            newVertex = Vector3.TransformPosition(newVertex, TempWorldMatrix.Inverted());
+                                        }
+                                        triangle.Vertices[i] = newVertex;
+                                    }
+                                    if (subModel.AttachableNormals != null && subModel.AttachableNormals.TryGetValue(attachedNormalIndex, out var attachedNormal))
+                                    {
+                                        triangle.Normals[i] = attachedNormal;
+                                    }
+                                    // Note: DON'T break when we find a shared attachable. Later-defined attachables have priority.
                                 }
                             }
                         }
