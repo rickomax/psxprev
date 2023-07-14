@@ -57,7 +57,7 @@ namespace PSXPrev.Classes
                     continue;
                 }
                 var blockTop = reader.BaseStream.Position;
-                ProccessPrimitive(reader, modelEntities, animations, textures, i, primitiveSetTop, primitiveHeaderTop, ref sharedIndex);
+                ProcessPrimitive(reader, modelEntities, animations, textures, i, primitiveSetTop, primitiveHeaderTop, ref sharedIndex);
                 reader.BaseStream.Seek(blockTop, SeekOrigin.Begin);
             }
             RootEntity rootEntity;
@@ -207,7 +207,7 @@ namespace PSXPrev.Classes
             return matrix;
         }
 
-        private void ProccessPrimitive(BinaryReader reader, List<ModelEntity> modelEntities, List<Animation> animations, List<Texture> textures, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop, ref uint sharedIndex)
+        private void ProcessPrimitive(BinaryReader reader, List<ModelEntity> modelEntities, List<Animation> animations, List<Texture> textures, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop, ref uint sharedIndex)
         {
             var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
             var sharedVertices = new Dictionary<uint, Vector3>();
@@ -402,15 +402,28 @@ namespace PSXPrev.Classes
                         var preCalculation = shared && ((primitiveType >> 12) & 0x7) == 0;
                         if (preCalculation)
                         {
-                            // todo: ProcessSharedIndicesData
+                            // Shared indices (attachable)
+                            if (hasSharedGeometry)
+                            {
+                                // Flush models so that previously-defined shared geometry can't reference these shared indices.
+                                FlushModels(modelEntities, groupedTriangles, sharedVertices, sharedNormals, primitiveIndex, sharedIndex);
+                                sharedIndex++;
+                                hasSharedGeometry = false;
+                            }
+                            ProcessSharedIndicesData(sharedVertices, sharedNormals, reader, driver, primitiveHeaderPointer, nextPrimitivePointer);
                         }
                         else if (shared)
                         {
+                            // Shared geometry (attached)
                             var flag = primitiveType & 0xeff;
-                            // todo: ProcessGeometryData, shared: true
+                            ProcessGeometryData(groupedTriangles, reader, true, driver, flag, primitiveHeaderPointer, nextPrimitivePointer, dataCount);
+                            // If shared indices are defined after this geometry, then this geometry can't use them.
+                            // So make sure the current models are flushed so that we can stop after this shared model.
+                            hasSharedGeometry = true;
                         }
                         else
                         {
+                            // Envmap geometry
                             ProcessEnvmapData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, dataCount);
                         }
                     }
@@ -1361,7 +1374,7 @@ namespace PSXPrev.Classes
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ProcessGeometryPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint vertTop, out uint normTop, out uint coordTop, out uint dataTop)
+        private void ProcessNonSharedGeometryPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint vertTop, out uint normTop, out uint coordTop, out uint dataTop)
         {
             var position = reader.BaseStream.Position;
 
