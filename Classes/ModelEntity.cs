@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using OpenTK;
 
@@ -126,13 +127,39 @@ namespace PSXPrev.Classes
             Bounds3D = bounds;
         }
 
+        private Vector3 ConnectVertex(EntityBase subModel, Vector3 vertex)
+        {
+            // We only need to transform the vertex if it's not attached to the same model.
+            if (subModel != this)
+            {
+                vertex = Vector3.TransformPosition(vertex, subModel.TempWorldMatrix);
+                vertex = Vector3.TransformPosition(vertex, TempWorldMatrix.Inverted());
+            }
+            return vertex;
+        }
+
         public override void FixConnections()
         {
+            base.FixConnections();
             var rootEntity = GetRootEntity();
             if (rootEntity != null)
             {
                 foreach (var triangle in Triangles)
                 {
+                    // If we have cached connections, then use those. It'll make things much faster.
+                    if (triangle.AttachedCache != null && false)
+                    {
+                        for (var i = 0; i < 3; i++)
+                        {
+                            var cache = triangle.AttachedCache[i];
+                            if (cache != null)
+                            {
+                                triangle.Vertices[i] = ConnectVertex(cache.Item1, cache.Item2);
+                            }
+                        }
+                        continue;
+                    }
+
                     // AttachedNormalIndices should only ever be non-null when AttachedIndices is non-null.
                     if (triangle.AttachedIndices == null)
                     {
@@ -154,9 +181,14 @@ namespace PSXPrev.Classes
                                         {
                                             if (subTriangle.AttachableIndices[j] == attachedIndex)
                                             {
-                                                var newVertex = Vector3.TransformPosition(subTriangle.Vertices[j], subModel.TempWorldMatrix);
-                                                newVertex = Vector3.TransformPosition(newVertex, TempWorldMatrix.Inverted());
-                                                triangle.Vertices[i] = newVertex;
+                                                var attachedVertex = subTriangle.Vertices[j];
+                                                // Cache connection to speed up FixConnections in the future.
+                                                if (triangle.AttachedCache == null)
+                                                {
+                                                    triangle.AttachedCache = new Tuple<EntityBase, Vector3>[3];
+                                                }
+                                                triangle.AttachedCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedVertex);
+                                                triangle.Vertices[i] = ConnectVertex(subModel, attachedVertex);
                                                 break;
                                             }
                                         }
@@ -169,17 +201,13 @@ namespace PSXPrev.Classes
                                 {
                                     if (subModel.AttachableVertices != null && subModel.AttachableVertices.TryGetValue(attachedIndex, out var attachedVertex))
                                     {
-                                        var newVertex = attachedVertex;
-                                        // We only need to transform the vertex if it's not attached to the same model.
-                                        if (subModel != this)
+                                        // Cache connection to speed up FixConnections in the future.
+                                        if (triangle.AttachedCache == null)
                                         {
-                                            newVertex = Vector3.TransformPosition(attachedVertex, subModel.TempWorldMatrix);
-                                            // WorldMatrix.Inverted() here prevents transforms for this model from being
-                                            // applied, which they shouldn't be since attached vertices should only transform
-                                            // based on their attached model.
-                                            newVertex = Vector3.TransformPosition(newVertex, TempWorldMatrix.Inverted());
+                                            triangle.AttachedCache = new Tuple<EntityBase, Vector3>[3];
                                         }
-                                        triangle.Vertices[i] = newVertex;
+                                        triangle.AttachedCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedVertex);
+                                        triangle.Vertices[i] = ConnectVertex(subModel, attachedVertex);
                                     }
                                     if (subModel.AttachableNormals != null && subModel.AttachableNormals.TryGetValue(attachedNormalIndex, out var attachedNormal))
                                     {
@@ -191,6 +219,15 @@ namespace PSXPrev.Classes
                         }
                     }
                 }
+            }
+        }
+
+        public override void ClearConnectionsCache()
+        {
+            base.ClearConnectionsCache();
+            foreach (var triangle in Triangles)
+            {
+                triangle.AttachedCache = null;
             }
         }
     }

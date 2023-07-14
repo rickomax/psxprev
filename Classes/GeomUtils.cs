@@ -11,17 +11,19 @@ namespace PSXPrev.Classes
         public static string CompleteFloatFormat = "{0:0.00000}";
         public const float Deg2Rad = (float)((Math.PI * 2f) / 360.0f);
 
-        public static Vector3 XVector = new Vector3(1f, 0f, 0f);
-        public static Vector3 YVector = new Vector3(0f, 1f, 0f);
-        public static Vector3 ZVector = new Vector3(0f, 0f, 1f);
+        // Use Vector3.Unit(XYZ) fields instead.
+        //public static Vector3 XVector = new Vector3(1f, 0f, 0f);
+        //public static Vector3 YVector = new Vector3(0f, 1f, 0f);
+        //public static Vector3 ZVector = new Vector3(0f, 0f, 1f);
 
-        public static float VecDistance(Vector3 a, Vector3 b)
-        {
-            var x = a.X - b.X;
-            var y = a.Y - b.Y;
-            var z = a.Z - b.Z;
-            return (float)Math.Sqrt((x * x) + (y * y) + (z * z));
-        }
+        // Use Vector3.Distance instead.
+        //public static float VecDistance(Vector3 a, Vector3 b)
+        //{
+        //    var x = a.X - b.X;
+        //    var y = a.Y - b.Y;
+        //    var z = a.Z - b.Z;
+        //    return (float)Math.Sqrt((x * x) + (y * y) + (z * z));
+        //}
 
         public static string WriteVector3(Vector3? v)
         {

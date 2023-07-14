@@ -250,6 +250,18 @@ namespace PSXPrev.Classes
             }
         }
 
+        public virtual void ClearConnectionsCache()
+        {
+            if (ChildEntities == null)
+            {
+                return;
+            }
+            foreach (var child in ChildEntities)
+            {
+                child.ClearConnectionsCache();
+            }
+        }
+
         public RootEntity GetRootEntity()
         {
             var entity = this;

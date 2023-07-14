@@ -145,7 +145,7 @@ namespace PSXPrev.Classes
 
         public Quaternion CameraRotation => _viewMatrix.Inverted().ExtractRotation();
 
-        public Vector3 CameraDirection => CameraRotation * GeomUtils.ZVector;
+        public Vector3 CameraDirection => CameraRotation * Vector3.UnitZ;
 
         public float CameraDistanceToOrigin => -_viewMatrix.ExtractTranslation().Z;
 
