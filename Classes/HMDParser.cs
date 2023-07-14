@@ -230,7 +230,7 @@ namespace PSXPrev.Classes
                 }
                 for (var j = 0; j < typeCount; j++)
                 {
-                    //0: Polygon data 1: Shared polygon data 2: Image data 3: Animation data 4: MIMe data 5: Ground data  
+                    //0: Polygon data 1: Shared polygon data 2: Image data 3: Animation data 4: MIMe data 5: Ground data 6: Envmap data 7: Device data
 
                     var type = reader.ReadUInt32();
                     var developerId = (type >> 27) & 0b00001111; //4
@@ -255,8 +255,7 @@ namespace PSXPrev.Classes
                         return;
                     }
 
-                    // Categories 0-5 and 7 are defined by the spec, but there's no category 6.
-                    if (category == 6 || category > 7)
+                    if (category > 7)
                     {
                         return;
                     }
@@ -379,31 +378,37 @@ namespace PSXPrev.Classes
                         var groundDataCount = (dataSize / 4) / 4;
                         ProcessGroundData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, groundDataCount, gridIndex, vertexIndex);
                     }
-                    else if (category == 7)
+                    else if (category == 6)
                     {
-                        if (primitiveType == 0x100)
+                        if (Program.Debug)
                         {
-                            if (Program.Debug)
-                            {
-                                Program.Logger.WriteLine($"HMD Device Camera");
-                                // driver: 0-Projection, 1-World camera, 2-Fix camera, 3-Aim camera
-                            }
+                            Program.Logger.WriteLine($"HMD Environment Map"); // Envmap for short
                         }
-                        else if (primitiveType == 0x200)
+
+                        var shared = ((primitiveType >> 8) & 0x1) == 1;
+                        var preCalculation = shared && ((primitiveType >> 12) & 0x7) == 0;
+                        if (preCalculation)
                         {
-                            if (Program.Debug)
-                            {
-                                Program.Logger.WriteLine($"HMD Device Light");
-                                // driver: 0-Ambient color, 1-World light, 2-Fix light, 3-Aim light
-                            }
+                            // todo: ProcessSharedIndicesData
+                        }
+                        else if (shared)
+                        {
+                            var flag = primitiveType & 0xeff;
+                            // todo: ProcessGeometryData, shared: true
                         }
                         else
                         {
-                            if (Program.Debug)
-                            {
-                                Program.Logger.WriteLine($"HMD Device 0x{primitiveType:x}");
-                            }
+                            ProcessEnvmapData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, dataCount);
                         }
+                    }
+                    else if (category == 7)
+                    {
+                        if (Program.Debug)
+                        {
+                            Program.Logger.WriteLine($"HMD Device");
+                        }
+                        // Nothing is done with this data yet.
+                        ProcessDeviceData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer);
                     }
 
                     // Seek to the next type. This is necessary since not all types will fully read up to the next type (i.e. Image Data).
@@ -526,6 +531,12 @@ namespace PSXPrev.Classes
             var valueMapped = reader.ReadUInt16();
             mapped = (uint)((valueMapped >> 15) & 0b00000001);
             value = (uint)(valueMapped & 0b0111111111111111);
+        }
+
+        private static void ReadMappedPointer(BinaryReader reader, out uint mapped, out uint pointer)
+        {
+            ReadMappedValue(reader, out mapped, out pointer);
+            pointer *= 4;
         }
 
         private Vector3 ReadVertex(BinaryReader reader, uint vertTop, uint index)
@@ -1197,6 +1208,127 @@ namespace PSXPrev.Classes
             }
         }
 
+        private void ProcessEnvmapData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint dataCount)
+        {
+            var polygonIndex = reader.ReadUInt32() * 4;
+
+            var position = reader.BaseStream.Position;
+
+            reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
+            // Read header here. Header size is 14, and is too complicated to read in another function.
+            var headerSize = reader.ReadUInt32();
+            ReadMappedPointer(reader, out _, out var dataTop);
+            ReadMappedPointer(reader, out _, out var vertTop);
+            ReadMappedPointer(reader, out _, out var normTop);
+            ReadMappedPointer(reader, out _, out var envImagePointer);
+            ReadMappedPointer(reader, out _, out var reflectImagePointer);
+            ReadMappedPointer(reader, out _, out var reflectClutPointer);
+            ReadMappedPointer(reader, out _, out var refractImagePointer);
+            ReadMappedPointer(reader, out _, out var refractClutPointer);
+
+            var envTexmode = reader.ReadByte();
+            reader.ReadByte(); //pad
+            var envMaterial = reader.ReadByte();
+            reader.ReadByte(); //pad
+
+            var reflectTexmode = reader.ReadByte();
+            var reflectAbr = reader.ReadByte();
+            var reflectRate = reader.ReadByte();
+            reader.ReadByte(); //pad
+            reader.ReadByte(); //pad
+            var reflectR = reader.ReadByte(); // Note: RGB isn't defined for reflect, but these 4-bytes are left open, so read it as such.
+            var reflectG = reader.ReadByte();
+            var reflectB = reader.ReadByte();
+
+            var refractTexmode = reader.ReadByte();
+            var refractAbr = reader.ReadByte();
+            var refractRate = reader.ReadByte();
+            reader.ReadByte(); //pad
+            reader.ReadByte(); //pad
+            var refractR = reader.ReadByte();
+            var refractG = reader.ReadByte();
+            var refractB = reader.ReadByte();
+
+            ReadMappedPointer(reader, out _, out var coordTop);
+            // End of header
+
+
+            reader.BaseStream.Seek(_offset + dataTop + polygonIndex, SeekOrigin.Begin);
+            for (var j = 0; j < dataCount; j++)
+            {
+                var flag = primitiveType & 0xeff; // Not sure if bit 8 is *supposed* to be presets, or something else.
+
+                var packetStructure = TMDHelper.CreateHMDPacketStructure(driver, flag, reader);
+                if (packetStructure != null)
+                {
+                    switch (packetStructure.PrimitiveType)
+                    {
+                        case PrimitiveType.Triangle:
+                        case PrimitiveType.Quad:
+                        case PrimitiveType.StripMesh:
+                            TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, false,
+                                index => {
+                                    return ReadVertex(reader, vertTop, index);
+                                },
+                                index => {
+                                    return ReadNormal(reader, normTop, index);
+                                });
+                            break;
+                    }
+                }
+            }
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+        }
+
+        private void ProcessDeviceData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer)
+        {
+            var position = reader.BaseStream.Position;
+            // Note: with coordPointers, we need to find out coordTop to get the actual coordinate indices.
+            // This can be calculated ahead of time and passed to ProcessPrimitive.
+            ProcessDevicePrimitiveHeader(reader, primitiveHeaderPointer, out var paramTop, out var posCoordPointer, out var refCoordPointer);
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+
+            if (primitiveType == 0x100) // Camera
+            {
+                // Driver: 0-Projection, 1-World camera, 2-Fix camera, 3-Aim camera
+
+                // Read parameters
+                // There is no paramIndex for cameras. The only difference is usually posCoordPointer, and refCoordPointer.
+                reader.BaseStream.Seek(_offset + paramTop, SeekOrigin.Begin);
+                var proj = reader.ReadInt32();
+                var rot = (float)(reader.ReadInt32() / 4096.0 * (Math.PI * 2.0));
+                var vx = reader.ReadInt32(); // Position of camera
+                var vy = reader.ReadInt32();
+                var vz = reader.ReadInt32();
+                var rx = reader.ReadInt32(); // Position of target
+                var ry = reader.ReadInt32();
+                var rz = reader.ReadInt32();
+            }
+            else if (primitiveType == 0x200) // Light
+            {
+                // Driver: 0-Ambient color, 1-World light, 2-Fix light, 3-Aim light
+                var lightID = reader.ReadUInt16();
+                var paramIndex = reader.ReadUInt16();
+
+                // Read parameters
+                reader.BaseStream.Seek(_offset + paramTop + paramIndex * 4, SeekOrigin.Begin);
+                var r = reader.ReadByte();
+                var g = reader.ReadByte();
+                var b = reader.ReadByte();
+                reader.ReadByte(); //pad
+                if (driver != 0) // Not ambient light
+                {
+                    var vx = reader.ReadInt32(); // Position of light
+                    var vy = reader.ReadInt32();
+                    var vz = reader.ReadInt32();
+                    var rx = reader.ReadInt32(); // Position of target
+                    var ry = reader.ReadInt32();
+                    var rz = reader.ReadInt32();
+                }
+            }
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+        }
+
         private void ProcessGeometryPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint vertTop, out uint normTop, out uint coordTop, out uint dataTop)
         {
             var position = reader.BaseStream.Position;
@@ -1205,15 +1337,10 @@ namespace PSXPrev.Classes
 
             var headerSize = reader.ReadUInt32();
 
-            ReadMappedValue(reader, out var dataTopMapped, out dataTop);
-            ReadMappedValue(reader, out var vertTopMapped, out vertTop);
-            ReadMappedValue(reader, out var normTopMaped, out normTop);
-            ReadMappedValue(reader, out var coordTopMapped, out coordTop);
-
-            dataTop *= 4;
-            vertTop *= 4;
-            normTop *= 4;
-            coordTop *= 4;
+            ReadMappedPointer(reader, out var dataTopMapped, out dataTop);
+            ReadMappedPointer(reader, out var vertTopMapped, out vertTop);
+            ReadMappedPointer(reader, out var normTopMaped, out normTop);
+            ReadMappedPointer(reader, out var coordTopMapped, out coordTop);
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
@@ -1226,19 +1353,12 @@ namespace PSXPrev.Classes
 
             var headerSize = reader.ReadUInt32();
 
-            ReadMappedValue(reader, out var dataTopMapped, out dataTop);
-            ReadMappedValue(reader, out var vertTopMapped, out vertTop);
-            ReadMappedValue(reader, out var calcVertTopMapped, out calcVertTop);
-            ReadMappedValue(reader, out var normTopMaped, out normTop);
-            ReadMappedValue(reader, out var calcNormTopMaped, out calcNormTop);
-            ReadMappedValue(reader, out var coordTopMapped, out coordTop);
-
-            dataTop *= 4;
-            vertTop *= 4;
-            calcVertTop *= 4;
-            normTop *= 4;
-            calcNormTop *= 4;
-            coordTop *= 4;
+            ReadMappedPointer(reader, out var dataTopMapped, out dataTop);
+            ReadMappedPointer(reader, out var vertTopMapped, out vertTop);
+            ReadMappedPointer(reader, out var calcVertTopMapped, out calcVertTop);
+            ReadMappedPointer(reader, out var normTopMaped, out normTop);
+            ReadMappedPointer(reader, out var calcNormTopMaped, out calcNormTop);
+            ReadMappedPointer(reader, out var coordTopMapped, out coordTop);
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
@@ -1251,11 +1371,8 @@ namespace PSXPrev.Classes
 
             var headerSize = reader.ReadUInt32();
 
-            ReadMappedValue(reader, out var imageTopMapped, out imageTop);
-            ReadMappedValue(reader, out var clutTopMapped, out clutTop);
-
-            imageTop *= 4;
-            clutTop *= 4;
+            ReadMappedPointer(reader, out var imageTopMapped, out imageTop);
+            ReadMappedPointer(reader, out var clutTopMapped, out clutTop);
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
@@ -1268,19 +1385,27 @@ namespace PSXPrev.Classes
 
             var headerSize = reader.ReadUInt32();
             var animHeaderSize = reader.ReadUInt32();
+            if (animHeaderSize > Program.MaxHMDHeaderLength)
+            {
+                // todo: We aren't setup to signal failure in this function, so just correct the issue.
+                animHeaderSize = (uint)Program.MaxHMDHeaderLength;
+            }
+            if (animHeaderSize > headerSize)
+            {
+                // todo: We aren't setup to signal failure in this function.
+            }
 
             sectionList = new uint[animHeaderSize];
             sectionList[0] = animHeaderSize; // Not a valid section index.
             for (var i = 1; i < animHeaderSize; i++)
             {
-                ReadMappedValue(reader, out _, out sectionList[i]);
-                sectionList[i] *= 4;
+                ReadMappedPointer(reader, out _, out sectionList[i]);
             }
 
-            interpTop = (headerSize >= 2 ? sectionList[1] : 0u);
-            ctrlTop   = (headerSize >= 3 ? sectionList[2] : 0u);
-            paramTop  = (headerSize >= 4 ? sectionList[3] : 0u);
-            coordTop  = (headerSize >= 5 ? sectionList[4] : 0u);
+            interpTop = (animHeaderSize >= 2 ? sectionList[1] : 0u);
+            ctrlTop   = (animHeaderSize >= 3 ? sectionList[2] : 0u);
+            paramTop  = (animHeaderSize >= 4 ? sectionList[3] : 0u);
+            coordTop  = (animHeaderSize >= 5 ? sectionList[4] : 0u);
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
@@ -1300,29 +1425,22 @@ namespace PSXPrev.Classes
 
             reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
 
-            var headLen = reader.ReadUInt32();
+            var headerSize = reader.ReadUInt32();
 
-            //ReadMappedValue(reader, out var coordTopMapped, out coordTop);
-            //coordTop *= 4;
+            //ReadMappedPointer(reader, out var coordTopMapped, out coordTop);
 
             coordTop = 0;
 
-            ReadMappedValue(reader, out var mimeTopMapped, out mimeTop);
-            mimeTop *= 4;
+            ReadMappedPointer(reader, out var mimeTopMapped, out mimeTop);
 
             var mimeNum = reader.ReadUInt32();
             var mimeId = reader.ReadUInt16();
             reader.ReadUInt16();
 
-            ReadMappedValue(reader, out var mimeDiffTopMapped, out mimeDiffTop);
-            ReadMappedValue(reader, out var mimeOrgTopMapped, out mimeOrgTop);
-            ReadMappedValue(reader, out var mimeVertTopMapped, out mimeVertTop);
-            ReadMappedValue(reader, out var mimeNormTopMapped, out mimeNormTop);
-
-            mimeDiffTop *= 4;
-            mimeOrgTop *= 4;
-            mimeVertTop *= 4;
-            mimeNormTop *= 4;
+            ReadMappedPointer(reader, out var mimeDiffTopMapped, out mimeDiffTop);
+            ReadMappedPointer(reader, out var mimeOrgTopMapped, out mimeOrgTop);
+            ReadMappedPointer(reader, out var mimeVertTopMapped, out mimeVertTop);
+            ReadMappedPointer(reader, out var mimeNormTopMapped, out mimeNormTop);
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
@@ -1338,24 +1456,43 @@ namespace PSXPrev.Classes
 
             var headerSize = reader.ReadUInt32();
 
-            ReadMappedValue(reader, out var polyTopMapped, out polyTop);
-            ReadMappedValue(reader, out var gridTopMapped, out gridTop);
-            ReadMappedValue(reader, out var vertTopMapped, out vertTop);
-            ReadMappedValue(reader, out var normTopMapped, out normTop);
-            polyTop *= 4;
-            gridTop *= 4;
-            vertTop *= 4;
-            normTop *= 4;
+            ReadMappedPointer(reader, out var polyTopMapped, out polyTop);
+            ReadMappedPointer(reader, out var gridTopMapped, out gridTop);
+            ReadMappedPointer(reader, out var vertTopMapped, out vertTop);
+            ReadMappedPointer(reader, out var normTopMapped, out normTop);
 
             if (headerSize >= 5)
             {
-                ReadMappedValue(reader, out var uvTopMapped, out uvTop);
-                uvTop *= 4;
+                ReadMappedPointer(reader, out var uvTopMapped, out uvTop);
             }
             if (headerSize >= 6)
             {
-                ReadMappedValue(reader, out var coordTopMapped, out coordTop);
-                coordTop *= 4;
+                ReadMappedPointer(reader, out var coordTopMapped, out coordTop);
+            }
+
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+        }
+
+        private void ProcessDevicePrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint paramTop, out uint posCoordPointer, out uint refCoordPointer)
+        {
+            var position = reader.BaseStream.Position;
+
+            reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
+
+            posCoordPointer = 0;
+            refCoordPointer = 0;
+
+            var headerSize = reader.ReadUInt32();
+
+            ReadMappedPointer(reader, out var paramTopMapped, out paramTop); // Light only
+
+            if (headerSize >= 2)
+            {
+                ReadMappedPointer(reader, out var posCoordPointerMapped, out posCoordPointer); // Fix and Aim only
+            }
+            if (headerSize >= 3)
+            {
+                ReadMappedPointer(reader, out var refCoordPointerMapped, out refCoordPointer); // Aim only
             }
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
