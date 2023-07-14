@@ -57,7 +57,7 @@ namespace PSXPrev.Classes
                     continue;
                 }
                 var blockTop = reader.BaseStream.Position;
-                ProcessPrimitive(reader, modelEntities, animations, textures, i, primitiveSetTop, primitiveHeaderTop, ref sharedIndex);
+                ProcessPrimitive(reader, modelEntities, animations, textures, i, primitiveSetTop, primitiveHeaderTop, blockCount, ref sharedIndex);
                 reader.BaseStream.Seek(blockTop, SeekOrigin.Begin);
             }
             RootEntity rootEntity;
@@ -207,7 +207,7 @@ namespace PSXPrev.Classes
             return matrix;
         }
 
-        private void ProcessPrimitive(BinaryReader reader, List<ModelEntity> modelEntities, List<Animation> animations, List<Texture> textures, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop, ref uint sharedIndex)
+        private void ProcessPrimitive(BinaryReader reader, List<ModelEntity> modelEntities, List<Animation> animations, List<Texture> textures, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop, uint blockCount, ref uint sharedIndex)
         {
             var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
             var sharedVertices = new Dictionary<uint, Vector3>();
@@ -333,7 +333,7 @@ namespace PSXPrev.Classes
                         }
                         try
                         {
-                            var addedAnimations = ProcessAnimationData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, dataCount);
+                            var addedAnimations = ProcessAnimationData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, dataCount, blockCount);
                             if (addedAnimations != null)
                             {
                                 foreach (var animation in addedAnimations)
@@ -347,7 +347,7 @@ namespace PSXPrev.Classes
                             // Animation support is still experimental, continue reading HMD models even if we fail here.
                             //if (Program.Debug)
                             //{
-                            //    Program.Logger.WriteLine(exp);
+                            //    Program.Logger.WriteErrorLine(exp);
                             //}
                         }
                     }
@@ -689,7 +689,7 @@ namespace PSXPrev.Classes
             reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
         }
 
-        private List<Animation> ProcessAnimationData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint dataCount)
+        private List<Animation> ProcessAnimationData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint dataCount, uint blockCount)
         {
             var primitivePosition = reader.BaseStream.Position;
             ProcessAnimationPrimitiveHeader(reader, primitiveHeaderPointer, out var interpTop, out var ctrlTop, out var paramTop, out var coordTop, out var sectionList);
@@ -720,18 +720,26 @@ namespace PSXPrev.Classes
                 }
                 return frame;
             }
-            AnimationObject GetAnimationObject(int index, uint objectId)
+            AnimationObject GetAnimationObject(int index, uint objectId, bool add)
             {
                 while (index >= animationObjectsList.Count)
                 {
                     animationObjectsList.Add(new Dictionary<uint, AnimationObject>());
                 }
-                if (animationObjectsList[index].ContainsKey(objectId))
+                var tmdid = objectId; // TMDID and objectId are the same.
+                while (animationObjectsList[index].ContainsKey(objectId))
                 {
-                    return animationObjectsList[index][objectId];
+                    if (!add)
+                    {
+                        return animationObjectsList[index][objectId];
+                    }
+                    // Another animation object exists that modifies the same TMDID.
+                    // This and the other object run in parallel.
+                    // We need a new objectId.
+                    objectId += blockCount;
                 }
                 var animationObject = new AnimationObject { Animation = animationList[index], ID = objectId };
-                animationObject.TMDID.Add(objectId); // TMDID and objectId are the same.
+                animationObject.TMDID.Add(tmdid);
                 animationObjectsList[index].Add(objectId, animationObject);
                 return animationObject;
             }
@@ -844,7 +852,7 @@ namespace PSXPrev.Classes
                         animation.FPS = 25f * (Math.Abs(speed) / 16f); // todo: Should we really rely on this?
                     }
 
-                    var animationObject = GetAnimationObject(j, tmdid);
+                    var animationObject = GetAnimationObject(j, tmdid, true);
 
                     AnimationFrame lastAnimationFrame = null;
                     uint lastTFrame = 0;
@@ -918,7 +926,7 @@ namespace PSXPrev.Classes
 
                             // Don't overwrite the last animation frame when we run into a chain of TFrame==0 instructions.
                             // Only overwrite once we encounter an instruction where TFrame!=0.
-                            if (lastTFrame == 0 && nextTFrame != 0)
+                            if (lastAnimationFrame != null && lastTFrame == 0 && nextTFrame != 0)
                             {
                                 animationObject.AnimationFrames[time] = lastAnimationFrame;
                             }
