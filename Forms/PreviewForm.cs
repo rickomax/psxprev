@@ -35,12 +35,15 @@ namespace PSXPrev
         private bool _inAnimationTab;
         private float _lastMouseX;
         private float _lastMouseY;
+        private bool _shiftKeyDown;
+        private bool _controlKeyDown;
         private GLControl _openTkControl;
         private Vector3 _pickedPosition;
         private bool _playing;
         private Timer _redrawTimer;
         private readonly Scene _scene;
         private Scene.GizmoId _selectedGizmo;
+        private Tuple<ModelEntity, Triangle> _selectedTriangle;
         private ModelEntity _selectedModelEntity;
         private RootEntity _selectedRootEntity;
         private EntitySelectionSource _selectionSource;
@@ -186,11 +189,11 @@ namespace PSXPrev
             }
             else
             {
-                if (entitiesTreeView.Nodes.Count > 0)
+                // Don't select the first model if we already have a selection.
+                // Doing that would interrupt the user.
+                if (entitiesTreeView.SelectedNode == null && _rootEntities.Count > 0)
                 {
-                    // I don't think the user will necessarily want the entity checked too.
-                    //entitiesTreeView.Nodes[0].Checked = true;
-                    entitiesTreeView.SelectedNode = entitiesTreeView.Nodes[0];
+                    SelectEntity(_rootEntities[0], true); // Select and focus
                 }
             }
         }
@@ -427,24 +430,61 @@ namespace PSXPrev
             MessageBox.Show("Textures exported");
         }
 
-        private void SelectEntity(EntityBase entity)
+        private void SelectEntity(EntityBase entity, bool focus = false)
         {
-            _selectionSource = EntitySelectionSource.Click;
+            if (!focus)
+            {
+                _selectionSource = EntitySelectionSource.Click;
+            }
+            TreeNode newNode = null;
             if (entity is RootEntity rootEntity)
             {
                 var rootIndex = _rootEntities.IndexOf(rootEntity);
-                entitiesTreeView.SelectedNode = entitiesTreeView.Nodes[rootIndex];
+                newNode = entitiesTreeView.Nodes[rootIndex];
             }
-            else
+            else if (entity != null)
             {
                 if (entity.ParentEntity is RootEntity rootEntityFromSub)
                 {
                     var rootIndex = _rootEntities.IndexOf(rootEntityFromSub);
                     var rootNode = entitiesTreeView.Nodes[rootIndex];
                     var subIndex = Array.IndexOf(rootEntityFromSub.ChildEntities, entity);
-                    entitiesTreeView.SelectedNode = rootNode.Nodes[subIndex];
+                    newNode = rootNode.Nodes[subIndex];
                 }
             }
+            if (newNode != null && newNode == entitiesTreeView.SelectedNode)
+            {
+                // entitiesTreeView_AfterSelect won't be called. Reset the selection source.
+                _selectionSource = EntitySelectionSource.None;
+                if (entity != null)
+                {
+                    UnselectTriangle();
+                }
+            }
+            else
+            {
+                entitiesTreeView.SelectedNode = newNode;
+            }
+        }
+
+        private void SelectTriangle(Tuple<ModelEntity, Triangle> triangle)
+        {
+            if (_selectedTriangle?.Item2 != triangle?.Item2)
+            {
+                _selectedTriangle = triangle;
+                UpdateSelectedTriangle();
+                UpdateModelPropertyGrid();
+            }
+        }
+
+        private void UnselectTriangle()
+        {
+            SelectTriangle(null);
+        }
+
+        private bool IsTriangleSelectMode()
+        {
+            return _shiftKeyDown;
         }
 
         private void openTkControl_MouseEvent(MouseEventArgs e, MouseEventType eventType)
@@ -489,10 +529,29 @@ namespace PSXPrev
                             {
                                 rootEntity = _selectedModelEntity.GetRootEntity();
                             }
-                            var newSelectedEntity = _scene.GetEntityUnderMouse(checkedEntities, rootEntity, e.Location.X, e.Location.Y, controlWidth, controlHeight);
-                            if (newSelectedEntity != null)
+                            if (IsTriangleSelectMode())
                             {
-                                SelectEntity(newSelectedEntity);
+                                var newSelectedTriangle = _scene.GetTriangleUnderMouse(checkedEntities, rootEntity, e.Location.X, e.Location.Y, controlWidth, controlHeight);
+                                if (newSelectedTriangle != null)
+                                {
+                                    SelectTriangle(newSelectedTriangle);
+                                }
+                                else
+                                {
+                                    UnselectTriangle();
+                                }
+                            }
+                            else
+                            {
+                                var newSelectedEntity = _scene.GetEntityUnderMouse(checkedEntities, rootEntity, e.Location.X, e.Location.Y, controlWidth, controlHeight);
+                                if (newSelectedEntity != null)
+                                {
+                                    SelectEntity(newSelectedEntity, false);
+                                }
+                                else
+                                {
+                                    UnselectTriangle();
+                                }
                             }
                         }
                         else
@@ -605,8 +664,20 @@ namespace PSXPrev
             {
                 _selectedRootEntity = selectedNode.Tag as RootEntity;
                 _selectedModelEntity = selectedNode.Tag as ModelEntity;
+                UnselectTriangle();
             }
             UpdateSelectedEntity();
+        }
+
+        private void entitiesTreeView_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
+        {
+            // handle unselecting triangle when clicking on a node in the tree view if that node is already selected.
+            if (e.Node != null)
+            {
+                // Removed for now, because this also triggers when pressing
+                // the expand button (which doesn't perform selection).
+                //UnselectTriangle();
+            }
         }
 
         private void UpdateGizmos(Scene.GizmoId selectedGizmo = Scene.GizmoId.None, Scene.GizmoId hoveredGizmo = Scene.GizmoId.None, bool updateMeshData = true)
@@ -644,20 +715,45 @@ namespace PSXPrev
             if (selectedEntityBase != null)
             {
                 selectedEntityBase.ComputeBoundsRecursively();
-                modelPropertyGrid.SelectedObject = selectedEntityBase;
                 var checkedEntities = GetCheckedEntities();
                 _scene.BoundsBatch.SetupEntityBounds(selectedEntityBase);
                 _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, _selectedModelEntity, _selectedRootEntity, _scene.TextureBinder, updateMeshData || _scene.AutoAttach, _selectionSource == EntitySelectionSource.TreeView && _selectedModelEntity == null);
             }
             else
             {
-                modelPropertyGrid.SelectedObject = null;
                 _scene.MeshBatch.Reset(0);
                 _selectedGizmo = Scene.GizmoId.None;
                 _hoveredGizmo = Scene.GizmoId.None;
             }
+            UpdateSelectedTriangle();
+            UpdateModelPropertyGrid();
             UpdateGizmos(_selectedGizmo, _hoveredGizmo, updateMeshData);
             _selectionSource = EntitySelectionSource.None;
+        }
+
+        private void UpdateSelectedTriangle()
+        {
+            _scene.TriangleOutlineBatch.Reset();
+            if (_selectedTriangle != null)
+            {
+                _scene.TriangleOutlineBatch.SetupTriangleOutline(_selectedTriangle.Item2, _selectedTriangle.Item1.WorldMatrix);
+            }
+        }
+
+        private void UpdateModelPropertyGrid()
+        {
+            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+
+            object propertyObject = null;
+            if (_selectedTriangle != null)
+            {
+                propertyObject = _selectedTriangle.Item2;
+            }
+            else if (selectedEntityBase != null)
+            {
+                propertyObject = selectedEntityBase;
+            }
+            modelPropertyGrid.SelectedObject = propertyObject;
         }
 
         private void UpdateSelectedAnimation()
@@ -1293,6 +1389,12 @@ namespace PSXPrev
             Wheel
         }
 
+        private enum KeyEventType
+        {
+            Down,
+            Up,
+        }
+
         private enum EntitySelectionSource
         {
             None,
@@ -1353,6 +1455,33 @@ namespace PSXPrev
         private void pauseScanningToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             Program.HaltRequested = pauseScanningToolStripMenuItem.Checked;
+        }
+
+        private void previewForm_KeyDown(object sender, KeyEventArgs e)
+        {
+            previewForm_KeyEvent(e, KeyEventType.Down);
+        }
+
+        private void previewForm_KeyUp(object sender, KeyEventArgs e)
+        {
+            previewForm_KeyEvent(e, KeyEventType.Up);
+        }
+
+        private void previewForm_KeyEvent(KeyEventArgs e, KeyEventType eventType)
+        {
+            if (eventType == KeyEventType.Down || eventType == KeyEventType.Up)
+            {
+                var state = eventType == KeyEventType.Down;
+                switch (e.KeyCode)
+                {
+                    case Keys.ShiftKey:
+                        _shiftKeyDown = state;
+                        break;
+                    case Keys.ControlKey:
+                        _controlKeyDown = state;
+                        break;
+                }
+            }
         }
     }
 }

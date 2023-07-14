@@ -9,6 +9,9 @@ namespace PSXPrev.Classes
         // Default flags for when a reader doesn't assign any.
         public const RenderFlags DefaultRenderFlags = RenderFlags.DoubleSided;
 
+
+        private Triangle[] _triangles;
+
         [DisplayName("VRAM Page")]
         public uint TexturePage { get; set; }
         
@@ -22,7 +25,21 @@ namespace PSXPrev.Classes
         public int TrianglesCount => Triangles.Length;
 
         [Browsable(false)]
-        public Triangle[] Triangles { get; set; }
+        public Triangle[] Triangles
+        {
+            get => _triangles;
+            set
+            {
+                if (value != null)
+                {
+                    for (var i = 0; i < value.Length; i++)
+                    {
+                        value[i].ParentEntity = this;
+                    }
+                }
+                _triangles = value;
+            }
+        }
 
         [Browsable(false)]
         public Texture Texture { get; set; }

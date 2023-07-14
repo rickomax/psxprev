@@ -242,6 +242,7 @@
             this.entitiesTreeView.TabIndex = 9;
             this.entitiesTreeView.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.entitiesTreeView_AfterCheck);
             this.entitiesTreeView.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.entitiesTreeView_AfterSelect);
+            this.entitiesTreeView.NodeMouseClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.entitiesTreeView_NodeMouseClick);
             // 
             // tableLayoutPanel5
             // 
@@ -1346,11 +1347,14 @@
             this.Controls.Add(this.statusStrip1);
             this.Controls.Add(this.mainMenuStrip);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
+            this.KeyPreview = true;
             this.MainMenuStrip = this.mainMenuStrip;
             this.Name = "PreviewForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "PSXPrev";
             this.Load += new System.EventHandler(this.previewForm_Load);
+            this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.previewForm_KeyDown);
+            this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.previewForm_KeyUp);
             this.entitiesTabPage.ResumeLayout(false);
             this.modelsSplitContainer.Panel1.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).EndInit();

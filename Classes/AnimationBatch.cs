@@ -20,6 +20,7 @@ namespace PSXPrev.Classes
             var objectCount = animation.ObjectCount;
             _scene.MeshBatch.Reset(objectCount + 1);
             _scene.BoundsBatch.Reset();
+            _scene.TriangleOutlineBatch.Reset();
             _scene.SkeletonBatch.Reset();
             _scene.GizmosMeshBatch.Reset(0);
             _animation = animation;

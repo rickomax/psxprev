@@ -95,7 +95,7 @@ namespace PSXPrev.Classes
             var projInv = Matrix4.Invert(projection);
             Vector4.Transform(ref vec, ref projInv, out vec);
             Vector4.Transform(ref vec, ref viewInv, out vec);
-            if (vec.W > 0.000001f || vec.W < -0.000001f)
+            if (Math.Abs(vec.W) > 0.000001f)
             {
                 vec.X /= vec.W;
                 vec.Y /= vec.W;
@@ -107,7 +107,7 @@ namespace PSXPrev.Classes
         public static Vector3 ProjectOnNormal(this Vector3 vector, Vector3 normal)
         {
             var num = Vector3.Dot(normal, normal);
-            if (num < Double.Epsilon)
+            if (num < float.Epsilon)
             {
                 return Vector3.Zero;
             }
@@ -147,8 +147,58 @@ namespace PSXPrev.Classes
             var diff = rayOrigin - planeOrigin;
             var prod1 = Vector3.Dot(diff, planeNormal);
             var prod2 = Vector3.Dot(rayDirection, planeNormal);
-            var prod3 = prod1 / prod2;
-            return rayOrigin - rayDirection * prod3;
+            var intersectionDistance = -prod1 / prod2;
+            return rayOrigin + rayDirection * intersectionDistance;
+        }
+
+        public static float TriangleIntersect(Vector3 rayOrigin, Vector3 rayDirection, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, bool front = true, bool back = true)
+        {
+            // Find plane normal, intersection, and intersection distance.
+            // We don't need to normalize this.
+            var planeNormal = Vector3.Cross((vertex1 - vertex0), (vertex2 - vertex0));
+
+            // Find distance to intersection.
+            var diff = rayOrigin - vertex0;
+            var prod1 = Vector3.Dot(diff, planeNormal);
+            var prod2 = Vector3.Dot(rayDirection, planeNormal);
+            if (Math.Abs(prod2) <= 0.000001f)
+            {
+                return -1f; // Ray and plane are parallel.
+            }
+            if ((!front && prod2 > 0f) || (!back && prod2 < 0f))
+            {
+                return -1f; // Ray intersects from a side we don't want to intersect with.
+            }
+            var intersectionDistance = -prod1 / prod2;
+            if (intersectionDistance < 0f)
+            {
+                return -1f; // Triangle is behind the ray.
+            }
+            
+            var planeIntersection = rayOrigin + rayDirection * intersectionDistance;
+
+
+            // Perform inside-outside test. Dot product is less than 0 if planeIntersection lies outside of the edge.
+            var edge0 = vertex1 - vertex0;
+            var C0 = planeIntersection - vertex0;
+            if (Vector3.Dot(Vector3.Cross(edge0, C0), planeNormal) < 0f)
+            {
+                return -1f;
+            }
+            var edge1 = vertex2 - vertex1;
+            var C1 = planeIntersection - vertex1;
+            if (Vector3.Dot(Vector3.Cross(edge1, C1), planeNormal) < 0f)
+            {
+                return -1f;
+            }
+            var edge2 = vertex0 - vertex2;
+            var C2 = planeIntersection - vertex2;
+            if (Vector3.Dot(Vector3.Cross(edge2, C2), planeNormal) < 0f)
+            {
+                return -1f;
+            }
+
+            return intersectionDistance;
         }
 
         public static void GetBoxMinMax(Vector3 center, Vector3 size, out Vector3 outMin, out Vector3 outMax, Matrix4? matrix = null)
