@@ -586,7 +586,7 @@ namespace PSXPrev
                     if (mouseLeft && eventType == MouseEventType.Move && selectedEntityBase != null)
                     {
                         var pickedPosition = _scene.GetPickedPosition(-_scene.CameraDirection);
-                        var projectedOffset = (pickedPosition - _pickedPosition).ProjectOnNormal(GeomUtils.XVector);
+                        var projectedOffset = (pickedPosition - _pickedPosition).ProjectOnNormal(Vector3.UnitX);
                         selectedEntityBase.PositionX += projectedOffset.X;
                         selectedEntityBase.PositionY += projectedOffset.Y;
                         selectedEntityBase.PositionZ += projectedOffset.Z;
@@ -603,7 +603,7 @@ namespace PSXPrev
                     if (mouseLeft && eventType == MouseEventType.Move && selectedEntityBase != null)
                     {
                         var pickedPosition = _scene.GetPickedPosition(-_scene.CameraDirection);
-                        var projectedOffset = (pickedPosition - _pickedPosition).ProjectOnNormal(GeomUtils.YVector);
+                        var projectedOffset = (pickedPosition - _pickedPosition).ProjectOnNormal(Vector3.UnitY);
                         selectedEntityBase.PositionX += projectedOffset.X;
                         selectedEntityBase.PositionY += projectedOffset.Y;
                         selectedEntityBase.PositionZ += projectedOffset.Z;
@@ -620,7 +620,7 @@ namespace PSXPrev
                     if (mouseLeft && eventType == MouseEventType.Move && selectedEntityBase != null)
                     {
                         var pickedPosition = _scene.GetPickedPosition(-_scene.CameraDirection);
-                        var projectedOffset = (pickedPosition - _pickedPosition).ProjectOnNormal(GeomUtils.ZVector);
+                        var projectedOffset = (pickedPosition - _pickedPosition).ProjectOnNormal(Vector3.UnitZ);
                         selectedEntityBase.PositionX += projectedOffset.X;
                         selectedEntityBase.PositionY += projectedOffset.Y;
                         selectedEntityBase.PositionZ += projectedOffset.Z;

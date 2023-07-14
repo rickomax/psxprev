@@ -93,6 +93,10 @@ namespace PSXPrev.Classes
         [Browsable(false)]
         public uint[] AttachedNormalIndices { get; set; }
 
+        // Cache of already-attached entities/vertices to speed up FixConnections.
+        [Browsable(false)]
+        public Tuple<EntityBase, Vector3>[] AttachedCache { get; set; }
+
         [Browsable(false)]
         public float IntersectionDistance { get; set; }
 
