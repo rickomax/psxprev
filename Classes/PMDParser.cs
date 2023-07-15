@@ -130,7 +130,7 @@ namespace PSXPrev.Classes
                             default:
                                 if (Program.Debug)
                                 {
-                                    Program.Logger.WriteErrorLine("Unknown primitive:" + primType);
+                                    Program.Logger.WriteErrorLine($"Unknown primitive:{primType}");
                                 }
                                 goto EndObject;
                         }

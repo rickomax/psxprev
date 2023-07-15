@@ -345,10 +345,10 @@ namespace PSXPrev.Classes
                         catch (Exception exp)
                         {
                             // Animation support is still experimental, continue reading HMD models even if we fail here.
-                            //if (Program.Debug)
-                            //{
-                            //    Program.Logger.WriteErrorLine(exp);
-                            //}
+                            if (Program.ShowErrors)
+                            {
+                                Program.Logger.WriteExceptionLine(exp, $"Error reading {FormatName} animation {AtOffsetString}");
+                            }
                         }
                     }
                     else if (category == 4)
@@ -601,7 +601,7 @@ namespace PSXPrev.Classes
             var nx = TMDHelper.ConvertNormal(reader.ReadInt16());
             var ny = TMDHelper.ConvertNormal(reader.ReadInt16());
             var nz = TMDHelper.ConvertNormal(reader.ReadInt16());
-            var pad = FInt.Create(reader.ReadInt16());
+            var pad = reader.ReadInt16();
             var normal = new Vector3(nx, ny, nz);
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
             return normal;
@@ -770,7 +770,7 @@ namespace PSXPrev.Classes
                 // Not supported yet. This would be updates to individual vertices or normals.
                 if (Program.Debug)
                 {
-                    Program.Logger.WriteLine($"Unsupported animation TGT {tgt}");
+                    Program.Logger.WriteWarningLine($"Unsupported {FormatName} animation TGT {tgt}");
                 }
                 return null;
             }
@@ -795,7 +795,7 @@ namespace PSXPrev.Classes
                 {
                     if (Program.Debug)
                     {
-                        Program.Logger.WriteLine($"Invalid animation updateOffsetInSection {updateOffsetInSection}");
+                        Program.Logger.WriteErrorLine($"Invalid {FormatName} animation updateOffsetInSection {updateOffsetInSection}");
                     }
                     return null; // Coordinate offset starts before table, or offset is not aligned.
                 }
@@ -884,7 +884,7 @@ namespace PSXPrev.Classes
                             // todo: Handle animation loops that don't have the same frame lengths for different objects.
                             if (Program.Debug)
                             {
-                                Program.Logger.WriteLine($"Infinite loop in animation @{idx} #{sid}");
+                                Program.Logger.WriteLine($"Infinite loop in {FormatName} animation @{idx} #{sid}");
                             }
                             break;
                         }
@@ -940,7 +940,7 @@ namespace PSXPrev.Classes
                             {
                                 if (Program.Debug)
                                 {
-                                    Program.Logger.WriteLine($"Invalid/unsupported animation type 0x{animationType:x08} @{idx} #{sid}");
+                                    Program.Logger.WriteWarningLine($"Invalid/unsupported {FormatName} animation type 0x{animationType:x08} @{idx} #{sid}");
                                 }
                                 return null; // Unsupported animation packet.
                             }
@@ -1009,7 +1009,7 @@ namespace PSXPrev.Classes
             {
                 if (Program.Debug)
                 {
-                    Program.Logger.WriteLine($"Unsupported multiple speeds defined for different animation objects");
+                    Program.Logger.WriteWarningLine($"Unsupported multiple speeds defined for different {FormatName} animation objects");
                 }
             }
 

@@ -1,18 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
-using PSXPrev.Forms;
-using System.Threading.Tasks;
-using System.Text;
 using DiscUtils;
 using DiscUtils.Iso9660;
 using PSXPrev.Classes;
+using PSXPrev.Forms;
 
 namespace PSXPrev
 {
@@ -20,12 +21,12 @@ namespace PSXPrev
     {
         public class ScanOptions
         {
-            public bool CheckAll => !CheckAN && !CheckBFF && !CheckCROC && !CheckHMD && !CheckPMD && !CheckPSX && !CheckTIM && !CheckTMD && !CheckTOD && !CheckVDF;
+            public bool CheckAll => !CheckAN && !CheckBFF && !CheckHMD && !CheckMOD && !CheckPMD && !CheckPSX && !CheckTIM && !CheckTMD && !CheckTOD && !CheckVDF;
 
             public bool CheckAN { get; set; }
             public bool CheckBFF { get; set; }
-            public bool CheckCROC { get; set; }
             public bool CheckHMD { get; set; }
+            public bool CheckMOD { get; set; } // Previously called Croc
             public bool CheckPMD { get; set; }
             public bool CheckPSX { get; set; }
             public bool CheckTIM { get; set; }
@@ -38,8 +39,8 @@ namespace PSXPrev
             public bool LogToFile { get; set; }
             public bool NoVerbose { get; set; }
             public bool Debug { get; set; }
+            public bool ShowErrors { get; set; }
 
-            public bool SelectFirstModel { get; set; }
             public bool DrawAllToVRAM { get; set; }
             public bool AutoAttachLimbs { get; set; }
             public bool NoOffset { get; set; }
@@ -72,6 +73,7 @@ namespace PSXPrev
 
         public static bool IgnoreTmdVersion => _options.IgnoreTMDVersion;
         public static bool Debug => _options.Debug;
+        public static bool ShowErrors => _options.ShowErrors;
         public static bool LogToFile => _options.LogToFile;
         public static bool NoVerbose => _options.NoVerbose;
         public static bool NoOffset => _options.NoOffset;
@@ -107,7 +109,7 @@ namespace PSXPrev
         public static uint MaxANJoints = 512;
         public static uint MaxANFrames = 5000;
 
-        public  static bool HaltRequested; //Field used to pause/resume scanning
+        public static bool HaltRequested; //Field used to pause/resume scanning
 
         private static void Main(string[] args)
         {
@@ -119,10 +121,10 @@ namespace PSXPrev
             Console.ForegroundColor = ConsoleColor.White;
 
             Console.WriteLine("usage: PSXPrev <PATH> [FILTER=\"" + DefaultFilter + "\"] [-help]"  // general
-                + " [-an] [-bff] [-croc] [-hmd] [-pmd] [-psx] [-tim] [-tmd] [-tod] [-vdf]" // scanner formats (alphabetical)
+                + " [-an] [-bff] [-hmd] [-mod] [-pmd] [-psx] [-tim] [-tmd] [-tod] [-vdf]" // scanner formats (alphabetical)
                 + " [-ignoretmdversion]" // scanner options
-                + " [-log] [-noverbose] [-debug]" // log options
-                + " [-selectmodel] [-drawvram] [-attachlimbs] [-nooffset]" // program options
+                + " [-log] [-noverbose] [-debug] [-error]" // log options
+                + " [-drawvram] [-attachlimbs] [-nooffset]" // program options
                 );
 
             Console.ResetColor();
@@ -143,8 +145,8 @@ namespace PSXPrev
             Console.WriteLine("scanner options: (default: all formats)");
             Console.WriteLine("  -an    : scan for AN animations");
             Console.WriteLine("  -bff   : scan for BFF models");
-            Console.WriteLine("  -croc  : scan for Croc models");
             Console.WriteLine("  -hmd   : scan for HMD models, textures, and animations");
+            Console.WriteLine("  -mod   : scan for MOD models");
             Console.WriteLine("  -pmd   : scan for PMD models");
             Console.WriteLine("  -psx   : scan for PSX models");
             Console.WriteLine("  -tim   : scan for TIM textures");
@@ -157,10 +159,10 @@ namespace PSXPrev
             Console.WriteLine("  -log       : write output to log file");
             Console.WriteLine("  -noverbose : reduce output to console and file");
             Console.WriteLine("  -debug     : output file format details and other information");
+            Console.WriteLine("  -error     : show error messages when reading files");
             Console.WriteLine();
             Console.WriteLine("program options:");
             //Console.WriteLine("  -help        : show this help message"); // It's redundant to display this
-            Console.WriteLine("  -selectmodel : select and display the first-loaded model");
             Console.WriteLine("  -drawvram    : draw all loaded textures to VRAM (not advised when scanning a lot of files)");
             Console.WriteLine("  -attachlimbs : enable Auto Attach Limbs by default");
             Console.WriteLine("  -nooffset    : only scan files at offset 0");
@@ -202,11 +204,11 @@ namespace PSXPrev
                 case "-bff":
                     options.CheckBFF = true;
                     break;
-                case "-croc":
-                    options.CheckCROC = true;
-                    break;
                 case "-hmd":
                     options.CheckHMD = true;
+                    break;
+                case "-mod": // Previously called -croc
+                    options.CheckMOD = true;
                     break;
                 case "-pmd":
                     options.CheckPMD = true;
@@ -239,10 +241,10 @@ namespace PSXPrev
                 case "-debug":
                     options.Debug = true;
                     break;
-
-                case "-selectmodel":
-                    options.SelectFirstModel = true;
+                case "-error":
+                    options.ShowErrors = true;
                     break;
+
                 case "-drawvram":
                     options.DrawAllToVRAM = true;
                     break;
@@ -351,7 +353,7 @@ namespace PSXPrev
 
             if (!Directory.Exists(path) && !File.Exists(path))
             {
-                Program.Logger.WriteErrorLine("Directory/File not found: {0}", path);
+                Program.Logger.WriteErrorLine($"Directory/File not found: {path}");
                 return;
             }
 
@@ -401,13 +403,16 @@ namespace PSXPrev
 
             try
             {
-                //Program.Logger.WriteLine("");
+                //Program.Logger.WriteLine();
                 Program.Logger.WriteLine("Scan begin {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
+                Stopwatch watch = Stopwatch.StartNew();
 
                 ScanFiles();
 
-                //Program.Logger.WriteLine("");
-                Program.Logger.WriteLine("Scan End {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
+                //Program.Logger.WriteLine();
+                watch.Stop();
+                Program.Logger.WriteLine("Scan end {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
+                Program.Logger.WriteLine("Scan took {0} minutes and {1} seconds", (int)watch.Elapsed.TotalMinutes, watch.Elapsed.Seconds);
                 Program.Logger.WritePositiveLine("Found {0} Models", AllEntities.Count);
                 Program.Logger.WritePositiveLine("Found {0} Textures", AllTextures.Count);
                 Program.Logger.WritePositiveLine("Found {0} Animations", AllAnimations.Count);
@@ -415,10 +420,7 @@ namespace PSXPrev
                 PreviewForm.UpdateProgress(0, 0, true, $"{AllEntities.Count} Models, {AllTextures.Count} Textures, {AllAnimations.Count} Animations Found");
 
                 // Scan finished, perform end-of-scan actions specified by the user.
-                if (_options.SelectFirstModel)
-                {
-                    PreviewForm.SelectFirstEntity();
-                }
+                PreviewForm.SelectFirstEntity(); // Select something if the user hasn't already done so.
                 if (_options.DrawAllToVRAM)
                 {
                     PreviewForm.DrawAllTexturesToVRAM();
@@ -426,7 +428,7 @@ namespace PSXPrev
             }
             catch (Exception exp)
             {
-                Program.Logger.WriteErrorLine(exp);
+                Program.Logger.WriteExceptionLine(exp, "Error scanning files");
             }
 
             Scanning = false;
@@ -484,18 +486,18 @@ namespace PSXPrev
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var timParser = new TIMParser(AddTexture);
-                    //Program.Logger.WriteLine("");
+                    //Program.Logger.WriteLine();
                     timParser.ScanFile(binaryReader, fileTitle);
                 });
             }
 
-            if (_options.CheckAll || _options.CheckCROC)
+            if (_options.CheckAll || _options.CheckMOD)
             {
                 parsers.Add((binaryReader, fileTitle) =>
                 {
-                    var crocModelReader = new CrocModelReader(AddEntity);
-                    //Program.Logger.WriteLine("");
-                    crocModelReader.ScanFile(binaryReader, fileTitle);
+                    var modModelReader = new CrocModelReader(AddEntity);
+                    //Program.Logger.WriteLine();
+                    modModelReader.ScanFile(binaryReader, fileTitle);
                 });
             }
 
@@ -504,7 +506,7 @@ namespace PSXPrev
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var bffModelReader = new BFFModelReader(AddEntity);
-                    //Program.Logger.WriteLine("");
+                    //Program.Logger.WriteLine();
                     bffModelReader.ScanFile(binaryReader, fileTitle);
                 });
             }
@@ -514,7 +516,7 @@ namespace PSXPrev
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var psxParser = new PSXParser(AddEntity);
-                    //Program.Logger.WriteLine("");
+                    //Program.Logger.WriteLine();
                     psxParser.ScanFile(binaryReader, fileTitle);
                 });
             }
@@ -524,7 +526,7 @@ namespace PSXPrev
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var tmdParser = new TMDParser(AddEntity);
-                    //Program.Logger.WriteLine("");
+                    //Program.Logger.WriteLine();
                     tmdParser.ScanFile(binaryReader, fileTitle);
                 });
             }
@@ -534,7 +536,7 @@ namespace PSXPrev
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var vdfParser = new VDFParser(AddAnimation);
-                    //Program.Logger.WriteLine("");
+                    //Program.Logger.WriteLine();
                     vdfParser.ScanFile(binaryReader, fileTitle);
                 });
             }
@@ -544,7 +546,7 @@ namespace PSXPrev
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var anParser = new ANParser(AddAnimation);
-                    //Program.Logger.WriteLine("");
+                    //Program.Logger.WriteLine();
                     anParser.ScanFile(binaryReader, fileTitle);
                 });
             }
@@ -554,7 +556,7 @@ namespace PSXPrev
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var pmdParser = new PMDParser(AddEntity);
-                    //Program.Logger.WriteLine("");
+                    //Program.Logger.WriteLine();
                     pmdParser.ScanFile(binaryReader, fileTitle);
                 });
             }
@@ -564,7 +566,7 @@ namespace PSXPrev
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var todParser = new TODParser(AddAnimation);
-                    //Program.Logger.WriteLine("");
+                    //Program.Logger.WriteLine();
                     todParser.ScanFile(binaryReader, fileTitle);
                 });
             }
@@ -574,7 +576,7 @@ namespace PSXPrev
                 parsers.Add((binaryReader, fileTitle) =>
                 {
                     var hmdParser = new HMDParser(AddEntity, AddAnimation, AddTexture);
-                    //Program.Logger.WriteLine("");
+                    //Program.Logger.WriteLine();
                     hmdParser.ScanFile(binaryReader, fileTitle);
                 });
             }
@@ -683,7 +685,7 @@ namespace PSXPrev
                     }
                     catch (Exception exp)
                     {
-                        Program.Logger.WriteErrorLine(exp);
+                        Program.Logger.WriteExceptionLine(exp, "Error processing file");
                     }
                 }
             }

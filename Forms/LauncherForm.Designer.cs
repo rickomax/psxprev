@@ -30,32 +30,33 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(LauncherForm));
             this.groupBox1 = new System.Windows.Forms.GroupBox();
-            this.SelectFolderButton = new System.Windows.Forms.Button();
-            this.SelectISOButton = new System.Windows.Forms.Button();
-            this.SelectFileButton = new System.Windows.Forms.Button();
-            this.FilenameText = new System.Windows.Forms.TextBox();
+            this.selectFolderButton = new System.Windows.Forms.Button();
+            this.selectISOButton = new System.Windows.Forms.Button();
+            this.selectFileButton = new System.Windows.Forms.Button();
+            this.fileNameTextBox = new System.Windows.Forms.TextBox();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
-            this.FilterText = new System.Windows.Forms.TextBox();
+            this.filterTextBox = new System.Windows.Forms.TextBox();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
-            this.scanForAnCheckBox = new System.Windows.Forms.CheckBox();
-            this.psxCheckBox = new System.Windows.Forms.CheckBox();
-            this.crocCheckBox = new System.Windows.Forms.CheckBox();
-            this.PMDCheckBox = new System.Windows.Forms.CheckBox();
-            this.hmdCheckBox = new System.Windows.Forms.CheckBox();
-            this.TODCheckBox = new System.Windows.Forms.CheckBox();
-            this.TIMCheckBox = new System.Windows.Forms.CheckBox();
-            this.VDFCheckBox = new System.Windows.Forms.CheckBox();
-            this.TMDCheckBox = new System.Windows.Forms.CheckBox();
+            this.scanBFFCheckBox = new System.Windows.Forms.CheckBox();
+            this.scanANCheckBox = new System.Windows.Forms.CheckBox();
+            this.scanPSXCheckBox = new System.Windows.Forms.CheckBox();
+            this.scanMODCheckBox = new System.Windows.Forms.CheckBox();
+            this.scanPMDCheckBox = new System.Windows.Forms.CheckBox();
+            this.scanHMDCheckBox = new System.Windows.Forms.CheckBox();
+            this.scanTODCheckBox = new System.Windows.Forms.CheckBox();
+            this.scanTIMCheckBox = new System.Windows.Forms.CheckBox();
+            this.scanVDFCheckBox = new System.Windows.Forms.CheckBox();
+            this.scanTMDCheckBox = new System.Windows.Forms.CheckBox();
             this.groupBox4 = new System.Windows.Forms.GroupBox();
-            this.ignoreVersionCheckBox = new System.Windows.Forms.CheckBox();
-            this.DebugCheckBox = new System.Windows.Forms.CheckBox();
-            this.NoVerboseCheckBox = new System.Windows.Forms.CheckBox();
-            this.LogCheckBox = new System.Windows.Forms.CheckBox();
-            this.ScanButton = new System.Windows.Forms.Button();
-            this.scanForBffCheckBox = new System.Windows.Forms.CheckBox();
-            this.selectFirstModelCheckBox = new System.Windows.Forms.CheckBox();
-            this.drawAllToVRAMCheckBox = new System.Windows.Forms.CheckBox();
-            this.autoAttachLimbsCheckBox = new System.Windows.Forms.CheckBox();
+            this.optionNoOffsetCheckBox = new System.Windows.Forms.CheckBox();
+            this.optionShowErrorsCheckBox = new System.Windows.Forms.CheckBox();
+            this.optionAutoAttachLimbsCheckBox = new System.Windows.Forms.CheckBox();
+            this.optionDrawAllToVRAMCheckBox = new System.Windows.Forms.CheckBox();
+            this.optionIgnoreTMDVersionCheckBox = new System.Windows.Forms.CheckBox();
+            this.optionDebugCheckBox = new System.Windows.Forms.CheckBox();
+            this.optionNoVerboseCheckBox = new System.Windows.Forms.CheckBox();
+            this.optionLogToFileCheckBox = new System.Windows.Forms.CheckBox();
+            this.scanButton = new System.Windows.Forms.Button();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox3.SuspendLayout();
@@ -64,10 +65,10 @@
             // 
             // groupBox1
             // 
-            this.groupBox1.Controls.Add(this.SelectFolderButton);
-            this.groupBox1.Controls.Add(this.SelectISOButton);
-            this.groupBox1.Controls.Add(this.SelectFileButton);
-            this.groupBox1.Controls.Add(this.FilenameText);
+            this.groupBox1.Controls.Add(this.selectFolderButton);
+            this.groupBox1.Controls.Add(this.selectISOButton);
+            this.groupBox1.Controls.Add(this.selectFileButton);
+            this.groupBox1.Controls.Add(this.fileNameTextBox);
             this.groupBox1.Dock = System.Windows.Forms.DockStyle.Top;
             this.groupBox1.Location = new System.Drawing.Point(0, 0);
             this.groupBox1.Name = "groupBox1";
@@ -76,46 +77,46 @@
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Filename";
             // 
-            // SelectFolderButton
+            // selectFolderButton
             // 
-            this.SelectFolderButton.Location = new System.Drawing.Point(167, 45);
-            this.SelectFolderButton.Name = "SelectFolderButton";
-            this.SelectFolderButton.Size = new System.Drawing.Size(79, 23);
-            this.SelectFolderButton.TabIndex = 3;
-            this.SelectFolderButton.Text = "Select Folder";
-            this.SelectFolderButton.Click += new System.EventHandler(this.SelectFolderButton_Click);
+            this.selectFolderButton.Location = new System.Drawing.Point(167, 45);
+            this.selectFolderButton.Name = "selectFolderButton";
+            this.selectFolderButton.Size = new System.Drawing.Size(79, 23);
+            this.selectFolderButton.TabIndex = 3;
+            this.selectFolderButton.Text = "Select Folder";
+            this.selectFolderButton.Click += new System.EventHandler(this.selectFolderButton_Click);
             // 
-            // SelectISOButton
+            // selectISOButton
             // 
-            this.SelectISOButton.Location = new System.Drawing.Point(86, 45);
-            this.SelectISOButton.Name = "SelectISOButton";
-            this.SelectISOButton.Size = new System.Drawing.Size(75, 23);
-            this.SelectISOButton.TabIndex = 2;
-            this.SelectISOButton.Text = "Select ISO";
-            this.SelectISOButton.UseVisualStyleBackColor = true;
-            this.SelectISOButton.Click += new System.EventHandler(this.SelectISOButton_Click);
+            this.selectISOButton.Location = new System.Drawing.Point(86, 45);
+            this.selectISOButton.Name = "selectISOButton";
+            this.selectISOButton.Size = new System.Drawing.Size(75, 23);
+            this.selectISOButton.TabIndex = 2;
+            this.selectISOButton.Text = "Select ISO";
+            this.selectISOButton.UseVisualStyleBackColor = true;
+            this.selectISOButton.Click += new System.EventHandler(this.selectISOButton_Click);
             // 
-            // SelectFileButton
+            // selectFileButton
             // 
-            this.SelectFileButton.Location = new System.Drawing.Point(12, 45);
-            this.SelectFileButton.Name = "SelectFileButton";
-            this.SelectFileButton.Size = new System.Drawing.Size(68, 23);
-            this.SelectFileButton.TabIndex = 1;
-            this.SelectFileButton.Text = "Select File";
-            this.SelectFileButton.UseVisualStyleBackColor = true;
-            this.SelectFileButton.Click += new System.EventHandler(this.SelectFileButton_Click);
+            this.selectFileButton.Location = new System.Drawing.Point(12, 45);
+            this.selectFileButton.Name = "selectFileButton";
+            this.selectFileButton.Size = new System.Drawing.Size(68, 23);
+            this.selectFileButton.TabIndex = 1;
+            this.selectFileButton.Text = "Select File";
+            this.selectFileButton.UseVisualStyleBackColor = true;
+            this.selectFileButton.Click += new System.EventHandler(this.selectFileButton_Click);
             // 
-            // FilenameText
+            // fileNameTextBox
             // 
-            this.FilenameText.Location = new System.Drawing.Point(12, 19);
-            this.FilenameText.Name = "FilenameText";
-            this.FilenameText.Size = new System.Drawing.Size(360, 20);
-            this.FilenameText.TabIndex = 0;
-            this.FilenameText.TextChanged += new System.EventHandler(this.FilenameText_TextChanged);
+            this.fileNameTextBox.Location = new System.Drawing.Point(12, 19);
+            this.fileNameTextBox.Name = "fileNameTextBox";
+            this.fileNameTextBox.Size = new System.Drawing.Size(360, 20);
+            this.fileNameTextBox.TabIndex = 0;
+            this.fileNameTextBox.TextChanged += new System.EventHandler(this.fileNameTextBox_TextChanged);
             // 
             // groupBox2
             // 
-            this.groupBox2.Controls.Add(this.FilterText);
+            this.groupBox2.Controls.Add(this.filterTextBox);
             this.groupBox2.Dock = System.Windows.Forms.DockStyle.Top;
             this.groupBox2.Location = new System.Drawing.Point(0, 77);
             this.groupBox2.Name = "groupBox2";
@@ -124,26 +125,26 @@
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Filter";
             // 
-            // FilterText
+            // filterTextBox
             // 
-            this.FilterText.Location = new System.Drawing.Point(12, 21);
-            this.FilterText.Name = "FilterText";
-            this.FilterText.Size = new System.Drawing.Size(75, 20);
-            this.FilterText.TabIndex = 1;
-            this.FilterText.Text = "*.*";
+            this.filterTextBox.Location = new System.Drawing.Point(12, 21);
+            this.filterTextBox.Name = "filterTextBox";
+            this.filterTextBox.Size = new System.Drawing.Size(75, 20);
+            this.filterTextBox.TabIndex = 1;
+            this.filterTextBox.Text = "*.*";
             // 
             // groupBox3
             // 
-            this.groupBox3.Controls.Add(this.scanForBffCheckBox);
-            this.groupBox3.Controls.Add(this.scanForAnCheckBox);
-            this.groupBox3.Controls.Add(this.psxCheckBox);
-            this.groupBox3.Controls.Add(this.crocCheckBox);
-            this.groupBox3.Controls.Add(this.PMDCheckBox);
-            this.groupBox3.Controls.Add(this.hmdCheckBox);
-            this.groupBox3.Controls.Add(this.TODCheckBox);
-            this.groupBox3.Controls.Add(this.TIMCheckBox);
-            this.groupBox3.Controls.Add(this.VDFCheckBox);
-            this.groupBox3.Controls.Add(this.TMDCheckBox);
+            this.groupBox3.Controls.Add(this.scanBFFCheckBox);
+            this.groupBox3.Controls.Add(this.scanANCheckBox);
+            this.groupBox3.Controls.Add(this.scanPSXCheckBox);
+            this.groupBox3.Controls.Add(this.scanMODCheckBox);
+            this.groupBox3.Controls.Add(this.scanPMDCheckBox);
+            this.groupBox3.Controls.Add(this.scanHMDCheckBox);
+            this.groupBox3.Controls.Add(this.scanTODCheckBox);
+            this.groupBox3.Controls.Add(this.scanTIMCheckBox);
+            this.groupBox3.Controls.Add(this.scanVDFCheckBox);
+            this.groupBox3.Controls.Add(this.scanTMDCheckBox);
             this.groupBox3.Dock = System.Windows.Forms.DockStyle.Top;
             this.groupBox3.Location = new System.Drawing.Point(0, 135);
             this.groupBox3.Name = "groupBox3";
@@ -152,210 +153,221 @@
             this.groupBox3.TabStop = false;
             this.groupBox3.Text = "Scanners";
             // 
-            // scanForAnCheckBox
+            // scanBFFCheckBox
             // 
-            this.scanForAnCheckBox.AutoSize = true;
-            this.scanForAnCheckBox.Location = new System.Drawing.Point(210, 42);
-            this.scanForAnCheckBox.Name = "scanForAnCheckBox";
-            this.scanForAnCheckBox.Size = new System.Drawing.Size(84, 17);
-            this.scanForAnCheckBox.TabIndex = 9;
-            this.scanForAnCheckBox.Text = "Scan for AN";
-            this.scanForAnCheckBox.UseVisualStyleBackColor = true;
+            this.scanBFFCheckBox.AutoSize = true;
+            this.scanBFFCheckBox.Location = new System.Drawing.Point(310, 19);
+            this.scanBFFCheckBox.Name = "scanBFFCheckBox";
+            this.scanBFFCheckBox.Size = new System.Drawing.Size(45, 17);
+            this.scanBFFCheckBox.TabIndex = 10;
+            this.scanBFFCheckBox.Text = "BFF";
+            this.scanBFFCheckBox.UseVisualStyleBackColor = true;
             // 
-            // psxCheckBox
+            // scanANCheckBox
             // 
-            this.psxCheckBox.AutoSize = true;
-            this.psxCheckBox.Location = new System.Drawing.Point(210, 65);
-            this.psxCheckBox.Name = "psxCheckBox";
-            this.psxCheckBox.Size = new System.Drawing.Size(90, 17);
-            this.psxCheckBox.TabIndex = 8;
-            this.psxCheckBox.Text = "Scan for PSX";
-            this.psxCheckBox.UseVisualStyleBackColor = true;
+            this.scanANCheckBox.AutoSize = true;
+            this.scanANCheckBox.Location = new System.Drawing.Point(210, 42);
+            this.scanANCheckBox.Name = "scanANCheckBox";
+            this.scanANCheckBox.Size = new System.Drawing.Size(84, 17);
+            this.scanANCheckBox.TabIndex = 9;
+            this.scanANCheckBox.Text = "Scan for AN";
+            this.scanANCheckBox.UseVisualStyleBackColor = true;
             // 
-            // crocCheckBox
+            // scanPSXCheckBox
             // 
-            this.crocCheckBox.AutoSize = true;
-            this.crocCheckBox.Location = new System.Drawing.Point(109, 65);
-            this.crocCheckBox.Name = "crocCheckBox";
-            this.crocCheckBox.Size = new System.Drawing.Size(91, 17);
-            this.crocCheckBox.TabIndex = 7;
-            this.crocCheckBox.Text = "Scan for Croc";
-            this.crocCheckBox.UseVisualStyleBackColor = true;
+            this.scanPSXCheckBox.AutoSize = true;
+            this.scanPSXCheckBox.Location = new System.Drawing.Point(210, 65);
+            this.scanPSXCheckBox.Name = "scanPSXCheckBox";
+            this.scanPSXCheckBox.Size = new System.Drawing.Size(90, 17);
+            this.scanPSXCheckBox.TabIndex = 8;
+            this.scanPSXCheckBox.Text = "Scan for PSX";
+            this.scanPSXCheckBox.UseVisualStyleBackColor = true;
             // 
-            // PMDCheckBox
+            // scanMODCheckBox
             // 
-            this.PMDCheckBox.AutoSize = true;
-            this.PMDCheckBox.Location = new System.Drawing.Point(109, 19);
-            this.PMDCheckBox.Name = "PMDCheckBox";
-            this.PMDCheckBox.Size = new System.Drawing.Size(93, 17);
-            this.PMDCheckBox.TabIndex = 6;
-            this.PMDCheckBox.Text = "Scan for PMD";
-            this.PMDCheckBox.UseVisualStyleBackColor = true;
+            this.scanMODCheckBox.AutoSize = true;
+            this.scanMODCheckBox.Location = new System.Drawing.Point(109, 65);
+            this.scanMODCheckBox.Name = "scanMODCheckBox";
+            this.scanMODCheckBox.Size = new System.Drawing.Size(94, 17);
+            this.scanMODCheckBox.TabIndex = 7;
+            this.scanMODCheckBox.Text = "Scan for MOD";
+            this.scanMODCheckBox.UseVisualStyleBackColor = true;
             // 
-            // hmdCheckBox
+            // scanPMDCheckBox
             // 
-            this.hmdCheckBox.AutoSize = true;
-            this.hmdCheckBox.Location = new System.Drawing.Point(210, 19);
-            this.hmdCheckBox.Name = "hmdCheckBox";
-            this.hmdCheckBox.Size = new System.Drawing.Size(94, 17);
-            this.hmdCheckBox.TabIndex = 5;
-            this.hmdCheckBox.Text = "Scan for HMD";
-            this.hmdCheckBox.UseVisualStyleBackColor = true;
+            this.scanPMDCheckBox.AutoSize = true;
+            this.scanPMDCheckBox.Location = new System.Drawing.Point(109, 19);
+            this.scanPMDCheckBox.Name = "scanPMDCheckBox";
+            this.scanPMDCheckBox.Size = new System.Drawing.Size(93, 17);
+            this.scanPMDCheckBox.TabIndex = 6;
+            this.scanPMDCheckBox.Text = "Scan for PMD";
+            this.scanPMDCheckBox.UseVisualStyleBackColor = true;
             // 
-            // TODCheckBox
+            // scanHMDCheckBox
             // 
-            this.TODCheckBox.AutoSize = true;
-            this.TODCheckBox.Location = new System.Drawing.Point(10, 42);
-            this.TODCheckBox.Name = "TODCheckBox";
-            this.TODCheckBox.Size = new System.Drawing.Size(92, 17);
-            this.TODCheckBox.TabIndex = 4;
-            this.TODCheckBox.Text = "Scan for TOD";
-            this.TODCheckBox.UseVisualStyleBackColor = true;
+            this.scanHMDCheckBox.AutoSize = true;
+            this.scanHMDCheckBox.Location = new System.Drawing.Point(210, 19);
+            this.scanHMDCheckBox.Name = "scanHMDCheckBox";
+            this.scanHMDCheckBox.Size = new System.Drawing.Size(94, 17);
+            this.scanHMDCheckBox.TabIndex = 5;
+            this.scanHMDCheckBox.Text = "Scan for HMD";
+            this.scanHMDCheckBox.UseVisualStyleBackColor = true;
             // 
-            // TIMCheckBox
+            // scanTODCheckBox
             // 
-            this.TIMCheckBox.AutoSize = true;
-            this.TIMCheckBox.Location = new System.Drawing.Point(10, 65);
-            this.TIMCheckBox.Name = "TIMCheckBox";
-            this.TIMCheckBox.Size = new System.Drawing.Size(88, 17);
-            this.TIMCheckBox.TabIndex = 2;
-            this.TIMCheckBox.Text = "Scan for TIM";
-            this.TIMCheckBox.UseVisualStyleBackColor = true;
+            this.scanTODCheckBox.AutoSize = true;
+            this.scanTODCheckBox.Location = new System.Drawing.Point(10, 42);
+            this.scanTODCheckBox.Name = "scanTODCheckBox";
+            this.scanTODCheckBox.Size = new System.Drawing.Size(92, 17);
+            this.scanTODCheckBox.TabIndex = 4;
+            this.scanTODCheckBox.Text = "Scan for TOD";
+            this.scanTODCheckBox.UseVisualStyleBackColor = true;
             // 
-            // VDFCheckBox
+            // scanTIMCheckBox
             // 
-            this.VDFCheckBox.AutoSize = true;
-            this.VDFCheckBox.Location = new System.Drawing.Point(109, 42);
-            this.VDFCheckBox.Name = "VDFCheckBox";
-            this.VDFCheckBox.Size = new System.Drawing.Size(90, 17);
-            this.VDFCheckBox.TabIndex = 1;
-            this.VDFCheckBox.Text = "Scan for VDF";
-            this.VDFCheckBox.UseVisualStyleBackColor = true;
+            this.scanTIMCheckBox.AutoSize = true;
+            this.scanTIMCheckBox.Location = new System.Drawing.Point(10, 65);
+            this.scanTIMCheckBox.Name = "scanTIMCheckBox";
+            this.scanTIMCheckBox.Size = new System.Drawing.Size(88, 17);
+            this.scanTIMCheckBox.TabIndex = 2;
+            this.scanTIMCheckBox.Text = "Scan for TIM";
+            this.scanTIMCheckBox.UseVisualStyleBackColor = true;
             // 
-            // TMDCheckBox
+            // scanVDFCheckBox
             // 
-            this.TMDCheckBox.AutoSize = true;
-            this.TMDCheckBox.Location = new System.Drawing.Point(10, 19);
-            this.TMDCheckBox.Name = "TMDCheckBox";
-            this.TMDCheckBox.Size = new System.Drawing.Size(93, 17);
-            this.TMDCheckBox.TabIndex = 0;
-            this.TMDCheckBox.Text = "Scan for TMD";
-            this.TMDCheckBox.UseVisualStyleBackColor = true;
+            this.scanVDFCheckBox.AutoSize = true;
+            this.scanVDFCheckBox.Location = new System.Drawing.Point(109, 42);
+            this.scanVDFCheckBox.Name = "scanVDFCheckBox";
+            this.scanVDFCheckBox.Size = new System.Drawing.Size(90, 17);
+            this.scanVDFCheckBox.TabIndex = 1;
+            this.scanVDFCheckBox.Text = "Scan for VDF";
+            this.scanVDFCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // scanTMDCheckBox
+            // 
+            this.scanTMDCheckBox.AutoSize = true;
+            this.scanTMDCheckBox.Location = new System.Drawing.Point(10, 19);
+            this.scanTMDCheckBox.Name = "scanTMDCheckBox";
+            this.scanTMDCheckBox.Size = new System.Drawing.Size(93, 17);
+            this.scanTMDCheckBox.TabIndex = 0;
+            this.scanTMDCheckBox.Text = "Scan for TMD";
+            this.scanTMDCheckBox.UseVisualStyleBackColor = true;
             // 
             // groupBox4
             // 
-            this.groupBox4.Controls.Add(this.autoAttachLimbsCheckBox);
-            this.groupBox4.Controls.Add(this.drawAllToVRAMCheckBox);
-            this.groupBox4.Controls.Add(this.selectFirstModelCheckBox);
-            this.groupBox4.Controls.Add(this.ignoreVersionCheckBox);
-            this.groupBox4.Controls.Add(this.DebugCheckBox);
-            this.groupBox4.Controls.Add(this.NoVerboseCheckBox);
-            this.groupBox4.Controls.Add(this.LogCheckBox);
+            this.groupBox4.Controls.Add(this.optionNoOffsetCheckBox);
+            this.groupBox4.Controls.Add(this.optionShowErrorsCheckBox);
+            this.groupBox4.Controls.Add(this.optionAutoAttachLimbsCheckBox);
+            this.groupBox4.Controls.Add(this.optionDrawAllToVRAMCheckBox);
+            this.groupBox4.Controls.Add(this.optionIgnoreTMDVersionCheckBox);
+            this.groupBox4.Controls.Add(this.optionDebugCheckBox);
+            this.groupBox4.Controls.Add(this.optionNoVerboseCheckBox);
+            this.groupBox4.Controls.Add(this.optionLogToFileCheckBox);
             this.groupBox4.Dock = System.Windows.Forms.DockStyle.Top;
             this.groupBox4.Location = new System.Drawing.Point(0, 228);
             this.groupBox4.Name = "groupBox4";
-            this.groupBox4.Size = new System.Drawing.Size(384, 69);
+            this.groupBox4.Size = new System.Drawing.Size(384, 92);
             this.groupBox4.TabIndex = 3;
             this.groupBox4.TabStop = false;
             this.groupBox4.Text = "Options";
             // 
-            // ignoreVersionCheckBox
+            // optionNoOffsetCheckBox
             // 
-            this.ignoreVersionCheckBox.AutoSize = true;
-            this.ignoreVersionCheckBox.Location = new System.Drawing.Point(261, 19);
-            this.ignoreVersionCheckBox.Name = "ignoreVersionCheckBox";
-            this.ignoreVersionCheckBox.Size = new System.Drawing.Size(121, 17);
-            this.ignoreVersionCheckBox.TabIndex = 4;
-            this.ignoreVersionCheckBox.Text = "Ignore TMD Version";
-            this.ignoreVersionCheckBox.UseVisualStyleBackColor = true;
+            this.optionNoOffsetCheckBox.AutoSize = true;
+            this.optionNoOffsetCheckBox.Location = new System.Drawing.Point(222, 42);
+            this.optionNoOffsetCheckBox.Name = "optionNoOffsetCheckBox";
+            this.optionNoOffsetCheckBox.Size = new System.Drawing.Size(131, 17);
+            this.optionNoOffsetCheckBox.TabIndex = 9;
+            this.optionNoOffsetCheckBox.Text = "Only Scan Start of File";
+            this.optionNoOffsetCheckBox.UseVisualStyleBackColor = true;
             // 
-            // DebugCheckBox
+            // optionShowErrorsCheckBox
             // 
-            this.DebugCheckBox.AutoSize = true;
-            this.DebugCheckBox.Location = new System.Drawing.Point(197, 19);
-            this.DebugCheckBox.Name = "DebugCheckBox";
-            this.DebugCheckBox.Size = new System.Drawing.Size(58, 17);
-            this.DebugCheckBox.TabIndex = 3;
-            this.DebugCheckBox.Text = "Debug";
-            this.DebugCheckBox.UseVisualStyleBackColor = true;
+            this.optionShowErrorsCheckBox.AutoSize = true;
+            this.optionShowErrorsCheckBox.Location = new System.Drawing.Point(286, 19);
+            this.optionShowErrorsCheckBox.Name = "optionShowErrorsCheckBox";
+            this.optionShowErrorsCheckBox.Size = new System.Drawing.Size(83, 17);
+            this.optionShowErrorsCheckBox.TabIndex = 8;
+            this.optionShowErrorsCheckBox.Text = "Show Errors";
+            this.optionShowErrorsCheckBox.UseVisualStyleBackColor = true;
             // 
-            // NoVerboseCheckBox
+            // optionAutoAttachLimbsCheckBox
             // 
-            this.NoVerboseCheckBox.AutoSize = true;
-            this.NoVerboseCheckBox.Location = new System.Drawing.Point(109, 19);
-            this.NoVerboseCheckBox.Name = "NoVerboseCheckBox";
-            this.NoVerboseCheckBox.Size = new System.Drawing.Size(82, 17);
-            this.NoVerboseCheckBox.TabIndex = 2;
-            this.NoVerboseCheckBox.Text = "No-Verbose";
-            this.NoVerboseCheckBox.UseVisualStyleBackColor = true;
+            this.optionAutoAttachLimbsCheckBox.AutoSize = true;
+            this.optionAutoAttachLimbsCheckBox.Location = new System.Drawing.Point(129, 42);
+            this.optionAutoAttachLimbsCheckBox.Name = "optionAutoAttachLimbsCheckBox";
+            this.optionAutoAttachLimbsCheckBox.Size = new System.Drawing.Size(87, 17);
+            this.optionAutoAttachLimbsCheckBox.TabIndex = 7;
+            this.optionAutoAttachLimbsCheckBox.Text = "Attach Limbs";
+            this.optionAutoAttachLimbsCheckBox.UseVisualStyleBackColor = true;
             // 
-            // LogCheckBox
+            // optionDrawAllToVRAMCheckBox
             // 
-            this.LogCheckBox.AutoSize = true;
-            this.LogCheckBox.Location = new System.Drawing.Point(12, 19);
-            this.LogCheckBox.Name = "LogCheckBox";
-            this.LogCheckBox.Size = new System.Drawing.Size(91, 17);
-            this.LogCheckBox.TabIndex = 1;
-            this.LogCheckBox.Text = "Generate Log";
-            this.LogCheckBox.UseVisualStyleBackColor = true;
+            this.optionDrawAllToVRAMCheckBox.AutoSize = true;
+            this.optionDrawAllToVRAMCheckBox.Location = new System.Drawing.Point(12, 42);
+            this.optionDrawAllToVRAMCheckBox.Name = "optionDrawAllToVRAMCheckBox";
+            this.optionDrawAllToVRAMCheckBox.Size = new System.Drawing.Size(111, 17);
+            this.optionDrawAllToVRAMCheckBox.TabIndex = 6;
+            this.optionDrawAllToVRAMCheckBox.Text = "Draw All to VRAM";
+            this.optionDrawAllToVRAMCheckBox.UseVisualStyleBackColor = true;
             // 
-            // ScanButton
+            // optionIgnoreTMDVersionCheckBox
             // 
-            this.ScanButton.Enabled = false;
-            this.ScanButton.Location = new System.Drawing.Point(297, 303);
-            this.ScanButton.Name = "ScanButton";
-            this.ScanButton.Size = new System.Drawing.Size(75, 23);
-            this.ScanButton.TabIndex = 4;
-            this.ScanButton.Text = "Scan";
-            this.ScanButton.UseVisualStyleBackColor = true;
-            this.ScanButton.Click += new System.EventHandler(this.ScanButton_Click);
+            this.optionIgnoreTMDVersionCheckBox.AutoSize = true;
+            this.optionIgnoreTMDVersionCheckBox.Location = new System.Drawing.Point(12, 65);
+            this.optionIgnoreTMDVersionCheckBox.Name = "optionIgnoreTMDVersionCheckBox";
+            this.optionIgnoreTMDVersionCheckBox.Size = new System.Drawing.Size(121, 17);
+            this.optionIgnoreTMDVersionCheckBox.TabIndex = 4;
+            this.optionIgnoreTMDVersionCheckBox.Text = "Ignore TMD Version";
+            this.optionIgnoreTMDVersionCheckBox.UseVisualStyleBackColor = true;
             // 
-            // scanForBffCheckBox
+            // optionDebugCheckBox
             // 
-            this.scanForBffCheckBox.AutoSize = true;
-            this.scanForBffCheckBox.Location = new System.Drawing.Point(310, 19);
-            this.scanForBffCheckBox.Name = "scanForBffCheckBox";
-            this.scanForBffCheckBox.Size = new System.Drawing.Size(45, 17);
-            this.scanForBffCheckBox.TabIndex = 10;
-            this.scanForBffCheckBox.Text = "BFF";
-            this.scanForBffCheckBox.UseVisualStyleBackColor = true;
+            this.optionDebugCheckBox.AutoSize = true;
+            this.optionDebugCheckBox.Location = new System.Drawing.Point(222, 19);
+            this.optionDebugCheckBox.Name = "optionDebugCheckBox";
+            this.optionDebugCheckBox.Size = new System.Drawing.Size(58, 17);
+            this.optionDebugCheckBox.TabIndex = 3;
+            this.optionDebugCheckBox.Text = "Debug";
+            this.optionDebugCheckBox.UseVisualStyleBackColor = true;
             // 
-            // selectFirstModelCheckBox
+            // optionNoVerboseCheckBox
             // 
-            this.selectFirstModelCheckBox.AutoSize = true;
-            this.selectFirstModelCheckBox.Location = new System.Drawing.Point(12, 42);
-            this.selectFirstModelCheckBox.Name = "selectFirstModelCheckBox";
-            this.selectFirstModelCheckBox.Size = new System.Drawing.Size(110, 17);
-            this.selectFirstModelCheckBox.TabIndex = 5;
-            this.selectFirstModelCheckBox.Text = "Select First Model";
-            this.selectFirstModelCheckBox.UseVisualStyleBackColor = true;
+            this.optionNoVerboseCheckBox.AutoSize = true;
+            this.optionNoVerboseCheckBox.Location = new System.Drawing.Point(129, 19);
+            this.optionNoVerboseCheckBox.Name = "optionNoVerboseCheckBox";
+            this.optionNoVerboseCheckBox.Size = new System.Drawing.Size(82, 17);
+            this.optionNoVerboseCheckBox.TabIndex = 2;
+            this.optionNoVerboseCheckBox.Text = "No-Verbose";
+            this.optionNoVerboseCheckBox.UseVisualStyleBackColor = true;
             // 
-            // drawAllToVRAMCheckBox
+            // optionLogToFileCheckBox
             // 
-            this.drawAllToVRAMCheckBox.AutoSize = true;
-            this.drawAllToVRAMCheckBox.Location = new System.Drawing.Point(128, 42);
-            this.drawAllToVRAMCheckBox.Name = "drawAllToVRAMCheckBox";
-            this.drawAllToVRAMCheckBox.Size = new System.Drawing.Size(111, 17);
-            this.drawAllToVRAMCheckBox.TabIndex = 6;
-            this.drawAllToVRAMCheckBox.Text = "Draw All to VRAM";
-            this.drawAllToVRAMCheckBox.UseVisualStyleBackColor = true;
+            this.optionLogToFileCheckBox.AutoSize = true;
+            this.optionLogToFileCheckBox.Location = new System.Drawing.Point(12, 19);
+            this.optionLogToFileCheckBox.Name = "optionLogToFileCheckBox";
+            this.optionLogToFileCheckBox.Size = new System.Drawing.Size(91, 17);
+            this.optionLogToFileCheckBox.TabIndex = 1;
+            this.optionLogToFileCheckBox.Text = "Generate Log";
+            this.optionLogToFileCheckBox.UseVisualStyleBackColor = true;
             // 
-            // autoAttachLimbsCheckBox
+            // scanButton
             // 
-            this.autoAttachLimbsCheckBox.AutoSize = true;
-            this.autoAttachLimbsCheckBox.Location = new System.Drawing.Point(245, 42);
-            this.autoAttachLimbsCheckBox.Name = "autoAttachLimbsCheckBox";
-            this.autoAttachLimbsCheckBox.Size = new System.Drawing.Size(112, 17);
-            this.autoAttachLimbsCheckBox.TabIndex = 7;
-            this.autoAttachLimbsCheckBox.Text = "Auto Attach Limbs";
-            this.autoAttachLimbsCheckBox.UseVisualStyleBackColor = true;
+            this.scanButton.Enabled = false;
+            this.scanButton.Location = new System.Drawing.Point(297, 326);
+            this.scanButton.Name = "scanButton";
+            this.scanButton.Size = new System.Drawing.Size(75, 23);
+            this.scanButton.TabIndex = 4;
+            this.scanButton.Text = "Scan";
+            this.scanButton.UseVisualStyleBackColor = true;
+            this.scanButton.Click += new System.EventHandler(this.scanButton_Click);
             // 
             // LauncherForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(384, 333);
-            this.Controls.Add(this.ScanButton);
+            this.ClientSize = new System.Drawing.Size(384, 356);
+            this.Controls.Add(this.scanButton);
             this.Controls.Add(this.groupBox4);
             this.Controls.Add(this.groupBox3);
             this.Controls.Add(this.groupBox2);
@@ -381,31 +393,32 @@
         #endregion
 
         private System.Windows.Forms.GroupBox groupBox1;
-        private System.Windows.Forms.Button SelectFolderButton;
-        private System.Windows.Forms.Button SelectISOButton;
-        private System.Windows.Forms.Button SelectFileButton;
-        private System.Windows.Forms.TextBox FilenameText;
+        private System.Windows.Forms.Button selectFolderButton;
+        private System.Windows.Forms.Button selectISOButton;
+        private System.Windows.Forms.Button selectFileButton;
+        private System.Windows.Forms.TextBox fileNameTextBox;
         private System.Windows.Forms.GroupBox groupBox2;
-        private System.Windows.Forms.TextBox FilterText;
+        private System.Windows.Forms.TextBox filterTextBox;
         private System.Windows.Forms.GroupBox groupBox3;
-        private System.Windows.Forms.CheckBox hmdCheckBox;
-        private System.Windows.Forms.CheckBox TODCheckBox;
-        private System.Windows.Forms.CheckBox TIMCheckBox;
-        private System.Windows.Forms.CheckBox VDFCheckBox;
-        private System.Windows.Forms.CheckBox TMDCheckBox;
+        private System.Windows.Forms.CheckBox scanHMDCheckBox;
+        private System.Windows.Forms.CheckBox scanTODCheckBox;
+        private System.Windows.Forms.CheckBox scanTIMCheckBox;
+        private System.Windows.Forms.CheckBox scanVDFCheckBox;
+        private System.Windows.Forms.CheckBox scanTMDCheckBox;
         private System.Windows.Forms.GroupBox groupBox4;
-        private System.Windows.Forms.CheckBox DebugCheckBox;
-        private System.Windows.Forms.CheckBox NoVerboseCheckBox;
-        private System.Windows.Forms.CheckBox LogCheckBox;
-        private System.Windows.Forms.Button ScanButton;
-        private System.Windows.Forms.CheckBox PMDCheckBox;
-        private System.Windows.Forms.CheckBox crocCheckBox;
-        private System.Windows.Forms.CheckBox psxCheckBox;
-        private System.Windows.Forms.CheckBox scanForAnCheckBox;
-        private System.Windows.Forms.CheckBox ignoreVersionCheckBox;
-        private System.Windows.Forms.CheckBox scanForBffCheckBox;
-        private System.Windows.Forms.CheckBox autoAttachLimbsCheckBox;
-        private System.Windows.Forms.CheckBox drawAllToVRAMCheckBox;
-        private System.Windows.Forms.CheckBox selectFirstModelCheckBox;
+        private System.Windows.Forms.CheckBox optionDebugCheckBox;
+        private System.Windows.Forms.CheckBox optionNoVerboseCheckBox;
+        private System.Windows.Forms.CheckBox optionLogToFileCheckBox;
+        private System.Windows.Forms.Button scanButton;
+        private System.Windows.Forms.CheckBox scanPMDCheckBox;
+        private System.Windows.Forms.CheckBox scanMODCheckBox;
+        private System.Windows.Forms.CheckBox scanPSXCheckBox;
+        private System.Windows.Forms.CheckBox scanANCheckBox;
+        private System.Windows.Forms.CheckBox optionIgnoreTMDVersionCheckBox;
+        private System.Windows.Forms.CheckBox scanBFFCheckBox;
+        private System.Windows.Forms.CheckBox optionAutoAttachLimbsCheckBox;
+        private System.Windows.Forms.CheckBox optionDrawAllToVRAMCheckBox;
+        private System.Windows.Forms.CheckBox optionShowErrorsCheckBox;
+        private System.Windows.Forms.CheckBox optionNoOffsetCheckBox;
     }
 }

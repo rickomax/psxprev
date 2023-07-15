@@ -29,23 +29,23 @@ namespace PSXPrev.Classes
                 throw new Exception("File must be opened");
             }
 
-            Program.Logger.WriteLine($"Scanning for {FormatName} at file {fileTitle}");
+            Program.Logger.WriteLine($"Scanning for {FormatName} at file: {fileTitle}");
 
 
-            reader.BaseStream.Seek(0, SeekOrigin.Begin);
-            
+            _offset = 0;
+
             while (reader.BaseStream.CanRead)
             {
+                reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
+
                 var passed = false;
                 try
                 {
-                    _offset = reader.BaseStream.Position;
-
                     Parse(reader, fileTitle, out var entities, out var animations, out var textures);
 
                     var offsetPostfix = (_offset > 0 ? $"_{_offset:X}" : string.Empty);
                     var name = $"{fileTitle}{offsetPostfix}";
-                        
+
                     if (entities != null)
                     {
                         foreach (var entity in entities)
@@ -58,7 +58,7 @@ namespace PSXPrev.Classes
                             entity.EntityName = name;
                             _entityAddedAction(entity, _offset);
 
-                            Program.Logger.WritePositiveLine($"Found {FormatName} Model at offset {_offset:X}");
+                            Program.Logger.WritePositiveLine($"Found {FormatName} Model {AtOffsetString}");
                         }
                     }
                     if (animations != null)
@@ -73,7 +73,7 @@ namespace PSXPrev.Classes
                             animation.AnimationName = name;
                             _animationAddedAction(animation, _offset);
 
-                            Program.Logger.WritePositiveLine($"Found {FormatName} Animation at offset {_offset:X}");
+                            Program.Logger.WritePositiveLine($"Found {FormatName} Animation {AtOffsetString}");
                         }
                     }
                     if (textures != null)
@@ -88,29 +88,33 @@ namespace PSXPrev.Classes
                             texture.TextureName = name;
                             _textureAddedAction(texture, _offset);
 
-                            Program.Logger.WritePositiveLine($"Found {FormatName} Image at offset {_offset:X}");
+                            Program.Logger.WritePositiveLine($"Found {FormatName} Image {AtOffsetString}");
                         }
                     }
                 }
                 catch (Exception exp)
                 {
-                    //if (Program.Debug)
-                    //{
-                    //    Program.Logger.WriteErrorLine(exp);
-                    //}
+                    if (Program.ShowErrors)
+                    {
+                        Program.Logger.WriteExceptionLine(exp, $"Error scanning {FormatName} {AtOffsetString}");
+                    }
                 }
 
-                if (!passed)
+                _offset++; // Always increment by at least one.
+                if (passed)
                 {
-                    if (Program.NoOffset || ++_offset > reader.BaseStream.Length)
-                    {
-                        Program.Logger.WriteLine($"{FormatName} - Reached file end: {fileTitle}");
-                        return;
-                    }
-                    reader.BaseStream.Seek(_offset, SeekOrigin.Begin);
+                    _offset = Math.Max(_offset, reader.BaseStream.Position);
+                }
+
+                if (Program.NoOffset || _offset > reader.BaseStream.Length)
+                {
+                    Program.Logger.WriteLine($"{FormatName} - Reached file end: {fileTitle}");
+                    return;
                 }
             }
         }
+
+        protected string AtOffsetString => $"at offset {_offset:X}";
 
         public abstract string FormatName { get; }
 
