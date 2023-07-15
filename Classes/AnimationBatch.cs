@@ -42,8 +42,41 @@ namespace PSXPrev.Classes
             return ProcessAnimationObject(_animation.RootAnimationObject, frameIndex, rootEntity, Matrix4.Identity);
         }
 
+        private void ResetAnimationCoords(AnimationObject animationObject, RootEntity selectedRootEntity)
+        {
+            if (selectedRootEntity.Coords != null)
+            {
+                var coords = selectedRootEntity.Coords;
+                foreach (var coord in selectedRootEntity.Coords)
+                {
+                    coord.ResetTransform();
+                }
+                /*foreach (var tmdid in animationObject.TMDID)
+                {
+                    if (tmdid <= 0 || tmdid > selectedRootEntity.Coords.Length)
+                    {
+                        continue;
+                    }
+                    var coord = selectedRootEntity.Coords[tmdid - 1];
+
+                    coord.ResetTransform();
+                }
+                foreach (var childAnimationObject in animationObject.Children)
+                {
+                    ResetAnimationCoords(childAnimationObject, selectedRootEntity);
+                }*/
+            }
+        }
+
         private bool ProcessAnimationObject(AnimationObject animationObject, float frameIndex, RootEntity selectedRootEntity, Matrix4 worldMatrix)
         {
+            // Reset coordinate matrices in-case a frame requires the last state of the matrix.
+            // This is important because there's no guarantee the animation won't skip a frame due to lag.
+            if (_animation.RootAnimationObject == animationObject && _animation.AnimationType == AnimationType.HMD)
+            {
+                ResetAnimationCoords(animationObject, selectedRootEntity);
+            }
+
             switch (_animation.AnimationType)
             {
                 case AnimationType.VertexDiff:
@@ -189,18 +222,6 @@ namespace PSXPrev.Classes
                             }
                             var totalFrames = animationFrames.Values.Max(af => af.FrameTime + Math.Max(1u, af.FrameDuration));
 
-                            // Reset coordinate matrices in-case a frame requires the last state of the matrix.
-                            // This is important because there's no guarantee the animation won't skip a frame due to lag.
-                            foreach (var tmdid in animationObject.TMDID)
-                            {
-                                if (tmdid <= 0 || tmdid > selectedRootEntity.Coords.Length)
-                                {
-                                    continue;
-                                }
-                                var coord = selectedRootEntity.Coords[tmdid - 1];
-
-                                coord.ResetTransform();
-                            }
 
                             for (uint f = 0; f <= frameIndex && f < totalFrames; f++)
                             {
@@ -237,10 +258,12 @@ namespace PSXPrev.Classes
                                     float delta = (range != 0f ? Math.Max(0f, Math.Min(1f, (frameIndex - start) / range)) : 1f);
 
                                     Matrix4 frameMatrix;
+                                    var needsTranslation = false;
                                     if (srcFrame.RotationType == InterpolationType.Linear || srcFrame.ScaleType == InterpolationType.Linear)
                                     {
                                         // Use new matrix.
                                         frameMatrix = Matrix4.Identity;
+                                        needsTranslation = true;
 
                                         if (srcFrame.ScaleType == InterpolationType.Linear) // has supported scale
                                         {
@@ -290,6 +313,11 @@ namespace PSXPrev.Classes
                                         var t = GeomUtils.CreateT(translation);
                                         frameMatrix *= origT.Inverted(); // Overwrite old translation
                                         frameMatrix *= t;
+                                    }
+                                    else if (needsTranslation)
+                                    {
+                                        // Preserve old translation
+                                        frameMatrix *= GeomUtils.CreateT(coord.LocalMatrix.ExtractTranslation());
                                     }
 
                                     coord.LocalMatrix = frameMatrix;
