@@ -13,7 +13,7 @@ namespace PSXPrev.Forms
             InitializeComponent();
         }
 
-        private void SelectFileButton_Click(object sender, EventArgs e)
+        private void selectFileButton_Click(object sender, EventArgs e)
         {
             using (var openFileDialog = new OpenFileDialog())
             {
@@ -21,12 +21,12 @@ namespace PSXPrev.Forms
                 openFileDialog.Title = "Select a File to Scan";
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    FilenameText.Text = openFileDialog.FileName;
+                    fileNameTextBox.Text = openFileDialog.FileName;
                 }
             }
         }
 
-        private void SelectISOButton_Click(object sender, EventArgs e)
+        private void selectISOButton_Click(object sender, EventArgs e)
         {
             using (var openFileDialog = new OpenFileDialog())
             {
@@ -34,12 +34,12 @@ namespace PSXPrev.Forms
                 openFileDialog.Title = "Select an ISO to Scan";
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    FilenameText.Text = openFileDialog.FileName;
+                    fileNameTextBox.Text = openFileDialog.FileName;
                 }
             }
         }
 
-        private void SelectFolderButton_Click(object sender, EventArgs e)
+        private void selectFolderButton_Click(object sender, EventArgs e)
         {
             using (var folderBrowserDialog = new Microsoft.WindowsAPICodePack.Dialogs.CommonOpenFileDialog())
             {
@@ -47,43 +47,44 @@ namespace PSXPrev.Forms
                 folderBrowserDialog.Title = "Select a Folder to Scan";
                 if (folderBrowserDialog.ShowDialog() == CommonFileDialogResult.Ok)
                 {
-                    FilenameText.Text = folderBrowserDialog.FileName;
+                    fileNameTextBox.Text = folderBrowserDialog.FileName;
                 }
             }
         }
 
-        private void ScanButton_Click(object sender, EventArgs e)
+        private void scanButton_Click(object sender, EventArgs e)
         {
-            Program.DoScan(FilenameText.Text, FilterText.Text, new Program.ScanOptions
+            Program.DoScan(fileNameTextBox.Text, filterTextBox.Text, new Program.ScanOptions
             {
-                CheckAN = scanForAnCheckBox.Checked,
-                CheckBFF = scanForBffCheckBox.Checked,
-                CheckCROC = crocCheckBox.Checked,
-                CheckHMD = hmdCheckBox.Checked,
-                CheckPMD = PMDCheckBox.Checked,
-                CheckPSX = psxCheckBox.Checked,
-                CheckTIM = TIMCheckBox.Checked,
-                CheckTMD = TMDCheckBox.Checked,
-                CheckTOD = TODCheckBox.Checked,
-                CheckVDF = VDFCheckBox.Checked,
+                CheckAN = scanANCheckBox.Checked,
+                CheckBFF = scanBFFCheckBox.Checked,
+                CheckMOD = scanMODCheckBox.Checked,
+                CheckHMD = scanHMDCheckBox.Checked,
+                CheckPMD = scanPMDCheckBox.Checked,
+                CheckPSX = scanPSXCheckBox.Checked,
+                CheckTIM = scanTIMCheckBox.Checked,
+                CheckTMD = scanTMDCheckBox.Checked,
+                CheckTOD = scanTODCheckBox.Checked,
+                CheckVDF = scanVDFCheckBox.Checked,
 
-                IgnoreTMDVersion = ignoreVersionCheckBox.Checked,
+                IgnoreTMDVersion = optionIgnoreTMDVersionCheckBox.Checked,
 
-                LogToFile = LogCheckBox.Checked,
-                NoVerbose = NoVerboseCheckBox.Checked,
-                Debug = DebugCheckBox.Checked,
-                
-                SelectFirstModel = selectFirstModelCheckBox.Checked,
-                DrawAllToVRAM = drawAllToVRAMCheckBox.Checked,
-                AutoAttachLimbs = autoAttachLimbsCheckBox.Checked,
+                LogToFile = optionLogToFileCheckBox.Checked,
+                NoVerbose = optionNoVerboseCheckBox.Checked,
+                Debug = optionDebugCheckBox.Checked,
+                ShowErrors = optionShowErrorsCheckBox.Checked,
+
+                DrawAllToVRAM = optionDrawAllToVRAMCheckBox.Checked,
+                AutoAttachLimbs = optionAutoAttachLimbsCheckBox.Checked,
+                NoOffset = optionNoOffsetCheckBox.Checked,
             });
 
             Close();
         }
 
-        private void FilenameText_TextChanged(object sender, EventArgs e)
+        private void fileNameTextBox_TextChanged(object sender, EventArgs e)
         {
-            ScanButton.Enabled = File.Exists(FilenameText.Text) || Directory.Exists(FilenameText.Text);
+            scanButton.Enabled = File.Exists(fileNameTextBox.Text) || Directory.Exists(fileNameTextBox.Text);
         }
     }
 }

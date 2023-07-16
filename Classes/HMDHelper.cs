@@ -169,6 +169,10 @@ namespace PSXPrev.Classes
                 }
                 else
                 {
+                    if (Program.Debug)
+                    {
+                        Program.Logger.WriteWarningLine($"Unsupported HMD animation translation interpolation: {transAlgo}");
+                    }
                     return false; // Invalid translation interpolation type.
                 }
 
@@ -199,6 +203,10 @@ namespace PSXPrev.Classes
                 }
                 else
                 {
+                    if (Program.Debug)
+                    {
+                        Program.Logger.WriteWarningLine($"Unsupported HMD animation scale interpolation: {scaleAlgo}");
+                    }
                     return false; // Invalid scale interpolation type.
                 }
 
@@ -238,11 +246,19 @@ namespace PSXPrev.Classes
                     }
                     else
                     {
+                        if (Program.Debug)
+                        {
+                            Program.Logger.WriteErrorLine($"Invalid HMD animation rotation order: {rotOrder}");
+                        }
                         return false; // Invalid rotation order.
                     }
                 }
                 else
                 {
+                    if (Program.Debug)
+                    {
+                        Program.Logger.WriteWarningLine($"Unsupported HMD animation rotation interpolation: {rotAlgo}");
+                    }
                     return false; // Invalid rotation interpolation type.
                 }
 
@@ -255,7 +271,11 @@ namespace PSXPrev.Classes
                 var algo   = (animationType >> 8) & 0xf; // Interpolation: 1-Linear, 2-Bezier, 3-BSpline
                 // Length: 16bit, Write: 0b1010 - Would write to 0x2 and 0x6
                 // Not supported. In the future we can add support for updating vertices and normals.
-
+                
+                if (Program.Debug)
+                {
+                    Program.Logger.WriteWarningLine($"Unsupported HMD animation type: General update");
+                }
                 return false;
             }
             else

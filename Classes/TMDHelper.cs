@@ -65,7 +65,7 @@ namespace PSXPrev.Classes
             {
                 if (Program.Debug)
                 {
-                    Program.Logger.WriteErrorLine($"Unsupported TMD primitive code:{code}");
+                    Program.Logger.WriteWarningLine($"Unsupported TMD primitive code:{code}");
                 }
             }
 
@@ -127,14 +127,14 @@ namespace PSXPrev.Classes
             {
                 if (Program.Debug)
                 {
-                    Program.Logger.WriteErrorLine($"Unsupported HMD primitive code:{code}");
+                    Program.Logger.WriteWarningLine($"Unsupported HMD primitive code:{code}");
                 }
             }
             if (pstBit)
             {
                 if (Program.Debug)
                 {
-                    Program.Logger.WriteErrorLine("Unsupported HMD primitive flag:Presets");
+                    Program.Logger.WriteWarningLine("Unsupported HMD primitive flag:Presets");
                 }
             }
 

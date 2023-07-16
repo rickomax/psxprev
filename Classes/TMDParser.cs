@@ -182,8 +182,11 @@ namespace PSXPrev.Classes
                                             {
                                                 return new Vector3(index, 0, 0);
                                             }
-                                            Program.Logger.WriteErrorLine("Vertex index error : " + fileTitle);
-                                            throw new Exception("Vertex index error: " + fileTitle);
+                                            if (!Program.ShowErrors)
+                                            {
+                                                Program.Logger.WriteErrorLine($"Vertex index error: {fileTitle}");
+                                            }
+                                            throw new Exception($"Vertex index error: {fileTitle}");
                                         }
                                         return vertices[index];
                                     },
@@ -195,8 +198,11 @@ namespace PSXPrev.Classes
                                             {
                                                 return new Vector3(index, 0, 0);
                                             }
-                                            Program.Logger.WriteErrorLine("Vertex index error: " + fileTitle);
-                                            throw new Exception("Vertex index error: " + fileTitle);
+                                            if (!Program.ShowErrors)
+                                            {
+                                                Program.Logger.WriteErrorLine($"Normal index error: {fileTitle}");
+                                            }
+                                            throw new Exception($"Normal index error: {fileTitle}");
                                         }
                                         return normals[index];
                                     });

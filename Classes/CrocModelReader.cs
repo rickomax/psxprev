@@ -12,7 +12,7 @@ namespace PSXPrev.Classes
         {
         }
 
-        public override string FormatName => "Croc";
+        public override string FormatName => "MOD";
 
         protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
         {
