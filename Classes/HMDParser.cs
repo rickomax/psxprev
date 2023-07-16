@@ -549,7 +549,7 @@ namespace PSXPrev.Classes
             }
             else
             {
-                pmode = 3u; // 24bpp
+                pmode = 2u; // 16bpp
                 palette = null;
                 semiTransparentPalette = null;
             }
