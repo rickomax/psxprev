@@ -219,6 +219,12 @@ namespace PSXPrev.Classes
             }
         }
 
+        public static bool IsZero(this Vector3 v)
+        {
+            return (v.X == 0f && v.Y == 0f && v.Z == 0f);
+            // Or just: return v == Vector3.Zero;
+        }
+
         public static float InterpolateValue(float src, float dst, float delta)
         {
             // Uncomment if we want clamping. Or add bool clamp as an optional parameter.
