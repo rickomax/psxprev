@@ -12,7 +12,7 @@ namespace PSXPrev.Classes
 {
     public static class BRenderHelper
     {
-        public static uint ReadU32LE(Stream s)
+        public static uint ReadU32BE(Stream s)
         {
             ulong result = 0;
             result = (byte)s.ReadByte();
@@ -22,7 +22,7 @@ namespace PSXPrev.Classes
             return (uint)result;
         }
 
-        public static ushort ReadU16LE(Stream s)
+        public static ushort ReadU16BE(Stream s)
         {
             ulong result = 0;
             result = (byte)s.ReadByte();
@@ -30,7 +30,7 @@ namespace PSXPrev.Classes
             return (ushort)result;
         }
 
-        public static uint ReadU32BE(Stream s)
+        public static uint ReadU32LE(Stream s)
         {
             ulong result = 0;
             result = (byte)s.ReadByte();
@@ -40,7 +40,7 @@ namespace PSXPrev.Classes
             return (uint)result;
         }
 
-        public static ushort ReadU16BE(Stream s)
+        public static ushort ReadU16LE(Stream s)
         {
             ulong result = 0;
             result = (byte)s.ReadByte();
