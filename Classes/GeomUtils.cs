@@ -225,6 +225,16 @@ namespace PSXPrev.Classes
             // Or just: return v == Vector3.Zero;
         }
 
+        public static Vector3 CalculateNormal(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2)
+        {
+            var cross = Vector3.Cross(vertex1 - vertex0, vertex2 - vertex0);
+            if (!cross.IsZero())
+            {
+                cross.Normalize();
+            }
+            return cross;
+        }
+
         public static float InterpolateValue(float src, float dst, float delta)
         {
             // Uncomment if we want clamping. Or add bool clamp as an optional parameter.

@@ -57,7 +57,7 @@ namespace PSXPrev.Classes
                     continue;
                 }
                 var blockTop = reader.BaseStream.Position;
-                ProcessPrimitive(reader, modelEntities, animations, textures, i, primitiveSetTop, primitiveHeaderTop, blockCount, ref sharedIndex);
+                ProcessPrimitiveSet(reader, modelEntities, animations, textures, i, primitiveSetTop, primitiveHeaderTop, blockCount, ref sharedIndex);
                 reader.BaseStream.Seek(blockTop, SeekOrigin.Begin);
             }
             RootEntity rootEntity;
@@ -207,7 +207,7 @@ namespace PSXPrev.Classes
             return matrix;
         }
 
-        private void ProcessPrimitive(BinaryReader reader, List<ModelEntity> modelEntities, List<Animation> animations, List<Texture> textures, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop, uint blockCount, ref uint sharedIndex)
+        private void ProcessPrimitiveSet(BinaryReader reader, List<ModelEntity> modelEntities, List<Animation> animations, List<Texture> textures, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop, uint blockCount, ref uint sharedIndex)
         {
             var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
             var sharedVertices = new Dictionary<uint, Vector3>();
@@ -233,7 +233,7 @@ namespace PSXPrev.Classes
                 }
                 for (var j = 0; j < typeCount; j++)
                 {
-                    //0: Polygon data 1: Shared polygon data 2: Image data 3: Animation data 4: MIMe data 5: Ground data 6: Envmap data 7: Device data
+                    //0: Polygon data 1: Shared polygon data 2: Image data 3: Animation data 4: MIMe data 5: Ground data 6: Envmap data 7: Equipment data
 
                     var type = reader.ReadUInt32();
                     var developerId = (type >> 27) & 0b00001111; //4
@@ -280,7 +280,7 @@ namespace PSXPrev.Classes
                             Program.Logger.WriteLine($"HMD Non-Shared Vertices Geometry");
                         }
 
-                        ProcessGeometryData(groupedTriangles, reader, false, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, dataCount);
+                        ProcessGeometryData(groupedTriangles, reader, false, driver, primitiveType, primitiveHeaderPointer, dataCount);
                     }
                     else if (category == 1)
                     {
@@ -301,12 +301,12 @@ namespace PSXPrev.Classes
                                 sharedIndex++;
                                 hasSharedGeometry = false;
                             }
-                            ProcessSharedIndicesData(sharedVertices, sharedNormals, reader, driver, primitiveHeaderPointer, nextPrimitivePointer);
+                            ProcessSharedIndicesData(sharedVertices, sharedNormals, reader, driver, primitiveHeaderPointer);
                         }
                         else
                         {
                             // Shared geometry (attached)
-                            ProcessGeometryData(groupedTriangles, reader, true, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, dataCount);
+                            ProcessGeometryData(groupedTriangles, reader, true, driver, primitiveType, primitiveHeaderPointer, dataCount);
                             // If shared indices are defined after this geometry, then this geometry can't use them.
                             // So make sure the current models are flushed so that we can stop after this shared model.
                             hasSharedGeometry = true;
@@ -318,8 +318,7 @@ namespace PSXPrev.Classes
                         {
                             Program.Logger.WriteLine($"HMD Image Data");
                         }
-                        var hasClut = primitiveType == 1;
-                        var texture = ProcessImageData(reader, driver, hasClut, primitiveHeaderPointer, nextPrimitivePointer);
+                        var texture = ProcessImageData(reader, driver, primitiveType, primitiveHeaderPointer);
                         if (texture != null)
                         {
                             textures.Add(texture);
@@ -333,7 +332,7 @@ namespace PSXPrev.Classes
                         }
                         try
                         {
-                            var addedAnimations = ProcessAnimationData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, dataCount, blockCount);
+                            var addedAnimations = ProcessAnimationData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, dataCount, blockCount);
                             if (addedAnimations != null)
                             {
                                 foreach (var animation in addedAnimations)
@@ -353,43 +352,43 @@ namespace PSXPrev.Classes
                     }
                     else if (category == 4)
                     {
-                        var code1 = (primitiveType & 0b11100000) > 0;
-                        var rst =   (primitiveType & 0b00010000) > 0;
-                        var code0 = (primitiveType & 0b00001110) > 0;
+                        var code0 = ((primitiveType >> 4) & 0x3); // Major code: 1-Joint, 2-Vertex/Normal (docs claim it's 0,1 not 1,2)
+                        var reset = ((primitiveType >> 3) & 0x1) == 1;
+                        var code1 = ((primitiveType >> 0) & 0x3); // Minor code: 1:0-Axes,   1:1-RPY (Roll-pitch-yaw, docs call it "Row")
+                                                                  //             2:0-Vertex, 2:1-Normal
                         if (Program.Debug)
                         {
-                            Program.Logger.WriteLine($"HMD Mime Animation: {code1}|{rst}|{code0}");
+                            var codeStr = (code0 == 1 ? (code1 == 0 ? "Joint Axes" : "Joint Roll-Pitch-Yaw")
+                                                      : (code1 == 0 ? "Vertex" : "Normal"));
+                            var resetStr = (reset ? " (Reset)" : "");
+                            Program.Logger.WriteLine($"HMD MIMe Animation: {codeStr}{resetStr}");
                         }
                         //todo: docs are broken!
-                        if (!code0)
+                        Animation animation = null;
+                        if (code0 == 1 && !reset) // Reset not supported
                         {
-                            var diffTop = reader.ReadUInt32() * 4;
-                            Animation animation = null;
-                            if (code1)
-                            {
-                                animation = ProcessMimeVertexData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, diffTop, dataCount, rst);
-                            }
-                            if (animation != null)
-                            {
-                                animations.Add(animation);
-                            }
+                            // Joint Axes/Roll-Pitch-Yaw: Not supported yet (function doesn't return animation yet)
+                            var rpy = code1 == 1;
+                            animation = ProcessMIMeJointData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, dataCount, rpy, reset);
+                        }
+                        else if (code0 == 2 && code1 == 0 && !reset) // Normal not supported, reset not supported
+                        {
+                            // Vertex/Normal
+                            var normal = code1 == 1;
+                            animation = ProcessMIMeVertexNormalData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, dataCount, normal, reset);
+                        }
+                        if (animation != null)
+                        {
+                            animations.Add(animation);
                         }
                     }
                     else if (category == 5)
                     {
                         if (Program.Debug)
                         {
-                            Program.Logger.WriteLine($"HMD Grid");
+                            Program.Logger.WriteLine($"HMD Ground");
                         }
-                        var polygonIndex = reader.ReadUInt32() * 4;
-                        var gridIndex = reader.ReadUInt32() * 4;
-                        var vertexIndex = reader.ReadUInt32() * 4;
-                        // TODO: Is this actually supposed to pass dataCount and not dataSize?
-                        // Originally dataSize/dataCount were read in the wrong order, so what was assumed to be the dataCount variable was used here (but was really dataSize).
-                        // Is the divide-by-4 here because the value needed to be transformed into something that passed the tests?
-                        // Note: Second divide-by-4 added since dataSize is now stored in byte units, not 4-byte units.
-                        var groundDataCount = (dataSize / 4) / 4;
-                        ProcessGroundData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, polygonIndex, groundDataCount, gridIndex, vertexIndex);
+                        ProcessGroundData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer);
                     }
                     else if (category == 6)
                     {
@@ -410,13 +409,13 @@ namespace PSXPrev.Classes
                                 sharedIndex++;
                                 hasSharedGeometry = false;
                             }
-                            ProcessSharedIndicesData(sharedVertices, sharedNormals, reader, driver, primitiveHeaderPointer, nextPrimitivePointer);
+                            ProcessSharedIndicesData(sharedVertices, sharedNormals, reader, driver, primitiveHeaderPointer);
                         }
                         else if (shared)
                         {
                             // Shared geometry (attached)
                             var flag = primitiveType & 0xeff;
-                            ProcessGeometryData(groupedTriangles, reader, true, driver, flag, primitiveHeaderPointer, nextPrimitivePointer, dataCount);
+                            ProcessGeometryData(groupedTriangles, reader, true, driver, flag, primitiveHeaderPointer, dataCount);
                             // If shared indices are defined after this geometry, then this geometry can't use them.
                             // So make sure the current models are flushed so that we can stop after this shared model.
                             hasSharedGeometry = true;
@@ -424,17 +423,17 @@ namespace PSXPrev.Classes
                         else
                         {
                             // Envmap geometry
-                            ProcessEnvmapData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer, dataCount);
+                            ProcessEnvmapData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, dataCount);
                         }
                     }
                     else if (category == 7)
                     {
                         if (Program.Debug)
                         {
-                            Program.Logger.WriteLine($"HMD Device");
+                            Program.Logger.WriteLine($"HMD Equipment");
                         }
                         // Nothing is done with this data yet.
-                        ProcessDeviceData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, nextPrimitivePointer);
+                        ProcessEquipmentData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer);
                     }
 
                     // Seek to the next type. This is necessary since not all types will fully read up to the next type (i.e. Image Data).
@@ -509,58 +508,6 @@ namespace PSXPrev.Classes
             groupedTriangles.Clear();
         }
 
-        private Texture ProcessImageData(BinaryReader reader, uint driver, bool hasClut, uint primitiveHeaderPointer, uint nextPrimitivePointer)
-        {
-            var position = reader.BaseStream.Position;
-            ProcessImageDataPrimitiveHeader(reader, primitiveHeaderPointer, out var imageTop, out var clutTop);
-            reader.BaseStream.Seek(position, SeekOrigin.Begin); // Seek is redundant, but follows same convention as other Process functions.
-            
-            var x = reader.ReadUInt16();
-            var y = reader.ReadUInt16();
-            var width = reader.ReadUInt16();
-            var height = reader.ReadUInt16();
-            if (width == 0 || height == 0 || width > 256 || height > 256)
-            {
-                return null;
-            }
-
-            var imageIndex = reader.ReadUInt32() * 4;
-            uint pmode;
-            System.Drawing.Color[] palette;
-            bool[] semiTransparentPalette;
-            if (hasClut)
-            {
-                var clutX = reader.ReadUInt16();
-                var clutY = reader.ReadUInt16();
-                var clutWidth = reader.ReadUInt16();
-                var clutHeight = reader.ReadUInt16();
-                var clutIndex = reader.ReadUInt32() * 4;
-
-                // NOTE: Width*height always seems to be 16 or 256.
-                //       Specifically width was 16 or 256 and height was 1.
-                //       With that, it's safe to assume the dimensions tell us the color count.
-                //       Because this data could potentionally give us something other than 16 or 256,
-                //       assume anything greater than 16 will allocate a 256clut and only read w*h colors.
-                pmode = (clutWidth * clutHeight <= 16) ? 0u : 1u; // 16clut or 256clut
-                
-                reader.BaseStream.Seek(_offset + clutTop + clutIndex, SeekOrigin.Begin);
-                // Allow out of bounds to support HMDs with invalid image data, but valid model data.
-                palette = TIMParser.ReadPalette(reader, pmode, clutWidth, clutHeight, out semiTransparentPalette, true);
-            }
-            else
-            {
-                pmode = 2u; // 16bpp
-                palette = null;
-                semiTransparentPalette = null;
-            }
-            reader.BaseStream.Seek(_offset + imageTop + imageIndex, SeekOrigin.Begin);
-            // Allow out of bounds to support HMDs with invalid image data, but valid model data.
-            var texture = TIMParser.ReadTexture(reader, width, height, x, y, pmode, palette, semiTransparentPalette, true);
-
-            reader.BaseStream.Seek(position, SeekOrigin.Begin);
-            return texture;
-        }
-
         private static void ReadMappedValue(BinaryReader reader, out uint mapped, out uint value)
         {
             var valueMapped = reader.ReadUInt32();
@@ -607,21 +554,21 @@ namespace PSXPrev.Classes
             return normal;
         }
 
-        private void ProcessGeometryData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, bool shared, uint driver, uint flag, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint dataCount)
+        private void ProcessGeometryData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, bool shared, uint driver, uint flag, uint primitiveHeaderPointer, uint dataCount)
         {
             var polygonIndex = reader.ReadUInt32() * 4;
 
             var primitivePosition = reader.BaseStream.Position;
-            uint dataTop, vertTop, normTop, coordTop;
+            uint polyTop, vertTop, normTop, coordTop;
             if (!shared)
             {
-                ProcessNonSharedGeometryPrimitiveHeader(reader, primitiveHeaderPointer, out vertTop, out normTop, out coordTop, out dataTop);
+                ProcessNonSharedGeometryPrimitiveHeader(reader, primitiveHeaderPointer, out polyTop, out vertTop, out normTop, out coordTop);
             }
             else
             {
-                ProcessSharedGeometryPrimitiveHeader(reader, primitiveHeaderPointer, out dataTop, out vertTop, out var calcVertTop, out normTop, out var calcNormTop, out coordTop);
+                ProcessSharedGeometryPrimitiveHeader(reader, primitiveHeaderPointer, out polyTop, out vertTop, out var calcVertTop, out normTop, out var calcNormTop, out coordTop);
             }
-            reader.BaseStream.Seek(_offset + dataTop + polygonIndex, SeekOrigin.Begin);
+            reader.BaseStream.Seek(_offset + polyTop + polygonIndex, SeekOrigin.Begin);
 
             for (var j = 0; j < dataCount; j++)
             {
@@ -657,11 +604,11 @@ namespace PSXPrev.Classes
             reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
         }
 
-        private void ProcessSharedIndicesData(Dictionary<uint, Vector3> sharedVertices, Dictionary<uint, Vector3> sharedNormals, BinaryReader reader, uint driver, uint primitiveHeaderPointer, uint nextPrimitivePointer)
+        private void ProcessSharedIndicesData(Dictionary<uint, Vector3> sharedVertices, Dictionary<uint, Vector3> sharedNormals, BinaryReader reader, uint driver, uint primitiveHeaderPointer)
         {
             // Pre-calculation driver for shared indices data.
             var primitivePosition = reader.BaseStream.Position;
-            ProcessSharedGeometryPrimitiveHeader(reader, primitiveHeaderPointer, out var dataTop, out var vertTop, out var calcVertTop, out var normTop, out var calcNormTop, out var coordTop);
+            ProcessSharedGeometryPrimitiveHeader(reader, primitiveHeaderPointer, out var polyTop, out var vertTop, out var calcVertTop, out var normTop, out var calcNormTop, out var coordTop);
             reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
 
             var vertCount = reader.ReadUInt32();
@@ -689,7 +636,61 @@ namespace PSXPrev.Classes
             reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
         }
 
-        private List<Animation> ProcessAnimationData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint dataCount, uint blockCount)
+        private Texture ProcessImageData(BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer)
+        {
+            var hasClut = primitiveType == 1;
+
+            var position = reader.BaseStream.Position;
+            ProcessImageDataPrimitiveHeader(reader, primitiveHeaderPointer, out var imageTop, out var clutTop);
+            reader.BaseStream.Seek(position, SeekOrigin.Begin); // Seek is redundant, but follows same convention as other Process functions.
+
+            var x = reader.ReadUInt16();
+            var y = reader.ReadUInt16();
+            var width = reader.ReadUInt16();
+            var height = reader.ReadUInt16();
+            if (width == 0 || height == 0 || width > 256 || height > 256)
+            {
+                return null;
+            }
+
+            var imageIndex = reader.ReadUInt32() * 4;
+            uint pmode;
+            System.Drawing.Color[] palette;
+            bool[] semiTransparentPalette;
+            if (hasClut)
+            {
+                var clutX = reader.ReadUInt16();
+                var clutY = reader.ReadUInt16();
+                var clutWidth = reader.ReadUInt16();
+                var clutHeight = reader.ReadUInt16();
+                var clutIndex = reader.ReadUInt32() * 4;
+
+                // NOTE: Width*height always seems to be 16 or 256.
+                //       Specifically width was 16 or 256 and height was 1.
+                //       With that, it's safe to assume the dimensions tell us the color count.
+                //       Because this data could potentionally give us something other than 16 or 256,
+                //       assume anything greater than 16 will allocate a 256clut and only read w*h colors.
+                pmode = (clutWidth * clutHeight <= 16) ? 0u : 1u; // 16clut or 256clut
+
+                reader.BaseStream.Seek(_offset + clutTop + clutIndex, SeekOrigin.Begin);
+                // Allow out of bounds to support HMDs with invalid image data, but valid model data.
+                palette = TIMParser.ReadPalette(reader, pmode, clutWidth, clutHeight, out semiTransparentPalette, true);
+            }
+            else
+            {
+                pmode = 2u; // 16bpp
+                palette = null;
+                semiTransparentPalette = null;
+            }
+            reader.BaseStream.Seek(_offset + imageTop + imageIndex, SeekOrigin.Begin);
+            // Allow out of bounds to support HMDs with invalid image data, but valid model data.
+            var texture = TIMParser.ReadTexture(reader, width, height, x, y, pmode, palette, semiTransparentPalette, true);
+
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+            return texture;
+        }
+
+        private List<Animation> ProcessAnimationData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, uint blockCount)
         {
             var primitivePosition = reader.BaseStream.Position;
             ProcessAnimationPrimitiveHeader(reader, primitiveHeaderPointer, out var interpTop, out var ctrlTop, out var paramTop, out var coordTop, out var sectionList);
@@ -1051,7 +1052,74 @@ namespace PSXPrev.Classes
             return animationList;
         }
 
-        private Animation ProcessMimeVertexData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint diffTop, uint dataCount, bool rst)
+        private Animation ProcessMIMeJointData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, bool rpy, bool reset)
+        {
+            var position = reader.BaseStream.Position;
+            ProcessMIMeJointPrimitiveHeader(reader, primitiveHeaderPointer, reset, out var coordTop, out var mimeTop, out var mimeNum, out var mimeId, out var mimeDiffTop);
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+
+            for (uint i = 0; i < dataCount; i++)
+            {
+                // Unlike Vertex/Normal, this DOES NOT differ from Reset.
+
+                var diffIndex = reader.ReadUInt32() * 4;
+
+                position = reader.BaseStream.Position;
+                reader.BaseStream.Seek(_offset + mimeDiffTop + diffIndex, SeekOrigin.Begin);
+
+                var coordID = reader.ReadUInt16();
+                var numDiffs = reader.ReadUInt16();
+                if (numDiffs > Program.MaxHMDMIMEeDiffs)
+                {
+                    return null;
+                }
+                var diffKeyBits = reader.ReadUInt32(); // Keys with differences by bit index.
+                var diffKeys = new List<uint>();
+                for (var key = 0; key < 32; key++)
+                {
+                    if ((diffKeyBits & (1u << key)) != 0)
+                    {
+                        diffKeys.Add((uint)key);
+                    }
+                }
+
+                // numDiffs of Joint MIMeDiffData packets
+                for (var j = 0; j < numDiffs; j++)
+                {
+                    var dvx = reader.ReadInt16();
+                    var dvy = reader.ReadInt16();
+                    var dvz = reader.ReadInt16();
+                    var dtp = reader.ReadInt16(); // bit 0: 0 if dvz-dvz are all zero, bit 1: 0 if dtx-dtz are all zero
+                    var dtx = reader.ReadInt32();
+                    var dty = reader.ReadInt32();
+                    var dtz = reader.ReadInt32();
+                }
+
+                // 1 Reset Joint MIMeDiffData packet (this is just working data)
+                if (!rpy)
+                {
+                    // todo: Docs claim pad uint16 is before translation, unlike with coord matrices,
+                    //       But that doesn't make sense, because LABs both use MATRIX() to define the data.
+                    var resetMatrix = ReadMatrix(reader, out _);
+                }
+                else
+                {
+                    var dvx = reader.ReadInt16();
+                    var dvy = reader.ReadInt16();
+                    var dvz = reader.ReadInt16();
+                    var changed = reader.ReadUInt16();
+                    var dtx = reader.ReadInt32();
+                    var dty = reader.ReadInt32();
+                    var dtz = reader.ReadInt32();
+                }
+
+                reader.BaseStream.Seek(position, SeekOrigin.Begin);
+            }
+
+            return null;
+        }
+
+        private Animation ProcessMIMeVertexNormalData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, bool normal, bool reset)
         {
             Animation animation;
             Dictionary<uint, AnimationObject> animationObjects;
@@ -1081,29 +1149,51 @@ namespace PSXPrev.Classes
             animation = new Animation();
             var rootAnimationObject = new AnimationObject();
             animationObjects = new Dictionary<uint, AnimationObject>();
-            var primitiveDataTop = reader.BaseStream.Position;
-            ProcessMimeVertexPrimitiveHeader(reader, primitiveHeaderPointer, out var coordTop, out var mimeDiffTop, out var mimeOrgTop, out var mimeVertTop, out var mimeNormTop, out var mimeTop);
-            reader.BaseStream.Seek(primitiveDataTop, SeekOrigin.Begin);
+
+            var position = reader.BaseStream.Position;
+            ProcessMIMeVertexNormalPrimitiveHeader(reader, primitiveHeaderPointer, reset, out var mimeTop, out var mimeNum, out var mimeId, out var mimeDiffTop, out var mimeOrigTop, out var vertTop, out var normTop);
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+
             for (uint i = 0; i < dataCount; i++)
             {
-                reader.BaseStream.Seek(_offset + mimeDiffTop, SeekOrigin.Begin);
-                var oNum = reader.ReadUInt16();
+                // todo: This differs for Reset
+
+                var diffIndex = reader.ReadUInt32() * 4;
+
+                position = reader.BaseStream.Position;
+                reader.BaseStream.Seek(_offset + mimeDiffTop + diffIndex, SeekOrigin.Begin);
+
+                var numOriginals = reader.ReadUInt16();
                 var numDiffs = reader.ReadUInt16();
-                if (numDiffs > Program.MaxHMDMimeDiffs)
+                if (numDiffs > Program.MaxHMDMIMEeDiffs)
                 {
                     return null;
                 }
-                var flags = reader.ReadUInt32();
-                var animationObject = GetAnimationObject(oNum);
+                if (numOriginals > Program.MaxHMDMIMEeOriginals)
+                {
+                    return null;
+                }
+                var diffKeyBits = reader.ReadUInt32(); // Keys with differences by bit index.
+                var diffKeys = new List<uint>();
+                for (var key = 0; key < 32; key++)
+                {
+                    if ((diffKeyBits & (1u << key)) != 0)
+                    {
+                        diffKeys.Add((uint)key);
+                    }
+                }
+                var animationObject = GetAnimationObject(mimeId + 1u); // Probably not correct...
                 for (uint j = 0; j < numDiffs; j++)
                 {
-                    var position = reader.BaseStream.Position;
-                    var diffDataTop = reader.ReadUInt32() * 4;
-                    reader.BaseStream.Seek(_offset + mimeDiffTop + diffTop + diffDataTop, SeekOrigin.Begin);
+                    var diffDataIndex = reader.ReadUInt32() * 4;
+
+                    var position2 = reader.BaseStream.Position;
+                    reader.BaseStream.Seek(_offset + mimeDiffTop + diffIndex + diffDataIndex, SeekOrigin.Begin);
+
                     var vertexStart = reader.ReadUInt32();
-                    var res = reader.ReadUInt16();
+                    reader.ReadUInt16(); //reserved
                     var vertexCount = reader.ReadUInt16();
-                    if (vertexCount + vertexStart == 0 || vertexCount + vertexStart >= Program.MaxHMDVertCount)
+                    if (vertexCount + vertexStart == 0 || vertexCount + vertexStart >= Program.MaxHMDVertices)
                     {
                         return null;
                     }
@@ -1111,21 +1201,46 @@ namespace PSXPrev.Classes
                     var vertices = new Vector3[vertexCount + vertexStart];
                     for (var k = 0; k < vertexCount; k++)
                     {
-                        var x = reader.ReadInt16();
-                        var y = reader.ReadInt16();
-                        var z = reader.ReadInt16();
-                        var pad = reader.ReadUInt16();
-                        vertices[vertexStart + k] = new Vector3(x, y, z);
+                        Vector3 v;
+                        if (!normal)
+                        {
+                            var vx = reader.ReadInt16();
+                            var vy = reader.ReadInt16();
+                            var vz = reader.ReadInt16();
+                            var pad = reader.ReadUInt16();
+                            v = new Vector3(vx, vy, vz);
+                        }
+                        else
+                        {
+                            var nx = TMDHelper.ConvertNormal(reader.ReadInt16());
+                            var ny = TMDHelper.ConvertNormal(reader.ReadInt16());
+                            var nz = TMDHelper.ConvertNormal(reader.ReadInt16());
+                            var pad = reader.ReadUInt16();
+                            v = new Vector3(nx, ny, nz);
+                        }
+                        vertices[vertexStart + k] = v;
                     }
                     animationFrame.Vertices = vertices;
                     animationFrame.TempVertices = new Vector3[animationFrame.Vertices.Length];
-                    reader.BaseStream.Seek(position, SeekOrigin.Begin);
+
+                    reader.BaseStream.Seek(position2, SeekOrigin.Begin);
                 }
-                if (flags == 1)
+                for (uint j = 0; j < numOriginals; j++)
                 {
-                    var resetOffset = reader.ReadUInt32() * 4;
+                    var diffChangedIndex = reader.ReadUInt32() * 4;
+
+                    var position2 = reader.BaseStream.Position;
+                    // Unlike data diffs, diffIndex isn't used here.
+                    reader.BaseStream.Seek(_offset + mimeDiffTop + diffChangedIndex, SeekOrigin.Begin);
+
+                    var changed = reader.ReadUInt16(); // Should be 0 in file
+                    var vertexCount = reader.ReadUInt16();
+
+                    reader.BaseStream.Seek(position2, SeekOrigin.Begin);
                 }
+                reader.BaseStream.Seek(position, SeekOrigin.Begin);
             }
+
             foreach (var animationObject in animationObjects.Values)
             {
                 if (animationObject.ParentID != 0 && animationObjects.ContainsKey(animationObject.ParentID))
@@ -1138,16 +1253,19 @@ namespace PSXPrev.Classes
                 animationObject.Parent = rootAnimationObject;
                 rootAnimationObject.Children.Add(animationObject);
             }
-            animation.AnimationType = AnimationType.VertexDiff;
+            animation.AnimationType = normal ? AnimationType.NormalDiff : AnimationType.VertexDiff;
             animation.RootAnimationObject = rootAnimationObject;
             animation.ObjectCount = animationObjects.Count;
             animation.FPS = 1f;
             return animation;
         }
 
-        private void ProcessGroundData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint polygonIndex, uint dataCount, uint gridIndex, uint vertexIndex)
+        private void ProcessGroundData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer)
         {
-            void AddTriangle(Triangle triangle, uint tPageNum, RenderFlags renderFlags, MixtureRate mixtureRate)
+            var renderFlags = RenderFlags.None;
+            var texture = primitiveType == 1;
+
+            void AddTriangle(Triangle triangle, uint tPageNum, MixtureRate mixtureRate)
             {
                 var renderInfo = new RenderInfo(tPageNum, renderFlags, mixtureRate);
                 if (!groupedTriangles.TryGetValue(renderInfo, out var triangles))
@@ -1158,110 +1276,152 @@ namespace PSXPrev.Classes
                 triangles.Add(triangle);
             }
 
-            ProcessGroundPrimitiveHeader(reader, primitiveHeaderPointer, primitiveType, polygonIndex, out var vertTop, out var normTop, out var polyTop, out var uvTop, out var gridTop, out var coordTop);
+            var polygonIndex = reader.ReadUInt32() * 4;
+            var gridIndex = reader.ReadUInt32() * 4;
+            var vertexIndex = reader.ReadUInt32() * 4;
 
-            for (var j = 0; j < dataCount; j++)
+            var position = reader.BaseStream.Position;
+            ProcessGroundPrimitiveHeader(reader, primitiveHeaderPointer, out var polyTop, out var gridTop, out var vertTop, out var normTop, out var uvTop, out var coordTop);
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+
+            // Read polygon data
+            reader.BaseStream.Seek(_offset + polyTop + polygonIndex, SeekOrigin.Begin);
+            var startX = reader.ReadInt16();
+            var startY = reader.ReadInt16();
+            var cellWidth  = reader.ReadUInt16();
+            var cellHeight = reader.ReadUInt16();
+            var verticesWidth  = reader.ReadUInt16();
+            var verticesHeight = reader.ReadUInt16();
+            var rowCount = reader.ReadUInt16(); // size
+            var baseVertex = reader.ReadUInt16(); // Not sure what to do with this...
+
+
+            var gridPosition = _offset + gridTop + gridIndex;
+            for (var row = 0; row < rowCount; row++)
             {
-                //polygon
-                reader.BaseStream.Seek(_offset + polyTop + polygonIndex, SeekOrigin.Begin);
-                var x0 = reader.ReadInt16();
-                var y0 = reader.ReadInt16();
-                var w = reader.ReadUInt16();
-                var h = reader.ReadUInt16();
-                var m = reader.ReadUInt16();
-                var n = reader.ReadUInt16();
-                var size = reader.ReadUInt16();
-                var @base = reader.ReadUInt16();
-                var position = reader.BaseStream.Position;
-                var gridItemSize = primitiveType == 1 ? 32 : 16;
-                for (var row = 0; row < size; row++)
+                // Continued polygon data
+                var vertexStart = reader.ReadUInt16();
+                var columnCount = reader.ReadUInt16();
+                var polyPosition = reader.BaseStream.Position;
+
+                for (var column = 0; column < columnCount; column++)
                 {
-                    var itemVertexIndex = reader.ReadUInt16();
-                    var itemGridCount = reader.ReadUInt16();
-                    var rowPosition = position;
-                    for (var itemGridIndex = 0; itemGridIndex < itemGridCount; itemGridIndex++)
+                    uint tPage;
+                    MixtureRate mixtureRate;
+                    Color color;
+                    Vector3 normal;
+                    Vector2 uv0, uv1, uv2, uv3;
+
+                    // Read grid packet
+                    reader.BaseStream.Seek(gridPosition, SeekOrigin.Begin);
+                    if (!texture)
                     {
-                        reader.BaseStream.Seek(_offset + gridTop + gridIndex + itemGridIndex * gridItemSize, SeekOrigin.Begin);
+                        var r = reader.ReadByte() / 255f;
+                        var g = reader.ReadByte() / 255f;
+                        var b = reader.ReadByte() / 255f;
+                        reader.ReadByte(); //pad
+                        var normIndex = reader.ReadUInt16();
+                        reader.ReadUInt16(); //pad
+                        gridPosition = reader.BaseStream.Position;
 
-                        uint tPage;
-                        Color color;
-                        Vector3 n0, n1, n2, n3;
-                        Vector2 uv0, uv1, uv2, uv3;
+                        color = new Color(r, g, b);
 
-                        var renderFlags = RenderFlags.None; // todo
-                        var mixtureRate = MixtureRate.None;
+                        normal = ReadNormal(reader, normTop, normIndex);
 
-                        if (primitiveType == 0)
-                        {
-                            var r = reader.ReadByte() / 255f;
-                            var g = reader.ReadByte() / 255f;
-                            var b = reader.ReadByte() / 255f;
-                            color = new Color(r, g, b);
-                            reader.ReadByte();
-                            var normIndex = reader.ReadUInt16();
-
-                            //todo
-                            n0 = n1 = n2 = n3 = Vector3.Zero;
-
-                            reader.ReadUInt16();
-                            tPage = 0;
-                            uv0 = uv1 = uv2 = uv3 = Vector2.Zero;
-                        }
-                        else
-                        {
-                            var normIndex = reader.ReadUInt16();
-                            var uvIndex = reader.ReadUInt16();
-
-                            //todo
-                            tPage = 0;
-                            uv0 = uv1 = uv2 = uv3 = Vector2.Zero;
-
-                            color = Color.Grey;
-                            n0 = n1 = n2 = n3 = Vector3.Zero;
-                        }
-
-                        var columnPosition = position;
-                        reader.BaseStream.Seek(_offset + vertTop + vertexIndex + itemVertexIndex * 4, SeekOrigin.Begin);
-                        var z0 = reader.ReadInt16();
-                        //var z1 = reader.ReadInt16();
-                        //var z2 = reader.ReadInt16();
-                        //var z3 = reader.ReadInt16();
-                        var z1 = z0;
-                        var z2 = z0;
-                        var z3 = z0;
-                        reader.BaseStream.Seek(columnPosition, SeekOrigin.Begin);
-
-                        var vertex0 = new Vector3(x0 + w * row, y0 + h * itemGridIndex, z0);
-                        var vertex1 = new Vector3(x0 + w * (row + 1), y0 + h * itemGridIndex, z1);
-                        var vertex2 = new Vector3(x0 + w * (row + 1), y0 + h * (itemGridIndex + 1), z2);
-                        var vertex3 = new Vector3(x0 + w * row, y0 + h * (itemGridIndex + 1), z3);
-
-                        AddTriangle(new Triangle
-                        {
-                            Vertices = new[] { vertex0, vertex1, vertex2 },
-                            Normals = new[] { n0, n1, n2 },
-                            Colors = new[] { color, color, color },
-                            Uv = new[] { uv0, uv1, uv2 },
-                            AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
-                        }, tPage, renderFlags, mixtureRate);
-
-                        AddTriangle(new Triangle
-                        {
-                            Vertices = new[] { vertex2, vertex3, vertex0 },
-                            Normals = new[] { n2, n3, n0 },
-                            Colors = new[] { color, color, color },
-                            Uv = new[] { uv2, uv3, uv0 },
-                            AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
-                        }, tPage, renderFlags, mixtureRate);
+                        tPage = 0;
+                        mixtureRate = MixtureRate.None;
+                        uv0 = uv1 = uv2 = uv3 = Vector2.Zero;
                     }
-                    reader.BaseStream.Seek(rowPosition, SeekOrigin.Begin);
+                    else
+                    {
+                        var normIndex = reader.ReadUInt16();
+                        var uvIndex = reader.ReadUInt16();
+                        gridPosition = reader.BaseStream.Position;
 
+                        color = Color.Grey;
+
+                        normal = ReadNormal(reader, normTop, normIndex);
+
+                        // Read UV data
+                        reader.BaseStream.Seek(_offset + uvTop + uvIndex * 12, SeekOrigin.Begin);
+                        var u0 = reader.ReadByte() / 255f;
+                        var v0 = reader.ReadByte() / 255f;
+                        var cbaValue = reader.ReadUInt16();
+                        var u1 = reader.ReadByte() / 255f;
+                        var v1 = reader.ReadByte() / 255f;
+                        var tsbValue = reader.ReadUInt16();
+                        var u2 = reader.ReadByte() / 255f;
+                        var v2 = reader.ReadByte() / 255f;
+                        var u3 = reader.ReadByte() / 255f;
+                        var v3 = reader.ReadByte() / 255f;
+
+                        TMDHelper.ParseTSB(tsbValue, out tPage, out var pmode, out mixtureRate);
+                        mixtureRate = MixtureRate.None; // No semi-transparency
+                        uv0 = new Vector2(u0, v0);
+                        uv1 = new Vector2(u1, v1);
+                        uv2 = new Vector2(u2, v2);
+                        uv3 = new Vector2(u3, v3);
+                    }
+
+                    // Read Z vertices
+                    reader.BaseStream.Seek(_offset + vertTop + vertexIndex + (vertexStart + column) * 2, SeekOrigin.Begin);
+                    var z0 = reader.ReadInt16();
+                    //var z2 = reader.ReadInt16();
+                    var z1 = reader.ReadInt16();
+
+                    reader.BaseStream.Seek(_offset + vertTop + vertexIndex + (vertexStart + column + verticesWidth) * 2, SeekOrigin.Begin);
+                    //var z1 = reader.ReadInt16();
+                    var z2 = reader.ReadInt16();
+                    var z3 = reader.ReadInt16();
+
+
+                    var x0 = startX + cellWidth  * column;
+                    var y0 = startY + cellHeight * row;
+                    var x1 = x0 + cellWidth;
+                    var y1 = y0 + cellHeight;
+
+                    // The format says X,Y for cells and Z for vertices... but no sane terrain format would only allow vertical ground.
+                    // To fix the polygon's vertex order, z1 and z2 have to be read opposite of the expected order...
+                    //var vertex0 = new Vector3(x0, z0, y0);
+                    //var vertex1 = new Vector3(x0, z1, y1);
+                    //var vertex2 = new Vector3(x1, z2, y0);
+                    //var vertex3 = new Vector3(x1, z3, y1);
+                    var vertex0 = new Vector3(x0, y0, z0);
+                    var vertex1 = new Vector3(x1, y0, z1);
+                    var vertex2 = new Vector3(x0, y1, z2);
+                    var vertex3 = new Vector3(x1, y1, z3);
+
+                    var normal0 = normal;
+                    var normal1 = normal;
+                    // Not part of the format, but uncomment if you want to see
+                    // clearer terrain lighting when all normals are the same.
+                    //normal0 = GeomUtils.CalculateNormal(vertex0, vertex1, vertex2);
+                    //normal1 = GeomUtils.CalculateNormal(vertex1, vertex3, vertex2);
+
+                    AddTriangle(new Triangle
+                    {
+                        Vertices = new[] { vertex0, vertex1, vertex2 },
+                        Normals = new[] { normal0, normal0, normal0 },
+                        Colors = new[] { color, color, color },
+                        Uv = new[] { uv0, uv1, uv2 },
+                        AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
+                    }, tPage, mixtureRate);
+
+                    AddTriangle(new Triangle
+                    {
+                        Vertices = new[] { vertex1, vertex3, vertex2 },
+                        Normals = new[] { normal1, normal1, normal1 },
+                        Uv = new[] { uv1, uv3, uv2 },
+                        Colors = new[] { color, color, color },
+                        AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
+                    }, tPage, mixtureRate);
                 }
-                reader.BaseStream.Seek(position, SeekOrigin.Begin);
+                reader.BaseStream.Seek(polyPosition, SeekOrigin.Begin);
             }
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ProcessEnvmapData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer, uint dataCount)
+        private void ProcessEnvmapData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount)
         {
             var polygonIndex = reader.ReadUInt32() * 4;
 
@@ -1270,7 +1430,7 @@ namespace PSXPrev.Classes
             reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
             // Read header here. Header size is 14, and is too complicated to read in another function.
             var headerSize = reader.ReadUInt32();
-            ReadMappedPointer(reader, out _, out var dataTop);
+            ReadMappedPointer(reader, out _, out var polyTop);
             ReadMappedPointer(reader, out _, out var vertTop);
             ReadMappedPointer(reader, out _, out var normTop);
             ReadMappedPointer(reader, out _, out var envImagePointer);
@@ -1306,7 +1466,7 @@ namespace PSXPrev.Classes
             // End of header
 
 
-            reader.BaseStream.Seek(_offset + dataTop + polygonIndex, SeekOrigin.Begin);
+            reader.BaseStream.Seek(_offset + polyTop + polygonIndex, SeekOrigin.Begin);
             for (var j = 0; j < dataCount; j++)
             {
                 var flag = primitiveType & 0xeff; // Not sure if bit 8 is *supposed* to be presets, or something else.
@@ -1333,12 +1493,12 @@ namespace PSXPrev.Classes
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ProcessDeviceData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint nextPrimitivePointer)
+        private void ProcessEquipmentData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer)
         {
             var position = reader.BaseStream.Position;
             // Note: with coordPointers, we need to find out coordTop to get the actual coordinate indices.
             // This can be calculated ahead of time and passed to ProcessPrimitive.
-            ProcessDevicePrimitiveHeader(reader, primitiveHeaderPointer, out var paramTop, out var posCoordPointer, out var refCoordPointer);
+            ProcessEquipmentPrimitiveHeader(reader, primitiveHeaderPointer, out var paramTop, out var posCoordPointer, out var refCoordPointer);
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
 
             if (primitiveType == 0x100) // Camera
@@ -1382,7 +1542,7 @@ namespace PSXPrev.Classes
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ProcessNonSharedGeometryPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint vertTop, out uint normTop, out uint coordTop, out uint dataTop)
+        private void ProcessNonSharedGeometryPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint polyTop, out uint vertTop, out uint normTop, out uint coordTop)
         {
             var position = reader.BaseStream.Position;
 
@@ -1390,7 +1550,7 @@ namespace PSXPrev.Classes
 
             var headerSize = reader.ReadUInt32();
 
-            ReadMappedPointer(reader, out var dataTopMapped, out dataTop);
+            ReadMappedPointer(reader, out var polyTopapped, out polyTop);
             ReadMappedPointer(reader, out var vertTopMapped, out vertTop);
             ReadMappedPointer(reader, out var normTopMaped, out normTop);
             ReadMappedPointer(reader, out var coordTopMapped, out coordTop);
@@ -1398,7 +1558,7 @@ namespace PSXPrev.Classes
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ProcessSharedGeometryPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint dataTop, out uint vertTop, out uint calcVertTop, out uint normTop, out uint calcNormTop, out uint coordTop)
+        private void ProcessSharedGeometryPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint polyTop, out uint vertTop, out uint calcVertTop, out uint normTop, out uint calcNormTop, out uint coordTop)
         {
             var position = reader.BaseStream.Position;
 
@@ -1406,7 +1566,7 @@ namespace PSXPrev.Classes
 
             var headerSize = reader.ReadUInt32();
 
-            ReadMappedPointer(reader, out var dataTopMapped, out dataTop);
+            ReadMappedPointer(reader, out var polyTopMapped, out polyTop);
             ReadMappedPointer(reader, out var vertTopMapped, out vertTop);
             ReadMappedPointer(reader, out var calcVertTopMapped, out calcVertTop);
             ReadMappedPointer(reader, out var normTopMaped, out normTop);
@@ -1463,42 +1623,59 @@ namespace PSXPrev.Classes
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ProcessMimeVertexPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint coordTop, out uint mimeDiffTop, out uint mimeOrgTop, out uint mimeVertTop, out uint mimeNormTop, out uint mimeTop)
+        private void ProcessMIMeJointPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, bool reset, out uint coordTop, out uint mimeTop, out uint mimeNum, out ushort mimeId, out uint mimeDiffTop)
         {
-            //7; /* header size */
-            //M(MIMePr_ptr / 4);
-            //MIMe_num;
-            //H(MIMeID); H(0 /* reserved */);
-            //M(MIMeDiffSect / 4);
-            //M(MIMeOrgsVNSect / 4);
-            //M(VertSect / 4);
-            //M(NormSect / 4);
-
             var position = reader.BaseStream.Position;
-
             reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
 
             var headerSize = reader.ReadUInt32();
 
-            //ReadMappedPointer(reader, out var coordTopMapped, out coordTop);
-
-            coordTop = 0;
-
-            ReadMappedPointer(reader, out var mimeTopMapped, out mimeTop);
-
-            var mimeNum = reader.ReadUInt32();
-            var mimeId = reader.ReadUInt16();
-            reader.ReadUInt16();
-
-            ReadMappedPointer(reader, out var mimeDiffTopMapped, out mimeDiffTop);
-            ReadMappedPointer(reader, out var mimeOrgTopMapped, out mimeOrgTop);
-            ReadMappedPointer(reader, out var mimeVertTopMapped, out mimeVertTop);
-            ReadMappedPointer(reader, out var mimeNormTopMapped, out mimeNormTop);
+            ReadMappedPointer(reader, out var coordTopMapped, out coordTop);
+            if (!reset)
+            {
+                ReadMappedPointer(reader, out var mimeTopMapped, out mimeTop);
+                mimeNum = reader.ReadUInt32();
+            }
+            else
+            {
+                mimeTop = 0;
+                mimeNum = 0;
+            }
+            mimeId = reader.ReadUInt16();
+            reader.ReadUInt16(); //reserved
+            ReadMappedPointer(reader, out var mimeAxesDiffTopMapped, out mimeDiffTop);
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ProcessGroundPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, uint primitiveType, uint polygonIndex, out uint vertTop, out uint normTop, out uint polyTop, out uint uvTop, out uint gridTop, out uint coordTop)
+        private void ProcessMIMeVertexNormalPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, bool reset, out uint mimeTop, out uint mimeNum, out ushort mimeId, out uint mimeDiffTop, out uint mimeOrigTop, out uint vertTop, out uint normTop)
+        {
+            var position = reader.BaseStream.Position;
+            reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
+
+            var headerSize = reader.ReadUInt32();
+
+            if (!reset)
+            {
+                ReadMappedPointer(reader, out var mimeTopMapped, out mimeTop);
+                mimeNum = reader.ReadUInt32();
+            }
+            else
+            {
+                mimeTop = 0;
+                mimeNum = 0;
+            }
+            mimeId = reader.ReadUInt16();
+            reader.ReadUInt16(); //reserved
+            ReadMappedPointer(reader, out var mimeDiffTopMapped, out mimeDiffTop);
+            ReadMappedPointer(reader, out var mimeOrigTopMapped, out mimeOrigTop);
+            ReadMappedPointer(reader, out var mimeVertTopMapped, out vertTop);
+            ReadMappedPointer(reader, out var mimeNormTopMapped, out normTop);
+
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
+        }
+
+        private void ProcessGroundPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint polyTop, out uint gridTop, out uint vertTop, out uint normTop, out uint uvTop, out uint coordTop)
         {
             var position = reader.BaseStream.Position;
 
@@ -1526,7 +1703,7 @@ namespace PSXPrev.Classes
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ProcessDevicePrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint paramTop, out uint posCoordPointer, out uint refCoordPointer)
+        private void ProcessEquipmentPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint paramTop, out uint posCoordPointer, out uint refCoordPointer)
         {
             var position = reader.BaseStream.Position;
 
