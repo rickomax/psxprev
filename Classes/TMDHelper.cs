@@ -390,29 +390,11 @@ namespace PSXPrev.Classes
             // todo: We should cache vertex (and normal maybe?) lookups when MeshLength > 1.
             for (m = 0; m < primitiveData.MeshLength; m++)
             {
-                var tPage = primitiveData.TryGetValue(m, PrimitiveDataType.TSB, out var tsbValue) ? tsbValue & 0x1F : 0;
-
-                var abr = (tsbValue >> 5) & 0x3; // Mixture rate: 0- 50%back+50%poly, 1- 100%back+100%poly, 2- 100%back-100%poly, 3- 100%back+25%poly
-                //var tpf = (tsbValue >> 7) & 0x3; // Color mode: 0-4bit, 1-8bit, 2-15bit
-
-                var mixtureRate = MixtureRate.None;
-                if (primitiveData.RenderFlags.HasFlag(RenderFlags.SemiTransparent))
+                primitiveData.TryGetValue(m, PrimitiveDataType.TSB, out var tsbValue);
+                ParseTSB(tsbValue, out var tPage, out var pmode, out var mixtureRate);
+                if (!primitiveData.RenderFlags.HasFlag(RenderFlags.SemiTransparent))
                 {
-                    switch (abr)
-                    {
-                        case 0:
-                            mixtureRate = MixtureRate.Back50_Poly50;
-                            break;
-                        case 1:
-                            mixtureRate = MixtureRate.Back100_Poly100;
-                            break;
-                        case 2:
-                            mixtureRate = MixtureRate.Back100_PolyM100;
-                            break;
-                        case 3:
-                            mixtureRate = MixtureRate.Back100_Poly25;
-                            break;
-                    }
+                    mixtureRate = MixtureRate.None; // No semi-transparency
                 }
 
                 renderInfo = new RenderInfo(tPage, primitiveData.RenderFlags, mixtureRate);
@@ -450,11 +432,8 @@ namespace PSXPrev.Classes
                 else
                 {
                     hasNormals = false;
-                    normal0 = Vector3.Cross((vertex1 - vertex0).Normalized(), (vertex2 - vertex1).Normalized());
-                    normal1 = normal0;
-                    normal2 = normal0;
-                    normalIndex1 = normalIndex0;
-                    normalIndex2 = normalIndex0;
+                    normal0 = normal1 = normal2 = GeomUtils.CalculateNormal(vertex0, vertex1, vertex2);
+                    normalIndex1 = normalIndex2 = normalIndex0;
                 }
 
                 // Note: It seems that dividing UVs by 256f instead of 255f fixes some texture misalignment.
@@ -563,7 +542,21 @@ namespace PSXPrev.Classes
                 {
                     var vertex3 = vertexCallback(vertexIndex3);
                     //var normal3 = primitiveData.TryGetNormal(m, vertexOrder3, out var normalIndex3) ? normalCallback(normalIndex3) : normal0;
-                    var normal3 = primitiveData.TryGetValue(m, PrimitiveDataType.NORMAL3, out var normalIndex3) ? normalCallback(normalIndex3) : normal0;
+                    Vector3 normal3;
+                    if (primitiveData.TryGetValue(m, PrimitiveDataType.NORMAL3, out var normalIndex3))
+                    {
+                        normal3 = normalCallback(normalIndex3);
+                    }
+                    else if (hasNormals)
+                    {
+                        normal3 = normal0;
+                        normalIndex3 = normalIndex0;
+                    }
+                    else
+                    {
+                        normal1 = normal3 = normal2 = GeomUtils.CalculateNormal(vertex1, vertex3, vertex2);
+                        normalIndex3 = normalIndex0;
+                    }
                     // todo: Do we need normal calculation for this triangle if !hasNormals?
                     var g3 = primitiveData.TryGetValue(m, PrimitiveDataType.G3, out var g3Value) ? g3Value / 255f : g0;
                     var r3 = primitiveData.TryGetValue(m, PrimitiveDataType.R3, out var r3Value) ? r3Value / 255f : r0;
@@ -598,6 +591,56 @@ namespace PSXPrev.Classes
                     }
                     AddTriangle(triangle2);
                 }
+            }
+        }
+
+        public static void ParseCBA(uint cbaValue, out uint clutX, out uint clutY)
+        {
+            clutX = ((cbaValue >> 0) & 0x03f) << 4; // 6(10) bits
+            clutY = ((cbaValue >> 6) & 0x1ff) << 0; // 9( 9) bits (not shifted to 10 bits)
+            // Bit 15 is unused.
+        }
+
+        public static void ParseTSB(uint tsbValue, out uint texturePage, out uint pmode, out MixtureRate mixtureRate)
+        {
+            texturePage = (tsbValue >> 0) & 0x1f;
+            var abr     = (tsbValue >> 5) & 0x03; // Mixture rate: 0- 50%back+50%poly, 1- 100%back+100%poly, 2- 100%back-100%poly, 3- 100%back+25%poly
+            var tpf     = (tsbValue >> 7) & 0x03; // Texture pixel format: 0-4bit, 1-8bit, 2-15bit
+
+            // Switch statement for if pmode is ever changed to an enum.
+            pmode = tpf;
+            /*switch (tpf)
+            {
+                default:
+                case 0:
+                    pmode = 0;// PixelFormat.Format4bppIndexed;
+                    break;
+                case 1:
+                    pmode = 1;// PixelFormat.Format8bppIndexed;
+                    break;
+                case 2:
+                    pmode = 2;// PixelFormat.Format16bppRgb555;
+                    break;
+                case 3:
+                    pmode = 3;// PixelFormat.Format24bppRgb;
+                    break;
+            }*/
+
+            switch (abr)
+            {
+                default:
+                case 0:
+                    mixtureRate = MixtureRate.Back50_Poly50;
+                    break;
+                case 1:
+                    mixtureRate = MixtureRate.Back100_Poly100;
+                    break;
+                case 2:
+                    mixtureRate = MixtureRate.Back100_PolyM100;
+                    break;
+                case 3:
+                    mixtureRate = MixtureRate.Back100_Poly25;
+                    break;
             }
         }
 

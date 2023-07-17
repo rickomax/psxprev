@@ -104,8 +104,9 @@ namespace PSXPrev
         public static ulong MaxHMDAnimSequenceSize = 20000;
         public static ulong MaxHMDAnimSequenceCount = 1024;
         public static ulong MaxHMDAnimInstructions = ushort.MaxValue + 1; // Hard cap
-        public static ulong MaxHMDMimeDiffs = 100;
-        public static ulong MaxHMDVertCount = 5000;
+        public static ulong MaxHMDMIMEeDiffs = 100;
+        public static ulong MaxHMDMIMEeOriginals = 100;
+        public static ulong MaxHMDVertices = 5000;
         public static ulong MaxMODModels = 1000;
         public static ulong MaxMODVertices = 10000;
         public static ulong MaxMODFaces = 10000;
