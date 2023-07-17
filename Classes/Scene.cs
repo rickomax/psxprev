@@ -74,7 +74,9 @@ namespace PSXPrev.Classes
 
         private Vector4 _transformedLight;
         private Matrix4 _projectionMatrix;
-        private Matrix4 _viewMatrix;
+        private Matrix4 _viewMatrix; // Final view matrix.
+        private Matrix4 _viewOriginMatrix; // View matrix without target translation.
+        private Vector3 _viewTarget; // Center of view that camera rotates around.
         private bool _viewMatrixValid;
         private int _shaderProgram;
         private Vector3 _rayOrigin;
@@ -114,9 +116,9 @@ namespace PSXPrev.Classes
 
         public bool ForceDoubleSided { get; set; }
 
-        public float CameraDistanceIncrement => CameraDistanceToOrigin * CameraDistanceIncrementFactor;
+        public float CameraDistanceIncrement => CameraDistanceToTarget * CameraDistanceIncrementFactor;
 
-        public float CameraPanIncrement => CameraDistanceToOrigin * CameraPanIncrementFactor;
+        public float CameraPanIncrement => CameraDistanceToTarget * CameraPanIncrementFactor;
 
         private float _cameraDistance;
         public float CameraDistance
@@ -143,11 +145,11 @@ namespace PSXPrev.Classes
 
         public float CameraY { get; set; }
 
-        public Quaternion CameraRotation => _viewMatrix.Inverted().ExtractRotation();
+        public Quaternion CameraRotation => _viewOriginMatrix.Inverted().ExtractRotation();
 
         public Vector3 CameraDirection => CameraRotation * Vector3.UnitZ;
 
-        public float CameraDistanceToOrigin => -_viewMatrix.ExtractTranslation().Z;
+        public float CameraDistanceToTarget => -_viewOriginMatrix.ExtractTranslation().Z;
 
         private Vector3 _lightRotation;
 
@@ -281,11 +283,23 @@ namespace PSXPrev.Classes
 
         public void UpdateViewMatrix()
         {
-            var translation = Matrix4.CreateTranslation(CameraX, -CameraY, 0f);
+            // The target (_viewTarget) is the origin of the view that the camera rotates around.
+            // CameraY represents the vertical distance of the camera from the origin (rotated by the pitch).
+            // CameraX represents the horizontal distance of the camera from the origin (rotated by the yaw).
+            // The camera always rotates around the origin.
+            // The camera cannot move forwards or back, it can only zoom in and out.
+            var targetTranslation = Matrix4.CreateTranslation(-_viewTarget);
+            var cameraTranslation = Matrix4.CreateTranslation(CameraX, -CameraY, 0f);
             var rotation = Matrix4.CreateRotationY(_cameraYaw) * Matrix4.CreateRotationX(_cameraPitch);
-            var eye = rotation * new Vector4(0f, 0f, -_cameraDistance, 1f);
-            _viewMatrix = Matrix4.LookAt(new Vector3(eye.X, eye.Y, eye.Z), Vector3.Zero, new Vector3(0f, -1f, 0f));
-            _viewMatrix *= translation;
+            var eye = (rotation * new Vector4(0f, 0f, -_cameraDistance, 1f)).Xyz;
+
+            // Target (0, 0, 0), then apply _viewTarget translation later, because we need _viewOriginMatrix.
+            _viewOriginMatrix = Matrix4.LookAt(eye, Vector3.Zero, new Vector3(0f, -1f, 0f));
+            // Apply camera translation (after rotation).
+            _viewOriginMatrix *= cameraTranslation;
+            // Apply target translation (before rotation).
+            _viewMatrix = targetTranslation * _viewOriginMatrix;
+
             _viewMatrixValid = true;
         }
 
@@ -481,6 +495,8 @@ namespace PSXPrev.Classes
             _cameraPitch = 0f;
             CameraX = 0f;
             CameraY = 0f;
+            // Target the center of the bounding box, so that models that aren't close to the origin are easy to view.
+            _viewTarget = bounds.Center;
             DistanceToFitBounds(bounds);
         }
 
@@ -491,7 +507,7 @@ namespace PSXPrev.Classes
 
         private void DistanceToFitBounds(BoundingBox bounds)
         {
-            var radius = bounds.MagnitudeFromCenter;
+            var radius = bounds.MagnitudeFromPosition(_viewTarget);
             var distance = radius / (float)Math.Sin(CameraFOVRads * 0.5f) + 0.1f;
             CameraDistance = distance;
             UpdateViewMatrix();

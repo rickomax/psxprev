@@ -17,7 +17,7 @@ namespace PSXPrev.Classes
             var bounds = new BoundingBox();
             foreach (var entity in ChildEntities)
             {
-                bounds.AddPoints(entity.Bounds3D.Corners);
+                bounds.AddBounds(entity.Bounds3D);
             }
             Bounds3D = bounds;
         }
