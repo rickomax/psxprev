@@ -1,9 +1,14 @@
-﻿using OpenTK;
+﻿using System.Collections.Generic;
+using OpenTK;
 
 namespace PSXPrev.Classes
 {
     public class BoundingBox
     {
+        public Vector3 Min;
+        public Vector3 Max;
+        public bool IsSet { get; private set; } // True if at least one point has been added.
+
         private readonly Vector3[] _corners = new Vector3[8];
         public Vector3[] Corners
         {
@@ -29,52 +34,59 @@ namespace PSXPrev.Classes
 
         public float Magnitude => Size.Length;
 
-        public float MagnitudeFromCenter
+        public float MagnitudeFromCenter => Size.Length * 0.5f;
+
+        public float MagnitudeFromOrigin => MagnitudeFromPosition(Vector3.Zero);
+
+        public float MagnitudeFromPosition(Vector3 position)
         {
-            get
+            var min = Vector3.ComponentMin(Min, position);
+            var max = Vector3.ComponentMax(Max, position);
+            return (max - min).Length;
+        }
+
+
+        public BoundingBox()
+        {
+        }
+
+        public BoundingBox(BoundingBox fromBoundingBox)
+        {
+            Min = fromBoundingBox.Min;
+            Max = fromBoundingBox.Max;
+            IsSet = fromBoundingBox.IsSet;
+        }
+
+
+        public void Reset()
+        {
+            Min = Max = Vector3.Zero;
+            IsSet = false;
+        }
+
+        public void AddBounds(BoundingBox boundingBox)
+        {
+            if (boundingBox.IsSet)
             {
-                var min = Min;
-                var max = Max;
-                GetMinMax(ref min, ref max, Vector3.Zero);
-                return (max - min).Length;
+                // This works even if Min/Max have higher/lower values (due to direction modification of fields).
+                //AddPoint(boundingBox.Min);
+                //AddPoint(boundingBox.Max);
+                // This does not, but it's faster. :)
+                if (!IsSet)
+                {
+                    Min = boundingBox.Min;
+                    Max = boundingBox.Max;
+                    IsSet = true;
+                }
+                else
+                {
+                    Min = Vector3.ComponentMin(Min, boundingBox.Min);
+                    Max = Vector3.ComponentMax(Max, boundingBox.Max);
+                }
             }
         }
 
-        public Vector3 Min;
-
-        public Vector3 Max;
-
-        private bool _isSet;
-
-        private void GetMinMax(ref Vector3 min, ref Vector3 max, Vector3 point)
-        {
-            if (point.X < min.X)
-            {
-                min.X = point.X;
-            }
-            else if (point.X > max.X)
-            {
-                max.X = point.X;
-            }
-            if (point.Y < min.Y)
-            {
-                min.Y = point.Y;
-            }
-            else if (point.Y > max.Y)
-            {
-                max.Y = point.Y;
-            }
-            if (point.Z < min.Z)
-            {
-                min.Z = point.Z;
-            }
-            else if (point.Z > max.Z)
-            {
-                max.Z = point.Z;
-            }
-        }
-
-        public void AddPoints(Vector3[] points)
+        public void AddPoints(IEnumerable<Vector3> points)
         {
             foreach (var point in points)
             {
@@ -84,22 +96,21 @@ namespace PSXPrev.Classes
 
         public void AddPoint(Vector3 point)
         {
-            if (!_isSet)
+            if (!IsSet)
             {
-                Min = point;
-                Max = point;
-                _isSet = true;
+                Min = Max = point;
+                IsSet = true;
             }
             else
             {
-                GetMinMax(ref Min, ref Max, point);
+                Min = Vector3.ComponentMin(Min, point);
+                Max = Vector3.ComponentMax(Max, point);
             }
-
         }
 
         public override string ToString()
         {
-            return $"({Min.X}, {Min.Y}, {Min.Z}) - ({Max.X}, {Max.Y}, {Max.Z})";
+            return $"{Min} - {Max}";
         }
     }
 }

@@ -34,7 +34,7 @@ namespace PSXPrev
 
             //count the selected entity
             var modelCount = 1;
-            //count checked, excecpt, the selected
+            //count checked, except, the selected
             if (checkedEntities != null)
             {
                 foreach (var checkedEntity in checkedEntities)
@@ -46,7 +46,7 @@ namespace PSXPrev
                     modelCount += checkedEntity.ChildEntities.Length;
                     if (focus)
                     {
-                        bounds.AddPoints(checkedEntity.Bounds3D.Corners);
+                        bounds.AddBounds(checkedEntity.Bounds3D);
                     }
                 }
             }
@@ -58,7 +58,7 @@ namespace PSXPrev
                     modelCount++;
                     if (focus)
                     {
-                        bounds.AddPoints(subEntity.Bounds3D.Corners);
+                        bounds.AddBounds(subEntity.Bounds3D);
                     }
                 }
             }

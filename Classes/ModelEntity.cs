@@ -96,7 +96,6 @@ namespace PSXPrev.Classes
             base.ComputeBounds();
             var bounds = new BoundingBox();
             var worldMatrix = WorldMatrix;
-            var hasBounds = false;
             foreach (var triangle in Triangles)
             {
                 if (triangle.Vertices != null)
@@ -112,12 +111,11 @@ namespace PSXPrev.Classes
                         }
                         var vertex = triangle.Vertices[i];
                         bounds.AddPoint(Vector3.TransformPosition(vertex, worldMatrix));
-                        hasBounds = true;
                     }
 
                 }
             }
-            if (!hasBounds)
+            if (!bounds.IsSet)
             {
                 // When a model has all attached limb vertices, the model itself will have no bounds
                 // and will always be positioned at (0, 0, 0), even if the root entity has translation.
