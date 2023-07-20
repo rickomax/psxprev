@@ -31,37 +31,42 @@ namespace PSXPrev.Classes
         {
             Animation animation;
             Dictionary<uint, AnimationObject> animationObjects;
+
             AnimationFrame GetNextAnimationFrame(AnimationObject animationObject)
             {
                 var animationFrames = animationObject.AnimationFrames;
                 var frameTime = (uint)animationFrames.Count;
-                var frame = new AnimationFrame { FrameTime = frameTime, AnimationObject = animationObject };
-                animationFrames.Add(frameTime, frame);
-                if (frameTime >= animation.FrameCount)
+                var animationFrame = new AnimationFrame
                 {
-                    animation.FrameCount = frameTime + 1;
-                }
-                return frame;
+                    FrameTime = frameTime,
+                    FrameDuration = 1,
+                    AnimationObject = animationObject
+                };
+                animationFrames.Add(frameTime, animationFrame);
+
+                //animation.FrameCount = Math.Max(animation.FrameCount, animationFrame.FrameEnd);
+                return animationFrame;
             }
             AnimationObject GetAnimationObject(uint objectId)
             {
-                if (animationObjects.ContainsKey(objectId))
+                if (!animationObjects.TryGetValue(objectId, out var animationObject))
                 {
-                    return animationObjects[objectId];
+                    animationObject = new AnimationObject { Animation = animation, ID = objectId };
+                    animationObject.TMDID.Add(objectId);
+                    animationObjects.Add(objectId, animationObject);
                 }
-                var animationObject = new AnimationObject { Animation = animation, ID = objectId};
-                animationObject.TMDID.Add(objectId);
-                animationObjects.Add(objectId, animationObject);
                 return animationObject;
             }
+
             var frameCount = reader.ReadUInt32();
             if (frameCount < Program.MinVDFFrames || frameCount > Program.MaxVDFFrames)
             {
                 return null;
             }
+
             animation = new Animation();
-            var rootAnimationObject = new AnimationObject();
             animationObjects = new Dictionary<uint, AnimationObject>();
+
             if (Program.Debug)
             {
                 Program.Logger.WriteLine("VDF---------------------------------");
@@ -120,22 +125,10 @@ namespace PSXPrev.Classes
                 animationFrame.TempVertices = new Vector3[animationFrame.Vertices.Length];
 
             }
-            foreach (var animationObject in animationObjects.Values)
-            {
-                if (animationObject.ParentID != 0 && animationObjects.ContainsKey(animationObject.ParentID))
-                {
-                    var parent = animationObjects[animationObject.ParentID];
-                    animationObject.Parent = parent;
-                    parent.Children.Add(animationObject);
-                    continue;
-                }
-                animationObject.Parent = rootAnimationObject;
-                rootAnimationObject.Children.Add(animationObject);
-            }
+
             animation.AnimationType = AnimationType.VertexDiff;
-            animation.RootAnimationObject = rootAnimationObject;
-            animation.ObjectCount = animationObjects.Count;
             animation.FPS = 1f;
+            animation.AssignObjects(animationObjects, false, false);
             return animation;
         }
     }

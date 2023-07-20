@@ -35,31 +35,35 @@ namespace PSXPrev.Classes
         {
             Animation animation;
             Dictionary<uint, AnimationObject> animationObjects;
+
             AnimationFrame GetAnimationFrame(AnimationObject animationObject, uint frameTime)
             {
                 var animationFrames = animationObject.AnimationFrames;
-                if (!animationObject.AnimationFrames.TryGetValue(frameTime, out var animationFrame))
+                if (!animationFrames.TryGetValue(frameTime, out var animationFrame))
                 {
-                    animationFrame = new AnimationFrame { FrameTime = frameTime, AnimationObject = animationObject };
+                    animationFrame = new AnimationFrame
+                    {
+                        FrameTime = frameTime,
+                        FrameDuration = 1,
+                        AnimationObject = animationObject
+                    };
                     animationFrames.Add(frameTime, animationFrame);
-                }
-                if (frameTime >= animation.FrameCount)
-                {
-                    animation.FrameCount = frameTime + 1;
+
+                    //animation.FrameCount = Math.Max(animation.FrameCount, animationFrame.FrameEnd);
                 }
                 return animationFrame;
             }
             AnimationObject GetAnimationObject(uint objectId)
             {
-                if (animationObjects.ContainsKey(objectId))
+                if (!animationObjects.TryGetValue(objectId, out var animationObject))
                 {
-                    return animationObjects[objectId];
+                    animationObject = new AnimationObject { Animation = animation, ID = objectId };
+                    animationObject.TMDID.Add(objectId);
+                    animationObjects.Add(objectId, animationObject);
                 }
-                var animationObject = new AnimationObject { Animation = animation, ID = objectId};
-                animationObject.TMDID.Add(objectId);
-                animationObjects.Add(objectId, animationObject);
                 return animationObject;
             }
+
             var version = reader.ReadByte();
             var numJoints = reader.ReadByte();
             if (numJoints == 0 || numJoints > Program.MaxANJoints)
@@ -76,9 +80,10 @@ namespace PSXPrev.Classes
             {
                 return null;
             }
+
             animation = new Animation();
             animationObjects = new Dictionary<uint, AnimationObject>();
-            var rootAnimationObject = new AnimationObject();
+
             var translationTop = reader.ReadUInt32();
             var rotationTop = reader.ReadUInt32();
             for (uint f = 0; f < numFrames; f++)
@@ -106,22 +111,10 @@ namespace PSXPrev.Classes
                     animationFrame.EulerRotation = new Vector3(x,y,z);
                 }
             }
-            foreach (var animationObject in animationObjects.Values)
-            {
-                if (animationObject.ParentID != 0 && animationObjects.ContainsKey(animationObject.ParentID))
-                {
-                    var parent = animationObjects[animationObject.ParentID];
-                    animationObject.Parent = parent;
-                    parent.Children.Add(animationObject);
-                    continue;
-                }
-                animationObject.Parent = rootAnimationObject;
-                rootAnimationObject.Children.Add(animationObject);
-            }
+
             animation.AnimationType = AnimationType.Common;
-            animation.RootAnimationObject = rootAnimationObject;
-            animation.ObjectCount = animationObjects.Count;
             animation.FPS = frameRate;
+            animation.AssignObjects(animationObjects, false, false);
             return animation;
         }
     }

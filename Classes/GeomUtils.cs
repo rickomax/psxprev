@@ -235,6 +235,30 @@ namespace PSXPrev.Classes
             return cross;
         }
 
+        public static int PositiveModulus(int x, int m)
+        {
+            var r = x % m;
+            return r < 0 ? r + m : r;
+        }
+
+        public static long PositiveModulus(long x, long m)
+        {
+            var r = x % m;
+            return r < 0 ? r + m : r;
+        }
+
+        public static float PositiveModulus(float x, float m)
+        {
+            var r = x % m;
+            return r < 0 ? r + m : r;
+        }
+
+        public static double PositiveModulus(double x, double m)
+        {
+            var r = x % m;
+            return r < 0 ? r + m : r;
+        }
+
         public static float InterpolateValue(float src, float dst, float delta)
         {
             // Uncomment if we want clamping. Or add bool clamp as an optional parameter.
@@ -243,12 +267,72 @@ namespace PSXPrev.Classes
             return (src * (1f - delta)) + (dst * (delta));
         }
 
-        public static Vector3 InterpolateVector(Vector3 src, Vector3 dst, float delta)
+        // Just use Vector3.Lerp instead.
+        /*public static Vector3 InterpolateVector(Vector3 src, Vector3 dst, float delta)
         {
             // Uncomment if we want clamping. Or add bool clamp as an optional parameter.
             //if (delta <= 0f) return src;
             //if (delta >= 1f) return dst;
-            return (src * (1f - delta)) + (dst * (delta));
+            //return (src * (1f - delta)) + (dst * (delta));
+            return Vector3.Lerp(src, dst, delta);
+        }*/
+
+        public static Vector3 InterpolateBezierCurve(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float delta)
+        {
+            // OpenTK's BezierCurve is only for Vector2, so we need to implement it ourselves.
+            float temp;
+            var r = Vector3.Zero;
+
+            // Note: Power raised to the 0 is always 1, so we can skip those calculations.
+
+            temp = (float)MathHelper.BinomialCoefficient(4 - 1, 0) *
+                /*(float)Math.Pow(delta, 0) * */ (float)Math.Pow(1f - delta, 3);
+            r += temp * p0;
+
+            temp = (float)MathHelper.BinomialCoefficient(4 - 1, 1) *
+                (float)Math.Pow(delta, 1) * (float)Math.Pow(1f - delta, 2);
+            r += temp * p1;
+
+            temp = (float)MathHelper.BinomialCoefficient(4 - 1, 2) *
+                (float)Math.Pow(delta, 2) * (float)Math.Pow(1f - delta, 1);
+            r += temp * p2;
+
+            temp = (float)MathHelper.BinomialCoefficient(4 - 1, 3) *
+                (float)Math.Pow(delta, 3) /* * (float)Math.Pow(1f - delta, 0)*/;
+            r += temp * p3;
+
+            return r;
+        }
+
+        public static Vector3 InterpolateBSpline(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float delta)
+        {
+            // This is heavily simplified from other examples by removing knots and weights,
+            // so there may be some mistakes here...
+
+            const int NUM_POINTS = 4;
+            const int DEGREE = 3;// NUM_POINTS - 1;
+            const int start = DEGREE + 1; // Only constant when DEGREE == NUM_POINTS - 1
+
+            delta = Math.Max(0f, Math.Min(1f, delta)); // Clamp delta
+            var t = delta * (NUM_POINTS - DEGREE) + DEGREE;
+
+            // This should always be 4 (3 + 1).
+            //var start = Math.Max(DEGREE, Math.Min(NUM_POINTS - 1, (int)t)) + 1;
+
+            var points = new[] { p0, p1, p2, p3 };
+
+            for (var lvl = 0; lvl < DEGREE; lvl++)
+            {
+                for (var i = start - DEGREE + lvl; i < start; i++)
+                {
+                    //var alpha = (t - i) / ((i + DEGREE - lvl) - i);
+                    var alpha = (t - i) / (DEGREE - lvl); // simplified
+
+                    var p = i - lvl;
+                    points[p - 1] = Vector3.Lerp(points[p - 1], points[p], alpha);
+                }
+            }
+            return points[start - DEGREE - 1];
         }
     }
 }

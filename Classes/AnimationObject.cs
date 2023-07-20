@@ -23,6 +23,14 @@ namespace PSXPrev.Classes
         [ReadOnly(true)]
         public uint ID { get; set; }
 
+        // Looping frame count for individual animation objects. Keep as 0 to use Animation.FrameCount.
+        [DisplayName("Object Frame Count"), ReadOnly(true)]
+        public uint FrameCount { get; set; }
+
+        // Speed multiplier for individual animation objects.
+        [DisplayName("Object Speed")]
+        public float Speed { get; set; } = 1f;
+
         [DisplayName("TMD ID")]
         public List<uint> TMDID { get; set; } = new List<uint>();
 

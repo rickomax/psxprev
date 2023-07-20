@@ -27,10 +27,8 @@ namespace PSXPrev
 
         private Timer _animateTimer;
         private Animation _curAnimation;
-        private float _curAnimationFrame;
         private AnimationFrame _curAnimationFrameObj;
         private AnimationObject _curAnimationObject;
-        private float _curAnimationTime;
         private Scene.GizmoId _hoveredGizmo;
         private bool _inAnimationTab;
         private float _lastMouseX;
@@ -73,16 +71,27 @@ namespace PSXPrev
             get => _playing;
             set
             {
-                _playing = value;
-                if (_playing)
+                if (_playing != value)
                 {
-                    animationPlayButton.Text = "Stop Animation";
-                    _animateTimer.Start();
-                }
-                else
-                {
-                    animationPlayButton.Text = "Play Animation";
-                    _animateTimer.Stop();
+                    _playing = value;
+                    if (_playing)
+                    {
+                        animationPlayButton.Text = "Stop Animation";
+                        _animateTimer.Start();
+                    }
+                    else
+                    {
+                        animationPlayButton.Text = "Play Animation";
+                        _animateTimer.Stop();
+
+                        // Make sure we restart the animation if it was finished.
+                        if (_scene.AnimationBatch.IsFinished)
+                        {
+                            _scene.AnimationBatch.Restart();
+                        }
+                    }
+                    // Refresh to make sure the button text updates quickly.
+                    animationPlayButton.Refresh();
                 }
             }
         }
@@ -271,14 +280,9 @@ namespace PSXPrev
             if (_inAnimationTab && _curAnimation != null)
             {
                 var checkedEntities = GetCheckedEntities();
-                if (!_scene.AnimationBatch.SetupAnimationFrame(_curAnimationFrame, checkedEntities, _selectedRootEntity, _selectedModelEntity, true))
+                if (_scene.AnimationBatch.SetupAnimationFrame(checkedEntities, _selectedRootEntity, _selectedModelEntity, true))
                 {
-                    _curAnimationFrame = 0f;
-                    _curAnimationTime = 0f;
-                }
-                else
-                {
-                    // Update attached limbs while animating.
+                    // Animation has been processed. Update attached limbs while animating.
                     (_selectedRootEntity ?? _selectedModelEntity?.GetRootEntity())?.FixConnections();
                 }
             }
@@ -329,7 +333,7 @@ namespace PSXPrev
             for (var o = 0; o < animationObjects.Count; o++)
             {
                 var animationObject = animationObjects[o];
-                var animationObjectNode = new TreeNode("Animation-Object " + (o + 1));
+                var animationObjectNode = new TreeNode("Animation-Object " + o); // 0-indexed like Sub-Models
                 animationObjectNode.Tag = animationObject;
                 parentNode.Nodes.Add(animationObjectNode);
                 AddAnimationObject(animationObject, animationObjectNode);
@@ -358,19 +362,25 @@ namespace PSXPrev
 
         private void _animateTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            _curAnimationTime += (float)_animateTimer.Interval;
-            _curAnimationFrame = _curAnimationTime / (1f / _curAnimation.FPS);
-            if (_curAnimationFrame > _curAnimation.FrameCount - 1 + 0.9999f)
+            // Don't animate if we're not in the animation tab.
+            // todo: Or allow animations to play in other tabs, in-which case other checks for _inAnimationTab need to be removed.
+            if (_inAnimationTab)
             {
-                _curAnimationTime = 0f;
-                _curAnimationFrame = 0f;
+                if (Playing && _scene.AnimationBatch.IsFinished)
+                {
+                    Playing = false; // LoopMode is a Once type, and the animation has finished. Stop playing.
+                }
+                else
+                {
+                    _scene.AnimationBatch.AddTime(_animateTimer.Interval);
+                }
+                UpdateAnimationProgressLabel();
             }
-            UpdateFrameLabel();
         }
 
-        private void UpdateFrameLabel()
+        private void UpdateAnimationProgressLabel()
         {
-            animationFrameLabel.Text = $"{(int)_curAnimationFrame}/{(int)_curAnimation.FrameCount}";
+            animationFrameLabel.Text = $"{(uint)_scene.AnimationBatch.CurrentFrameTime}/{(uint)_scene.AnimationBatch.FrameCount}";
             animationFrameLabel.Refresh();
         }
 
@@ -758,25 +768,24 @@ namespace PSXPrev
 
         private void UpdateSelectedAnimation()
         {
-            var selectedObject = _curAnimationFrameObj ?? _curAnimationObject ?? (object)_curAnimation;
-            if (selectedObject == null)
+            var propertyObject = _curAnimationFrameObj ?? _curAnimationObject ?? (object)_curAnimation;
+            if (propertyObject == null)
             {
                 return;
             }
-            if (_curAnimation != null)
-            {
-                _curAnimationTime = 0f;
-                _curAnimationFrame = 0f;
-                UpdateAnimationFPS();
-                animationPlayButton.Enabled = true;
-                Playing = false;
-                UpdateFrameLabel();
-            }
-            animationPropertyGrid.SelectedObject = selectedObject;
+
+            // Change Playing after Enabled, so that the call to Refresh in Playing will affect the enabled visual style too.
+            animationPlayButton.Enabled = (_curAnimation != null);
+            Playing = false;
+
+            animationPropertyGrid.SelectedObject = propertyObject;
             _scene.AnimationBatch.SetupAnimationBatch(_curAnimation);
+
+            UpdateAnimationTimerSpeed();
+            UpdateAnimationProgressLabel();
         }
 
-        private void UpdateAnimationFPS()
+        private void UpdateAnimationTimerSpeed()
         {
             _animateTimer.Interval = 1f / 60f * (animationSpeedTrackbar.Value / 100f);
         }
@@ -1087,10 +1096,22 @@ namespace PSXPrev
 
         private void menusTabControl_SelectedIndexChanged(object sender, EventArgs e)
         {
+            // Handle leaving the animation tab.
+            if (_inAnimationTab && menusTabControl.SelectedTab.TabIndex != 3)
+            {
+                _inAnimationTab = false;
+                // Restart to force animation state update next time we're in the animation tab.
+                // Reset animation when leaving the tab.
+                _scene.AnimationBatch.Restart();
+                Playing = false;
+                UpdateAnimationProgressLabel();
+                // Update selected entity to invalidate the animation changes to the model.
+                UpdateSelectedEntity();
+            }
+
             switch (menusTabControl.SelectedTab.TabIndex)
             {
                 case 0:
-                    _inAnimationTab = false;
                     animationsTreeView.SelectedNode = null;
                     _openTkControl.Parent = modelsSplitContainer.Panel2;
                     _openTkControl.Show();
@@ -1122,28 +1143,31 @@ namespace PSXPrev
                 _curAnimationObject = null;
                 _curAnimationFrameObj = null;
             }
-            if (selectedNode.Tag is AnimationObject animationObject)
+            else if (selectedNode.Tag is AnimationObject animationObject)
             {
                 _curAnimation = animationObject.Animation;
                 _curAnimationObject = animationObject;
                 _curAnimationFrameObj = null;
             }
-            if (selectedNode.Tag is AnimationFrame)
+            else if (selectedNode.Tag is AnimationFrame animationFrame)
             {
-                _curAnimationFrameObj = (AnimationFrame)selectedNode.Tag;
-                _curAnimationObject = _curAnimationFrameObj.AnimationObject;
-                _curAnimation = _curAnimationFrameObj.AnimationObject.Animation;
-                UpdateFrameLabel();
+                _curAnimation = animationFrame.AnimationObject.Animation;
+                _curAnimationObject = animationFrame.AnimationObject;
+                _curAnimationFrameObj = animationFrame;
+                UpdateAnimationProgressLabel();
             }
             UpdateSelectedAnimation();
             if (_curAnimationFrameObj != null)
             {
-                _curAnimationFrame = _curAnimationFrameObj.FrameTime + 0.9999f;
+                _scene.AnimationBatch.SetTimeToFrame(_curAnimationFrameObj);
+                UpdateAnimationProgressLabel();
             }
         }
 
         private void animationPropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
         {
+            // Restart animation to force invalidate.
+            _scene.AnimationBatch.Restart();
             UpdateSelectedEntity();
             UpdateSelectedAnimation();
         }
@@ -1232,7 +1256,7 @@ namespace PSXPrev
 
         private void animationSpeedTrackbar_Scroll(object sender, EventArgs e)
         {
-            UpdateAnimationFPS();
+            UpdateAnimationTimerSpeed();
         }
 
         private void lightRoll_Scroll(object sender, EventArgs e)
@@ -1480,6 +1504,38 @@ namespace PSXPrev
                     case Keys.ControlKey:
                         _controlKeyDown = state;
                         break;
+
+                        // Debugging keys for testing AnimationBatch settings while they still don't have UI controls.
+#if false
+                    case Keys.A when state:
+                        var loopMode = _scene.AnimationBatch.LoopMode + 1;
+                        if (loopMode > AnimationLoopMode.MirrorLoop)
+                        {
+                            loopMode = AnimationLoopMode.Once;
+                        }
+                        _scene.AnimationBatch.LoopMode = loopMode;
+                        UpdateAnimationProgressLabel();
+                        Program.Logger.WriteLine($"LoopMode={_scene.AnimationBatch.LoopMode,-10} Reverse={_scene.AnimationBatch.Reverse}");
+                        break;
+                    case Keys.S when state:
+                        _scene.AnimationBatch.Reverse = !_scene.AnimationBatch.Reverse;
+                        UpdateAnimationProgressLabel();
+                        Program.Logger.WriteLine($"LoopMode={_scene.AnimationBatch.LoopMode,-10} Reverse={_scene.AnimationBatch.Reverse}");
+                        break;
+                    case Keys.D when state:
+                        _scene.AnimationBatch.Restart();
+                        UpdateAnimationProgressLabel();
+                        Program.Logger.WriteLine("Restarted");
+                        break;
+                    case Keys.F when state:
+                        _scene.AnimationBatch.LoopDelayTime += 0.5;
+                        Program.Logger.WriteLine($"LoopDelayTime={_scene.AnimationBatch.LoopDelayTime}");
+                        break;
+                    case Keys.G when state:
+                        _scene.AnimationBatch.LoopDelayTime -= 0.5;
+                        Program.Logger.WriteLine($"LoopDelayTime={_scene.AnimationBatch.LoopDelayTime}");
+                        break;
+#endif
                 }
             }
         }

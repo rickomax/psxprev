@@ -72,6 +72,7 @@
     <Compile Include="Classes\Animation.cs" />
     <Compile Include="Classes\AnimationBatch.cs" />
     <Compile Include="Classes\AnimationFrame.cs" />
+    <Compile Include="Classes\AnimationLoopMode.cs" />
     <Compile Include="Classes\AnimationObject.cs" />
     <Compile Include="Classes\ANParser.cs" />
     <Compile Include="Classes\BFFModelReader.cs" />

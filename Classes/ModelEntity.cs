@@ -147,7 +147,7 @@ namespace PSXPrev.Classes
                 foreach (var triangle in Triangles)
                 {
                     // If we have cached connections, then use those. It'll make things much faster.
-                    if (triangle.AttachedCache != null && false)
+                    if (triangle.AttachedCache != null)
                     {
                         for (var i = 0; i < 3; i++)
                         {
@@ -171,6 +171,12 @@ namespace PSXPrev.Classes
                         var attachedNormalIndex = triangle.AttachedNormalIndices?[i] ?? uint.MaxValue;
                         if (attachedIndex != uint.MaxValue)
                         {
+                            // In the event that some attached indices are not found,
+                            // we don't want to waste time looking for them again. Create an attached cache now.
+                            if (triangle.AttachedCache == null)
+                            {
+                                triangle.AttachedCache = new Tuple<EntityBase, Vector3>[3];
+                            }
                             foreach (ModelEntity subModel in rootEntity.ChildEntities)
                             {
                                 if (subModel != this)
@@ -183,10 +189,6 @@ namespace PSXPrev.Classes
                                             {
                                                 var attachedVertex = subTriangle.Vertices[j];
                                                 // Cache connection to speed up FixConnections in the future.
-                                                if (triangle.AttachedCache == null)
-                                                {
-                                                    triangle.AttachedCache = new Tuple<EntityBase, Vector3>[3];
-                                                }
                                                 triangle.AttachedCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedVertex);
                                                 triangle.Vertices[i] = ConnectVertex(subModel, attachedVertex);
                                                 break;
@@ -202,10 +204,6 @@ namespace PSXPrev.Classes
                                     if (subModel.AttachableVertices != null && subModel.AttachableVertices.TryGetValue(attachedIndex, out var attachedVertex))
                                     {
                                         // Cache connection to speed up FixConnections in the future.
-                                        if (triangle.AttachedCache == null)
-                                        {
-                                            triangle.AttachedCache = new Tuple<EntityBase, Vector3>[3];
-                                        }
                                         triangle.AttachedCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedVertex);
                                         triangle.Vertices[i] = ConnectVertex(subModel, attachedVertex);
                                     }

@@ -39,25 +39,31 @@ namespace PSXPrev.Classes
             AnimationFrame GetAnimationFrame(AnimationObject animationObject, uint frameTime)
             {
                 var animationFrames = animationObject.AnimationFrames;
-                if (animationFrames.ContainsKey(frameTime))
+                if (!animationFrames.TryGetValue(frameTime, out var animationFrame))
                 {
-                    return animationFrames[frameTime];
+                    animationFrame = new AnimationFrame
+                    {
+                        FrameTime = frameTime,
+                        FrameDuration = 1,
+                        AnimationObject = animationObject
+                    };
+                    animationFrames.Add(frameTime, animationFrame);
+
+                    //animation.FrameCount = Math.Max(animation.FrameCount, animationFrame.FrameEnd);
                 }
-                var frame = new AnimationFrame { FrameTime = frameTime, AnimationObject = animationObject };
-                animationFrames.Add(frameTime, frame);
-                return frame;
+                return animationFrame;
             }
 
             AnimationObject GetAnimationObject(ushort objectId)
             {
-                if (animationObjects.ContainsKey(objectId))
+                if (!animationObjects.TryGetValue(objectId, out var animationObject))
                 {
-                    return animationObjects[objectId];
+                    animationObject = new AnimationObject { Animation = animation, ID = objectId };
+                    animationObjects.Add(objectId, animationObject);
                 }
-                var animationObject = new AnimationObject { Animation = animation, ID = objectId };
-                animationObjects.Add(objectId, animationObject);
                 return animationObject;
             }
+
             var version = reader.ReadByte();
             var resolution = reader.ReadUInt16();
             var frameCount = reader.ReadUInt32();
@@ -65,9 +71,10 @@ namespace PSXPrev.Classes
             {
                 return null;
             }
+
             animation = new Animation();
-            var rootAnimationObject = new AnimationObject();
             animationObjects = new Dictionary<uint, AnimationObject>();
+
             for (var f = 0; f < frameCount; f++)
             {
                 var frameTop = reader.BaseStream.Position;
@@ -164,22 +171,13 @@ namespace PSXPrev.Classes
                 }
             }
 
-            foreach (var animationObject in animationObjects.Values)
-            {
-                if (animationObject.ParentID != 0 && animationObjects.ContainsKey(animationObject.ParentID))
-                {
-                    var parent = animationObjects[animationObject.ParentID];
-                    animationObject.Parent = parent;
-                    parent.Children.Add(animationObject);
-                    continue;
-                }
-                animationObject.Parent = rootAnimationObject;
-                rootAnimationObject.Children.Add(animationObject);
-            }
-            animation.RootAnimationObject = rootAnimationObject;
+            animation.AnimationType = AnimationType.Common;
+            animation.FPS = 60f / (resolution == 0 ? 1 : resolution);
+            animation.AssignObjects(animationObjects, false, false);
+            // Override frame count calculated by AssignObjects.
+            // todo: Is frameCount actually the duration of the animation, or just the number of parsed frames?
+            // Maybe this should be removed...
             animation.FrameCount = frameCount;
-            animation.ObjectCount = animationObjects.Count;
-            animation.FPS = resolution == 0 ? 60f : 1f / resolution * 60f;
             return animation;
         }
     }

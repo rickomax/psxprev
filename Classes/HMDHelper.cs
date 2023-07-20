@@ -8,7 +8,7 @@ namespace PSXPrev.Classes
 {
     public static class HMDHelper
     {
-        public static bool TryGetAnimInterpolationType(uint interpAlgo, out InterpolationType interpType)
+        public static bool TryGetAnimInterpolationType(uint interpAlgo, bool scale, out InterpolationType interpType)
         {
             switch (interpAlgo)
             {
@@ -21,17 +21,18 @@ namespace PSXPrev.Classes
                     return true;
                 case  2: // Bezier Curve
                 case 10: // Bezier Curve(*)
-                    //interpType = InterpolationType.Bezier;
-                    //return true;
-                    break; // Not supported yet
+                    interpType = InterpolationType.Bezier;
+                    return true;
                 case  3: // B-Spline
                 case 11: // B-Spline(*)
-                    //interpType = InterpolationType.BSpline;
-                    //return true;
-                    break; // Not supported yet
+                    interpType = InterpolationType.BSpline;
+                    return true;
                 case  4: // Beta-Spline
-                    //interpType = InterpolationType.BetaSpline;
-                    //return true;
+                    if (scale)
+                    {
+                        //interpType = InterpolationType.BetaSpline;
+                        //return true;
+                    }
                     break; // Not supported yet
             }
             interpType = InterpolationType.None;
@@ -69,9 +70,19 @@ namespace PSXPrev.Classes
         {
             if (curve == null)
             {
-                return new Vector3[1] { v }; // First element in curve.
+                curve = new Vector3[1]; // First element in curve.
             }
-            Array.Resize(ref curve, curve.Length + 1);
+            else if (curve.Length < 3)
+            {
+                Array.Resize(ref curve, curve.Length + 1);
+            }
+            else
+            {
+                var oldCurve = curve;
+                curve = new Vector3[3]; // Make a new array, because we don't own this one.
+                curve[0] = oldCurve[1];
+                curve[1] = oldCurve[2];
+            }
             curve[curve.Length - 1] = v;
             return curve;
         }
@@ -141,7 +152,7 @@ namespace PSXPrev.Classes
                 // Note: Packets may end in 2-byte padding, but we don't need to read that.
 
 
-                if (TryGetAnimInterpolationType(transAlgo, out var transType))
+                if (TryGetAnimInterpolationType(transAlgo, false, out var transType))
                 {
                     animationFrame.TranslationType = transType;
 
@@ -151,13 +162,11 @@ namespace PSXPrev.Classes
                             animationFrame.Translation = t[0];
                             break;
                         case InterpolationType.Bezier:
-                            //animationFrame.CurveTranslations = t;
-                            //break;
-                            return false; // Only linear is currently supported.
+                            animationFrame.CurveTranslations = t;
+                            break;
                         case InterpolationType.BSpline:
-                            //animationFrame.CurveTranslations = AppendToCurve(animationFrame.CurveTranslations, t[0]);
-                            //break;
-                            return false; // Only linear is currently supported.
+                            animationFrame.CurveTranslations = AppendToCurve(lastAnimationFrame?.CurveTranslations, t[0]);
+                            break;
                         case InterpolationType.BetaSpline:
                             return false; // Invalid translation type.
                     }
@@ -176,7 +185,7 @@ namespace PSXPrev.Classes
                     return false; // Invalid translation interpolation type.
                 }
 
-                if (TryGetAnimInterpolationType(scaleAlgo, out var scaleType))
+                if (TryGetAnimInterpolationType(scaleAlgo, true, out var scaleType))
                 {
                     animationFrame.ScaleType = scaleType;
 
@@ -186,14 +195,13 @@ namespace PSXPrev.Classes
                             animationFrame.Scale = s[0];
                             break;
                         case InterpolationType.Bezier:
-                            //animationFrame.CurveScales = s;
-                            //break;
-                            return false; // Only linear is currently supported.
+                            animationFrame.CurveScales = s;
+                            break;
                         case InterpolationType.BSpline:
                         case InterpolationType.BetaSpline:
-                            //animationFrame.CurveScales = AppendToCurve(animationFrame.CurveScales, s[0]);
-                            //break;
-                            return false; // Only linear is currently supported.
+                            // Note: It's not clear if Beta-Spline parameters are the same as B-Spline...
+                            animationFrame.CurveScales = AppendToCurve(lastAnimationFrame?.CurveScales, s[0]);
+                            break;
                     }
 
                     if (scaleType != InterpolationType.None && lastAnimationFrame != null)
@@ -210,7 +218,7 @@ namespace PSXPrev.Classes
                     return false; // Invalid scale interpolation type.
                 }
 
-                if (TryGetAnimInterpolationType(rotAlgo, out var rotType))
+                if (TryGetAnimInterpolationType(rotAlgo, false, out var rotType))
                 {
                     animationFrame.RotationType = rotType;
 
@@ -220,13 +228,11 @@ namespace PSXPrev.Classes
                             animationFrame.EulerRotation = r[0];
                             break;
                         case InterpolationType.Bezier:
-                            //animationFrame.CurveEulerRotations = r;
-                            //break;
-                            return false; // Only linear is currently supported.
+                            animationFrame.CurveEulerRotations = r;
+                            break;
                         case InterpolationType.BSpline:
-                            //animationFrame.CurveEulerRotations = AppendToCurve(animationFrame.CurveEulerRotations, r[0]);
-                            //break;
-                            return false; // Only linear is currently supported.
+                            animationFrame.CurveEulerRotations = AppendToCurve(lastAnimationFrame?.CurveEulerRotations, r[0]);
+                            break;
                         case InterpolationType.BetaSpline:
                             return false; // Invalid rotation type.
                     }
@@ -289,16 +295,29 @@ namespace PSXPrev.Classes
             switch (interpType)
             {
                 case InterpolationType.Linear:
-                    return GeomUtils.InterpolateVector(src.Value, dst ?? src.Value, delta);
-                case InterpolationType.Bezier:
-                case InterpolationType.BSpline:
-                case InterpolationType.BetaSpline:
-                    if (curve == null || curve.Length < 3)
+                    if (!src.HasValue)// || !dst.HasValue)
                     {
-                        break; // Invalid curve array
+                        break; // Missing source value //or missing destination value
                     }
-                    // todo: Using curve[2] instead of dst isn't really a solution...
-                    //curve[0], curve[1], curve[2], dst ?? curve[2], delta
+                    return Vector3.Lerp(src.Value, dst ?? src.Value, delta);
+                case InterpolationType.Bezier:
+                    if (curve == null || curve.Length < 3 || !dst.HasValue)
+                    {
+                        break; // Invalid curve array or missing destination value
+                    }
+                    return GeomUtils.InterpolateBezierCurve(curve[0], curve[1], curve[2], dst.Value, delta);
+                case InterpolationType.BSpline:
+                    if (curve == null || curve.Length < 3 || !dst.HasValue)
+                    {
+                        break; // Invalid curve array or missing destination value
+                    }
+                    return GeomUtils.InterpolateBSpline(curve[0], curve[1], curve[2], dst.Value, delta);
+                case InterpolationType.BetaSpline:
+                    if (curve == null || curve.Length < 3 || !dst.HasValue)
+                    {
+                        break; // Invalid curve array or missing destination value
+                    }
+                    //return GeomUtils.InterpolateBetaSpline(curve[0], curve[1], curve[2], dst.Value, delta);
                     break; // Not supported yet
             }
             return Vector3.Zero;
@@ -430,7 +449,7 @@ namespace PSXPrev.Classes
                     }
                     if (cnd != 0 || dst != 0)
                     {
-                        Write(ConsoleColor.Yellow, $" >#{dst,-3}"); // +6
+                        Write(ConsoleColor.Yellow, $" =#{dst,-3}"); // +6
                     }
                 }
                 else if (descriptorType == 0x3) // Control
