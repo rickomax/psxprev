@@ -704,7 +704,12 @@ namespace PSXPrev.Classes
             AnimationFrame GetNextAnimationFrame(int index, AnimationObject animationObject, uint frameTime, bool assignFrame)
             {
                 var animationFrames = animationObject.AnimationFrames;
-                var frame = new AnimationFrame { FrameTime = frameTime, AnimationObject = animationObject };
+                var frame = new AnimationFrame
+                {
+                    FrameTime = frameTime,
+                    FrameDuration = 1, // Default duration
+                    AnimationObject = animationObject
+                };
 
                 // We need to support overwriting frames with the same time due to tframe=0 normal instructions.
                 // These instructions are used to transition between different interpolation types,
@@ -715,10 +720,6 @@ namespace PSXPrev.Classes
                     animationFrames[frameTime] = frame;
                 }
 
-                if (frameTime >= animationList[index].FrameCount)
-                {
-                    animationList[index].FrameCount = frameTime + 1;
-                }
                 return frame;
             }
             AnimationObject GetAnimationObject(int index, uint objectId, bool add)
@@ -779,8 +780,6 @@ namespace PSXPrev.Classes
             // Cache places we're going to be reading from multiple times.
             var descriptors = new Dictionary<uint, uint>();
             var interpTypes = new Dictionary<uint, uint>();
-            // Debug: Track if we can support the model's speed.
-            var speeds = new HashSet<int>();
 
             // TGT = 0:
             // Coordinate update driver
@@ -837,59 +836,39 @@ namespace PSXPrev.Classes
                     startIdx[j] = reader.ReadUInt16();
                     startSID[j] = reader.ReadByte();
                     traveling[j] = reader.ReadByte();
+                    //Program.Logger.WriteLine($"[{i}][{j}] idx={startIdx[j]} sid={startSID[j]}");
                 }
 
-                // Track if multiple speeds are defined for different objects, we can't handle that yet.
-                speeds.Add(Math.Abs((int)speed));
-                
                 for (var j = 0; j < sequenceCount; j++)
                 {
-                    // This is the first animation object for this sequence, rely on this for frame rate.
-                    if (j >= animationList.Count) // i == 0)
-                    {
-                        var animation = GetAnimation(j);
-                        // Speed is stored in fixed point with lowest 4 bits representing fraction.
-                        // todo: Handle difference between PAL (25fps) and US (30fps) speeds.
-                        animation.FPS = 25f * (Math.Abs(speed) / 16f); // todo: Should we really rely on this?
-                    }
-
+                    // Make sure an animation is created for this sequence.
+                    GetAnimation(j);
                     var animationObject = GetAnimationObject(j, tmdid, true);
 
+                    // Speed is stored in fixed point with lowest 4 bits representing fraction.
+                    // Absolute value of speed, because we already parse animation in reverse.
+                    animationObject.Speed = speed == 0 ? 1f : (Math.Abs((int)speed) / 16f);
+
+
                     AnimationFrame lastAnimationFrame = null;
-                    uint lastTFrame = 0;
 
                     uint idx = startIdx[j]; // Current starting instruction pointer.
-                    uint sid = startSID[j]; // Current StreamID, acts like a control flow variable.
+                    uint sid = startSID[j]; // Current Stream ID (SID), acts like a control flow variable.
                     uint time = 0; // Current frame time.
-                    var processedCount = 0; // Debug information: Number of instructions encountered
+                    var executedCount = 0; // Debug information: Number of instructions encountered
                     var halted = false; // Debug information: END instruction encountered
+                    var looped = false;
 
                     // List of encountered instructions with SIDs they were encountered with.
                     // Once we reach an instruction that we've already reached with the same SID, then we've hit an infinite loop.
-                    var visited = new Dictionary<uint, HashSet<uint>>();
+                    // The lookup value is calculated as: (sid << 16 | idx)
+                    var visited = new HashSet<uint>();
+                    // Processed normal instructions, these are only added if they trigger adding lastAnimationFrame.
+                    var processed = new HashSet<uint>();
 
                     // Execute instructions to find all frames (Normal instructions).
                     while (idx < ushort.MaxValue)
                     {
-                        // Infinite loop check.
-                        if (!visited.TryGetValue(idx, out var sidSet))
-                        {
-                            sidSet = new HashSet<uint>();
-                            visited.Add(idx, sidSet);
-                        }
-                        if (!sidSet.Add(sid))
-                        {
-                            // Infinite loop.
-                            // todo: Animation looping might rely on the first frame of the infinite loop,
-                            //       so we may need to parse one more normal frame.
-                            // todo: Handle animation loops that don't have the same frame lengths for different objects.
-                            if (Program.Debug)
-                            {
-                                Program.Logger.WriteLine($"Infinite loop in {FormatName} animation @{idx} #{sid}");
-                            }
-                            break;
-                        }
-
                         // Cache already-read instructions.
                         if (!descriptors.TryGetValue(idx, out var descriptor))
                         {
@@ -899,12 +878,37 @@ namespace PSXPrev.Classes
                         }
                         var descriptorType = (descriptor >> 30) & 0x3;
 
+                        var state = (sid << 16 | idx);
+
+                        // Infinite loop check.
+                        if (!visited.Add(state))
+                        {
+                            // If we're revisiting a normal instruction, try to process it first so that the animation loops cleanly.
+                            if (!looped && (descriptorType & 0x2) == 0x0 && !processed.Contains(state))
+                            {
+                                // Prevent continuing more than once if we encounter normal instructions that will never get processed.
+                                // todo: We could probably keep going until finding a processable normal instruction, but we'd need more safety checks.
+                                looped = true;
+                            }
+                            else
+                            {
+                                // Infinite loop.
+                                if (Program.Debug)
+                                {
+                                    Program.Logger.WriteLine($"Infinite loop in {FormatName} animation @{idx} #{sid}");
+                                }
+                                break;
+                            }
+                        }
+
+                        executedCount++;
+
                         if ((descriptorType & 0x2) == 0x0) // Normal (second MSB is used by instruction)
                         {
                             // SPAGHETTI ALERT:
                             // The way frames, next frames, final parameters and interpolation is
                             // handled makes the processing of nextTFrame parameters very clunky.
-                            // Especially because we need to pre-compute animations.
+                            // Especially because we need to pre-compute animation sequences.
 
                             // Standard instruction used for interpolation.
                             var paramIndex  = (descriptor >>  0) & 0xffff; // Index to parameter data for key frame referred to by sequence descriptor.
@@ -919,25 +923,33 @@ namespace PSXPrev.Classes
                                 animationType = reader.ReadUInt32();
                                 interpTypes.Add(interpIndex, animationType);
                             }
-                            
-                            // We don't know if we want to assign this frame until we run into an instruction where TFrame!=0.
-                            // Make a special exception for the first animation frame.
-                            var assignFrame = (animationObject.AnimationFrames.Count == 0 || nextTFrame != 0);
-                            var animationFrame = GetNextAnimationFrame(j, animationObject, time + nextTFrame, assignFrame);
 
-                            // Don't overwrite the last animation frame when we run into a chain of TFrame==0 instructions.
-                            // Only overwrite once we encounter an instruction where TFrame!=0.
-                            if (lastAnimationFrame != null && lastTFrame == 0 && nextTFrame != 0)
+                            // TFrame acts as the time until the target frame is reached.
+                            // As such, we don't know the current frame's duration until we read the next normal instruction.
+
+                            // If the first frame we encounter has TFrame!=0, then don't add to the time,
+                            // because we can't start interpolation until we have a target frame (the second frame).
+                            if (lastAnimationFrame != null)
                             {
-                                animationObject.AnimationFrames[time] = lastAnimationFrame;
+                                time += nextTFrame;
                             }
 
-                            // Don't assign the Final* interpolation parameters to lastAnimationFrame if TFrame==0.
-                            // This frame is a dummy frame used to transition to the next interpolation type. Or is used in some other incorrect way.
-                            var argLastAnimationFrame = (nextTFrame != 0 ? lastAnimationFrame : null);
+                            // Create a new animation frame to read packet information into, but don't add it to the list yet.
+                            // Whether or not it gets added depends on the following frame's TFrame.
+                            var animationFrame = GetNextAnimationFrame(j, animationObject, time, false);
 
+                            // Only assign the last frame after encountering a target frame where TFrame!=0.
+                            if (lastAnimationFrame != null && nextTFrame != 0)
+                            {
+                                animationObject.AnimationFrames[lastAnimationFrame.FrameTime] = lastAnimationFrame;
+                                lastAnimationFrame.FrameDuration = nextTFrame;
+                                // This target frame instruction (for the current Stream ID) has been processed, don't process it again.
+                                processed.Add(state);
+                            }
+
+                            // Process the target frame and assign Final* interpolation parameters to the last frame.
                             reader.BaseStream.Seek(_offset + paramTop + paramIndex * 4, SeekOrigin.Begin);
-                            if (!HMDHelper.ReadAnimPacket(reader, animationType, animationFrame, argLastAnimationFrame))
+                            if (!HMDHelper.ReadAnimPacket(reader, animationType, animationFrame, lastAnimationFrame))
                             {
                                 if (Program.Debug)
                                 {
@@ -945,16 +957,18 @@ namespace PSXPrev.Classes
                                 }
                                 return null; // Unsupported animation packet.
                             }
+
                             lastAnimationFrame = animationFrame;
-                            lastTFrame = nextTFrame;
-                            time += nextTFrame;
                         }
                         else if (descriptorType == 0x2) // Jump
                         {
                             var seqIndex = (descriptor >>  0) & 0xffff; // Next control descriptor to jump to.
                             var cnd      = (descriptor >> 16) & 0x7f; // Stream ID conditional jump.
                             var dst      = (descriptor >> 23) & 0x7f; // Stream ID destination of jump.
-                            // todo: How to handle SID 127, is this for sid, or cnd???
+                            // If condition is zero, then jump is unconditional.
+                            // If condition is non-zero, then only jump if we match current Stream ID.
+                            // If condition == 127, then only match Stream ID 0.
+                            // Stream ID is only assigned if this is a conditional jump/or destination is non-zero.
                             if (cnd == 0 || cnd == sid || (cnd == 127 && sid == 0))
                             {
                                 if (cnd != 0 || dst != 0)
@@ -962,7 +976,6 @@ namespace PSXPrev.Classes
                                     sid = dst;
                                 }
                                 idx = seqIndex;
-                                processedCount++;
                                 continue;
                             }
                         }
@@ -973,12 +986,13 @@ namespace PSXPrev.Classes
                             var p2   = (descriptor >>  0) & 0xffff;
                             if (code == 1) // End
                             {
-                                // If P1 matches current Stream ID, sequence is halted.
-                                // todo: Is the SID 127 condition supported here too?
-                                if (p1 == 0 || p1 == sid || (p1 == 127 && sid == 0))
+                                var cnd = p1;
+                                // If condition is zero, then halt is unconditional.
+                                // If condition is non-zero, then only halt sequence if we match current Stream ID.
+                                // If condition == 127, then only match Stream ID 0.
+                                if (cnd == 0 || cnd == sid || (cnd == 127 && sid == 0))
                                 {
                                     halted = true;
-                                    processedCount++;
                                     break;
                                 }
                             }
@@ -987,7 +1001,9 @@ namespace PSXPrev.Classes
                                 // Work area for sequence pointer required by B-Spline interpolation.
                                 // p1: 127 fixed
                                 // p2: Offset (in 4-byte units) in parameter section indicates work area.
-                                // B-Splines arent't supported yet.
+
+                                // Currently we don't need any extra handling for this with B-Splines.
+                                // HOWEVER: If an animation does something funky by changing the work area mid-setup, then it will break.
                             }
                             else
                             {
@@ -998,7 +1014,6 @@ namespace PSXPrev.Classes
 
                         if (speed >= 0) idx++;
                         else            idx--;
-                        processedCount++;
                     }
                 }
 
@@ -1006,47 +1021,15 @@ namespace PSXPrev.Classes
                 reader.BaseStream.Seek(sequencePointerPosition + sequenceSize, SeekOrigin.Begin);
             }
 
-            if (speeds.Count > 1)
-            {
-                if (Program.Debug)
-                {
-                    Program.Logger.WriteWarningLine($"Unsupported multiple speeds defined for different {FormatName} animation objects");
-                }
-            }
-
             for (var j = 0; j < animationList.Count; j++)
             {
                 var animation = animationList[j];
                 var animationObjects = animationObjectsList[j];
-                var rootAnimationObject = new AnimationObject();
-                foreach (var animationObject in animationObjects.Values)
-                {
-                    // Assign frame durations.
-                    var animationFrames = animationObject.AnimationFrames;
-                    AnimationFrame lastAnimationFrame = null;
-                    foreach (var animationFrame in animationFrames.Values.OrderBy(af => af.FrameTime))
-                    {
-                        if (lastAnimationFrame != null)
-                        {
-                            lastAnimationFrame.FrameDuration = animationFrame.FrameTime - lastAnimationFrame.FrameTime;
-                        }
-                        lastAnimationFrame = animationFrame;
-                    }
 
-                    // No parenting.
-                    /*if (animationObject.ParentID != 0 && animationObjects.ContainsKey(animationObject.ParentID))
-                    {
-                        var parent = animationObjects[animationObject.ParentID];
-                        animationObject.Parent = parent;
-                        parent.Children.Add(animationObject);
-                        continue;
-                    }*/
-                    animationObject.Parent = rootAnimationObject;
-                    rootAnimationObject.Children.Add(animationObject);
-                }
                 animation.AnimationType = AnimationType.HMD;
-                animation.RootAnimationObject = rootAnimationObject;
-                animation.ObjectCount = animationObjects.Count;
+                // todo: Handle difference between PAL (25fps) and US (30fps) speeds.
+                animation.FPS = 25f;
+                animation.AssignObjects(animationObjects, true, false);
             }
 
             return animationList;
@@ -1123,31 +1106,34 @@ namespace PSXPrev.Classes
         {
             Animation animation;
             Dictionary<uint, AnimationObject> animationObjects;
+
             AnimationFrame GetNextAnimationFrame(AnimationObject animationObject)
             {
                 var animationFrames = animationObject.AnimationFrames;
                 var frameTime = (uint)animationFrames.Count;
-                var frame = new AnimationFrame { FrameTime = frameTime, AnimationObject = animationObject };
-                animationFrames.Add(frameTime, frame);
-                if (frameTime >= animation.FrameCount)
+                var animationFrame = new AnimationFrame
                 {
-                    animation.FrameCount = frameTime + 1;
-                }
-                return frame;
+                    FrameTime = frameTime,
+                    FrameDuration = 1,
+                    AnimationObject = animationObject
+                };
+                animationFrames.Add(frameTime, animationFrame);
+
+                //animation.FrameCount = Math.Max(animation.FrameCount, animationFrame.FrameEnd);
+                return animationFrame;
             }
             AnimationObject GetAnimationObject(uint objectId)
             {
-                if (animationObjects.ContainsKey(objectId))
+                if (!animationObjects.TryGetValue(objectId, out var animationObject))
                 {
-                    return animationObjects[objectId];
+                    animationObject = new AnimationObject { Animation = animation, ID = objectId };
+                    animationObject.TMDID.Add(objectId);
+                    animationObjects.Add(objectId, animationObject);
                 }
-                var animationObject = new AnimationObject { Animation = animation, ID = objectId };
-                animationObject.TMDID.Add(objectId);
-                animationObjects.Add(objectId, animationObject);
                 return animationObject;
             }
+
             animation = new Animation();
-            var rootAnimationObject = new AnimationObject();
             animationObjects = new Dictionary<uint, AnimationObject>();
 
             var position = reader.BaseStream.Position;
@@ -1241,22 +1227,9 @@ namespace PSXPrev.Classes
                 reader.BaseStream.Seek(position, SeekOrigin.Begin);
             }
 
-            foreach (var animationObject in animationObjects.Values)
-            {
-                if (animationObject.ParentID != 0 && animationObjects.ContainsKey(animationObject.ParentID))
-                {
-                    var parent = animationObjects[animationObject.ParentID];
-                    animationObject.Parent = parent;
-                    parent.Children.Add(animationObject);
-                    continue;
-                }
-                animationObject.Parent = rootAnimationObject;
-                rootAnimationObject.Children.Add(animationObject);
-            }
             animation.AnimationType = normal ? AnimationType.NormalDiff : AnimationType.VertexDiff;
-            animation.RootAnimationObject = rootAnimationObject;
-            animation.ObjectCount = animationObjects.Count;
             animation.FPS = 1f;
+            animation.AssignObjects(animationObjects, false, false);
             return animation;
         }
 
