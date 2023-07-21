@@ -3,6 +3,7 @@
 PSXPREV - Playstation (PSX) Files Previewer/Extractor
 
 ![image](https://github.com/rickomax/psxprev/assets/12863984/3070bf42-33f1-42b1-b09f-48386390f397)
+(Models shown are from Planet Dob game)
 
 PSXPrev uses:
 - OpenTK (https://github.com/opentk/opentk)
