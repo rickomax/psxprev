@@ -7,23 +7,37 @@ namespace PSXPrev.Classes
 {
     public class ModelEntity : EntityBase
     {
-        // Default flags for when a reader doesn't assign any.
-        public const RenderFlags DefaultRenderFlags = RenderFlags.DoubleSided;
-
-
         private Triangle[] _triangles;
 
         [DisplayName("VRAM Page")]
         public uint TexturePage { get; set; }
-        
+
+        // Use default flags for when a reader doesn't assign any.
         [DisplayName("Render Flags")]
-        public RenderFlags RenderFlags { get; set; } = DefaultRenderFlags;
-        
+        public RenderFlags RenderFlags { get; set; } = RenderFlags.DoubleSided | RenderFlags.Textured;
+
         [DisplayName("Mixture Rate")]
         public MixtureRate MixtureRate { get; set; }
 
-        [ReadOnly(true), DisplayName("Total Triangles")]
+        [DisplayName("Triangles"), ReadOnly(true)]
         public int TrianglesCount => Triangles.Length;
+
+        [Browsable(false)]
+        public int TotalTriangles
+        {
+            get
+            {
+                var count = TrianglesCount;
+                if (ChildEntities != null)
+                {
+                    foreach (ModelEntity subModel in ChildEntities)
+                    {
+                        count += subModel.TotalTriangles;
+                    }
+                }
+                return count;
+            }
+        }
 
         [Browsable(false)]
         public Triangle[] Triangles
@@ -48,7 +62,7 @@ namespace PSXPrev.Classes
         [DisplayName("TMD ID")]
         public uint TMDID { get; set; }
 
-        [ReadOnly(true), DisplayName("Has Tiled Texture")]
+        [DisplayName("Has Tiled Texture"), ReadOnly(true)]
         public bool HasTiled
         {
             get

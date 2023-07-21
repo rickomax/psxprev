@@ -26,6 +26,7 @@ namespace PSXPrev.Classes
             if (!lgtBit) renderFlags |= RenderFlags.Unlit;
             if (fceBit) renderFlags |= RenderFlags.DoubleSided;
             if (abeBit) renderFlags |= RenderFlags.SemiTransparent;
+            if (tmeBit) renderFlags |= RenderFlags.Textured;
 
             if (Program.Debug)
             {
@@ -101,6 +102,7 @@ namespace PSXPrev.Classes
             if (advBit) renderFlags |= RenderFlags.AutomaticDivision;
             if (botBit) renderFlags |= RenderFlags.DoubleSided;
             if (stpBit) renderFlags |= RenderFlags.SemiTransparent;
+            if (tmeBit) renderFlags |= RenderFlags.Textured;
 
             var primitiveType = PrimitiveType.None; // invalid
             var supported = false;

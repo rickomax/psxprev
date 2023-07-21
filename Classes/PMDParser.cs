@@ -33,6 +33,27 @@ namespace PSXPrev.Classes
 
         private RootEntity ParsePMD(BinaryReader reader)
         {
+            var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
+
+            void AddTriangle(Triangle triangle, uint tPage, RenderFlags renderFlags)
+            {
+                var renderInfo = new RenderInfo(tPage, renderFlags);
+                if (!groupedTriangles.TryGetValue(renderInfo, out var triangles))
+                {
+                    triangles = new List<Triangle>();
+                    groupedTriangles.Add(renderInfo, triangles);
+                }
+                triangles.Add(triangle);
+            }
+
+            void AddTriangles(Triangle[] triangles, uint tPage, RenderFlags renderFlags)
+            {
+                foreach (var triangle in triangles)
+                {
+                    AddTriangle(triangle, tPage, renderFlags);
+                }
+            }
+
             var primPoint = reader.ReadUInt32();
             var vertPoint = reader.ReadUInt32();
             var nObj = reader.ReadUInt32();
@@ -41,10 +62,8 @@ namespace PSXPrev.Classes
                 return null;
             }
             var models = new List<ModelEntity>();
-            for (var o = 0; o < nObj; o++)
+            for (uint o = 0; o < nObj; o++)
             {
-                var model = new ModelEntity();
-                var triangles = new List<Triangle>();
                 var nPointers = reader.ReadUInt32();
                 if (nPointers < 1 || nPointers > 4000)
                 {
@@ -62,10 +81,15 @@ namespace PSXPrev.Classes
                     }
                     var primType = reader.ReadUInt16();
 
+                    var quad   = ((primType >> 0) & 0x1) == 1; // Polygon: 0-Triangle, 1-Quad
+                    var iipBit = ((primType >> 1) & 0x1) == 1; // Shading: 0-Flat, 1-Gouraud (separate colors when !lgtBit)
+                    var tmeBit = ((primType >> 2) & 0x1) == 0; // Texture: 1-On, 0-Off
+                    var shared = ((primType >> 3) & 0x1) == 1; // Vertex: 0-Independent, 1-Shared
                     var lgtBit = ((primType >> 4) & 0x1) == 1; // Light: 0-Unlit, 1-Lit
                     var botBit = ((primType >> 5) & 0x1) == 1; // Both sides: 0-Single sided, 1-Double sided
 
                     var renderFlags = RenderFlags.None;
+                    if (tmeBit) renderFlags |= RenderFlags.Textured;
                     if (!lgtBit) renderFlags |= RenderFlags.Unlit;
                     if (botBit) renderFlags |= RenderFlags.DoubleSided;
 
@@ -77,55 +101,56 @@ namespace PSXPrev.Classes
 
                     for (var pk = 0; pk < nPacket; pk++)
                     {
+                        uint tPage;
                         switch (primTypeSwitch)
                         {
                             case 0x00:
-                                triangles.Add(ReadPolyFT3(reader));
+                                AddTriangle(ReadPolyFT3(reader, out tPage), tPage, renderFlags);
                                 break;
                             case 0x01:
-                                triangles.AddRange(ReadPolyFT4(reader));
+                                AddTriangles(ReadPolyFT4(reader, out tPage), tPage, renderFlags);
                                 break;
                             case 0x02:
-                                triangles.Add(ReadPolyGT3(reader));
+                                AddTriangle(ReadPolyGT3(reader, out tPage), tPage, renderFlags);
                                 break;
                             case 0x03:
-                                triangles.AddRange(ReadPolyGT4(reader));
+                                AddTriangles(ReadPolyGT4(reader, out tPage), tPage, renderFlags);
                                 break;
                             case 0x04:
-                                triangles.Add(ReadPolyF3(reader));
+                                AddTriangle(ReadPolyF3(reader), 0, renderFlags);
                                 break;
                             case 0x05:
-                                triangles.AddRange(ReadPolyF4(reader));
+                                AddTriangles(ReadPolyF4(reader), 0, renderFlags);
                                 break;
                             case 0x06:
-                                triangles.Add(ReadPolyG3(reader));
+                                AddTriangle(ReadPolyG3(reader), 0, renderFlags);
                                 break;
                             case 0x07:
-                                triangles.AddRange(ReadPolyG4(reader));
+                                AddTriangles(ReadPolyG4(reader), 0, renderFlags);
                                 break;
                             case 0x08:
-                                triangles.Add(ReadPolyFT3(reader, true, _offset + vertPoint));
+                                AddTriangle(ReadPolyFT3(reader, out tPage, true, vertPoint), tPage, renderFlags);
                                 break;
                             case 0x09:
-                                triangles.AddRange(ReadPolyFT4(reader, true, _offset + vertPoint));
+                                AddTriangles(ReadPolyFT4(reader, out tPage, true, vertPoint), tPage, renderFlags);
                                 break;
                             case 0x0a:
-                                triangles.Add(ReadPolyGT3(reader, true, _offset + vertPoint));
+                                AddTriangle(ReadPolyGT3(reader, out tPage, true, vertPoint), tPage, renderFlags);
                                 break;
                             case 0x0b:
-                                triangles.AddRange(ReadPolyGT4(reader, true, _offset + vertPoint));
+                                AddTriangles(ReadPolyGT4(reader, out tPage, true, vertPoint), tPage, renderFlags);
                                 break;
                             case 0x0c:
-                                triangles.Add(ReadPolyF3(reader, true, _offset + vertPoint));
+                                AddTriangle(ReadPolyF3(reader, true, vertPoint), 0, renderFlags);
                                 break;
                             case 0x0d:
-                                triangles.AddRange(ReadPolyF4(reader, true, _offset + vertPoint));
+                                AddTriangles(ReadPolyF4(reader, true, vertPoint), 0, renderFlags);
                                 break;
                             case 0x0e:
-                                triangles.Add(ReadPolyG3(reader, true, _offset + vertPoint));
+                                AddTriangle(ReadPolyG3(reader, true, vertPoint), 0, renderFlags);
                                 break;
                             case 0x0f:
-                                triangles.AddRange(ReadPolyG4(reader, true, _offset + vertPoint));
+                                AddTriangles(ReadPolyG4(reader, true, vertPoint), 0, renderFlags);
                                 break;
                             default:
                                 if (Program.Debug)
@@ -138,8 +163,21 @@ namespace PSXPrev.Classes
                     reader.BaseStream.Seek(position + 4, SeekOrigin.Begin);
                 }
                 EndObject:
-                model.Triangles = triangles.ToArray();
-                models.Add(model);
+                foreach (var kvp in groupedTriangles)
+                {
+                    var renderInfo = kvp.Key;
+                    var triangles = kvp.Value;
+                    var model = new ModelEntity
+                    {
+                        Triangles = triangles.ToArray(),
+                        TexturePage = renderInfo.TexturePage,
+                        RenderFlags = renderInfo.RenderFlags,
+                        MixtureRate = renderInfo.MixtureRate,
+                        TMDID = o + 1, //todo
+                    };
+                    models.Add(model);
+                }
+                groupedTriangles.Clear();
             }
 
             EndModel:
@@ -157,7 +195,7 @@ namespace PSXPrev.Classes
             return null;
         }
 
-        private Triangle[] ReadPolyGT4(BinaryReader reader, bool sharedVertices = false, long verticesOffset = 0)
+        private Triangle[] ReadPolyGT4(BinaryReader reader, out uint tPage, bool sharedVertices = false, uint vertPoint = 0)
         {
             int tag;
             byte r0 = 0, g0 = 0, b0 = 0;
@@ -173,7 +211,7 @@ namespace PSXPrev.Classes
             byte u2 = 0, v2 = 0;
             byte u3 = 0, v3 = 0;
             ushort clut;
-            ushort tPage;
+            tPage = 0;
             byte code;
             for (var i = 0; i < 2; i++)
             {
@@ -215,10 +253,10 @@ namespace PSXPrev.Classes
                 v3 = reader.ReadByte();
                 reader.ReadUInt16();
             }
-            Int16 v0x, v0y, v0z;
-            Int16 v1x, v1y, v1z;
-            Int16 v2x, v2y, v2z;
-            Int16 v3x, v3y, v3z;
+            short v0x, v0y, v0z;
+            short v1x, v1y, v1z;
+            short v2x, v2y, v2z;
+            short v3x, v3y, v3z;
             if (!sharedVertices)
             {
                 ReadSVector(reader, out v0x, out v0y, out v0z);
@@ -228,10 +266,10 @@ namespace PSXPrev.Classes
             }
             else
             {
-                long vo0 = verticesOffset + reader.ReadUInt32();
-                long vo1 = verticesOffset + reader.ReadUInt32();
-                long vo2 = verticesOffset + reader.ReadUInt32();
-                long vo3 = verticesOffset + reader.ReadUInt32();
+                var vo0 = vertPoint + reader.ReadUInt32();
+                var vo1 = vertPoint + reader.ReadUInt32();
+                var vo2 = vertPoint + reader.ReadUInt32();
+                var vo3 = vertPoint + reader.ReadUInt32();
                 var position = reader.BaseStream.Position;
                 ReadSharedVertices(reader, vo0, out v0x, out v0y, out v0z);
                 ReadSharedVertices(reader, vo1, out v1x, out v1y, out v1z);
@@ -246,7 +284,7 @@ namespace PSXPrev.Classes
             return new[] { triangle1, triangle2 };
         }
 
-        private Triangle[] ReadPolyG4(BinaryReader reader, bool sharedVertices = false, long verticesOffset = 0)
+        private Triangle[] ReadPolyG4(BinaryReader reader, bool sharedVertices = false, uint vertPoint = 0)
         {
             long tag;
             byte r0 = 0, g0 = 0, b0 = 0;
@@ -286,10 +324,10 @@ namespace PSXPrev.Classes
                 x3 = reader.ReadInt16();
                 y3 = reader.ReadInt16();
             }
-            Int16 v0x, v0y, v0z;
-            Int16 v1x, v1y, v1z;
-            Int16 v2x, v2y, v2z;
-            Int16 v3x, v3y, v3z;
+            short v0x, v0y, v0z;
+            short v1x, v1y, v1z;
+            short v2x, v2y, v2z;
+            short v3x, v3y, v3z;
             if (!sharedVertices)
             {
                 ReadSVector(reader, out v0x, out v0y, out v0z);
@@ -299,10 +337,10 @@ namespace PSXPrev.Classes
             }
             else
             {
-                long vo0 = verticesOffset + reader.ReadUInt32();
-                long vo1 = verticesOffset + reader.ReadUInt32();
-                long vo2 = verticesOffset + reader.ReadUInt32();
-                long vo3 = verticesOffset + reader.ReadUInt32();
+                var vo0 = vertPoint + reader.ReadUInt32();
+                var vo1 = vertPoint + reader.ReadUInt32();
+                var vo2 = vertPoint + reader.ReadUInt32();
+                var vo3 = vertPoint + reader.ReadUInt32();
                 var position = reader.BaseStream.Position;
                 ReadSharedVertices(reader, vo0, out v0x, out v0y, out v0z);
                 ReadSharedVertices(reader, vo1, out v1x, out v1y, out v1z);
@@ -318,7 +356,7 @@ namespace PSXPrev.Classes
             return new[] { triangle1, triangle2 };
         }
 
-        private Triangle[] ReadPolyFT4(BinaryReader reader, bool sharedVertices = false, long verticesOffset = 0)
+        private Triangle[] ReadPolyFT4(BinaryReader reader, out uint tPage, bool sharedVertices = false, uint vertPoint = 0)
         {
             long tag;
             byte r = 0, g = 0, b = 0;
@@ -332,7 +370,7 @@ namespace PSXPrev.Classes
             byte u2 = 0, v2 = 0;
             byte u3 = 0, v3 = 0;
             ushort clutId;
-            ushort tPage;
+            tPage = 0;
             for (var i = 0; i < 2; i++)
             {
                 tag = reader.ReadUInt32();
@@ -361,10 +399,10 @@ namespace PSXPrev.Classes
                 v3 = reader.ReadByte();
                 reader.ReadUInt16();
             }
-            Int16 v0x, v0y, v0z;
-            Int16 v1x, v1y, v1z;
-            Int16 v2x, v2y, v2z;
-            Int16 v3x, v3y, v3z;
+            short v0x, v0y, v0z;
+            short v1x, v1y, v1z;
+            short v2x, v2y, v2z;
+            short v3x, v3y, v3z;
             if (!sharedVertices)
             {
                 ReadSVector(reader, out v0x, out v0y, out v0z);
@@ -374,10 +412,10 @@ namespace PSXPrev.Classes
             }
             else
             {
-                long vo0 = verticesOffset + reader.ReadUInt32();
-                long vo1 = verticesOffset + reader.ReadUInt32();
-                long vo2 = verticesOffset + reader.ReadUInt32();
-                long vo3 = verticesOffset + reader.ReadUInt32();
+                var vo0 = vertPoint + reader.ReadUInt32();
+                var vo1 = vertPoint + reader.ReadUInt32();
+                var vo2 = vertPoint + reader.ReadUInt32();
+                var vo3 = vertPoint + reader.ReadUInt32();
                 var position = reader.BaseStream.Position;
                 ReadSharedVertices(reader, vo0, out v0x, out v0y, out v0z);
                 ReadSharedVertices(reader, vo1, out v1x, out v1y, out v1z);
@@ -392,7 +430,7 @@ namespace PSXPrev.Classes
             return new[] { triangle1, triangle2 };
         }
 
-        private Triangle[] ReadPolyF4(BinaryReader reader, bool sharedVertices = false, long verticesOffset = 0)
+        private Triangle[] ReadPolyF4(BinaryReader reader, bool sharedVertices = false, uint vertPoint = 0)
         {
             int tag;
             byte r0 = 0, g0 = 0, b0 = 0;
@@ -417,10 +455,10 @@ namespace PSXPrev.Classes
                 x3 = reader.ReadInt16();
                 y3 = reader.ReadInt16();
             }
-            Int16 v0x, v0y, v0z;
-            Int16 v1x, v1y, v1z;
-            Int16 v2x, v2y, v2z;
-            Int16 v3x, v3y, v3z;
+            short v0x, v0y, v0z;
+            short v1x, v1y, v1z;
+            short v2x, v2y, v2z;
+            short v3x, v3y, v3z;
             if (!sharedVertices)
             {
                 ReadSVector(reader, out v0x, out v0y, out v0z);
@@ -430,10 +468,10 @@ namespace PSXPrev.Classes
             }
             else
             {
-                long vo0 = verticesOffset + reader.ReadUInt32();
-                long vo1 = verticesOffset + reader.ReadUInt32();
-                long vo2 = verticesOffset + reader.ReadUInt32();
-                long vo3 = verticesOffset + reader.ReadUInt32();
+                var vo0 = vertPoint + reader.ReadUInt32();
+                var vo1 = vertPoint + reader.ReadUInt32();
+                var vo2 = vertPoint + reader.ReadUInt32();
+                var vo3 = vertPoint + reader.ReadUInt32();
                 var position = reader.BaseStream.Position;
                 ReadSharedVertices(reader, vo0, out v0x, out v0y, out v0z);
                 ReadSharedVertices(reader, vo1, out v1x, out v1y, out v1z);
@@ -449,7 +487,7 @@ namespace PSXPrev.Classes
             return new[] { triangle1, triangle2 };
         }
 
-        private Triangle ReadPolyGT3(BinaryReader reader, bool sharedVertices = false, long verticesOffset = 0)
+        private Triangle ReadPolyGT3(BinaryReader reader, out uint tPage, bool sharedVertices = false, uint vertPoint = 0)
         {
             int tag;
             byte r0 = 0, g0 = 0, b0 = 0;
@@ -462,7 +500,7 @@ namespace PSXPrev.Classes
             byte u1 = 0, v1 = 0;
             byte u2 = 0, v2 = 0;
             ushort clut;
-            ushort tPage;
+            tPage = 0;
             byte code;
             for (var i = 0; i < 2; i++)
             {
@@ -495,9 +533,9 @@ namespace PSXPrev.Classes
                 v2 = reader.ReadByte();
                 reader.ReadUInt16();
             }
-            Int16 v0x, v0y, v0z;
-            Int16 v1x, v1y, v1z;
-            Int16 v2x, v2y, v2z;
+            short v0x, v0y, v0z;
+            short v1x, v1y, v1z;
+            short v2x, v2y, v2z;
             if (!sharedVertices)
             {
                 ReadSVector(reader, out v0x, out v0y, out v0z);
@@ -506,9 +544,9 @@ namespace PSXPrev.Classes
             }
             else
             {
-                long vo0 = verticesOffset + reader.ReadUInt32();
-                long vo1 = verticesOffset + reader.ReadUInt32();
-                long vo2 = verticesOffset + reader.ReadUInt32();
+                var vo0 = vertPoint + reader.ReadUInt32();
+                var vo1 = vertPoint + reader.ReadUInt32();
+                var vo2 = vertPoint + reader.ReadUInt32();
                 var position = reader.BaseStream.Position;
                 ReadSharedVertices(reader, vo0, out v0x, out v0y, out v0z);
                 ReadSharedVertices(reader, vo1, out v1x, out v1y, out v1z);
@@ -521,7 +559,7 @@ namespace PSXPrev.Classes
             return triangle;
         }
 
-        private Triangle ReadPolyF3(BinaryReader reader, bool sharedVertices = false, long verticesOffset = 0)
+        private Triangle ReadPolyF3(BinaryReader reader, bool sharedVertices = false, uint vertPoint = 0)
         {
             int tag;
             byte r0 = 0, g0 = 0, b0 = 0;
@@ -543,9 +581,9 @@ namespace PSXPrev.Classes
                 x2 = reader.ReadInt16();
                 y2 = reader.ReadInt16();
             }
-            Int16 v0x, v0y, v0z;
-            Int16 v1x, v1y, v1z;
-            Int16 v2x, v2y, v2z;
+            short v0x, v0y, v0z;
+            short v1x, v1y, v1z;
+            short v2x, v2y, v2z;
             if (!sharedVertices)
             {
                 ReadSVector(reader, out v0x, out v0y, out v0z);
@@ -554,9 +592,9 @@ namespace PSXPrev.Classes
             }
             else
             {
-                long vo0 = verticesOffset + reader.ReadUInt32();
-                long vo1 = verticesOffset + reader.ReadUInt32();
-                long vo2 = verticesOffset + reader.ReadUInt32();
+                var vo0 = vertPoint + reader.ReadUInt32();
+                var vo1 = vertPoint + reader.ReadUInt32();
+                var vo2 = vertPoint + reader.ReadUInt32();
                 var position = reader.BaseStream.Position;
                 ReadSharedVertices(reader, vo0, out v0x, out v0y, out v0z);
                 ReadSharedVertices(reader, vo1, out v1x, out v1y, out v1z);
@@ -568,7 +606,7 @@ namespace PSXPrev.Classes
             return triangle;
         }
 
-        private Triangle ReadPolyG3(BinaryReader reader, bool sharedVertices = false, long verticesOffset = 0)
+        private Triangle ReadPolyG3(BinaryReader reader, bool sharedVertices = false, uint vertPoint = 0)
         {
             long tag;
             byte r0 = 0, g0 = 0, b0 = 0;
@@ -600,9 +638,9 @@ namespace PSXPrev.Classes
                 x2 = reader.ReadInt16();
                 y2 = reader.ReadInt16();
             }
-            Int16 v0x, v0y, v0z;
-            Int16 v1x, v1y, v1z;
-            Int16 v2x, v2y, v2z;
+            short v0x, v0y, v0z;
+            short v1x, v1y, v1z;
+            short v2x, v2y, v2z;
             if (!sharedVertices)
             {
                 ReadSVector(reader, out v0x, out v0y, out v0z);
@@ -611,9 +649,9 @@ namespace PSXPrev.Classes
             }
             else
             {
-                long vo0 = verticesOffset + reader.ReadUInt32();
-                long vo1 = verticesOffset + reader.ReadUInt32();
-                long vo2 = verticesOffset + reader.ReadUInt32();
+                var vo0 = vertPoint + reader.ReadUInt32();
+                var vo1 = vertPoint + reader.ReadUInt32();
+                var vo2 = vertPoint + reader.ReadUInt32();
                 var position = reader.BaseStream.Position;
                 ReadSharedVertices(reader, vo0, out v0x, out v0y, out v0z);
                 ReadSharedVertices(reader, vo1, out v1x, out v1y, out v1z);
@@ -626,7 +664,7 @@ namespace PSXPrev.Classes
             return triangle;
         }
 
-        private Triangle ReadPolyFT3(BinaryReader reader, bool sharedVertices = false, long verticesOffset = 0)
+        private Triangle ReadPolyFT3(BinaryReader reader, out uint tPage, bool sharedVertices = false, uint vertPoint = 0)
         {
             long tag;
             byte r = 0, g = 0, b = 0;
@@ -638,7 +676,7 @@ namespace PSXPrev.Classes
             byte u1 = 0, v1 = 0;
             byte u2 = 0, v2 = 0;
             ushort clutId;
-            ushort tPage;
+            tPage = 0;
             for (var i = 0; i < 2; i++)
             {
                 tag = reader.ReadUInt32();
@@ -663,9 +701,9 @@ namespace PSXPrev.Classes
                 reader.ReadUInt16();
             }
 
-            Int16 v0x, v0y, v0z;
-            Int16 v1x, v1y, v1z;
-            Int16 v2x, v2y, v2z;
+            short v0x, v0y, v0z;
+            short v1x, v1y, v1z;
+            short v2x, v2y, v2z;
             if (!sharedVertices)
             {
                 ReadSVector(reader, out v0x, out v0y, out v0z);
@@ -674,9 +712,9 @@ namespace PSXPrev.Classes
             }
             else
             {
-                long vo0 = verticesOffset + reader.ReadUInt32();
-                long vo1 = verticesOffset + reader.ReadUInt32();
-                long vo2 = verticesOffset + reader.ReadUInt32();
+                var vo0 = vertPoint + reader.ReadUInt32();
+                var vo1 = vertPoint + reader.ReadUInt32();
+                var vo2 = vertPoint + reader.ReadUInt32();
                 var position = reader.BaseStream.Position;
                 ReadSharedVertices(reader, vo0, out v0x, out v0y, out v0z);
                 ReadSharedVertices(reader, vo1, out v1x, out v1y, out v1z);
@@ -688,46 +726,30 @@ namespace PSXPrev.Classes
             return triangle;
         }
 
-        private void ReadSVector(BinaryReader stream, out Int16 X, out Int16 Y, out Int16 Z)
+        private void ReadSVector(BinaryReader stream, out short x, out short y, out short z)
         {
-            X = stream.ReadInt16();
-            Y = stream.ReadInt16();
-            Z = stream.ReadInt16();
+            x = stream.ReadInt16();
+            y = stream.ReadInt16();
+            z = stream.ReadInt16();
             stream.ReadInt16();
         }
 
-        private void ReadSharedVertices(BinaryReader reader, long offset, out short v0X, out short v0Y, out short v0Z)
+        private void ReadSharedVertices(BinaryReader reader, uint vertOffset, out short v0X, out short v0Y, out short v0Z)
         {
-            reader.BaseStream.Position = offset;
+            reader.BaseStream.Seek(_offset + vertOffset, SeekOrigin.Begin);
             ReadSVector(reader, out v0X, out v0Y, out v0Z);
         }
 
-        private void AddTriangle(Dictionary<uint, List<Triangle>> groupedTriangles, Triangle triangle, uint p)
-        {
-            List<Triangle> triangles;
-            if (groupedTriangles.ContainsKey(p))
-            {
-                triangles = groupedTriangles[p];
-            }
-            else
-            {
-                triangles = new List<Triangle>();
-                groupedTriangles.Add(p, triangles);
-            }
-            triangles.Add(triangle);
-        }
-
-        private Triangle TriangleFromPrimitive(Triangle.PrimitiveTypeEnum primitiveType, bool sharedVertices, bool sharedNormals, Vector3[] vertices, Vector3[] normals, ushort vertex0, ushort vertex1,
-            ushort vertex2, ushort normal0, ushort normal1, ushort normal2, byte r0, byte g0, byte b0, byte r1, byte g1,
-            byte b1, byte r2, byte g2, byte b2, byte u0, byte v0, byte u1, byte v1, byte u2, byte v2, short p1x = 0, short p1y = 0, short p1z = 0, short p2x = 0, short p2y = 0, short p2z = 0, short p3x = 0, short p3y = 0, short p3z = 0
-
-            , short n1x = 0, short n1y = 0, short n1z = 0, short n2x = 0, short n2y = 0, short n2z = 0, short n3x = 0, short n3y = 0, short n3z = 0
-
+        private Triangle TriangleFromPrimitive(Triangle.PrimitiveTypeEnum primitiveType, bool sharedVertices, bool sharedNormals, Vector3[] vertices, Vector3[] normals,
+            ushort vertexIndex0, ushort vertexIndex1, ushort vertexIndex2, ushort normalIndex0, ushort normalIndex1, ushort normalIndex2,
+            byte r0, byte g0, byte b0, byte r1, byte g1, byte b1, byte r2, byte g2, byte b2, byte u0, byte v0, byte u1, byte v1, byte u2, byte v2,
+            short p0x = 0, short p0y = 0, short p0z = 0, short p1x = 0, short p1y = 0, short p1z = 0, short p2x = 0, short p2y = 0, short p2z = 0,
+            short n0x = 0, short n0y = 0, short n0z = 0, short n1x = 0, short n1y = 0, short n1z = 0, short n2x = 0, short n2y = 0, short n2z = 0
             )
         {
             if (sharedVertices)
             {
-                if (vertex0 >= vertices.Length)
+                if (vertexIndex0 >= vertices.Length)// || vertexIndex1 >= vertices.Length || vertexIndex2 >= vertices.Length)
                 {
                     return null;
                 }
@@ -735,156 +757,35 @@ namespace PSXPrev.Classes
 
             if (sharedNormals)
             {
-                if (normal0 >= normals.Length || normal1 >= normals.Length || normal2 >= normals.Length)
+                if (normalIndex0 >= normals.Length || normalIndex1 >= normals.Length || normalIndex2 >= normals.Length)
                 {
                     return null;
                 }
             }
 
-            Vector3 ver1, ver2, ver3;
-            if (sharedVertices)
-            {
-                ver1 = new Vector3
-                {
-                    X = vertices[vertex0].X,
-                    Y = vertices[vertex0].Y,
-                    Z = vertices[vertex0].Z,
-                };
+            var vertex0 = sharedVertices ? vertices[vertexIndex0] : new Vector3(p0x, p0y, p0z);
+            var vertex1 = sharedVertices ? vertices[vertexIndex1] : new Vector3(p1x, p1y, p1z);
+            var vertex2 = sharedVertices ? vertices[vertexIndex2] : new Vector3(p2x, p2y, p2z);
 
-                ver2 = new Vector3
-                {
-                    X = vertices[vertex1].X,
-                    Y = vertices[vertex1].Y,
-                    Z = vertices[vertex1].Z,
-                };
+            var normal0 = sharedNormals ? normals[normalIndex0] : new Vector3(n0x, n0y, n0z);
+            var normal1 = sharedNormals ? normals[normalIndex1] : new Vector3(n1x, n1y, n1z);
+            var normal2 = sharedNormals ? normals[normalIndex2] : new Vector3(n2x, n2y, n2z);
 
-                ver3 = new Vector3
-                {
-                    X = vertices[vertex2].X,
-                    Y = vertices[vertex2].Y,
-                    Z = vertices[vertex2].Z,
-                };
-            }
-            else
-            {
-                ver1 = new Vector3
-                {
-                    X = p1x,
-                    Y = p1y,
-                    Z = p1z
-                };
-                ver2 = new Vector3
-                {
-                    X = p2x,
-                    Y = p2y,
-                    Z = p2z
-                };
-                ver3 = new Vector3
-                {
-                    X = p3x,
-                    Y = p3y,
-                    Z = p3z
-                };
-            }
+            var color0 = new Color(r0/255f, g0/255f, b0/255f);
+            var color1 = new Color(r1/255f, g1/255f, b1/255f);
+            var color2 = new Color(r2/255f, g2/255f, b2/255f);
 
-            Vector3 nor1, nor2, nor3;
-            if (sharedNormals)
-            {
-                nor1 = new Vector3
-                {
-                    X = normals[normal0].X,
-                    Y = normals[normal0].Y,
-                    Z = normals[normal0].Z
-                };
-                nor2 = new Vector3
-                {
-                    X = normals[normal1].X,
-                    Y = normals[normal1].Y,
-                    Z = normals[normal1].Z
-                };
-                nor3 = new Vector3
-                {
-                    X = normals[normal2].X,
-                    Y = normals[normal2].Y,
-                    Z = normals[normal2].Z
-                };
-            }
-            else
-            {
-                nor1 = new Vector3
-                {
-                    X = n1x,
-                    Y = n1y,
-                    Z = n1z
-                };
-                nor2 = new Vector3
-                {
-                    X = n2x,
-                    Y = n2y,
-                    Z = n2z
-                };
-                nor3 = new Vector3
-                {
-                    X = n3x,
-                    Y = n3y,
-                    Z = n3z
-                };
-            }
+            var uv0 = new Vector2(u0/255f, v0/255f);
+            var uv1 = new Vector2(u1/255f, v1/255f);
+            var uv2 = new Vector2(u2/255f, v2/255f);
 
             var triangle = new Triangle
             {
                 //PrimitiveType = primitiveType,
-                Colors = new[]
-                {
-                    new Color
-                    (
-                        r0/255f,
-                        g0/255f,
-                        b0/255f
-                    ),
-                    new Color
-                    (
-                         r1/255f,
-                         g1/255f,
-                         b1/255f
-                    ),
-                    new Color
-                    (
-                         r2/255f,
-                         g2/255f,
-                         b2/255f
-                    )
-                },
-                Normals = new[]
-                {
-                    nor1,
-                    nor2,
-                    nor3
-                },
-                Vertices = new[]
-                {
-                    ver1,
-                    ver2,
-                    ver3
-                },
-                Uv = new[]
-                {
-                    new Vector2
-                    {
-                        X = u0/255f,
-                        Y = v0/255f
-                    },
-                    new Vector2
-                    {
-                        X = u1/255f,
-                        Y = v1/255f
-                    },
-                    new Vector2
-                    {
-                        X = u2/255f,
-                        Y = v2/255f
-                    }
-                },
+                Vertices = new[] { vertex0, vertex1, vertex2 },
+                Normals = new[] { normal0, normal1, normal2 },
+                Colors = new[] { color0, color1, color2 },
+                Uv = new[] { uv0, uv1, uv2 },
                 AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
             };
 

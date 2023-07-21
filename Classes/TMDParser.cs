@@ -227,18 +227,15 @@ namespace PSXPrev.Classes
                 {
                     var renderInfo = kvp.Key;
                     var triangles = kvp.Value;
-                    if (triangles.Count > 0)
+                    var model = new ModelEntity
                     {
-                        var model = new ModelEntity
-                        {
-                            Triangles = triangles.ToArray(),
-                            TexturePage = renderInfo.TexturePage,
-                            RenderFlags = renderInfo.RenderFlags,
-                            MixtureRate = renderInfo.MixtureRate,
-                            TMDID = o
-                        };
-                        models.Add(model);
-                    }
+                        Triangles = triangles.ToArray(),
+                        TexturePage = renderInfo.TexturePage,
+                        RenderFlags = renderInfo.RenderFlags,
+                        MixtureRate = renderInfo.MixtureRate,
+                        TMDID = o
+                    };
+                    models.Add(model);
                 }
             }
 

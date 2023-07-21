@@ -48,6 +48,20 @@ namespace PSXPrev.Classes
 
         private static RootEntity ReadModels(BinaryReader reader)
         {
+            var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
+
+            void AddTriangle(Triangle triangle, uint tPage, RenderFlags renderFlags)
+            {
+                renderFlags |= RenderFlags.DoubleSided; //todo
+                var renderInfo = new RenderInfo(tPage, renderFlags);
+                if (!groupedTriangles.TryGetValue(renderInfo, out var triangles))
+                {
+                    triangles = new List<Triangle>();
+                    groupedTriangles.Add(renderInfo, triangles);
+                }
+                triangles.Add(triangle);
+            }
+
             // Some data is properly handled thanks to vs49688's work on CrocUtils.
             // Notably: Fixed point size, flags, bounding box indices, color, UVs, and the collision section.
             // <https://github.com/vs49688/CrocUtils>
@@ -111,7 +125,6 @@ namespace PSXPrev.Classes
                 {
                     return null;
                 }
-                var triangles = new List<Triangle>((int)countFaces);
 
                 // Groups are observed as consecutive faces that share some similar properties.
                 // They are defined by the fourth uint16 in a face. When non-zero, a new group is started.
@@ -178,11 +191,15 @@ namespace PSXPrev.Classes
                         normal0 = normal1 = normal2 = GeomUtils.CalculateNormal(vertex0, vertex1, vertex2);
                     }
 
+                    var renderFlags = RenderFlags.None;
+                    uint tPage;
+
                     // We can't actually use UVs yet, since they're likely scaled for the material, and not the whole VRAM page.
                     Vector2 uv0, uv1, uv2, uv3;
-                    float r, g, b;
+                    Color color;
                     if (texture)
                     {
+                        renderFlags |= RenderFlags.Textured;
                         if (!quad)
                         {
                             // Is uvFlip flag ignored for tri? (flag has been observed both set and unset)
@@ -210,26 +227,30 @@ namespace PSXPrev.Classes
                         }
 
                         var materialId = faceInfo & 0xffff;
-                        r = g = b = Color.DefaultColorTone;
+                        color = Color.Grey;
+
+                        tPage = 0; //todo
                     }
                     else
                     {
                         uv0 = uv1 = uv2 = uv3 = Vector2.Zero;
 
-                        r = ((faceInfo >>  0) & 0xff) / 255f;
-                        g = ((faceInfo >>  8) & 0xff) / 255f;
-                        b = ((faceInfo >> 16) & 0xff) / 255f;
-                    }
-                    var color = new Color(r, g, b);
+                        var r = ((faceInfo >>  0) & 0xff) / 255f;
+                        var g = ((faceInfo >>  8) & 0xff) / 255f;
+                        var b = ((faceInfo >> 16) & 0xff) / 255f;
+                        color = new Color(r, g, b);
 
-                    triangles.Add(new Triangle
+                        tPage = 0; //todo
+                    }
+
+                    AddTriangle(new Triangle
                     {
                         Vertices = new[] { vertex0, vertex1, vertex2 },
                         Normals = new[] { normal0, normal1, normal2 },
                         Colors = new[] { color, color, color },
-                        Uv = new[] { Vector2.Zero, Vector2.Zero, Vector2.Zero },
+                        Uv = new[] { Vector2.Zero, Vector2.Zero, Vector2.Zero }, // Can't use UVs yet
                         AttachableIndices = new [] {uint.MaxValue, uint.MaxValue, uint.MaxValue}
-                    });
+                    }, tPage, renderFlags);
                     if (quad)
                     {
                         var vertex3 = vertices[index3];
@@ -245,14 +266,14 @@ namespace PSXPrev.Classes
                             normal1 = normal3 = normal2 = GeomUtils.CalculateNormal(vertex1, vertex3, vertex2);
                         }
 
-                        triangles.Add(new Triangle
+                        AddTriangle(new Triangle
                         {
                             Vertices = new[] { vertex1, vertex3, vertex2 },
                             Normals = new[] { normal1, normal3, normal2 },
                             Colors = new[] { color, color, color },
-                            Uv = new[] { Vector2.Zero, Vector2.Zero, Vector2.Zero },
+                            Uv = new[] { Vector2.Zero, Vector2.Zero, Vector2.Zero }, // Can't use UVs yet
                             AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
-                        });
+                        }, tPage, renderFlags);
                     }
                 }
 
@@ -264,16 +285,21 @@ namespace PSXPrev.Classes
                     reader.BaseStream.Seek((size1 + size2) * 44, SeekOrigin.Current);
                 }
 
-                // Don't add empty models.
-                if (triangles.Count > 0)
+                foreach (var kvp in groupedTriangles)
                 {
-                    var modelEntity = new ModelEntity
+                    var renderInfo = kvp.Key;
+                    var triangles = kvp.Value;
+                    var model = new ModelEntity
                     {
                         Triangles = triangles.ToArray(),
-                        TMDID = i,
+                        TexturePage = renderInfo.TexturePage,
+                        RenderFlags = renderInfo.RenderFlags,
+                        MixtureRate = renderInfo.MixtureRate,
+                        TMDID = i + 1, //todo
                     };
-                    models.Add(modelEntity);
+                    models.Add(model);
                 }
+                groupedTriangles.Clear();
             }
             if (models.Count > 0)
             {

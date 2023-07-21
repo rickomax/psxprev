@@ -15,6 +15,7 @@ uniform vec3 lightDirection;
 uniform vec3 maskColor;
 uniform vec3 ambientColor;
 uniform int renderMode;
+uniform int textureMode;
 uniform int semiTransparentMode;
 uniform float lightIntensity;
 uniform sampler2D mainTex;
@@ -25,34 +26,41 @@ void main(void) {
 	}
 	vec4 finalColor;
 	if (renderMode == 0 || renderMode == 1) {
-		vec2 uv = pass_Uv;
-		// X,Y is tiled U,V offset and Z,W is tiled U,V wrap size.
-		if (pass_TiledArea.z != 0.0) {
-			uv.x = pass_TiledArea.x + mod(pass_Uv.x, pass_TiledArea.z);
-		}
-		if (pass_TiledArea.w != 0.0) {
-			uv.y = pass_TiledArea.y + mod(pass_Uv.y, pass_TiledArea.w);
-		}
-		//if (pass_TiledArea.z != 0.0 && pass_TiledArea.w != 0.0) {
-		//	uv = pass_TiledArea.xy + mod(pass_Uv, pass_TiledArea.zw);
-		//}
+		// Process texture UVs and stp bit
+		vec4 tex2D;
+		int stp;
+		if (textureMode == 0) {
+			vec2 uv = pass_Uv;
+			// X,Y is tiled U,V offset and Z,W is tiled U,V wrap size.
+			if (pass_TiledArea.z != 0.0) {
+				uv.x = pass_TiledArea.x + mod(pass_Uv.x, pass_TiledArea.z);
+			}
+			if (pass_TiledArea.w != 0.0) {
+				uv.y = pass_TiledArea.y + mod(pass_Uv.y, pass_TiledArea.w);
+			}
 
-		vec4 tex2D = texture(mainTex, vec2(uv.x * 0.5,       uv.y));
-		vec4 stp2D = texture(mainTex, vec2(uv.x * 0.5 + 0.5, uv.y));
-		bool stp = (stp2D.x != 0.0);
+			tex2D      = texture(mainTex, vec2(uv.x * 0.5,       uv.y));
+			vec4 stp2D = texture(mainTex, vec2(uv.x * 0.5 + 0.5, uv.y));
+			stp = (stp2D.x == 0.0 ? 0 : 1);
+		} else {
+			tex2D = vec4(1.0, 1.0, 1.0, 1.0);
+			stp = 1; // Untextured always treats stp bit as set.
+		}
 
-		if (!stp && tex2D.xyz == maskColor) {
+		// Process semi-transparency discarding
+		if (stp == 0 && tex2D.xyz == maskColor) {
 			discard; // Black surfaces are transparent when stp bit is unset.
 		} else if (semiTransparentMode == 1) {
-			if (stp) {
+			if (stp != 0) {
 				discard; // Semi-transparent surface during no-stp bit pass.
 			}
 		} else if (semiTransparentMode == 2) {
-			if (!stp) {
+			if (stp == 0) {
 				discard; // Opaque surface during stp bit pass.
 			}
 		}
 
+		// Process final color
 		if (renderMode == 0) {
 			finalColor = (pass_Ambient + pass_NormalDotLight) * tex2D * pass_Color;
 		} else {

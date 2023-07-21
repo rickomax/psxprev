@@ -68,7 +68,7 @@ namespace PSXPrev.Classes
 
         private void WriteModel(ModelEntity model)
         {
-            if (model.Texture != null)
+            if (model.Texture != null && model.RenderFlags.HasFlag(RenderFlags.Textured))
             {
                 if (_mtlExporter.AddMaterial((int) model.TexturePage))
                 {

@@ -35,21 +35,22 @@ namespace PSXPrev.Classes
 
         private static RootEntity ReadModels(BinaryReader reader)
         {
-            void AddTriangle(Dictionary<Tuple<uint, uint>, List<Triangle>> groupedTriangles, Triangle triangle, uint modelIndex, uint tPage)
+            // (modelIndex, RenderInfo)
+            var groupedTriangles = new Dictionary<Tuple<uint, RenderInfo>, List<Triangle>>();
+
+            void AddTriangle(Triangle triangle, uint modelIndex, uint tPage, RenderFlags renderFlags)
             {
-                var tuple = new Tuple<uint, uint>(modelIndex, tPage);
-                List<Triangle> triangles;
-                if (groupedTriangles.ContainsKey(tuple))
-                {
-                    triangles = groupedTriangles[tuple];
-                }
-                else
+                renderFlags |= RenderFlags.DoubleSided; //todo
+                var renderInfo = new RenderInfo(tPage, renderFlags);
+                var tuple = new Tuple<uint, RenderInfo>(modelIndex, renderInfo);
+                if (!groupedTriangles.TryGetValue(tuple, out var triangles))
                 {
                     triangles = new List<Triangle>();
                     groupedTriangles.Add(tuple, triangles);
                 }
                 triangles.Add(triangle);
             }
+
             var version = reader.ReadByte();
             var magic2 = reader.ReadByte();
             var magic3 = reader.ReadByte();
@@ -68,7 +69,6 @@ namespace PSXPrev.Classes
             {
                 return null;
             }
-            var childEntities = new ModelEntity();
             var objectModels = new PSXModel[objectCount];
             for (var i = 0; i < objectCount; i++)
             {
@@ -90,7 +90,6 @@ namespace PSXPrev.Classes
             {
                 return null;
             }
-            var triangleGroups = new Dictionary<Tuple<uint, uint>, List<Triangle>>();
             var modelEntities = new List<ModelEntity>();
             var attachmentIndex = 0;
             for (uint i = 0; i < modelCount; i++)
@@ -171,7 +170,7 @@ namespace PSXPrev.Classes
                         var faceBegin = reader.BaseStream.Position;
                         var faceFlags = reader.ReadUInt16();
                         var faceLength = reader.ReadUInt16();
-                        var triangle = (faceFlags & 0x0010) != 0;
+                        var quad = (faceFlags & 0x0010) == 0;
                         var gouraud = (faceFlags & 0x0800) != 0;
                         var textured = (faceFlags & 0x0003) != 0;
                         var invisible = (faceFlags & 0x0080) != 0;
@@ -219,8 +218,10 @@ namespace PSXPrev.Classes
                         var uv2 = Vector2.Zero;
                         var uv3 = Vector2.Zero;
                         uint tPage = 0;
+                        var renderFlags = RenderFlags.None;
                         if (textured)
                         {
+                            renderFlags |= RenderFlags.Textured;
                             tPage = reader.ReadUInt32(); //todo
                             var u0 = reader.ReadByte() / 255f;
                             var v0 = reader.ReadByte() / 255f;
@@ -237,7 +238,7 @@ namespace PSXPrev.Classes
                         }
                         if (!invisible)
                         {
-                            AddTriangle(triangleGroups, new Triangle
+                            AddTriangle(new Triangle
                             {
                                 Vertices = new[] { vertex2, vertex1, vertex0 },
                                 Normals = new[] { normal2, normal1, normal0 },
@@ -246,10 +247,10 @@ namespace PSXPrev.Classes
                                 OriginalVertexIndices = new uint[] { i2, i1, i0 },
                                 AttachedIndices = new[] { attachedIndex2, attachedIndex1, attachedIndex0 },
                                 AttachableIndices = new[] { attachableIndex2, attachableIndex1, attachableIndex0 }
-                            }, i, tPage);
-                            if (!triangle)
+                            }, i, tPage, renderFlags);
+                            if (quad)
                             {
-                                AddTriangle(triangleGroups, new Triangle
+                                AddTriangle(new Triangle
                                 {
                                     Vertices = new[] { vertex1, vertex2, vertex3 },
                                     Normals = new[] { normal1, normal2, normal3 },
@@ -258,7 +259,7 @@ namespace PSXPrev.Classes
                                     OriginalVertexIndices = new uint[] { i1, i2, i3 },
                                     AttachedIndices = new[] { attachedIndex1, attachedIndex2, attachedIndex3 },
                                     AttachableIndices = new[] { attachableIndex1, attachableIndex2, attachableIndex3 }
-                                }, i, tPage);
+                                }, i, tPage, renderFlags);
                             }
                         }
                         reader.BaseStream.Seek(faceBegin + faceLength, SeekOrigin.Begin);
@@ -268,7 +269,7 @@ namespace PSXPrev.Classes
                         var faceBegin = reader.BaseStream.Position;
                         var faceFlags = reader.ReadUInt16();
                         var faceLength = reader.ReadUInt16();
-                        var triangle = (faceFlags & 0x0010) != 0;
+                        var quad = (faceFlags & 0x0010) == 0;
                         var gouraud = (faceFlags & 0x0800) != 0;
                         var textured = (faceFlags & 0x0003) != 0;
                         var invisible = (faceFlags & 0x0080) != 0;
@@ -316,8 +317,10 @@ namespace PSXPrev.Classes
                         var uv2 = Vector2.Zero;
                         var uv3 = Vector2.Zero;
                         uint tPage = 0;
+                        var renderFlags = RenderFlags.None;
                         if (textured)
                         {
+                            renderFlags |= RenderFlags.Textured;
                             tPage = reader.ReadUInt32(); //todo
                             var u0 = reader.ReadByte() / 255f;
                             var v0 = reader.ReadByte() / 255f;
@@ -334,7 +337,7 @@ namespace PSXPrev.Classes
                         }
                         if (!invisible)
                         {
-                            AddTriangle(triangleGroups, new Triangle
+                            AddTriangle(new Triangle
                             {
                                 Vertices = new[] { vertex2, vertex1, vertex0 },
                                 Normals = new[] { normal2, normal1, normal0 },
@@ -343,10 +346,10 @@ namespace PSXPrev.Classes
                                 OriginalVertexIndices = new uint[] { i2, i1, i0 },
                                 AttachedIndices = new[] { attachedIndex2, attachedIndex1, attachedIndex0 },
                                 AttachableIndices = new[] { attachableIndex2, attachableIndex1, attachableIndex0 }
-                            }, i, tPage);
-                            if (!triangle)
+                            }, i, tPage, renderFlags);
+                            if (quad)
                             {
-                                AddTriangle(triangleGroups, new Triangle
+                                AddTriangle(new Triangle
                                 {
                                     Vertices = new[] { vertex1, vertex2, vertex3 },
                                     Normals = new[] { normal1, normal2, normal3 },
@@ -355,7 +358,7 @@ namespace PSXPrev.Classes
                                     OriginalVertexIndices = new uint[] { i1, i2, i3 },
                                     AttachedIndices = new[] { attachedIndex1, attachedIndex2, attachedIndex3 },
                                     AttachableIndices = new[] { attachableIndex1, attachableIndex2, attachableIndex3 }
-                                }, i, tPage);
+                                }, i, tPage, renderFlags);
                             }
                         }
                         reader.BaseStream.Seek(faceBegin + faceLength, SeekOrigin.Begin);
@@ -381,16 +384,19 @@ namespace PSXPrev.Classes
 
             foreach (var psxModel in objectModels)
             {
-                foreach (var kvp in triangleGroups)
+                foreach (var kvp in groupedTriangles)
                 {
                     if (kvp.Key.Item1 == psxModel.ModelIndex)
                     {
                         var triangles = kvp.Value;
+                        var renderInfo = kvp.Key.Item2;
                         var model = new ModelEntity
                         {
                             Triangles = triangles.ToArray(),
-                            TexturePage = kvp.Key.Item2,
-                            TMDID = 1, //todo
+                            TexturePage = renderInfo.TexturePage,
+                            RenderFlags = renderInfo.RenderFlags,
+                            MixtureRate = renderInfo.MixtureRate,
+                            TMDID = psxModel.ModelIndex, //todo
                             OriginalLocalMatrix = Matrix4.CreateTranslation(psxModel.X, psxModel.Y, psxModel.Z)
                         };
                         modelEntities.Add(model);
@@ -414,21 +420,21 @@ namespace PSXPrev.Classes
             }
             return rootEntity;
         }
-    }
 
-    internal class PSXModel
-    {
-        public float X { get; }
-        public float Y { get; }
-        public float Z { get; }
-        public ushort ModelIndex { get; }
-
-        public PSXModel(float x, float y, float z, ushort modelIndex)
+        private class PSXModel
         {
-            X = x;
-            Y = y;
-            Z = z;
-            ModelIndex = modelIndex;
+            public float X { get; }
+            public float Y { get; }
+            public float Z { get; }
+            public ushort ModelIndex { get; }
+
+            public PSXModel(float x, float y, float z, ushort modelIndex)
+            {
+                X = x;
+                Y = y;
+                Z = z;
+                ModelIndex = modelIndex;
+            }
         }
     }
 }

@@ -33,19 +33,16 @@ namespace PSXPrev.Classes
 
         private RootEntity ReadModels(BinaryReader reader)
         {
-            var groupedTriangles = new Dictionary<uint, List<Triangle>>();
+            var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
 
-            void AddTriangle(Triangle triangle, uint tPage)
+            void AddTriangle(Triangle triangle, uint tPage, RenderFlags renderFlags)
             {
-                List<Triangle> triangles;
-                if (groupedTriangles.ContainsKey(tPage))
-                {
-                    triangles = groupedTriangles[tPage];
-                }
-                else
+                renderFlags |= RenderFlags.DoubleSided; //todo
+                var renderInfo = new RenderInfo(tPage, renderFlags);
+                if (!groupedTriangles.TryGetValue(renderInfo, out var triangles))
                 {
                     triangles = new List<Triangle>();
-                    groupedTriangles.Add(tPage, triangles);
+                    groupedTriangles.Add(renderInfo, triangles);
                 }
                 triangles.Add(triangle);
             }
@@ -192,14 +189,6 @@ namespace PSXPrev.Classes
                 uvs[i] = new Vector2(tu, tv);
             }
 
-            using (var writer = File.CreateText("C:\\USERS\\RICKO\\DESKTOP\\TEST"+ nameCrc+".OBJ"))
-            {
-                foreach (var vertex in vertices)
-                {
-                    writer.WriteLine("v " + vertex.X + " " + vertex.Y + " " + vertex.Z);
-                }
-            }
-
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
 
             var numGT3s = ReadInt(reader);
@@ -247,7 +236,7 @@ namespace PSXPrev.Classes
                         u1, v1,
                         u2, v2);
 
-                    AddTriangle(triangle, tPage);
+                    AddTriangle(triangle, tPage, RenderFlags.Textured);
                 }
             }
             else
@@ -259,8 +248,8 @@ namespace PSXPrev.Classes
 
                 var triangle1 = ReadPolyGT3(reader, vertices, vert0, vert1, vert2, out var tPage1);
                 //var triangle2 = ReadPolyGT3(reader, vertices, vert1, vert3, vert2, out var tPage2);
-                AddTriangle(triangle1, tPage1);
-                //AddTriangle(triangle2, 0);
+                AddTriangle(triangle1, tPage1, RenderFlags.Textured);
+                //AddTriangle(triangle2, tPage2, RenderFlags.Textured);
             }
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
@@ -328,8 +317,8 @@ namespace PSXPrev.Classes
                         u3, v3,
                         u2, v2);
 
-                    AddTriangle(triangle1, tPage);
-                    AddTriangle(triangle2, tPage);
+                    AddTriangle(triangle1, tPage, RenderFlags.Textured);
+                    AddTriangle(triangle2, tPage, RenderFlags.Textured);
                 }
             }
             else
@@ -343,8 +332,9 @@ namespace PSXPrev.Classes
                 //two POLY_GT3
                 var triangle1 = ReadPolyGT3(reader, vertices, vert0, vert1, vert2, out var tPage1);
                 var triangle2 = ReadPolyGT3(reader, vertices, vert1, vert3, vert2, out var tPage2);
-                AddTriangle(triangle1, tPage1);
-                AddTriangle(triangle2, tPage2);
+
+                AddTriangle(triangle1, tPage1, RenderFlags.Textured);
+                AddTriangle(triangle2, tPage2, RenderFlags.Textured);
             }
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
@@ -386,7 +376,7 @@ namespace PSXPrev.Classes
                     0, 0,
                     0, 0);
 
-                AddTriangle(triangle, 0);
+                AddTriangle(triangle, 0, RenderFlags.None);
             }
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
 
@@ -440,24 +430,24 @@ namespace PSXPrev.Classes
                     0, 0);
 
 
-                AddTriangle(triangle1, 0);
-                AddTriangle(triangle2, 0);
+                AddTriangle(triangle1, 0, RenderFlags.None);
+                AddTriangle(triangle2, 0, RenderFlags.None);
             }
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
 
             foreach (var kvp in groupedTriangles)
             {
+                var renderInfo = kvp.Key;
                 var triangles = kvp.Value;
-                if (triangles.Count > 0)
+                var model = new ModelEntity
                 {
-                    var model = new ModelEntity
-                    {
-                        Triangles = triangles.ToArray(),
-                        TexturePage = kvp.Key,
-                        TMDID = 0
-                    };
-                    models.Add(model);
-                }
+                    Triangles = triangles.ToArray(),
+                    TexturePage = renderInfo.TexturePage,
+                    RenderFlags = renderInfo.RenderFlags,
+                    MixtureRate = renderInfo.MixtureRate,
+                    TMDID = 0
+                };
+                models.Add(model);
             }
 
             if (models.Count > 0)
@@ -562,7 +552,7 @@ namespace PSXPrev.Classes
 //#endif
 
         private Triangle TriangleFromPrimitive(Vector3[] vertices,
-            uint vertex0, uint vertex1, uint vertex2,
+            uint vertexIndex0, uint vertexIndex1, uint vertexIndex2,
             byte r0, byte g0, byte b0,
             byte r1, byte g1, byte b1,
             byte r2, byte g2, byte b2,
@@ -571,74 +561,29 @@ namespace PSXPrev.Classes
             byte u2, byte v2
             )
         {
-            Vector3 ver1, ver2, ver3;
-            if (vertex0 >= vertices.Length || vertex1 >= vertices.Length || vertex2 >= vertices.Length)
+            if (vertexIndex0 >= vertices.Length || vertexIndex1 >= vertices.Length || vertexIndex2 >= vertices.Length)
             {
-                
-                
                 throw new Exception("Out of indices");
             }
-            else
-            {
 
-                ver1 = vertices[vertex0];
-                ver2 = vertices[vertex1];
-                ver3 = vertices[vertex2];
-            }
+            var vertex0 = vertices[vertexIndex0];
+            var vertex1 = vertices[vertexIndex1];
+            var vertex2 = vertices[vertexIndex2];
+
+            var color0 = new Color(r0/255f, g0/255f, b0/255f);
+            var color1 = new Color(r1/255f, g1/255f, b1/255f);
+            var color2 = new Color(r2/255f, g2/255f, b2/255f);
+
+            var uv0 = new Vector2(u0/255f, v0/255f);
+            var uv1 = new Vector2(u1/255f, v1/255f);
+            var uv2 = new Vector2(u2/255f, v2/255f);
 
             var triangle = new Triangle
             {
-                Colors = new[]
-                {
-                    new Color
-                    (
-                        r0/255f,
-                        g0/255f,
-                        b0/255f
-                    ),
-                    new Color
-                    (
-                         r1/255f,
-                         g1/255f,
-                         b1/255f
-                    ),
-                    new Color
-                    (
-                         r2/255f,
-                         g2/255f,
-                         b2/255f
-                    )
-                },
-                Normals = new[]
-                {
-                    Vector3.Zero,
-                    Vector3.Zero,
-                    Vector3.Zero,
-                },
-                Vertices = new[]
-                {
-                    ver1,
-                    ver2,
-                    ver3
-                },
-                Uv = new[]
-                {
-                    new Vector2
-                    {
-                        X = u0/255f,
-                        Y = v0/255f
-                    },
-                    new Vector2
-                    {
-                        X = u1/255f,
-                        Y = v1/255f
-                    },
-                    new Vector2
-                    {
-                        X = u2/255f,
-                        Y = v2/255f
-                    }
-                },
+                Vertices = new[] { vertex0, vertex1, vertex2 },
+                Normals = new[] { Vector3.Zero, Vector3.Zero, Vector3.Zero },
+                Colors = new[] { color0, color1, color2 },
+                Uv = new[] { uv0, uv1, uv2 },
                 AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
             };
 
