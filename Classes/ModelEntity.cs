@@ -76,6 +76,9 @@ namespace PSXPrev.Classes
             }
         }
 
+        [Browsable(false)]
+        public bool IsTextured => RenderFlags.HasFlag(RenderFlags.Textured);
+
         //[ReadOnly(true)]
         //public uint PrimitiveIndex { get; set; }
 

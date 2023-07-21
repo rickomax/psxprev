@@ -28,7 +28,7 @@ namespace PSXPrev.Classes
                 {
                     var model = (ModelEntity)entityBase;
                     faceCount += model.Triangles.Count();
-                    if (model.RenderFlags.HasFlag(RenderFlags.Textured))
+                    if (model.IsTextured)
                     {
                         var texturePage = model.TexturePage;
                         if (!materialsDic.ContainsKey((int)texturePage))

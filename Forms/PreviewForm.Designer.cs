@@ -531,7 +531,10 @@
             this.vramComboBox.Size = new System.Drawing.Size(172, 21);
             this.vramComboBox.TabIndex = 10;
             this.vramComboBox.Text = "Select";
-            this.vramComboBox.SelectedIndexChanged += new System.EventHandler(this.comboBox1_SelectedIndexChanged);
+            this.vramComboBox.SelectedIndexChanged += new System.EventHandler(this.vramComboBox_SelectedIndexChanged);
+            this.vramComboBox.TextChanged += new System.EventHandler(this.vramComboBox_TextChanged);
+            this.vramComboBox.KeyDown += new System.Windows.Forms.KeyEventHandler(this.vramComboBox_KeyDown);
+            this.vramComboBox.Leave += new System.EventHandler(this.vramComboBox_Leave);
             // 
             // vramPagePictureBox
             // 
