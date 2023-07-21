@@ -2,7 +2,7 @@
 
 PSXPREV - Playstation (PSX) Files Previewer/Extractor
 
-![Sample](https://i.snipboard.io/hLlNy5.jpg)
+![image](https://github.com/rickomax/psxprev/assets/12863984/3070bf42-33f1-42b1-b09f-48386390f397)
 
 PSXPrev uses:
 - OpenTK (https://github.com/opentk/opentk)
