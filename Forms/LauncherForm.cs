@@ -73,10 +73,13 @@ namespace PSXPrev.Forms
                 NoVerbose = optionNoVerboseCheckBox.Checked,
                 Debug = optionDebugCheckBox.Checked,
                 ShowErrors = optionShowErrorsCheckBox.Checked,
+                NoConsoleColor = false, //todo
 
                 DrawAllToVRAM = optionDrawAllToVRAMCheckBox.Checked,
-                AutoAttachLimbs = optionAutoAttachLimbsCheckBox.Checked,
                 NoOffset = optionNoOffsetCheckBox.Checked,
+                AutoAttachLimbs = optionAutoAttachLimbsCheckBox.Checked,
+                AutoPlayAnimations = false, //todo
+                AutoSelect = false, //todo
             });
 
             Close();

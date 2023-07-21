@@ -362,13 +362,11 @@ namespace PSXPrev.Classes
             // Print starting Index#StreamID's for each TMDID object.
             if (tmdidStarts != null)
             {
-                Console.ForegroundColor = ConsoleColor.White;
                 foreach (var pair in tmdidStarts.OrderBy(p => p.Key))
                 {
                     var arrayStr = string.Join(", ", pair.Value.Select(t => $"{t.Item1}#{t.Item2}"));
-                    Console.WriteLine($"TMDID {pair.Key,2}: [{arrayStr}]");
+                    Program.Logger.WriteColorLine(ConsoleColor.White, $"TMDID {pair.Key,2}: [{arrayStr}]");
                 }
-                Console.ResetColor();
             }
 
             // Format padding information.
@@ -389,9 +387,7 @@ namespace PSXPrev.Classes
                     {
                         text = (padLeft ? text.PadLeft(pad) : text.PadRight(pad));
                     }
-                    Console.ForegroundColor = color;
-                    Console.Write(text);
-                    Console.ResetColor();
+                    Program.Logger.WriteColor(color, text);
                     lineLength += text.Length;
                 }
 
@@ -502,7 +498,7 @@ namespace PSXPrev.Classes
                         Write(ConsoleColor.DarkCyan, $" [{xref}]");
                     }
                 }
-                Console.WriteLine();
+                Program.Logger.WriteLine();
             }
         }
     }

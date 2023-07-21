@@ -38,35 +38,40 @@ PSXPrev only find files conformant to the file formats it's looking for. PSXPrev
 
 Command line usage:
 ```
-usage: PSXPrev <PATH> [FILTER="*.*"] [-help] [-an] [-bff] [-hmd]
-               [-mod] [-pmd] [-psx] [-tim] [-tmd] [-tod] [-vdf]
-               [-ignoretmdversion] [-log] [-noverbose] [-debug]
-               [-error] [-drawvram] [-attachlimbs] [-nooffset]
+usage: PSXPrev <PATH> [FILTER="*.*"] [-help] [-an] [-bff] [-croc]
+               [-hmd] [-mod] [-pmd] [-psx] [-tim] [-tmd] [-tod]
+               [-vdf] [-ignoretmdversion] [-log] [-noverbose]
+               [-debug] [-error] [-nocolor] [-drawvram] [-nooffset]
+               [-attachlimbs] [-autoplay] [-autoselect]
 
 arguments:
   PATH   : folder or file path to scan
   FILTER : wildcard filter for files to include (default: "*.*")
 
 scanner options: (default: all formats)
-  -an    : scan for AN animations
-  -bff   : scan for BFF models
-  -hmd   : scan for HMD models, textures, and animations
-  -mod   : scan for MOD models
-  -pmd   : scan for PMD models
-  -psx   : scan for PSX models
-  -tim   : scan for TIM textures
-  -tmd   : scan for TMD models
-  -tod   : scan for TOD animations
-  -vdf   : scan for VDF animations
+  -an        : scan for AN animations
+  -bff       : scan for BFF models
+  -hmd       : scan for HMD models, textures, and animations
+  -mod/-croc : scan for MOD (Croc) models
+  -pmd       : scan for PMD models
+  -psx       : scan for PSX models (just another format)
+  -tim       : scan for TIM textures
+  -tmd       : scan for TMD models
+  -tod       : scan for TOD animations
+  -vdf       : scan for VDF animations
   -ignoretmdversion : reduce strictness when scanning TMD models
 
 log options:
   -log       : write output to log file
-  -noverbose : reduce output to console and file
+  -noverbose : don't write output to console
   -debug     : output file format details and other information
+  -error     : show error (exception) messages when reading files
+  -nocolor   : disable colored console output
 
 program options:
-  -drawvram    : draw all loaded textures to VRAM (not advised when scanning a lot of files)
-  -attachlimbs : enable Auto Attach Limbs by default
+  -drawvram    : draw all loaded textures to VRAM (not advised when scanning many files)
   -nooffset    : only scan files at offset 0
+  -attachlimbs : enable Auto Attach Limbs by default
+  -autoplay    : automatically play selected animations
+  -autoselect  : select animation's model and draw selected model's textures (HMD only)
 ```

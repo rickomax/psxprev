@@ -40,10 +40,13 @@ namespace PSXPrev
             public bool NoVerbose { get; set; }
             public bool Debug { get; set; }
             public bool ShowErrors { get; set; }
+            public bool NoConsoleColor { get; set; }
 
             public bool DrawAllToVRAM { get; set; }
-            public bool AutoAttachLimbs { get; set; }
             public bool NoOffset { get; set; }
+            public bool AutoAttachLimbs { get; set; }
+            public bool AutoPlayAnimations { get; set; }
+            public bool AutoSelect { get; set; }
 
             public ScanOptions Clone()
             {
@@ -113,32 +116,47 @@ namespace PSXPrev
         public static uint MaxANJoints = 512;
         public static uint MaxANFrames = 5000;
 
-        public static bool HaltRequested; //Field used to pause/resume scanning
+        public static volatile bool HaltRequested; //Field used to pause/resume scanning
+
 
         private static void Main(string[] args)
         {
             Initialize(args);
         }
 
-        public static void PrintUsage()
+        public static void PrintUsage(bool noColor = false)
         {
-            Console.ForegroundColor = ConsoleColor.White;
+            if (!noColor)
+            {
+                Console.ForegroundColor = ConsoleColor.White;
+            }
+            else
+            {
+                Console.ResetColor();
+            }
 
             Console.WriteLine("usage: PSXPrev <PATH> [FILTER=\"" + DefaultFilter + "\"] [-help]"  // general
-                + " [-an] [-bff] [-hmd] [-mod] [-pmd] [-psx] [-tim] [-tmd] [-tod] [-vdf]" // scanner formats (alphabetical)
+                + " [-an] [-bff] [-croc] [-hmd] [-mod] [-pmd] [-psx] [-tim] [-tmd] [-tod] [-vdf]" // scanner formats
                 + " [-ignoretmdversion]" // scanner options
-                + " [-log] [-noverbose] [-debug] [-error]" // log options
-                + " [-drawvram] [-attachlimbs] [-nooffset]" // program options
+                + " [-log] [-noverbose] [-debug] [-error] [-nocolor]" // log options
+                + " [-drawvram] [-nooffset] [-attachlimbs] [-autoplay] [-autoselect]" // program options
                 );
 
             Console.ResetColor();
         }
 
-        public static void PrintHelp()
+        public static void PrintHelp(bool noColor = false)
         {
-            PrintUsage();
+            PrintUsage(noColor);
 
-            Console.ForegroundColor = ConsoleColor.White;
+            if (!noColor)
+            {
+                Console.ForegroundColor = ConsoleColor.White;
+            }
+            else
+            {
+                Console.ResetColor();
+            }
 
             Console.WriteLine();
             //Console.WriteLine("positional arguments:");
@@ -147,31 +165,42 @@ namespace PSXPrev
             Console.WriteLine("  FILTER : wildcard filter for files to include (default: \"" + DefaultFilter + "\")");
             Console.WriteLine();
             Console.WriteLine("scanner options: (default: all formats)");
-            Console.WriteLine("  -an    : scan for AN animations");
-            Console.WriteLine("  -bff   : scan for BFF models");
-            Console.WriteLine("  -hmd   : scan for HMD models, textures, and animations");
-            Console.WriteLine("  -mod   : scan for MOD models");
-            Console.WriteLine("  -pmd   : scan for PMD models");
-            Console.WriteLine("  -psx   : scan for PSX models");
-            Console.WriteLine("  -tim   : scan for TIM textures");
-            Console.WriteLine("  -tmd   : scan for TMD models");
-            Console.WriteLine("  -tod   : scan for TOD animations");
-            Console.WriteLine("  -vdf   : scan for VDF animations");
+            Console.WriteLine("  -an        : scan for AN animations");
+            Console.WriteLine("  -bff       : scan for BFF models");
+            Console.WriteLine("  -hmd       : scan for HMD models, textures, and animations");
+            Console.WriteLine("  -mod/-croc : scan for MOD (Croc) models");
+            Console.WriteLine("  -pmd       : scan for PMD models");
+            Console.WriteLine("  -psx       : scan for PSX models (just another format)");
+            Console.WriteLine("  -tim       : scan for TIM textures");
+            Console.WriteLine("  -tmd       : scan for TMD models");
+            Console.WriteLine("  -tod       : scan for TOD animations");
+            Console.WriteLine("  -vdf       : scan for VDF animations");
             Console.WriteLine("  -ignoretmdversion : reduce strictness when scanning TMD models");
             Console.WriteLine();
             Console.WriteLine("log options:");
             Console.WriteLine("  -log       : write output to log file");
-            Console.WriteLine("  -noverbose : reduce output to console and file");
+            Console.WriteLine("  -noverbose : don't write output to console");
             Console.WriteLine("  -debug     : output file format details and other information");
-            Console.WriteLine("  -error     : show error messages when reading files");
+            Console.WriteLine("  -error     : show error (exception) messages when reading files");
+            Console.WriteLine("  -nocolor   : disable colored console output");
             Console.WriteLine();
             Console.WriteLine("program options:");
             //Console.WriteLine("  -help        : show this help message"); // It's redundant to display this
-            Console.WriteLine("  -drawvram    : draw all loaded textures to VRAM (not advised when scanning a lot of files)");
-            Console.WriteLine("  -attachlimbs : enable Auto Attach Limbs by default");
+            Console.WriteLine("  -drawvram    : draw all loaded textures to VRAM (not advised when scanning many files)");
             Console.WriteLine("  -nooffset    : only scan files at offset 0");
+            Console.WriteLine("  -attachlimbs : enable Auto Attach Limbs by default");
+            Console.WriteLine("  -autoplay    : automatically play selected animations");
+            Console.WriteLine("  -autoselect  : select animation's model and draw selected model's textures (HMD only)");
 
             Console.ResetColor();
+        }
+
+        private static void PressAnyKeyToContinue()
+        {
+            Console.ResetColor();
+            Console.WriteLine();
+            Console.WriteLine("Press any key to continue...");
+            Console.ReadKey();
         }
 
         private static bool TryParseHelp(string arg)
@@ -211,7 +240,8 @@ namespace PSXPrev
                 case "-hmd":
                     options.CheckHMD = true;
                     break;
-                case "-mod": // Previously called -croc
+                case "-croc": // Alias for -mod
+                case "-mod":  // Previously called -croc
                     options.CheckMOD = true;
                     break;
                 case "-pmd":
@@ -248,15 +278,24 @@ namespace PSXPrev
                 case "-error":
                     options.ShowErrors = true;
                     break;
+                case "-nocolor":
+                    options.NoConsoleColor = true;
+                    break;
 
                 case "-drawvram":
                     options.DrawAllToVRAM = true;
                     break;
+                case "-nooffset":
+                    options.NoOffset = true;
+                    break;
                 case "-attachlimbs":
                     options.AutoAttachLimbs = true;
                     break;
-                case "-nooffset":
-                    options.NoOffset = true;
+                case "-autoplay":
+                    options.AutoPlayAnimations = true;
+                    break;
+                case "-autoselect":
+                    options.AutoSelect = true;
                     break;
 
                 default:
@@ -310,8 +349,12 @@ namespace PSXPrev
                 path = args[0];
                 //if (!Directory.Exists(path) && !File.Exists(path))
                 //{
-                //    Logger = new Logger(false, false);
+                //    Logger = new Logger();
                 //    Program.Logger.WriteErrorLine("Directory/File not found");
+                //    if (options.Debug)
+                //    {
+                //        PressAnyKeyToContinue(); // Make it easier to check console output before closing.
+                //    }
                 //    return;
                 //}
 
@@ -324,10 +367,14 @@ namespace PSXPrev
                 //{
                 //    filter = args[1];
                 //}
+                if (string.IsNullOrEmpty(filter))
+                {
+                    filter = "*"; // When filter is empty, default to matching all files (with or without an extension).
+                }
 
 
                 // Parse all remaining options that aren't PATH or FILTER.
-                for (var a = 2; a < args.Length && !help; a++)
+                for (var a = 2; a < args.Length; a++)
                 {
                     if (!TryParseOption(args[a], options, ref help))
                     {
@@ -339,7 +386,11 @@ namespace PSXPrev
             // Show help and quit.
             if (help)
             {
-                PrintHelp();
+                PrintHelp(options.NoConsoleColor);
+                if (options.Debug)
+                {
+                    PressAnyKeyToContinue(); // Make it easier to check console output before closing.
+                }
                 return;
             }
 
@@ -353,11 +404,15 @@ namespace PSXPrev
                 options = new ScanOptions(); // Use default options if none given.
             }
             
-            Logger = new Logger(options.LogToFile, options.NoVerbose);
+            Logger = new Logger(options.LogToFile, !options.NoVerbose, !options.NoConsoleColor);
 
             if (!Directory.Exists(path) && !File.Exists(path))
             {
                 Program.Logger.WriteErrorLine($"Directory/File not found: {path}");
+                if (options.Debug)
+                {
+                    PressAnyKeyToContinue(); // Make it easier to check console output before closing.
+                }
                 return;
             }
 
@@ -404,12 +459,15 @@ namespace PSXPrev
 
             // Assign default preview settings.
             PreviewForm.SetAutoAttachLimbs(_options.AutoAttachLimbs);
+            PreviewForm.SetAutoPlayAnimations(_options.AutoPlayAnimations);
+            PreviewForm.SetAutoSelectAnimationModel(_options.AutoSelect);
+            PreviewForm.SetAutoDrawModelTextures(_options.AutoSelect);
 
             try
             {
                 //Program.Logger.WriteLine();
                 Program.Logger.WriteLine("Scan begin {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
-                Stopwatch watch = Stopwatch.StartNew();
+                var watch = Stopwatch.StartNew();
 
                 ScanFiles();
 
@@ -479,6 +537,15 @@ namespace PSXPrev
             }
             UpdateProgress(fp, $"Found Animation with {animation.ObjectCount} objects and {animation.FrameCount} frames");
             PreviewForm.ReloadItems();
+        }
+
+        private static void WaitWhileHalted()
+        {
+            while (HaltRequested)
+            {
+                // todo: could we use Thread.Yield() here?
+                //Thread.Yield();
+            }
         }
 
         private static void ScanFiles()
@@ -608,10 +675,7 @@ namespace PSXPrev
                                 }
                             }
                         }
-                        while (HaltRequested)
-                        {
-
-                        }
+                        WaitWhileHalted();
                     }
                 }
             }
@@ -622,11 +686,8 @@ namespace PSXPrev
                     using (var fs = File.Open(_path, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
                         ProcessFile(fs, _path, parser);
-                    } 
-                    while (HaltRequested)
-                    {
-
                     }
+                    WaitWhileHalted();
                 });
             }
             else
@@ -649,21 +710,16 @@ namespace PSXPrev
                     using (var fs = File.Open(file, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
                         ProcessFile(fs, file, parser);
-                    } 
-                    while (HaltRequested)
-                    {
-
                     }
+                    WaitWhileHalted();
                 });
             }
             var directories = Directory.GetDirectories(path);
             foreach (var directory in directories)
             {
                 ProcessFiles(directory, filter, parsers);
-                while (HaltRequested)
-                {
 
-                }
+                WaitWhileHalted();
             }
         }
 

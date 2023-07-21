@@ -99,6 +99,8 @@
             this.findByPageToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.clearSearchToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
+            this.autoDrawModelTexturesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
             this.setMaskColorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.vRAMToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.clearPageToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -107,6 +109,7 @@
             this.showUVToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.animationsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.showSkeletonToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.autoSelectAnimationModelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.videoTutorialToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.compatibilityListToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -135,6 +138,7 @@
             this.vertexSizeUpDown = new System.Windows.Forms.NumericUpDown();
             this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
             this.pauseScanningToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.autoPlayAnimationsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -895,6 +899,8 @@
             this.findByPageToolStripMenuItem,
             this.clearSearchToolStripMenuItem,
             this.toolStripSeparator1,
+            this.autoDrawModelTexturesToolStripMenuItem,
+            this.toolStripSeparator6,
             this.setMaskColorToolStripMenuItem});
             this.texturesToolStripMenuItem.Name = "texturesToolStripMenuItem";
             this.texturesToolStripMenuItem.Size = new System.Drawing.Size(62, 20);
@@ -937,6 +943,19 @@
             // 
             this.toolStripSeparator1.Name = "toolStripSeparator1";
             this.toolStripSeparator1.Size = new System.Drawing.Size(152, 6);
+            // 
+            // autoDrawModelTexturesToolStripMenuItem
+            // 
+            this.autoDrawModelTexturesToolStripMenuItem.CheckOnClick = true;
+            this.autoDrawModelTexturesToolStripMenuItem.Name = "autoDrawModelTexturesToolStripMenuItem";
+            this.autoDrawModelTexturesToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.autoDrawModelTexturesToolStripMenuItem.Text = "Auto Draw Textures";
+            this.autoDrawModelTexturesToolStripMenuItem.Click += new System.EventHandler(this.autoDrawModelTexturesToolStripMenuItem_Click);
+            // 
+            // toolStripSeparator6
+            // 
+            this.toolStripSeparator6.Name = "toolStripSeparator6";
+            this.toolStripSeparator6.Size = new System.Drawing.Size(173, 6);
             // 
             // setMaskColorToolStripMenuItem
             // 
@@ -989,7 +1008,9 @@
             // animationsToolStripMenuItem
             // 
             this.animationsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.showSkeletonToolStripMenuItem});
+            this.showSkeletonToolStripMenuItem,
+            this.autoPlayAnimationsToolStripMenuItem,
+            this.autoSelectAnimationModelToolStripMenuItem});
             this.animationsToolStripMenuItem.Name = "animationsToolStripMenuItem";
             this.animationsToolStripMenuItem.Size = new System.Drawing.Size(80, 20);
             this.animationsToolStripMenuItem.Text = "Animations";
@@ -1001,6 +1022,14 @@
             this.showSkeletonToolStripMenuItem.Size = new System.Drawing.Size(151, 22);
             this.showSkeletonToolStripMenuItem.Text = "Show Skeleton";
             this.showSkeletonToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showSkeletonToolStripMenuItem_CheckedChanged);
+            // 
+            // autoSelectAnimationModelToolStripMenuItem
+            // 
+            this.autoSelectAnimationModelToolStripMenuItem.CheckOnClick = true;
+            this.autoSelectAnimationModelToolStripMenuItem.Name = "autoSelectAnimationModelToolStripMenuItem";
+            this.autoSelectAnimationModelToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+            this.autoSelectAnimationModelToolStripMenuItem.Text = "Auto Select Model";
+            this.autoSelectAnimationModelToolStripMenuItem.Click += new System.EventHandler(this.autoSelectAnimationModelToolStripMenuItem_Click);
             // 
             // helpToolStripMenuItem
             // 
@@ -1338,6 +1367,14 @@
             this.pauseScanningToolStripMenuItem.Text = "Pause Scanning";
             this.pauseScanningToolStripMenuItem.CheckedChanged += new System.EventHandler(this.pauseScanningToolStripMenuItem_CheckedChanged);
             // 
+            // autoPlayAnimationsToolStripMenuItem
+            // 
+            this.autoPlayAnimationsToolStripMenuItem.CheckOnClick = true;
+            this.autoPlayAnimationsToolStripMenuItem.Name = "autoPlayAnimationsToolStripMenuItem";
+            this.autoPlayAnimationsToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+            this.autoPlayAnimationsToolStripMenuItem.Text = "Auto Play Animation";
+            this.autoPlayAnimationsToolStripMenuItem.Click += new System.EventHandler(this.autoPlayAnimationsToolStripMenuItem_Click);
+            // 
             // PreviewForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -1525,5 +1562,9 @@
         private System.Windows.Forms.NumericUpDown vertexSizeUpDown;
         private System.Windows.Forms.ToolStripMenuItem pauseScanningToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
+        private System.Windows.Forms.ToolStripMenuItem autoDrawModelTexturesToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator6;
+        private System.Windows.Forms.ToolStripMenuItem autoSelectAnimationModelToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem autoPlayAnimationsToolStripMenuItem;
     }
 }

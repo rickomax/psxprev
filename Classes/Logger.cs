@@ -9,7 +9,8 @@ namespace PSXPrev.Classes
     {
         private readonly StreamWriter _writer;
         private readonly bool _writeToFile;
-        private readonly bool _noVerbose;
+        private readonly bool _writeToConsole;
+        private readonly bool _useColor;
 
         public ConsoleColor StandardColor { get; set; } = ConsoleColor.White;
         public ConsoleColor PositiveColor { get; set; } = ConsoleColor.Green;
@@ -17,7 +18,7 @@ namespace PSXPrev.Classes
         public ConsoleColor ErrorColor { get; set; } = ConsoleColor.Red;
         public ConsoleColor ExceptionPrefixColor { get; set; } = ConsoleColor.DarkGray;
 
-        public Logger(bool writeToFile, bool noVerbose)
+        public Logger(bool writeToFile = false, bool writeToConsole = true, bool useColor = true)
         {
             if (writeToFile)
             {
@@ -25,7 +26,8 @@ namespace PSXPrev.Classes
                 _writer = new StreamWriter(Path.Combine(Application.StartupPath, $"{time}.log"));
             }
             _writeToFile = writeToFile;
-            _noVerbose = noVerbose;
+            _writeToConsole = writeToConsole;
+            _useColor = useColor;
         }
 
         private void WriteInternal(ConsoleColor? color, bool newLine, string text)
@@ -34,11 +36,15 @@ namespace PSXPrev.Classes
             {
                 text = string.Empty;
             }
-            if (!_noVerbose)
+            if (_writeToConsole)
             {
-                if (color.HasValue)
+                if (_useColor && color.HasValue)
                 {
                     Console.ForegroundColor = color.Value;
+                }
+                else
+                {
+                    Console.ResetColor();
                 }
                 // Write whole message to WriteLine instead of appending WriteLine(), because it'll be faster.
                 if (newLine)

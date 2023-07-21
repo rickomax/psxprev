@@ -125,6 +125,7 @@
     <Compile Include="Classes\Utils.cs" />
     <Compile Include="Classes\VDFParser.cs" />
     <Compile Include="Classes\VRAMPages.cs" />
+    <Compile Include="Classes\WeakReferenceCollection.cs" />
     <Compile Include="Forms\DialogForm.cs">
       <SubType>Form</SubType>
     </Compile>
