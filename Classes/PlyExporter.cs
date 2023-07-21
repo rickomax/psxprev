@@ -28,11 +28,14 @@ namespace PSXPrev.Classes
                 {
                     var model = (ModelEntity)entityBase;
                     faceCount += model.Triangles.Count();
-                    var texturePage = model.TexturePage;
-                    if (!materialsDic.ContainsKey((int) texturePage))
+                    if (model.RenderFlags.HasFlag(RenderFlags.Textured))
                     {
-                        materialsDic.Add((int) texturePage, numMaterials++);
-                        pngExporter.Export(model.Texture, (int) texturePage, selectedPath);
+                        var texturePage = model.TexturePage;
+                        if (!materialsDic.ContainsKey((int)texturePage))
+                        {
+                            materialsDic.Add((int)texturePage, numMaterials++);
+                            pngExporter.Export(model.Texture, (int)texturePage, selectedPath);
+                        }
                     }
                 }
                 var vertexCount = faceCount * 3;

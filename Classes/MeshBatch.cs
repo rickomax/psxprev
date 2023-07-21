@@ -342,9 +342,13 @@ namespace PSXPrev
                 }
                 mesh.SetData(numElements, positionList, normalList, colorList, uvList, tiledAreaList);
             }
-            if (textureBinder != null)
+            if (textureBinder != null && modelEntity.Texture != null && modelEntity.RenderFlags.HasFlag(RenderFlags.Textured))
             {
-                mesh.Texture = modelEntity.Texture != null ? textureBinder.GetTexture((int)modelEntity.TexturePage) : 0;
+                mesh.Texture = textureBinder.GetTexture((int)modelEntity.TexturePage);
+            }
+            else
+            {
+                mesh.Texture = 0;
             }
         }
 
@@ -395,14 +399,22 @@ namespace PSXPrev
                 {
                     GL.Uniform1(Scene.UniformRenderMode, 0); // Enable lighting
                 }
+                if (mesh.RenderFlags.HasFlag(RenderFlags.Textured))
+                {
+                    GL.Uniform1(Scene.UniformTextureMode, 0); // Enable texture
+                }
+                else
+                {
+                    GL.Uniform1(Scene.UniformTextureMode, 1); // Disable texture
+                }
             }
             if (_scene.ForceDoubleSided || mesh.RenderFlags.HasFlag(RenderFlags.DoubleSided))
             {
-                GL.Disable(EnableCap.CullFace);
+                GL.Disable(EnableCap.CullFace); // Double-sided
             }
             else
             {
-                GL.Enable(EnableCap.CullFace);
+                GL.Enable(EnableCap.CullFace);  // Single-sided
                 GL.CullFace(CullFaceMode.Front);
             }
             var modelMatrix = mesh.WorldMatrix;
@@ -441,6 +453,10 @@ namespace PSXPrev
                     if (mesh == null || !mesh.RenderFlags.HasFlag(RenderFlags.SemiTransparent))
                     {
                         continue; // Not a semi-transparent mesh
+                    }
+                    if (!mesh.RenderFlags.HasFlag(RenderFlags.Textured))
+                    {
+                        continue; // Untextured surfaces always have stp bit SET.
                     }
                     DrawMesh(mesh, viewMatrix, projectionMatrix, textureBinder, wireframe, standard, verticesOnly);
                 }

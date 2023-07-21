@@ -10,7 +10,7 @@ namespace PSXPrev.Classes
 
         public Matrix4 WorldMatrix { get; set; }
         public uint Texture { get; set; }
-        public RenderFlags RenderFlags { get; set; }
+        public RenderFlags RenderFlags { get; set; } = RenderFlags.DoubleSided; // Default flags
         public MixtureRate MixtureRate { get; set; }
 
         private readonly uint _meshId;
@@ -71,7 +71,7 @@ namespace PSXPrev.Classes
             GL.EnableVertexAttribArray((uint)Scene.AttributeIndexTiledArea);
             GL.VertexAttribPointer((uint)Scene.AttributeIndexTiledArea, 4, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
 
-            if (textureBinder != null && Texture != 0)
+            if (textureBinder != null && Texture != 0 && RenderFlags.HasFlag(RenderFlags.Textured))
             {
                 textureBinder.BindTexture(Texture);
             }
@@ -80,7 +80,7 @@ namespace PSXPrev.Classes
             GL.DrawArrays(verticesOnly ? OpenTK.Graphics.OpenGL.PrimitiveType.Points : OpenTK.Graphics.OpenGL.PrimitiveType.Triangles, 0, _numElements);
             GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
 
-            if (textureBinder != null && Texture != 0)
+            if (textureBinder != null && Texture != 0 && RenderFlags.HasFlag(RenderFlags.Textured))
             {
                 textureBinder.Unbind();
             }

@@ -11,6 +11,23 @@ namespace PSXPrev.Classes
         [Browsable(false)]
         public CoordUnit[] Coords { get; set; }
 
+        [DisplayName("Total Triangles"), ReadOnly(false)]
+        public int TotalTriangles
+        {
+            get
+            {
+                var count = 0;
+                if (ChildEntities != null)
+                {
+                    foreach (ModelEntity subModel in ChildEntities)
+                    {
+                        count += subModel.TrianglesCount;
+                    }
+                }
+                return count;
+            }
+        }
+
         public override void ComputeBounds()
         {
             base.ComputeBounds();

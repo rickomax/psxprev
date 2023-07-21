@@ -102,7 +102,10 @@ namespace PSXPrev
             {
                 var model = (ModelEntity)entityBase;
                 model.TexturePage = VRAMPages.ClampTexturePage(model.TexturePage);
-                model.Texture = _vram[model.TexturePage];
+                if (model.RenderFlags.HasFlag(RenderFlags.Textured))
+                {
+                    model.Texture = _vram[model.TexturePage];
+                }
             }
             entitiesTreeView.BeginUpdate();
             var entityNode = entitiesTreeView.Nodes.Add(entity.EntityName);
@@ -838,7 +841,10 @@ namespace PSXPrev
             if (_selectedModelEntity != null)
             {
                 _selectedModelEntity.TexturePage = VRAMPages.ClampTexturePage(_selectedModelEntity.TexturePage);
-                _selectedModelEntity.Texture = _vram[_selectedModelEntity.TexturePage];
+                if (_selectedModelEntity.RenderFlags.HasFlag(RenderFlags.Textured))
+                {
+                    _selectedModelEntity.Texture = _vram[_selectedModelEntity.TexturePage];
+                }
             }
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
             if (selectedEntityBase != null)

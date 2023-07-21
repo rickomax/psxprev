@@ -18,6 +18,7 @@ uniform vec3 lightDirection;
 uniform vec3 maskColor;
 uniform vec3 ambientColor;
 uniform int renderMode;
+uniform int textureMode;
 uniform int semiTransparentMode;
 uniform float lightIntensity;
 uniform sampler2D mainTex;

@@ -11,12 +11,10 @@ namespace PSXPrev.Classes
         Unlit             = (1 << 1),
         SemiTransparent   = (1 << 3),
         Fog               = (1 << 4),
-        // Are these even render-related?
-        Subdivision       = (1 << 5),
-        AutomaticDivision = (1 << 6),
-
-        // Use this mask when separating meshes by render info.
-        SupportedFlags = DoubleSided | Unlit | SemiTransparent,
+        Textured          = (1 << 5),
+        // todo: Are these even render-related?
+        Subdivision       = (1 << 6),
+        AutomaticDivision = (1 << 7),
 
         // Bits 30 and 31 are reserved for MixtureRate.
     }
@@ -34,6 +32,10 @@ namespace PSXPrev.Classes
     // A named Tuple<uint, RenderFlags, MixtureRate> for render information used to separate models/meshes.
     public struct RenderInfo : IEquatable<RenderInfo>
     {
+        // Use this mask when separating meshes by render info.
+        public const RenderFlags SupportedFlags = RenderFlags.DoubleSided | RenderFlags.Unlit |
+                                                  RenderFlags.SemiTransparent | RenderFlags.Textured;
+
         public uint TexturePage { get; }
         public RenderFlags RenderFlags { get; }
         public MixtureRate MixtureRate { get; }
@@ -52,7 +54,7 @@ namespace PSXPrev.Classes
         public RenderInfo(uint texturePage, RenderFlags renderFlags, MixtureRate mixtureRate = MixtureRate.None)
         {
             TexturePage = texturePage;
-            RenderFlags = renderFlags & RenderFlags.SupportedFlags; // Ignore flags that we can't use for now
+            RenderFlags = renderFlags & SupportedFlags; // Ignore flags that we can't use for now
             MixtureRate = mixtureRate;
         }
 
