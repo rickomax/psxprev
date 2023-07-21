@@ -20,6 +20,8 @@ namespace PSXPrev
 
         private static readonly Pen Black3Px = new Pen(Color.Black, 3f);
         private static readonly Pen White1Px = new Pen(Color.White, 1f);
+        private static readonly Pen Cyan1Px = new Pen(Color.Cyan, 1f);
+
         private readonly List<Animation> _animations;
         private readonly Action<PreviewForm> _refreshAction;
         private readonly List<RootEntity> _rootEntities;
@@ -47,6 +49,7 @@ namespace PSXPrev
         private EntitySelectionSource _selectionSource;
         private bool _showUv = true;
         private readonly VRAMPages _vram;
+        private int _vramSelectedPage = -1; // Used because combo box SelectedIndex can be -1 while typing.
         private Bitmap _maskColorBitmap;
         private Bitmap _ambientColorBitmap;
         private Bitmap _backgroundColorBitmap;
@@ -105,7 +108,7 @@ namespace PSXPrev
             {
                 var model = (ModelEntity)entityBase;
                 model.TexturePage = VRAMPages.ClampTexturePage(model.TexturePage);
-                if (model.RenderFlags.HasFlag(RenderFlags.Textured))
+                if (model.IsTextured)
                 {
                     model.Texture = _vram[model.TexturePage];
                 }
@@ -268,6 +271,7 @@ namespace PSXPrev
                     _vram.DrawTexture(texture, true); // Suppress updates to scene until all textures are drawn.
                 }
                 _vram.UpdateAllPages();
+                UpdateVRAMComboBoxPageItems();
             }
         }
 
@@ -880,14 +884,74 @@ namespace PSXPrev
                 _vram.DrawTexture(GetSelectedTexture(index), true); // Suppress updates to scene until all textures are drawn.
             }
             _vram.UpdateAllPages();
+            UpdateVRAMComboBoxPageItems();
         }
 
-        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        private void UpdateVRAMComboBoxPageItems()
+        {
+            // Mark page numbers that have had textures drawn to them.
+            // note: This assumes the combo box items are strings, which they currently are.
+            for (var i = 0; i < _vram.Count; i++)
+            {
+                var used = _vram.IsPageUsed(i);
+                vramComboBox.Items[i] = $"{i}" + (used ? " (drawn to)" : string.Empty);
+            }
+        }
+
+        private void UpdateVRAMComboBoxTypedPage(bool changeSelection)
+        {
+            // Allow typing into the combo box to change the page.
+            var text = vramComboBox.Text;
+            if (vramComboBox.SelectedIndex <= -1 && !string.IsNullOrWhiteSpace(text))
+            {
+                // Stop parsing after the end of digits. This is so we can start typing based off
+                // the real combo box text (which may have non-numeric text after the number).
+                for (var i = 0; i < text.Length; i++)
+                {
+                    if (!char.IsDigit(text[i]))
+                    {
+                        text = text.Substring(0, i);
+                        break;
+                    }
+                }
+                if (int.TryParse(text, out var index) && _vram.ContainsPage(index))
+                {
+                    _vramSelectedPage = index;
+                    vramPagePictureBox.Image = _vram[index].Bitmap;
+                    if (changeSelection)
+                    {
+                        vramComboBox.SelectedIndex = index;
+                    }
+                }
+            }
+        }
+
+        private void vramComboBox_SelectedIndexChanged(object sender, EventArgs e)
         {
             var index = vramComboBox.SelectedIndex;
             if (index > -1)
             {
+                _vramSelectedPage = index;
                 vramPagePictureBox.Image = _vram[index].Bitmap;
+            }
+        }
+
+        private void vramComboBox_TextChanged(object sender, EventArgs e)
+        {
+            UpdateVRAMComboBoxTypedPage(false); // Don't update combo box selected index while typing.
+        }
+
+        private void vramComboBox_Leave(object sender, EventArgs e)
+        {
+            UpdateVRAMComboBoxTypedPage(true); // Update combo box selected index when focus is lost.
+        }
+
+        private void vramComboBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                UpdateVRAMComboBoxTypedPage(true); // Update combo box selected index when enter is pressed.
+                e.Handled = true;
             }
         }
 
@@ -901,7 +965,7 @@ namespace PSXPrev
             if (_selectedModelEntity != null)
             {
                 _selectedModelEntity.TexturePage = VRAMPages.ClampTexturePage(_selectedModelEntity.TexturePage);
-                if (_selectedModelEntity.RenderFlags.HasFlag(RenderFlags.Textured))
+                if (_selectedModelEntity.IsTextured)
                 {
                     _selectedModelEntity.Texture = _vram[_selectedModelEntity.TexturePage];
                 }
@@ -947,7 +1011,7 @@ namespace PSXPrev
 
         private void btnClearPage_Click(object sender, EventArgs e)
         {
-            var index = vramComboBox.SelectedIndex;
+            var index = _vramSelectedPage;
             if (index <= -1)
             {
                 MessageBox.Show("Select a page first");
@@ -961,6 +1025,7 @@ namespace PSXPrev
         {
             _vram.ClearPage(index);
             vramPagePictureBox.Image = _vram[index].Bitmap;
+            UpdateVRAMComboBoxPageItems();
         }
 
         private void cmsModelExport_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
@@ -1048,28 +1113,54 @@ namespace PSXPrev
             texturePropertyGrid.SelectedObject = texture;
         }
 
+        private void DrawUVLines(Graphics graphics, Pen pen, Vector2[] uvs)
+        {
+            for (var i = 0; i < uvs.Length; i++)
+            {
+                var i2 = (i + 1) % uvs.Length;
+                graphics.DrawLine(pen, uvs[i].X * 255f, uvs[i].Y * 255f, uvs[i2].X * 255f, uvs[i2].Y * 255f);
+            }
+        }
+
+        private void DrawTiledUVRectangle(Graphics graphics, Pen pen, TiledUV tiledUv)
+        {
+            graphics.DrawRectangle(pen, tiledUv.X * 255f, tiledUv.Y * 255f, tiledUv.Width * 255f, tiledUv.Height * 255f);
+        }
+
         private void DrawUV(EntityBase entity, Graphics graphics)
         {
             if (entity == null)
             {
                 return;
             }
-            if (entity is ModelEntity modelEntity) // && modelEntity.HasUvs)
+            // Don't draw UVs for this model unless it uses the same texture page that we're on.
+            if (entity is ModelEntity model && model.IsTextured && model.TexturePage == _vramSelectedPage)
             {
-                foreach (var triangle in modelEntity.Triangles)
+                // Draw all black outlines before inner fill lines, so that black outline edges don't overlap fill lines.
+                foreach (var triangle in model.Triangles)
                 {
-                    graphics.DrawLine(Black3Px, triangle.Uv[0].X * 255f, triangle.Uv[0].Y * 255f, triangle.Uv[1].X * 255f, triangle.Uv[1].Y * 255f);
-                    graphics.DrawLine(Black3Px, triangle.Uv[1].X * 255f, triangle.Uv[1].Y * 255f, triangle.Uv[2].X * 255f, triangle.Uv[2].Y * 255f);
-                    graphics.DrawLine(Black3Px, triangle.Uv[2].X * 255f, triangle.Uv[2].Y * 255f, triangle.Uv[0].X * 255f, triangle.Uv[0].Y * 255f);
+                    if (triangle.IsTiled)
+                    {
+                        // Triangle.Uv is useless when tiled, so draw the TiledUv area instead.
+                        DrawTiledUVRectangle(graphics, Black3Px, triangle.TiledUv);
+                    }
+                    else
+                    {
+                        DrawUVLines(graphics, Black3Px, triangle.Uv);
+                    }
                 }
-            }
-            if (entity is ModelEntity modelEntity2) //&& modelEntity2.HasUvs)
-            {
-                foreach (var triangle in modelEntity2.Triangles)
+
+                foreach (var triangle in model.Triangles)
                 {
-                    graphics.DrawLine(White1Px, triangle.Uv[0].X * 255f, triangle.Uv[0].Y * 255f, triangle.Uv[1].X * 255f, triangle.Uv[1].Y * 255f);
-                    graphics.DrawLine(White1Px, triangle.Uv[1].X * 255f, triangle.Uv[1].Y * 255f, triangle.Uv[2].X * 255f, triangle.Uv[2].Y * 255f);
-                    graphics.DrawLine(White1Px, triangle.Uv[2].X * 255f, triangle.Uv[2].Y * 255f, triangle.Uv[0].X * 255f, triangle.Uv[0].Y * 255f);
+                    if (triangle.IsTiled)
+                    {
+                        // Different color for tiled area.
+                        DrawTiledUVRectangle(graphics, Cyan1Px, triangle.TiledUv);
+                    }
+                    else
+                    {
+                        DrawUVLines(graphics, White1Px, triangle.Uv);
+                    }
                 }
             }
             if (entity.ChildEntities == null)
@@ -1100,6 +1191,7 @@ namespace PSXPrev
         private void clearAllPagesToolStripMenuItem_Click(object sender, EventArgs e)
         {
             _vram.ClearAllPages();
+            UpdateVRAMComboBoxPageItems();
             MessageBox.Show("Pages cleared");
         }
 
@@ -1177,12 +1269,17 @@ namespace PSXPrev
 
             switch (menusTabControl.SelectedTab.TabIndex)
             {
-                case 0:
+                case 0: // Models
                     animationsTreeView.SelectedNode = null;
                     _openTkControl.Parent = modelsSplitContainer.Panel2;
                     _openTkControl.Show();
                     break;
-                case 3:
+                case 1: // Textures
+                    break;
+                case 2: // VRAM
+                    UpdateVRAMComboBoxPageItems();
+                    break;
+                case 3: // Animations
                     _inAnimationTab = true;
                     _openTkControl.Parent = animationsSplitContainer.Panel2;
                     _openTkControl.Show();
@@ -1302,7 +1399,7 @@ namespace PSXPrev
                     DrawUV(checkedEntity, e.Graphics);
                 }
             }
-            DrawUV(_selectedRootEntity, e.Graphics);
+            DrawUV((EntityBase)_selectedRootEntity ?? _selectedModelEntity, e.Graphics);
         }
 
         private void entitiesTreeView_AfterCheck(object sender, TreeViewEventArgs e)

@@ -13,26 +13,28 @@ namespace PSXPrev.Classes
 
 
         private readonly Scene _scene;
-        private readonly Texture[] _vramPage;
-        private readonly bool[] _modifiedPage;
+        private readonly Texture[] _vramPages;
+        private readonly bool[] _modifiedPages; // Pages that that require a scene update.
+        private readonly bool[] _usedPages; // Pages that have textures drawn to them (not reset unless cleared).
 
         public System.Drawing.Color BackgroundColor { get; set; } = System.Drawing.Color.White;
 
         public VRAMPages(Scene scene)
         {
             _scene = scene;
-            _vramPage = new Texture[PageCount];
-            _modifiedPage = new bool[PageCount];
+            _vramPages = new Texture[PageCount];
+            _modifiedPages = new bool[PageCount];
+            _usedPages = new bool[PageCount];
         }
 
-        public Texture this[uint index] => _vramPage[index];
-        public Texture this[int index] => _vramPage[index];
+        public Texture this[uint index] => _vramPages[index];
+        public Texture this[int index] => _vramPages[index];
 
         public int Count => PageCount;
 
         public IEnumerator<Texture> GetEnumerator()
         {
-            return ((IReadOnlyList<Texture>)_vramPage).GetEnumerator();
+            return ((IReadOnlyList<Texture>)_vramPages).GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
@@ -41,8 +43,10 @@ namespace PSXPrev.Classes
         {
             for (var i = 0; i < PageCount; i++)
             {
-                _vramPage[i]?.Dispose();
-                //_vramPage[i] = null;
+                _vramPages[i]?.Dispose();
+                //_vramPages[i] = null;
+                _modifiedPages[i] = false;
+                _usedPages[i] = false;
             }
         }
 
@@ -50,25 +54,41 @@ namespace PSXPrev.Classes
         {
             for (var i = 0; i < PageCount; i++)
             {
-                if (_vramPage[i] == null)
+                if (_vramPages[i] == null)
                 {
                     // X coordinates [0,256) store texture data.
                     // X coordinates [256,512) store semi-transparency information for textures.
-                    _vramPage[i] = new Texture(PageSize * 2, PageSize, 0, 0, 32, i, true); // Is VRAM page
+                    _vramPages[i] = new Texture(PageSize * 2, PageSize, 0, 0, 32, i, true); // Is VRAM page
                     ClearPage(i, suppressUpdate);
                 }
             }
         }
-        
+
+        // Gets if a page has had at least one texture drawn to it.
+        public bool IsPageUsed(uint index) => IsPageUsed((int)index);
+
+        public bool IsPageUsed(int index)
+        {
+            return _usedPages[index];
+        }
+
+        // Returns true if the index is a valid VRAM texture page number.
+        public bool ContainsPage(uint index) => ContainsPage((int)index);
+
+        public bool ContainsPage(int index)
+        {
+            return index >= 0 && index < PageCount;
+        }
+
         // Update page textures in the scene.
         public void UpdatePage(uint index, bool force = false) => UpdatePage((int)index, force);
 
         public void UpdatePage(int index, bool force = false)
         {
-            if (force || _modifiedPage[index])
+            if (force || _modifiedPages[index])
             {
-                _scene.UpdateTexture(_vramPage[index].Bitmap, index);
-                _modifiedPage[index] = false;
+                _scene.UpdateTexture(_vramPages[index].Bitmap, index);
+                _modifiedPages[index] = false;
             }
         }
 
@@ -85,7 +105,7 @@ namespace PSXPrev.Classes
 
         public void ClearPage(int index, bool suppressUpdate = false)
         {
-            using (var graphics = Graphics.FromImage(_vramPage[index].Bitmap))
+            using (var graphics = Graphics.FromImage(_vramPages[index].Bitmap))
             {
                 graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
 
@@ -99,9 +119,10 @@ namespace PSXPrev.Classes
                 }
             }
 
+            _usedPages[index] = false;
             if (suppressUpdate)
             {
-                _modifiedPage[index] = true;
+                _modifiedPages[index] = true;
             }
             else
             {
@@ -127,7 +148,7 @@ namespace PSXPrev.Classes
             var textureHeight = texture.Height;
             var textureBitmap = texture.Bitmap;
             var textureSemiTransparentMap = texture.SemiTransparentMap;
-            using (var graphics = Graphics.FromImage(_vramPage[index].Bitmap))
+            using (var graphics = Graphics.FromImage(_vramPages[index].Bitmap))
             {
                 // Use SourceCopy to overwrite image alpha with alpha stored in textures.
                 graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
@@ -154,9 +175,10 @@ namespace PSXPrev.Classes
                 graphics.ResetClip();
             }
 
+            _usedPages[index] = true;
             if (suppressUpdate)
             {
-                _modifiedPage[index] = true;
+                _modifiedPages[index] = true;
             }
             else
             {

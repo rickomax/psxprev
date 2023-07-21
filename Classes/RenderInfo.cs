@@ -16,17 +16,17 @@ namespace PSXPrev.Classes
         Subdivision       = (1 << 6),
         AutomaticDivision = (1 << 7),
 
-        // Bits 30 and 31 are reserved for MixtureRate.
+        // Bits 29-31 are reserved for MixtureRate.
     }
 
     // Blending when RenderFlags.SemiTransparent is set.
     public enum MixtureRate
     {
-        None,
-        Back50_Poly50,    //  50% back +  50% poly
-        Back100_Poly100,  // 100% back + 100% poly
-        Back100_PolyM100, // 100% back - 100% poly
-        Back100_Poly25,   // 100% back +  25% poly
+        None             = 0,
+        Back50_Poly50    = 1, //  50% back +  50% poly
+        Back100_Poly100  = 2, // 100% back + 100% poly
+        Back100_PolyM100 = 3, // 100% back - 100% poly
+        Back100_Poly25   = 4, // 100% back +  25% poly
     }
     
     // A named Tuple<uint, RenderFlags, MixtureRate> for render information used to separate models/meshes.
@@ -47,7 +47,7 @@ namespace PSXPrev.Classes
             {
                 return (((ulong)TexturePage <<  0) |
                         ((ulong)RenderFlags << 32) |
-                        ((ulong)MixtureRate << 62));
+                        ((ulong)MixtureRate << 61));
             }
         }
 

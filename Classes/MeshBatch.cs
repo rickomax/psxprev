@@ -342,7 +342,7 @@ namespace PSXPrev
                 }
                 mesh.SetData(numElements, positionList, normalList, colorList, uvList, tiledAreaList);
             }
-            if (textureBinder != null && modelEntity.Texture != null && modelEntity.RenderFlags.HasFlag(RenderFlags.Textured))
+            if (textureBinder != null && modelEntity.Texture != null && modelEntity.IsTextured)
             {
                 mesh.Texture = textureBinder.GetTexture((int)modelEntity.TexturePage);
             }
