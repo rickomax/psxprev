@@ -27,6 +27,9 @@ After the scan has been completed, a new window will be displayed, containing th
 - VRAM Preview: This is where you have a replica of PSX Video RAM, which consist of 32 256x256 textures.(You can use these pages to compose the final textures applied to the models)
 - Animations: Animations found while scanning files.
 
+Discord server:
+<https://discord.gg/eU3WvTMsJ2>
+
 Video tutorial:
 <https://www.youtube.com/watch?v=hPDa8l3ZE6U&feature=youtu.be>
 
