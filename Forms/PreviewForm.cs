@@ -51,6 +51,9 @@ namespace PSXPrev
         private Bitmap _ambientColorBitmap;
         private Bitmap _backgroundColorBitmap;
         private float _texturePreviewScale = 1f;
+        private bool _autoDrawModelTextures;
+        private bool _autoSelectAnimationModel;
+        private bool _autoPlayAnimations;
 
         public PreviewForm(Action<PreviewForm> refreshAction)
         {
@@ -193,6 +196,48 @@ namespace PSXPrev
             }
         }
 
+        public void SetAutoDrawModelTextures(bool autoDraw)
+        {
+            if (InvokeRequired)
+            {
+                var invokeAction = new Action<bool>(SetAutoDrawModelTextures);
+                Invoke(invokeAction, autoDraw);
+            }
+            else
+            {
+                autoDrawModelTexturesToolStripMenuItem.Checked = autoDraw;
+                _autoDrawModelTextures = autoDraw;
+            }
+        }
+
+        public void SetAutoSelectAnimationModel(bool autoSelect)
+        {
+            if (InvokeRequired)
+            {
+                var invokeAction = new Action<bool>(SetAutoSelectAnimationModel);
+                Invoke(invokeAction, autoSelect);
+            }
+            else
+            {
+                autoSelectAnimationModelToolStripMenuItem.Checked = autoSelect;
+                _autoSelectAnimationModel = autoSelect;
+            }
+        }
+
+        public void SetAutoPlayAnimations(bool autoPlay)
+        {
+            if (InvokeRequired)
+            {
+                var invokeAction = new Action<bool>(SetAutoPlayAnimations);
+                Invoke(invokeAction, autoPlay);
+            }
+            else
+            {
+                autoPlayAnimationsToolStripMenuItem.Checked = autoPlay;
+                _autoPlayAnimations = autoPlay;
+            }
+        }
+
         public void SelectFirstEntity()
         {
             if (InvokeRequired)
@@ -224,6 +269,16 @@ namespace PSXPrev
                 }
                 _vram.UpdateAllPages();
             }
+        }
+
+        public void DrawModelTexturesToVRAM(RootEntity rootEntity)
+        {
+            // Note: We can't just use ModelEntity.Texture, since that just points to the VRAM page.
+            foreach (var texture in rootEntity.OwnedTextures)
+            {
+                _vram.DrawTexture(texture, true); // Suppress updates to scene until all textures are drawn.
+            }
+            _vram.UpdateAllPages();
         }
 
         private void SetupControls()
@@ -679,6 +734,11 @@ namespace PSXPrev
                 _selectedModelEntity = selectedNode.Tag as ModelEntity;
                 UnselectTriangle();
             }
+            var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
+            if (rootEntity != null && _autoDrawModelTextures)
+            {
+                DrawModelTexturesToVRAM(rootEntity);
+            }
             UpdateSelectedEntity();
         }
 
@@ -769,7 +829,7 @@ namespace PSXPrev
             modelPropertyGrid.SelectedObject = propertyObject;
         }
 
-        private void UpdateSelectedAnimation()
+        private void UpdateSelectedAnimation(bool play = false)
         {
             var propertyObject = _curAnimationFrameObj ?? _curAnimationObject ?? (object)_curAnimation;
             if (propertyObject == null)
@@ -779,7 +839,7 @@ namespace PSXPrev
 
             // Change Playing after Enabled, so that the call to Refresh in Playing will affect the enabled visual style too.
             animationPlayButton.Enabled = (_curAnimation != null);
-            Playing = false;
+            Playing = play;
 
             animationPropertyGrid.SelectedObject = propertyObject;
             _scene.AnimationBatch.SetupAnimationBatch(_curAnimation);
@@ -1137,12 +1197,13 @@ namespace PSXPrev
 
         private void animationsTreeView_AfterSelect(object sender, TreeViewEventArgs e)
         {
-            UpdateSelectedEntity();
             var selectedNode = animationsTreeView.SelectedNode;
             if (selectedNode == null)
             {
+                UpdateSelectedEntity();
                 return;
             }
+
             if (selectedNode.Tag is Animation animation)
             {
                 _curAnimation = animation;
@@ -1162,7 +1223,17 @@ namespace PSXPrev
                 _curAnimationFrameObj = animationFrame;
                 UpdateAnimationProgressLabel();
             }
-            UpdateSelectedAnimation();
+
+            if (_autoSelectAnimationModel && _curAnimation.OwnerEntity != null)
+            {
+                SelectEntity(_curAnimation.OwnerEntity, true);
+            }
+            else
+            {
+                UpdateSelectedEntity();
+            }
+            UpdateSelectedAnimation(_autoPlayAnimations);
+
             if (_curAnimationFrameObj != null)
             {
                 _scene.AnimationBatch.SetTimeToFrame(_curAnimationFrameObj);
@@ -1485,6 +1556,21 @@ namespace PSXPrev
         private void pauseScanningToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             Program.HaltRequested = pauseScanningToolStripMenuItem.Checked;
+        }
+
+        private void autoDrawModelTexturesToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _autoDrawModelTextures = autoDrawModelTexturesToolStripMenuItem.Checked;
+        }
+
+        private void autoSelectAnimationModelToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _autoSelectAnimationModel = autoSelectAnimationModelToolStripMenuItem.Checked;
+        }
+
+        private void autoPlayAnimationsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _autoPlayAnimations = autoPlayAnimationsToolStripMenuItem.Checked;
         }
 
         private void previewForm_KeyDown(object sender, KeyEventArgs e)

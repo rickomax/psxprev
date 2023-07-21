@@ -18,6 +18,8 @@ namespace PSXPrev.Classes
 
     public class Animation
     {
+        private readonly WeakReference<RootEntity> _ownerEntity = new WeakReference<RootEntity>(null);
+
         [DisplayName("Animation Name")]
         public string AnimationName { get; set; }
 
@@ -36,6 +38,14 @@ namespace PSXPrev.Classes
 
         [DisplayName("Animation Type")]
         public AnimationType AnimationType { get; set; }
+
+        // The owner model that created this animation (if any).
+        [Browsable(false)]
+        public RootEntity OwnerEntity
+        {
+            get => _ownerEntity.TryGetTarget(out var owner) ? owner : null;
+            set => _ownerEntity.SetTarget(value);
+        }
 
 
         // When animation objects have their own frame counts/speeds, they will become unsynced as the animation loops.

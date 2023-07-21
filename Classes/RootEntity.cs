@@ -1,5 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using OpenTK;
 
 namespace PSXPrev.Classes
@@ -7,6 +10,8 @@ namespace PSXPrev.Classes
     public class RootEntity : EntityBase
     {
         private readonly List<ModelEntity> _groupedModels = new List<ModelEntity>();
+        private WeakReferenceCollection<Texture> _ownedTextures;
+        private WeakReferenceCollection<Animation> _ownedAnimations;
 
         [Browsable(false)]
         public CoordUnit[] Coords { get; set; }
@@ -27,6 +32,21 @@ namespace PSXPrev.Classes
                 return count;
             }
         }
+
+        [Browsable(false)]
+        public IEnumerable<Texture> OwnedTextures
+        {
+            get => _ownedTextures ?? Enumerable.Empty<Texture>();
+            set => _ownedTextures = new WeakReferenceCollection<Texture>(value);
+        }
+
+        [Browsable(false)]
+        public IEnumerable<Animation> OwnedAnimations
+        {
+            get => _ownedAnimations ?? Enumerable.Empty<Animation>();
+            set => _ownedAnimations = new WeakReferenceCollection<Animation>(value);
+        }
+
 
         public override void ComputeBounds()
         {

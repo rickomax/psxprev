@@ -68,6 +68,22 @@ namespace PSXPrev.Classes
                 {
                     modelEntity.ParentEntity = rootEntity;
                 }
+                if (textures.Count > 0)
+                {
+                    foreach (var texture in textures)
+                    {
+                        texture.OwnerEntity = rootEntity;
+                    }
+                    rootEntity.OwnedTextures = textures;
+                }
+                if (animations.Count > 0)
+                {
+                    foreach (var animation in animations)
+                    {
+                        animation.OwnerEntity = rootEntity;
+                    }
+                    rootEntity.OwnedAnimations = animations;
+                }
                 rootEntity.ChildEntities = modelEntities.ToArray();
                 rootEntity.ComputeBounds();
             }
@@ -1235,10 +1251,9 @@ namespace PSXPrev.Classes
 
         private void ProcessGroundData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer)
         {
-            var renderFlags = RenderFlags.None;
             var texture = primitiveType == 1;
 
-            void AddTriangle(Triangle triangle, uint tPageNum, MixtureRate mixtureRate)
+            void AddTriangle(Triangle triangle, uint tPageNum, RenderFlags renderFlags, MixtureRate mixtureRate)
             {
                 var renderInfo = new RenderInfo(tPageNum, renderFlags, mixtureRate);
                 if (!groupedTriangles.TryGetValue(renderInfo, out var triangles))
@@ -1280,7 +1295,8 @@ namespace PSXPrev.Classes
                 for (var column = 0; column < columnCount; column++)
                 {
                     uint tPage;
-                    MixtureRate mixtureRate;
+                    var renderFlags = RenderFlags.None;
+                    var mixtureRate = MixtureRate.None;
                     Color color;
                     Vector3 normal;
                     Vector2 uv0, uv1, uv2, uv3;
@@ -1302,11 +1318,12 @@ namespace PSXPrev.Classes
                         normal = ReadNormal(reader, normTop, normIndex);
 
                         tPage = 0;
-                        mixtureRate = MixtureRate.None;
                         uv0 = uv1 = uv2 = uv3 = Vector2.Zero;
                     }
                     else
                     {
+                        renderFlags |= RenderFlags.Textured;
+
                         var normIndex = reader.ReadUInt16();
                         var uvIndex = reader.ReadUInt16();
                         gridPosition = reader.BaseStream.Position;
@@ -1378,7 +1395,7 @@ namespace PSXPrev.Classes
                         Colors = new[] { color, color, color },
                         Uv = new[] { uv0, uv1, uv2 },
                         AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
-                    }, tPage, mixtureRate);
+                    }, tPage, renderFlags, mixtureRate);
 
                     AddTriangle(new Triangle
                     {
@@ -1387,7 +1404,7 @@ namespace PSXPrev.Classes
                         Uv = new[] { uv1, uv3, uv2 },
                         Colors = new[] { color, color, color },
                         AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
-                    }, tPage, mixtureRate);
+                    }, tPage, renderFlags, mixtureRate);
                 }
                 reader.BaseStream.Seek(polyPosition, SeekOrigin.Begin);
             }

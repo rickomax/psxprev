@@ -9,6 +9,8 @@ namespace PSXPrev.Classes
         public static readonly System.Drawing.Color NoSemiTransparentFlag = System.Drawing.Color.FromArgb(255, 0, 0, 0);
         public static readonly System.Drawing.Color SemiTransparentFlag = System.Drawing.Color.FromArgb(255, 255, 255, 255);
 
+        private readonly WeakReference<RootEntity> _ownerEntity = new WeakReference<RootEntity>(null);
+
         public Texture(int width, int height, int x, int y, int bpp, int texturePage, bool isVRAMPage = false)
         {
             Bitmap = new Bitmap(width, height);
@@ -48,6 +50,15 @@ namespace PSXPrev.Classes
 
         [Browsable(false)]
         public Bitmap SemiTransparentMap { get; set; }
+
+        // The owner model that created this texture (if any).
+        [Browsable(false)]
+        public RootEntity OwnerEntity
+        {
+            get => _ownerEntity.TryGetTarget(out var owner) ? owner : null;
+            set => _ownerEntity.SetTarget(value);
+        }
+
 
         public Bitmap SetupSemiTransparentMap()
         {
