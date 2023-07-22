@@ -33,7 +33,7 @@ namespace PSXPrev.Classes
             }
         }
 
-        private static RootEntity ReadModels(BinaryReader reader)
+        private RootEntity ReadModels(BinaryReader reader)
         {
             // (modelIndex, RenderInfo)
             var groupedTriangles = new Dictionary<Tuple<uint, RenderInfo>, List<Triangle>>();
@@ -96,7 +96,7 @@ namespace PSXPrev.Classes
             {
                 var modelTop = reader.ReadUInt32();
                 var modelPosition = reader.BaseStream.Position;
-                reader.BaseStream.Seek(modelTop, SeekOrigin.Begin);
+                reader.BaseStream.Seek(_offset + modelTop, SeekOrigin.Begin);
                 var flags = version == 0x04 ? reader.ReadUInt16() : reader.ReadUInt32();
                 var vertexCount = version == 0x04 ? reader.ReadUInt16() : reader.ReadUInt32();
                 var planeCount = version == 0x04 ? reader.ReadUInt16() : reader.ReadUInt32();
@@ -167,7 +167,7 @@ namespace PSXPrev.Classes
                 {
                     if (version == 0x04)
                     {
-                        var faceBegin = reader.BaseStream.Position;
+                        var facePosition = reader.BaseStream.Position;
                         var faceFlags = reader.ReadUInt16();
                         var faceLength = reader.ReadUInt16();
                         var quad = (faceFlags & 0x0010) == 0;
@@ -262,11 +262,11 @@ namespace PSXPrev.Classes
                                 }, i, tPage, renderFlags);
                             }
                         }
-                        reader.BaseStream.Seek(faceBegin + faceLength, SeekOrigin.Begin);
+                        reader.BaseStream.Seek(facePosition + faceLength, SeekOrigin.Begin);
                     }
                     else
                     {
-                        var faceBegin = reader.BaseStream.Position;
+                        var facePosition = reader.BaseStream.Position;
                         var faceFlags = reader.ReadUInt16();
                         var faceLength = reader.ReadUInt16();
                         var quad = (faceFlags & 0x0010) == 0;
@@ -361,7 +361,7 @@ namespace PSXPrev.Classes
                                 }, i, tPage, renderFlags);
                             }
                         }
-                        reader.BaseStream.Seek(faceBegin + faceLength, SeekOrigin.Begin);
+                        reader.BaseStream.Seek(facePosition + faceLength, SeekOrigin.Begin);
                     }
                 }
                 reader.BaseStream.Seek(modelPosition, SeekOrigin.Begin);

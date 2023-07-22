@@ -90,7 +90,6 @@
     <Compile Include="Classes\LineMesh.cs" />
     <Compile Include="Classes\LineBatch.cs" />
     <Compile Include="Classes\MtlExporter.cs" />
-    <Compile Include="Classes\ObjBlock.cs" />
     <Compile Include="Classes\FileOffsetScanner.cs" />
     <Compile Include="Classes\PlyExporter.cs" />
     <Compile Include="Classes\PMDParser.cs" />

@@ -77,7 +77,7 @@ namespace PSXPrev.Classes
 
             for (var f = 0; f < frameCount; f++)
             {
-                var frameTop = reader.BaseStream.Position;
+                var framePosition = reader.BaseStream.Position;
                 var frameSize = reader.ReadUInt16();
                 var packetCount = reader.ReadUInt16();
                 if (packetCount > Program.MaxTODPackets)
@@ -91,7 +91,7 @@ namespace PSXPrev.Classes
                 }
                 for (var p = 0; p < packetCount; p++)
                 {
-                    var packetTop = reader.BaseStream.Position;
+                    var packetPosition = reader.BaseStream.Position;
                     var objectId = reader.ReadUInt16();
                     var packetTypeAndFlag = reader.ReadByte();
                     var packetType = (packetTypeAndFlag & 0xF);
@@ -165,7 +165,7 @@ namespace PSXPrev.Classes
                             animationFrame.AbsoluteMatrix = true;
                             break;
                         default:
-                            reader.BaseStream.Position = packetTop + packetLength * 4;
+                            reader.BaseStream.Seek(packetPosition + packetLength * 4, SeekOrigin.Begin);
                             break;
                     }
                 }
