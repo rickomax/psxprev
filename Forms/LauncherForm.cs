@@ -68,6 +68,7 @@ namespace PSXPrev.Forms
                 CheckVDF = scanVDFCheckBox.Checked,
 
                 IgnoreTMDVersion = optionIgnoreTMDVersionCheckBox.Checked,
+                IgnoreHMDVersion = optionIgnoreHMDVersionCheckBox.Checked,
 
                 LogToFile = optionLogToFileCheckBox.Checked,
                 NoVerbose = optionNoVerboseCheckBox.Checked,

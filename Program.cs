@@ -35,6 +35,7 @@ namespace PSXPrev
             public bool CheckVDF { get; set; }
 
             public bool IgnoreTMDVersion { get; set; }
+            public bool IgnoreHMDVersion { get; set; }
 
             public bool LogToFile { get; set; }
             public bool NoVerbose { get; set; }
@@ -75,6 +76,8 @@ namespace PSXPrev
 
 
         public static bool IgnoreTmdVersion => _options.IgnoreTMDVersion;
+        public static bool IgnoreHmdVersion => _options.IgnoreHMDVersion;
+
         public static bool Debug => _options.Debug;
         public static bool ShowErrors => _options.ShowErrors;
         public static bool LogToFile => _options.LogToFile;
@@ -176,6 +179,7 @@ namespace PSXPrev
             Console.WriteLine("  -tod       : scan for TOD animations");
             Console.WriteLine("  -vdf       : scan for VDF animations");
             Console.WriteLine("  -ignoretmdversion : reduce strictness when scanning TMD models");
+            Console.WriteLine("  -ignorehmdversion : reduce strictness when scanning HMD models");
             Console.WriteLine();
             Console.WriteLine("log options:");
             Console.WriteLine("  -log       : write output to log file");
@@ -265,7 +269,9 @@ namespace PSXPrev
                 case "-ignoretmdversion":
                     options.IgnoreTMDVersion = true;
                     break;
-
+                case "-ignorehmdversion":
+                    options.IgnoreHMDVersion = true;
+                    break;
                 case "-log":
                     options.LogToFile = true;
                     break;

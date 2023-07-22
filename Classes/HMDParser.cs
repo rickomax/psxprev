@@ -24,7 +24,7 @@ namespace PSXPrev.Classes
             textures = null;
 
             var version = reader.ReadUInt32();
-            if (version == 0x00000050)
+            if (Program.IgnoreHmdVersion || version == 0x00000050)
             {
                 var rootEntity = ParseHMD(reader, out animations, out textures);
                 if (rootEntity != null)

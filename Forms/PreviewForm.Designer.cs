@@ -868,7 +868,6 @@ namespace PSXPrev
             this.miOBJMerged,
             this.miOBJVCMerged});
             this.cmsModelExport.Name = "cmsModelExport";
-            this.cmsModelExport.OwnerItem = this.exportSelectedToolStripMenuItem;
             this.cmsModelExport.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
             this.cmsModelExport.Size = new System.Drawing.Size(355, 92);
             this.cmsModelExport.ItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.cmsModelExport_ItemClicked);
@@ -1480,7 +1479,6 @@ namespace PSXPrev
             this.flowLayoutPanel2.Location = new System.Drawing.Point(0, 623);
             this.flowLayoutPanel2.Margin = new System.Windows.Forms.Padding(0);
             this.flowLayoutPanel2.Name = "flowLayoutPanel2";
-            this.flowLayoutPanel2.Padding = new System.Windows.Forms.Padding(2, 0, 0, 0);
             this.flowLayoutPanel2.Size = new System.Drawing.Size(1008, 26);
             this.flowLayoutPanel2.TabIndex = 21;
             // 

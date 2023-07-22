@@ -57,6 +57,7 @@
             this.optionNoVerboseCheckBox = new System.Windows.Forms.CheckBox();
             this.optionLogToFileCheckBox = new System.Windows.Forms.CheckBox();
             this.scanButton = new System.Windows.Forms.Button();
+            this.optionIgnoreHMDVersionCheckBox = new System.Windows.Forms.CheckBox();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox3.SuspendLayout();
@@ -255,6 +256,7 @@
             // 
             // groupBox4
             // 
+            this.groupBox4.Controls.Add(this.optionIgnoreHMDVersionCheckBox);
             this.groupBox4.Controls.Add(this.optionNoOffsetCheckBox);
             this.groupBox4.Controls.Add(this.optionShowErrorsCheckBox);
             this.groupBox4.Controls.Add(this.optionAutoAttachLimbsCheckBox);
@@ -316,9 +318,9 @@
             this.optionIgnoreTMDVersionCheckBox.AutoSize = true;
             this.optionIgnoreTMDVersionCheckBox.Location = new System.Drawing.Point(12, 65);
             this.optionIgnoreTMDVersionCheckBox.Name = "optionIgnoreTMDVersionCheckBox";
-            this.optionIgnoreTMDVersionCheckBox.Size = new System.Drawing.Size(121, 17);
+            this.optionIgnoreTMDVersionCheckBox.Size = new System.Drawing.Size(112, 17);
             this.optionIgnoreTMDVersionCheckBox.TabIndex = 4;
-            this.optionIgnoreTMDVersionCheckBox.Text = "Ignore TMD Version";
+            this.optionIgnoreTMDVersionCheckBox.Text = "Skip TMD Version";
             this.optionIgnoreTMDVersionCheckBox.UseVisualStyleBackColor = true;
             // 
             // optionDebugCheckBox
@@ -361,6 +363,16 @@
             this.scanButton.Text = "Scan";
             this.scanButton.UseVisualStyleBackColor = true;
             this.scanButton.Click += new System.EventHandler(this.scanButton_Click);
+            // 
+            // optionIgnoreHMDVersionCheckBox
+            // 
+            this.optionIgnoreHMDVersionCheckBox.AutoSize = true;
+            this.optionIgnoreHMDVersionCheckBox.Location = new System.Drawing.Point(129, 65);
+            this.optionIgnoreHMDVersionCheckBox.Name = "optionIgnoreHMDVersionCheckBox";
+            this.optionIgnoreHMDVersionCheckBox.Size = new System.Drawing.Size(113, 17);
+            this.optionIgnoreHMDVersionCheckBox.TabIndex = 10;
+            this.optionIgnoreHMDVersionCheckBox.Text = "Skip HMD Version";
+            this.optionIgnoreHMDVersionCheckBox.UseVisualStyleBackColor = true;
             // 
             // LauncherForm
             // 
@@ -420,5 +432,6 @@
         private System.Windows.Forms.CheckBox optionDrawAllToVRAMCheckBox;
         private System.Windows.Forms.CheckBox optionShowErrorsCheckBox;
         private System.Windows.Forms.CheckBox optionNoOffsetCheckBox;
+        private System.Windows.Forms.CheckBox optionIgnoreHMDVersionCheckBox;
     }
 }
