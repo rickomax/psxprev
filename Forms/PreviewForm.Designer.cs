@@ -72,9 +72,12 @@ namespace PSXPrev
             this.animationGroupBox = new System.Windows.Forms.GroupBox();
             this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
             this.label6 = new System.Windows.Forms.Label();
-            this.label3 = new System.Windows.Forms.Label();
-            this.animationPlayButtonx = new System.Windows.Forms.Button();
             this.animationSpeedNumericUpDown = new System.Windows.Forms.NumericUpDown();
+            this.label3 = new System.Windows.Forms.Label();
+            this.tableLayoutPanel6 = new System.Windows.Forms.TableLayoutPanel();
+            this.animationFrameTrackBar = new System.Windows.Forms.TrackBar();
+            this.animationProgressLabel = new System.Windows.Forms.Label();
+            this.animationPlayButtonx = new System.Windows.Forms.Button();
             this.cmsModelExport = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.miOBJ = new System.Windows.Forms.ToolStripMenuItem();
             this.miOBJVC = new System.Windows.Forms.ToolStripMenuItem();
@@ -146,9 +149,6 @@ namespace PSXPrev
             this.label4 = new System.Windows.Forms.Label();
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
             this.vertexSizeUpDown = new System.Windows.Forms.NumericUpDown();
-            this.animationFrameTrackBar = new System.Windows.Forms.TrackBar();
-            this.tableLayoutPanel6 = new System.Windows.Forms.TableLayoutPanel();
-            this.animationProgressLabel = new System.Windows.Forms.Label();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -196,6 +196,8 @@ namespace PSXPrev
             this.animationGroupBox.SuspendLayout();
             this.tableLayoutPanel2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.animationSpeedNumericUpDown)).BeginInit();
+            this.tableLayoutPanel6.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.animationFrameTrackBar)).BeginInit();
             this.cmsModelExport.SuspendLayout();
             this.mainMenuStrip.SuspendLayout();
             this.cmsResetTransform.SuspendLayout();
@@ -213,8 +215,6 @@ namespace PSXPrev
             this.tableLayoutPanel1.SuspendLayout();
             this.flowLayoutPanel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.animationFrameTrackBar)).BeginInit();
-            this.tableLayoutPanel6.SuspendLayout();
             this.SuspendLayout();
             // 
             // entitiesTabPage
@@ -669,6 +669,7 @@ namespace PSXPrev
             // 
             this.animationsSplitContainer.Dock = System.Windows.Forms.DockStyle.Fill;
             this.animationsSplitContainer.Location = new System.Drawing.Point(3, 3);
+            this.animationsSplitContainer.Margin = new System.Windows.Forms.Padding(0);
             this.animationsSplitContainer.Name = "animationsSplitContainer";
             // 
             // animationsSplitContainer.Panel1
@@ -730,6 +731,7 @@ namespace PSXPrev
             this.animationsTableLayoutPanel.Controls.Add(this.animationGroupBox, 0, 1);
             this.animationsTableLayoutPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.animationsTableLayoutPanel.Location = new System.Drawing.Point(0, 0);
+            this.animationsTableLayoutPanel.Margin = new System.Windows.Forms.Padding(0);
             this.animationsTableLayoutPanel.Name = "animationsTableLayoutPanel";
             this.animationsTableLayoutPanel.RowCount = 2;
             this.animationsTableLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -782,29 +784,6 @@ namespace PSXPrev
             this.label6.Text = "Progress:";
             this.label6.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // label3
-            // 
-            this.label3.AutoSize = true;
-            this.label3.Dock = System.Windows.Forms.DockStyle.Left;
-            this.label3.Location = new System.Drawing.Point(3, 0);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(41, 26);
-            this.label3.TabIndex = 21;
-            this.label3.Text = "Speed:";
-            this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // animationPlayButtonx
-            // 
-            this.animationPlayButtonx.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.animationPlayButtonx.Enabled = false;
-            this.animationPlayButtonx.Location = new System.Drawing.Point(3, 87);
-            this.animationPlayButtonx.Name = "animationPlayButtonx";
-            this.animationPlayButtonx.Size = new System.Drawing.Size(487, 34);
-            this.animationPlayButtonx.TabIndex = 16;
-            this.animationPlayButtonx.Text = "Play Animation";
-            this.animationPlayButtonx.UseVisualStyleBackColor = true;
-            this.animationPlayButtonx.Click += new System.EventHandler(this.animationPlayButton_Click);
-            // 
             // animationSpeedNumericUpDown
             // 
             this.animationSpeedNumericUpDown.DecimalPlaces = 2;
@@ -829,6 +808,67 @@ namespace PSXPrev
             0,
             65536});
             this.animationSpeedNumericUpDown.ValueChanged += new System.EventHandler(this.animationSpeedNumericUpDown_ValueChanged);
+            // 
+            // label3
+            // 
+            this.label3.AutoSize = true;
+            this.label3.Dock = System.Windows.Forms.DockStyle.Left;
+            this.label3.Location = new System.Drawing.Point(3, 0);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(41, 26);
+            this.label3.TabIndex = 21;
+            this.label3.Text = "Speed:";
+            this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // tableLayoutPanel6
+            // 
+            this.tableLayoutPanel6.ColumnCount = 2;
+            this.tableLayoutPanel6.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel6.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tableLayoutPanel6.Controls.Add(this.animationFrameTrackBar, 0, 0);
+            this.tableLayoutPanel6.Controls.Add(this.animationProgressLabel, 1, 0);
+            this.tableLayoutPanel6.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tableLayoutPanel6.Location = new System.Drawing.Point(60, 26);
+            this.tableLayoutPanel6.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
+            this.tableLayoutPanel6.Name = "tableLayoutPanel6";
+            this.tableLayoutPanel6.RowCount = 1;
+            this.tableLayoutPanel6.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tableLayoutPanel6.Size = new System.Drawing.Size(424, 45);
+            this.tableLayoutPanel6.TabIndex = 24;
+            // 
+            // animationFrameTrackBar
+            // 
+            this.animationFrameTrackBar.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.animationFrameTrackBar.Location = new System.Drawing.Point(0, 0);
+            this.animationFrameTrackBar.Margin = new System.Windows.Forms.Padding(0);
+            this.animationFrameTrackBar.Name = "animationFrameTrackBar";
+            this.animationFrameTrackBar.Size = new System.Drawing.Size(370, 45);
+            this.animationFrameTrackBar.TabIndex = 24;
+            this.animationFrameTrackBar.TickStyle = System.Windows.Forms.TickStyle.None;
+            // 
+            // animationProgressLabel
+            // 
+            this.animationProgressLabel.Dock = System.Windows.Forms.DockStyle.Left;
+            this.animationProgressLabel.Location = new System.Drawing.Point(370, 0);
+            this.animationProgressLabel.Margin = new System.Windows.Forms.Padding(0);
+            this.animationProgressLabel.Name = "animationProgressLabel";
+            this.animationProgressLabel.Padding = new System.Windows.Forms.Padding(0, 0, 0, 24);
+            this.animationProgressLabel.Size = new System.Drawing.Size(54, 45);
+            this.animationProgressLabel.TabIndex = 25;
+            this.animationProgressLabel.Text = "0/0";
+            this.animationProgressLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // animationPlayButtonx
+            // 
+            this.animationPlayButtonx.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.animationPlayButtonx.Enabled = false;
+            this.animationPlayButtonx.Location = new System.Drawing.Point(3, 87);
+            this.animationPlayButtonx.Name = "animationPlayButtonx";
+            this.animationPlayButtonx.Size = new System.Drawing.Size(487, 34);
+            this.animationPlayButtonx.TabIndex = 16;
+            this.animationPlayButtonx.Text = "Play Animation";
+            this.animationPlayButtonx.UseVisualStyleBackColor = true;
+            this.animationPlayButtonx.Click += new System.EventHandler(this.animationPlayButton_Click);
             // 
             // cmsModelExport
             // 
@@ -1504,44 +1544,6 @@ namespace PSXPrev
             0});
             this.vertexSizeUpDown.ValueChanged += new System.EventHandler(this.vertexSizeUpDown_ValueChanged);
             // 
-            // animationFrameTrackBar
-            // 
-            this.animationFrameTrackBar.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.animationFrameTrackBar.Location = new System.Drawing.Point(0, 0);
-            this.animationFrameTrackBar.Margin = new System.Windows.Forms.Padding(0);
-            this.animationFrameTrackBar.Name = "animationFrameTrackBar";
-            this.animationFrameTrackBar.Size = new System.Drawing.Size(370, 45);
-            this.animationFrameTrackBar.TabIndex = 24;
-            this.animationFrameTrackBar.TickStyle = System.Windows.Forms.TickStyle.None;
-            // 
-            // tableLayoutPanel6
-            // 
-            this.tableLayoutPanel6.ColumnCount = 2;
-            this.tableLayoutPanel6.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel6.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
-            this.tableLayoutPanel6.Controls.Add(this.animationFrameTrackBar, 0, 0);
-            this.tableLayoutPanel6.Controls.Add(this.animationProgressLabel, 1, 0);
-            this.tableLayoutPanel6.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tableLayoutPanel6.Location = new System.Drawing.Point(60, 26);
-            this.tableLayoutPanel6.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
-            this.tableLayoutPanel6.Name = "tableLayoutPanel6";
-            this.tableLayoutPanel6.RowCount = 1;
-            this.tableLayoutPanel6.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel6.Size = new System.Drawing.Size(424, 45);
-            this.tableLayoutPanel6.TabIndex = 24;
-            // 
-            // animationProgressLabel
-            // 
-            this.animationProgressLabel.Dock = System.Windows.Forms.DockStyle.Left;
-            this.animationProgressLabel.Location = new System.Drawing.Point(370, 0);
-            this.animationProgressLabel.Margin = new System.Windows.Forms.Padding(0);
-            this.animationProgressLabel.Name = "animationProgressLabel";
-            this.animationProgressLabel.Padding = new System.Windows.Forms.Padding(0, 0, 0, 24);
-            this.animationProgressLabel.Size = new System.Drawing.Size(54, 45);
-            this.animationProgressLabel.TabIndex = 25;
-            this.animationProgressLabel.Text = "0/0";
-            this.animationProgressLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
             // PreviewForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -1609,6 +1611,9 @@ namespace PSXPrev
             this.tableLayoutPanel2.ResumeLayout(false);
             this.tableLayoutPanel2.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.animationSpeedNumericUpDown)).EndInit();
+            this.tableLayoutPanel6.ResumeLayout(false);
+            this.tableLayoutPanel6.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.animationFrameTrackBar)).EndInit();
             this.cmsModelExport.ResumeLayout(false);
             this.mainMenuStrip.ResumeLayout(false);
             this.mainMenuStrip.PerformLayout();
@@ -1631,9 +1636,6 @@ namespace PSXPrev
             this.tableLayoutPanel1.PerformLayout();
             this.flowLayoutPanel1.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.animationFrameTrackBar)).EndInit();
-            this.tableLayoutPanel6.ResumeLayout(false);
-            this.tableLayoutPanel6.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 

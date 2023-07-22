@@ -299,6 +299,7 @@ namespace PSXPrev
             _openTkControl.Resize += _openTkControl_Resize;
             _openTkControl.Dock = DockStyle.Fill;
             _openTkControl.Parent = modelsSplitContainer.Panel2;
+            _openTkControl.Margin = Padding.Empty;
             texturePanel.MouseWheel += TexturePanelOnMouseWheel;
             vramPanel.MouseWheel += VramPanelOnMouseWheel;
             UpdateLightDirection();
