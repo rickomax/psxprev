@@ -41,7 +41,7 @@ namespace PSXPrev.Classes
                     var model = (ModelEntity) entity.ChildEntities[j];
                     var modelName = string.Format("model-{0}-lib", j);
                     var materialName = string.Format("{0}-material", modelName);
-                    var triangleCount = model.Triangles.Count();
+                    var triangleCount = model.Triangles.Length;
                     var elementGroupCount = triangleCount * 3;
                     var elementCount = elementGroupCount * 3;
 
