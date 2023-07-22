@@ -173,9 +173,7 @@ namespace PSXPrev.Classes
             var numVerts = ReadInt(reader);
             var vertsTop = ReadLong(reader) ;
             var position = reader.BaseStream.Position;
-            //var offset = reader.BaseStream.Position - _offset;
             reader.BaseStream.Seek(_offset + vertsTop , SeekOrigin.Begin);
-            // reader.BaseStream.Seek(288852, SeekOrigin.Begin);
             var vertices = new Vector3[numVerts];
             var uvs = new Vector2[numVerts];
             for (var i = 0; i < numVerts; i++)

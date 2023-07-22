@@ -56,9 +56,9 @@ namespace PSXPrev.Classes
                     // This also happens if we have a coord used as a parent, but no primitives directly tied to it.
                     continue;
                 }
-                var blockTop = reader.BaseStream.Position;
+                var blockPosition = reader.BaseStream.Position;
                 ProcessPrimitiveSet(reader, modelEntities, animations, textures, i, primitiveSetTop, primitiveHeaderTop, blockCount, ref sharedIndex);
-                reader.BaseStream.Seek(blockTop, SeekOrigin.Begin);
+                reader.BaseStream.Seek(blockPosition, SeekOrigin.Begin);
             }
             RootEntity rootEntity;
             if (modelEntities.Count > 0)
@@ -1189,7 +1189,7 @@ namespace PSXPrev.Classes
                 {
                     var diffDataIndex = reader.ReadUInt32() * 4;
 
-                    var position2 = reader.BaseStream.Position;
+                    var diffPosition = reader.BaseStream.Position;
                     reader.BaseStream.Seek(_offset + mimeDiffTop + diffIndex + diffDataIndex, SeekOrigin.Begin);
 
                     var vertexStart = reader.ReadUInt32();
@@ -1225,20 +1225,20 @@ namespace PSXPrev.Classes
                     animationFrame.Vertices = vertices;
                     animationFrame.TempVertices = new Vector3[animationFrame.Vertices.Length];
 
-                    reader.BaseStream.Seek(position2, SeekOrigin.Begin);
+                    reader.BaseStream.Seek(diffPosition, SeekOrigin.Begin);
                 }
                 for (uint j = 0; j < numOriginals; j++)
                 {
                     var diffChangedIndex = reader.ReadUInt32() * 4;
 
-                    var position2 = reader.BaseStream.Position;
+                    var origPosition = reader.BaseStream.Position;
                     // Unlike data diffs, diffIndex isn't used here.
                     reader.BaseStream.Seek(_offset + mimeDiffTop + diffChangedIndex, SeekOrigin.Begin);
 
                     var changed = reader.ReadUInt16(); // Should be 0 in file
                     var vertexCount = reader.ReadUInt16();
 
-                    reader.BaseStream.Seek(position2, SeekOrigin.Begin);
+                    reader.BaseStream.Seek(origPosition, SeekOrigin.Begin);
                 }
                 reader.BaseStream.Seek(position, SeekOrigin.Begin);
             }

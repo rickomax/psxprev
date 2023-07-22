@@ -51,7 +51,7 @@ namespace PSXPrev.Classes
 
             var objBlocks = new ObjBlock[nObj];
 
-            var objOffset = reader.BaseStream.Position;
+            var objTop = (uint)(reader.BaseStream.Position - _offset);
 
             for (var o = 0; o < nObj; o++)
             {
@@ -65,9 +65,9 @@ namespace PSXPrev.Classes
 
                 if (flags == 0)
                 {
-                    vertTop += (uint)objOffset;
-                    normalTop += (uint)objOffset;
-                    primitiveTop += (uint)objOffset;
+                    vertTop += objTop;
+                    normalTop += objTop;
+                    primitiveTop += objTop;
                 }
 
                 if (nPrimitive > Program.MaxTMDPrimitives)
@@ -92,11 +92,11 @@ namespace PSXPrev.Classes
                 var objBlock = objBlocks[o];
 
                 var vertices = new Vector3[objBlock.NVert];
-                if (Program.IgnoreTmdVersion && objBlock.VertTop < _offset)
+                if (Program.IgnoreTmdVersion && (int)objBlock.VertTop < 0)
                 {
                     return null;
                 }
-                reader.BaseStream.Seek(objBlock.VertTop, SeekOrigin.Begin);
+                reader.BaseStream.Seek(_offset + objBlock.VertTop, SeekOrigin.Begin);
                 for (var v = 0; v < objBlock.NVert; v++)
                 {
                     var vx = reader.ReadInt16();
@@ -120,11 +120,11 @@ namespace PSXPrev.Classes
                 }
 
                 var normals = new Vector3[objBlock.NNormal];
-                if (Program.IgnoreTmdVersion && objBlock.NormalTop < _offset)
+                if (Program.IgnoreTmdVersion && (int)objBlock.NormalTop < 0)
                 {
                     return null;
                 }
-                reader.BaseStream.Seek(objBlock.NormalTop, SeekOrigin.Begin);
+                reader.BaseStream.Seek(_offset + objBlock.NormalTop, SeekOrigin.Begin);
                 for (var n = 0; n < objBlock.NNormal; n++)
                 {
                     var nx = TMDHelper.ConvertNormal(reader.ReadInt16());
@@ -149,11 +149,11 @@ namespace PSXPrev.Classes
 
                 var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
 
-                reader.BaseStream.Seek(objBlock.PrimitiveTop, SeekOrigin.Begin);
-                if (Program.IgnoreTmdVersion && objBlock.PrimitiveTop < _offset)
+                if (Program.IgnoreTmdVersion && (int)objBlock.PrimitiveTop < 0)
                 {
                     return null;
                 }
+                reader.BaseStream.Seek(_offset + objBlock.PrimitiveTop, SeekOrigin.Begin);
 
                 if (Program.Debug)
                 {
@@ -165,7 +165,7 @@ namespace PSXPrev.Classes
                     var ilen = reader.ReadByte();
                     var flag = reader.ReadByte();
                     var mode = reader.ReadByte();
-                    var offset = reader.BaseStream.Position;
+                    var primitivePosition = reader.BaseStream.Position;
                     var packetStructure = TMDHelper.CreateTMDPacketStructure(flag, mode, reader, p);
                     if (packetStructure != null)
                     {
@@ -215,12 +215,7 @@ namespace PSXPrev.Classes
                         }
 
                     }
-                    var newOffset = offset + ilen * 4;
-                    if (Program.IgnoreTmdVersion && newOffset < _offset)
-                    {
-                        return null;
-                    }
-                    reader.BaseStream.Seek(newOffset, SeekOrigin.Begin);
+                    reader.BaseStream.Seek(primitivePosition + ilen * 4, SeekOrigin.Begin);
                 }
 
                 foreach (var kvp in groupedTriangles)
@@ -251,6 +246,17 @@ namespace PSXPrev.Classes
                 return entity;
             }
             return null;
+        }
+
+        private class ObjBlock
+        {
+            public uint VertTop;
+            public uint NVert;
+            public uint NormalTop;
+            public uint NNormal;
+            public uint PrimitiveTop;
+            public uint NPrimitive;
+            public int Scale;
         }
     }
 }
