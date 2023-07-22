@@ -1363,11 +1363,7 @@ namespace PSXPrev
             }
             else
             {
-                toolStripProgressBar1.Minimum = 0;
-                toolStripProgressBar1.Maximum = max;
-                toolStripProgressBar1.Value = value;
-                toolStripProgressBar1.Enabled = !complete;
-                toolStripStatusLabel1.Text = message;
+                messageToolStripLabel.Text = message;
             }
         }
 
@@ -1618,8 +1614,7 @@ namespace PSXPrev
 
         private void ResizeToolStrip()
         {
-            toolStripStatusLabel1.Width = (int)(statusStrip1.Width * 0.35f);
-            toolStripProgressBar1.Width = (int)(statusStrip1.Width * 0.65f);
+            messageToolStripLabel.Width = (int)(statusStrip1.Width * 0.35f);
         }
 
         private void enableTransparencyToolStripMenuItem_Click(object sender, EventArgs e)
