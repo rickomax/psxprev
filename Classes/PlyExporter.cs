@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using OpenTK;
@@ -18,18 +19,18 @@ namespace PSXPrev.Classes
             for (var i = 0; i < entities.Length; i++)
             {
                 var entity = entities[i];
-                var writer = new StreamWriter(selectedPath + "/ply" + i + ".ply");
+                var writer = new StreamWriter($"{selectedPath}/ply{i}.ply");
                 writer.WriteLine("ply");
                 writer.WriteLine("format ascii 1.0");
                 var materialsDic = new Dictionary<int, int>();
                 var faceCount = 0;
                 var numMaterials = 0;
-                foreach (var entityBase in entity.ChildEntities)
+                foreach (ModelEntity model in entity.ChildEntities)
                 {
-                    var model = (ModelEntity)entityBase;
-                    faceCount += model.Triangles.Count();
+                    faceCount += model.Triangles.Length;
                     if (model.IsTextured)
                     {
+                        // todo: Handle untextured material index...
                         var texturePage = model.TexturePage;
                         if (!materialsDic.ContainsKey((int)texturePage))
                         {
@@ -64,46 +65,20 @@ namespace PSXPrev.Classes
                 writer.WriteLine("property uchar diffuse_blue");
                 writer.WriteLine("property float32 diffuse_coeff");
                 writer.WriteLine("end_header");
-                foreach (var entityBase in entity.ChildEntities)
+
+                foreach (ModelEntity model in entity.ChildEntities)
                 {
-                    var model = (ModelEntity)entityBase;
                     var materialIndex = materialsDic[(int) model.TexturePage];
-                    var triangles = model.Triangles;
                     var worldMatrix = model.WorldMatrix;
-                    foreach (var triangle in triangles)
+                    foreach (var triangle in model.Triangles)
                     {
-                        var vertex0 = Vector3.TransformPosition(triangle.Vertices[0], worldMatrix);
-                        var normal0 = Vector3.TransformNormal(triangle.Normals[0], worldMatrix);
-                        var uv0 = triangle.Uv[0];
-                        var color0 = triangle.Colors[0];
-                        writer.WriteLine("{0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11}",
-                            (-vertex0.X).ToString(GeomUtils.FloatFormat), (-vertex0.Y).ToString(GeomUtils.FloatFormat), (-vertex0.Z).ToString(GeomUtils.FloatFormat),
-                            (-normal0.X).ToString(GeomUtils.FloatFormat), (-normal0.Y).ToString(GeomUtils.FloatFormat), (-normal0.Z).ToString(GeomUtils.FloatFormat),
-                            uv0.X.ToString(GeomUtils.FloatFormat), (1f - uv0.Y).ToString(GeomUtils.FloatFormat),
-                            (color0.R * 255).ToString(GeomUtils.IntegerFormat), (color0.G * 255).ToString(GeomUtils.IntegerFormat), (color0.B * 255).ToString(GeomUtils.IntegerFormat),
-                            materialIndex);
-                        var vertex1 = Vector3.TransformPosition(triangle.Vertices[1], worldMatrix);
-                        var normal1 = Vector3.TransformNormal(triangle.Normals[1], worldMatrix);
-                        var uv1 = triangle.Uv[1];
-                        var color1 = triangle.Colors[1];
-                        writer.WriteLine("{0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11}",
-                            (-vertex1.X).ToString(GeomUtils.FloatFormat), (-vertex1.Y).ToString(GeomUtils.FloatFormat), (-vertex1.Z).ToString(GeomUtils.FloatFormat),
-                            (-normal1.X).ToString(GeomUtils.FloatFormat), (-normal1.Y).ToString(GeomUtils.FloatFormat), (-normal1.Z).ToString(GeomUtils.FloatFormat),
-                            uv1.X.ToString(GeomUtils.FloatFormat), (1f - uv1.Y).ToString(GeomUtils.FloatFormat),
-                            (color1.R * 255).ToString(GeomUtils.IntegerFormat), (color1.G * 255).ToString(GeomUtils.IntegerFormat), (color1.B * 255).ToString(GeomUtils.IntegerFormat),
-                            materialIndex
-                            );
-                        var vertex2 = Vector3.TransformPosition(triangle.Vertices[2], worldMatrix);
-                        var normal2 = Vector3.TransformNormal(triangle.Normals[2], worldMatrix);
-                        var uv2 = triangle.Uv[2];
-                        var color2 = triangle.Colors[2];
-                        writer.WriteLine("{0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11}",
-                            (-vertex2.X).ToString(GeomUtils.FloatFormat), (-vertex2.Y).ToString(GeomUtils.FloatFormat), (-vertex2.Z).ToString(GeomUtils.FloatFormat),
-                            (-normal2.X).ToString(GeomUtils.FloatFormat), (-normal2.Y).ToString(GeomUtils.FloatFormat), (-normal2.Z).ToString(GeomUtils.FloatFormat),
-                            uv2.X.ToString(GeomUtils.FloatFormat), (1f - uv2.Y).ToString(GeomUtils.FloatFormat),
-                            (color2.R * 255).ToString(GeomUtils.IntegerFormat), (color2.G * 255).ToString(GeomUtils.IntegerFormat), (color2.B * 255).ToString(GeomUtils.IntegerFormat),
-                            materialIndex
-                            );
+                        // todo: Handle untextured material index...
+                        for (var j = 0; j < 3; j++)
+                        {
+                            var vertex = Vector3.TransformPosition(triangle.Vertices[j], worldMatrix);
+                            var normal = Vector3.TransformNormal(triangle.Normals[j], worldMatrix);
+                            WriteVertex(writer, vertex, normal, triangle.Uv[j], triangle.Colors[j], materialIndex);
+                        }
                     }
                 }
                 for (var j = 0; j < faceCount; j++)
@@ -117,6 +92,26 @@ namespace PSXPrev.Classes
                 }
                 writer.Close();
             }
+        }
+
+        private void WriteVertex(StreamWriter writer, Vector3 vertex, Vector3 normal, Vector2 uv, Color color, int materialIndex)
+        {
+            writer.WriteLine("{0} {1} {2} {3} {4} {5} {6} {7} {8} {9} {10} {11}",
+                            F(-vertex.X), F(-vertex.Y), F(-vertex.Z),
+                            F(-normal.X), F(-normal.Y), F(-normal.Z),
+                            F(uv.X), F(1f - uv.Y),
+                            I(color.R * 255), I(color.G * 255), I(color.B * 255),
+                            materialIndex);
+        }
+
+        private static string F(float value)
+        {
+            return value.ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture);
+        }
+
+        private static string I(float value)
+        {
+            return value.ToString(GeomUtils.IntegerFormat, CultureInfo.InvariantCulture);
         }
     }
 }
