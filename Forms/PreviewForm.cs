@@ -54,6 +54,7 @@ namespace PSXPrev
         private Bitmap _ambientColorBitmap;
         private Bitmap _backgroundColorBitmap;
         private float _texturePreviewScale = 1f;
+        private float _vramPageScale = 1f;
         private bool _autoDrawModelTextures;
         private bool _autoSelectAnimationModel;
         private bool _autoPlayAnimations;
@@ -288,6 +289,7 @@ namespace PSXPrev
         private void SetupControls()
         {
             _openTkControl = new GLControl { BackColor = Color.Black, Name = "openTKControl", TabIndex = 15, VSync = true };
+            _openTkControl.BorderStyle = BorderStyle.FixedSingle;
             _openTkControl.Load += openTKControl_Load;
             _openTkControl.MouseDown += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Down); };
             _openTkControl.MouseUp += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Up); };
@@ -298,12 +300,31 @@ namespace PSXPrev
             _openTkControl.Dock = DockStyle.Fill;
             _openTkControl.Parent = modelsSplitContainer.Panel2;
             texturePanel.MouseWheel += TexturePanelOnMouseWheel;
+            vramPanel.MouseWheel += VramPanelOnMouseWheel;
             UpdateLightDirection();
             ResizeToolStrip();
         }
 
+        private void VramPanelOnMouseWheel(object sender, MouseEventArgs e)
+        {
+            ((HandledMouseEventArgs)e).Handled = true;
+            if (e.Delta > 0)
+            {
+                _vramPageScale *= 2f;
+            }
+            else
+            {
+                _vramPageScale /= 2f;
+            }
+            _vramPageScale = Math.Max(0.25f, Math.Min(8.0f, _vramPageScale));
+            vramPagePictureBox.Width = (int)(VRAMPages.PageSize * _vramPageScale);
+            vramPagePictureBox.Height = (int)(VRAMPages.PageSize * _vramPageScale);
+            vramZoomLabel.Text = string.Format("{0:P0}", _vramPageScale);
+        }
+
         private void TexturePanelOnMouseWheel(object sender, MouseEventArgs e)
         {
+            ((HandledMouseEventArgs)e).Handled = true;
             if (e.Delta > 0)
             {
                 _texturePreviewScale *= 2f;
@@ -320,7 +341,7 @@ namespace PSXPrev
             }
             texturePreviewPictureBox.Width = (int)(texture.Width * _texturePreviewScale);
             texturePreviewPictureBox.Height = (int)(texture.Height * _texturePreviewScale);
-            zoomLabel.Text = string.Format("{0:P0}", _texturePreviewScale);
+            texturesZoomLabel.Text = string.Format("{0:P0}", _texturePreviewScale);
         }
 
         private void _openTkControl_Resize(object sender, EventArgs e)
@@ -911,64 +932,17 @@ namespace PSXPrev
             for (var i = 0; i < _vram.Count; i++)
             {
                 var used = _vram.IsPageUsed(i);
-                vramComboBox.Items[i] = $"{i}" + (used ? " (drawn to)" : string.Empty);
-            }
-        }
-
-        private void UpdateVRAMComboBoxTypedPage(bool changeSelection)
-        {
-            // Allow typing into the combo box to change the page.
-            var text = vramComboBox.Text;
-            if (vramComboBox.SelectedIndex <= -1 && !string.IsNullOrWhiteSpace(text))
-            {
-                // Stop parsing after the end of digits. This is so we can start typing based off
-                // the real combo box text (which may have non-numeric text after the number).
-                for (var i = 0; i < text.Length; i++)
-                {
-                    if (!char.IsDigit(text[i]))
-                    {
-                        text = text.Substring(0, i);
-                        break;
-                    }
-                }
-                if (int.TryParse(text, out var index) && _vram.ContainsPage(index))
-                {
-                    _vramSelectedPage = index;
-                    vramPagePictureBox.Image = _vram[index].Bitmap;
-                    if (changeSelection)
-                    {
-                        vramComboBox.SelectedIndex = index;
-                    }
-                }
+                vramListBox.Items[i] = $"{i}" + (used ? " (drawn to)" : string.Empty);
             }
         }
 
         private void vramComboBox_SelectedIndexChanged(object sender, EventArgs e)
         {
-            var index = vramComboBox.SelectedIndex;
+            var index = vramListBox.SelectedIndex;
             if (index > -1)
             {
                 _vramSelectedPage = index;
                 vramPagePictureBox.Image = _vram[index].Bitmap;
-            }
-        }
-
-        private void vramComboBox_TextChanged(object sender, EventArgs e)
-        {
-            UpdateVRAMComboBoxTypedPage(false); // Don't update combo box selected index while typing.
-        }
-
-        private void vramComboBox_Leave(object sender, EventArgs e)
-        {
-            UpdateVRAMComboBoxTypedPage(true); // Update combo box selected index when focus is lost.
-        }
-
-        private void vramComboBox_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.Enter)
-            {
-                UpdateVRAMComboBoxTypedPage(true); // Update combo box selected index when enter is pressed.
-                e.Handled = true;
             }
         }
 
@@ -1031,11 +1005,11 @@ namespace PSXPrev
             var index = _vramSelectedPage;
             if (index <= -1)
             {
-                MessageBox.Show("Select a page first");
+                MessageBox.Show("Select a page first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             ClearPage(index);
-            MessageBox.Show("Page cleared");
+            MessageBox.Show("Page cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void ClearPage(int index)
@@ -1055,7 +1029,8 @@ namespace PSXPrev
             }
 
             // Use BeginInvoke so that dialog doesn't show up behind menu items...
-            BeginInvoke((Action)(() => {
+            BeginInvoke((Action)(() =>
+            {
                 if (OutputFolderSelect(out var path))
                 {
                     if (e.ClickedItem == miOBJ)
@@ -1085,15 +1060,10 @@ namespace PSXPrev
 
         private void findByPageToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var pageIndexString = Utils.ShowDialog("Find by Page", "Type the page number");
-            int pageIndex;
-            if (string.IsNullOrEmpty(pageIndexString))
+            var pageIndexString = Utils.ShowDialog("Find by Page", "Please type in the VRAM Page index (0-31)");
+            if (!int.TryParse(pageIndexString, out var pageIndex))
             {
-                return;
-            }
-            if (!int.TryParse(pageIndexString, out pageIndex))
-            {
-                MessageBox.Show("Invalid page number");
+                MessageBox.Show("Please type in a valid VRAM Page index between 0 and 31", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             var found = 0;
@@ -1109,7 +1079,7 @@ namespace PSXPrev
                 item.Group = texturesListView.Groups[0];
                 found++;
             }
-            MessageBox.Show(found > 0 ? $"Found {found} items" : "Nothing found");
+            MessageBox.Show(found > 0 ? $"Found {found} items" : "Nothing found", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void texturesListView_SelectedIndexChanged(object sender, EventArgs e)
@@ -1138,13 +1108,13 @@ namespace PSXPrev
             for (var i = 0; i < uvs.Length; i++)
             {
                 var i2 = (i + 1) % uvs.Length;
-                graphics.DrawLine(pen, uvs[i].X * 255f, uvs[i].Y * 255f, uvs[i2].X * 255f, uvs[i2].Y * 255f);
+                graphics.DrawLine(pen, uvs[i].X * 255f * _vramPageScale, uvs[i].Y * 255f * _vramPageScale, uvs[i2].X * 255f * _vramPageScale, uvs[i2].Y * 255f * _vramPageScale);
             }
         }
 
         private void DrawTiledUVRectangle(Graphics graphics, Pen pen, TiledUV tiledUv)
         {
-            graphics.DrawRectangle(pen, tiledUv.X * 255f, tiledUv.Y * 255f, tiledUv.Width * 255f, tiledUv.Height * 255f);
+            graphics.DrawRectangle(pen, tiledUv.X * 255f * _vramPageScale, tiledUv.Y * 255f * _vramPageScale, tiledUv.Width * 255f * _vramPageScale, tiledUv.Height * 255f * _vramPageScale);
         }
 
         private void DrawUV(EntityBase entity, Graphics graphics)
@@ -1212,7 +1182,7 @@ namespace PSXPrev
         {
             _vram.ClearAllPages();
             UpdateVRAMComboBoxPageItems();
-            MessageBox.Show("Pages cleared");
+            MessageBox.Show("Pages cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void openTKControl_Load(object sender, EventArgs e)
@@ -1373,6 +1343,10 @@ namespace PSXPrev
 
         public void UpdateProgress(int value, int max, bool complete, string message)
         {
+            if (IsDisposed)
+            {
+                return;
+            }
             if (InvokeRequired)
             {
                 var invokeAction = new Action<int, int, bool, string>(UpdateProgress);
@@ -1403,6 +1377,19 @@ namespace PSXPrev
 
         private void vramPagePictureBox_Paint(object sender, PaintEventArgs e)
         {
+            if (vramPagePictureBox.Image == null)
+            {
+                return;
+            }
+            e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+            e.Graphics.DrawImage(
+                vramPagePictureBox.Image,
+                new Rectangle(0, 0, vramPagePictureBox.Width, vramPagePictureBox.Height),
+                0,
+                0,
+                VRAMPages.PageSize,
+                VRAMPages.PageSize,
+                GraphicsUnit.Pixel);
             if (!_showUv)
             {
                 return;
@@ -1654,9 +1641,9 @@ namespace PSXPrev
                 texturePreviewPictureBox.Image,
                 new Rectangle(0, 0, texturePreviewPictureBox.Width, texturePreviewPictureBox.Height),
                 0,
-                0, 
-                texturePreviewPictureBox.Image.Width,  
-                texturePreviewPictureBox.Image.Height, 
+                0,
+                texturePreviewPictureBox.Image.Width,
+                texturePreviewPictureBox.Image.Height,
                 GraphicsUnit.Pixel);
         }
 
@@ -1746,6 +1733,20 @@ namespace PSXPrev
                         break;
 #endif
                 }
+            }
+        }
+
+        private void gotoPageButton_Click(object sender, EventArgs e)
+        {
+            var pageIndexString = Utils.ShowDialog("Go to VRAM Page", "Please type in the VRAM Page index (0-31)");
+            if (int.TryParse(pageIndexString, out var pageIndex) && pageIndex >= 0 && pageIndex <= 31)
+            {
+                _vramSelectedPage = pageIndex;
+                vramListBox.SelectedIndex = pageIndex;
+            }
+            else
+            {
+                MessageBox.Show("Please type in a valid VRAM Page index between 0 and 31", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
     }
