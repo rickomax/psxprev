@@ -83,12 +83,12 @@ namespace PSXPrev
                     _playing = value;
                     if (_playing)
                     {
-                        animationPlayButton.Text = "Stop Animation";
+                        animationPlayButtonx.Text = "Stop Animation";
                         _animateTimer.Start();
                     }
                     else
                     {
-                        animationPlayButton.Text = "Play Animation";
+                        animationPlayButtonx.Text = "Play Animation";
                         _animateTimer.Stop();
 
                         // Make sure we restart the animation if it was finished.
@@ -98,7 +98,7 @@ namespace PSXPrev
                         }
                     }
                     // Refresh to make sure the button text updates quickly.
-                    animationPlayButton.Refresh();
+                    animationPlayButtonx.Refresh();
                 }
             }
         }
@@ -463,8 +463,10 @@ namespace PSXPrev
 
         private void UpdateAnimationProgressLabel()
         {
-            animationFrameLabel.Text = $"{(uint)_scene.AnimationBatch.CurrentFrameTime}/{(uint)_scene.AnimationBatch.FrameCount}";
-            animationFrameLabel.Refresh();
+            animationFrameTrackBar.Maximum = (int)_scene.AnimationBatch.FrameCount;
+            animationFrameTrackBar.Value = (int)_scene.AnimationBatch.CurrentFrameTime;
+            animationProgressLabel.Text = $"{animationFrameTrackBar.Value}/{animationFrameTrackBar.Maximum}";
+            animationFrameTrackBar.Refresh();
         }
 
         private void _redrawTimer_Elapsed(object sender, ElapsedEventArgs e)
@@ -880,7 +882,7 @@ namespace PSXPrev
             }
 
             // Change Playing after Enabled, so that the call to Refresh in Playing will affect the enabled visual style too.
-            animationPlayButton.Enabled = (_curAnimation != null);
+            animationPlayButtonx.Enabled = (_curAnimation != null);
             Playing = play;
 
             animationPropertyGrid.SelectedObject = propertyObject;
@@ -892,7 +894,7 @@ namespace PSXPrev
 
         private void UpdateAnimationTimerSpeed()
         {
-            _animateTimer.Interval = 1f / 60f * (animationSpeedTrackbar.Value / 100f);
+            _animateTimer.Interval = 1f / 60f * (double)(animationSpeedNumericUpDown.Value);
         }
 
         private Texture GetSelectedTexture(int? index = null)
@@ -1260,25 +1262,31 @@ namespace PSXPrev
             switch (menusTabControl.SelectedTab.TabIndex)
             {
                 case 0: // Models
-                    animationsTreeView.SelectedNode = null;
-                    _openTkControl.Parent = modelsSplitContainer.Panel2;
-                    _openTkControl.Show();
-                    break;
-                case 1: // Textures
-                    break;
+                    {
+                        animationsTreeView.SelectedNode = null;
+                        _openTkControl.Parent = modelsSplitContainer.Panel2;
+                        _openTkControl.Show();
+                        break;
+                    }
                 case 2: // VRAM
-                    UpdateVRAMComboBoxPageItems();
-                    break;
+                    {
+                        UpdateVRAMComboBoxPageItems();
+                        break;
+                    }
                 case 3: // Animations
-                    _inAnimationTab = true;
-                    _openTkControl.Parent = animationsSplitContainer.Panel2;
-                    _openTkControl.Show();
-                    UpdateSelectedAnimation();
-                    break;
+                    {
+                        _inAnimationTab = true;
+                        animationsTableLayoutPanel.Controls.Add(_openTkControl, 0, 0);
+                        _openTkControl.Show();
+                        UpdateSelectedAnimation();
+                        break;
+                    }
                 default:
-                    _openTkControl.Parent = null;
-                    _openTkControl.Hide();
-                    break;
+                    {
+                        _openTkControl.Parent = null;
+                        _openTkControl.Hide();
+                        break;
+                    }
             }
         }
 
@@ -1434,12 +1442,7 @@ namespace PSXPrev
         {
             _scene.ShowSkeleton = showSkeletonToolStripMenuItem.Checked;
         }
-
-        private void animationSpeedTrackbar_Scroll(object sender, EventArgs e)
-        {
-            UpdateAnimationTimerSpeed();
-        }
-
+        
         private void lightRoll_Scroll(object sender, EventArgs e)
         {
             UpdateLightDirection();
@@ -1748,6 +1751,11 @@ namespace PSXPrev
             {
                 MessageBox.Show("Please type in a valid VRAM Page index between 0 and 31", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+        }
+
+        private void animationSpeedNumericUpDown_ValueChanged(object sender, EventArgs e)
+        {
+            UpdateAnimationTimerSpeed();
         }
     }
 }

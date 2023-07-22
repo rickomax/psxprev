@@ -57,6 +57,8 @@ namespace PSXPrev
             this.splitContainer4 = new System.Windows.Forms.SplitContainer();
             this.splitContainer7 = new System.Windows.Forms.SplitContainer();
             this.vramListBox = new System.Windows.Forms.ListBox();
+            this.tableLayoutPanel3 = new System.Windows.Forms.TableLayoutPanel();
+            this.gotoPageButton = new System.Windows.Forms.Button();
             this.btnClearPage = new System.Windows.Forms.Button();
             this.vramZoomLabel = new System.Windows.Forms.Label();
             this.vramPanel = new System.Windows.Forms.Panel();
@@ -66,9 +68,13 @@ namespace PSXPrev
             this.splitContainer5 = new System.Windows.Forms.SplitContainer();
             this.animationsTreeView = new System.Windows.Forms.TreeView();
             this.animationPropertyGrid = new System.Windows.Forms.PropertyGrid();
+            this.animationsTableLayoutPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.animationGroupBox = new System.Windows.Forms.GroupBox();
+            this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
+            this.label6 = new System.Windows.Forms.Label();
             this.label3 = new System.Windows.Forms.Label();
-            this.animationSpeedTrackbar = new System.Windows.Forms.TrackBar();
-            this.animationPlayButton = new System.Windows.Forms.Button();
+            this.animationPlayButtonx = new System.Windows.Forms.Button();
+            this.animationSpeedNumericUpDown = new System.Windows.Forms.NumericUpDown();
             this.cmsModelExport = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.miOBJ = new System.Windows.Forms.ToolStripMenuItem();
             this.miOBJVC = new System.Windows.Forms.ToolStripMenuItem();
@@ -134,18 +140,15 @@ namespace PSXPrev
             this.lightRollNumericUpDown = new System.Windows.Forms.NumericUpDown();
             this.lightIntensityNumericUpDown = new System.Windows.Forms.NumericUpDown();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
-            this.groupBox2 = new System.Windows.Forms.GroupBox();
-            this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
-            this.label6 = new System.Windows.Forms.Label();
-            this.animationFrameLabel = new System.Windows.Forms.Label();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
             this.label5 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
             this.vertexSizeUpDown = new System.Windows.Forms.NumericUpDown();
-            this.tableLayoutPanel3 = new System.Windows.Forms.TableLayoutPanel();
-            this.gotoPageButton = new System.Windows.Forms.Button();
+            this.animationFrameTrackBar = new System.Windows.Forms.TrackBar();
+            this.tableLayoutPanel6 = new System.Windows.Forms.TableLayoutPanel();
+            this.animationProgressLabel = new System.Windows.Forms.Label();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -177,17 +180,22 @@ namespace PSXPrev
             this.splitContainer7.Panel1.SuspendLayout();
             this.splitContainer7.Panel2.SuspendLayout();
             this.splitContainer7.SuspendLayout();
+            this.tableLayoutPanel3.SuspendLayout();
             this.vramPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.vramPagePictureBox)).BeginInit();
             this.animationsTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.animationsSplitContainer)).BeginInit();
             this.animationsSplitContainer.Panel1.SuspendLayout();
+            this.animationsSplitContainer.Panel2.SuspendLayout();
             this.animationsSplitContainer.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer5)).BeginInit();
             this.splitContainer5.Panel1.SuspendLayout();
             this.splitContainer5.Panel2.SuspendLayout();
             this.splitContainer5.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.animationSpeedTrackbar)).BeginInit();
+            this.animationsTableLayoutPanel.SuspendLayout();
+            this.animationGroupBox.SuspendLayout();
+            this.tableLayoutPanel2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.animationSpeedNumericUpDown)).BeginInit();
             this.cmsModelExport.SuspendLayout();
             this.mainMenuStrip.SuspendLayout();
             this.cmsResetTransform.SuspendLayout();
@@ -201,13 +209,12 @@ namespace PSXPrev
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
-            this.groupBox2.SuspendLayout();
-            this.tableLayoutPanel2.SuspendLayout();
             this.groupBox1.SuspendLayout();
             this.tableLayoutPanel1.SuspendLayout();
             this.flowLayoutPanel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).BeginInit();
-            this.tableLayoutPanel3.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.animationFrameTrackBar)).BeginInit();
+            this.tableLayoutPanel6.SuspendLayout();
             this.SuspendLayout();
             // 
             // entitiesTabPage
@@ -571,6 +578,34 @@ namespace PSXPrev
             this.vramListBox.TabIndex = 0;
             this.vramListBox.SelectedIndexChanged += new System.EventHandler(this.vramComboBox_SelectedIndexChanged);
             // 
+            // tableLayoutPanel3
+            // 
+            this.tableLayoutPanel3.ColumnCount = 1;
+            this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel3.Controls.Add(this.gotoPageButton, 0, 0);
+            this.tableLayoutPanel3.Controls.Add(this.btnClearPage, 0, 1);
+            this.tableLayoutPanel3.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tableLayoutPanel3.Location = new System.Drawing.Point(0, 0);
+            this.tableLayoutPanel3.Margin = new System.Windows.Forms.Padding(0);
+            this.tableLayoutPanel3.Name = "tableLayoutPanel3";
+            this.tableLayoutPanel3.RowCount = 2;
+            this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tableLayoutPanel3.Size = new System.Drawing.Size(251, 441);
+            this.tableLayoutPanel3.TabIndex = 13;
+            // 
+            // gotoPageButton
+            // 
+            this.gotoPageButton.Dock = System.Windows.Forms.DockStyle.Top;
+            this.gotoPageButton.Location = new System.Drawing.Point(0, 0);
+            this.gotoPageButton.Margin = new System.Windows.Forms.Padding(0, 0, 0, 3);
+            this.gotoPageButton.Name = "gotoPageButton";
+            this.gotoPageButton.Size = new System.Drawing.Size(251, 34);
+            this.gotoPageButton.TabIndex = 13;
+            this.gotoPageButton.Text = "Go to Page";
+            this.gotoPageButton.UseVisualStyleBackColor = true;
+            this.gotoPageButton.Click += new System.EventHandler(this.gotoPageButton_Click);
+            // 
             // btnClearPage
             // 
             this.btnClearPage.Dock = System.Windows.Forms.DockStyle.Top;
@@ -639,6 +674,10 @@ namespace PSXPrev
             // animationsSplitContainer.Panel1
             // 
             this.animationsSplitContainer.Panel1.Controls.Add(this.splitContainer5);
+            // 
+            // animationsSplitContainer.Panel2
+            // 
+            this.animationsSplitContainer.Panel2.Controls.Add(this.animationsTableLayoutPanel);
             this.animationsSplitContainer.Size = new System.Drawing.Size(754, 593);
             this.animationsSplitContainer.SplitterDistance = 251;
             this.animationsSplitContainer.TabIndex = 16;
@@ -684,41 +723,112 @@ namespace PSXPrev
             this.animationPropertyGrid.ToolbarVisible = false;
             this.animationPropertyGrid.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.animationPropertyGrid_PropertyValueChanged);
             // 
+            // animationsTableLayoutPanel
+            // 
+            this.animationsTableLayoutPanel.ColumnCount = 1;
+            this.animationsTableLayoutPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.animationsTableLayoutPanel.Controls.Add(this.animationGroupBox, 0, 1);
+            this.animationsTableLayoutPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.animationsTableLayoutPanel.Location = new System.Drawing.Point(0, 0);
+            this.animationsTableLayoutPanel.Name = "animationsTableLayoutPanel";
+            this.animationsTableLayoutPanel.RowCount = 2;
+            this.animationsTableLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.animationsTableLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.animationsTableLayoutPanel.Size = new System.Drawing.Size(499, 593);
+            this.animationsTableLayoutPanel.TabIndex = 3;
+            // 
+            // animationGroupBox
+            // 
+            this.animationGroupBox.AutoSize = true;
+            this.animationGroupBox.Controls.Add(this.tableLayoutPanel2);
+            this.animationGroupBox.Controls.Add(this.animationPlayButtonx);
+            this.animationGroupBox.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.animationGroupBox.Location = new System.Drawing.Point(3, 466);
+            this.animationGroupBox.Name = "animationGroupBox";
+            this.animationGroupBox.Size = new System.Drawing.Size(493, 124);
+            this.animationGroupBox.TabIndex = 1;
+            this.animationGroupBox.TabStop = false;
+            this.animationGroupBox.Text = "Animation";
+            // 
+            // tableLayoutPanel2
+            // 
+            this.tableLayoutPanel2.AutoSize = true;
+            this.tableLayoutPanel2.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.tableLayoutPanel2.ColumnCount = 2;
+            this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel2.Controls.Add(this.label6, 0, 1);
+            this.tableLayoutPanel2.Controls.Add(this.animationSpeedNumericUpDown, 1, 0);
+            this.tableLayoutPanel2.Controls.Add(this.label3, 0, 0);
+            this.tableLayoutPanel2.Controls.Add(this.tableLayoutPanel6, 1, 1);
+            this.tableLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Top;
+            this.tableLayoutPanel2.Location = new System.Drawing.Point(3, 16);
+            this.tableLayoutPanel2.Name = "tableLayoutPanel2";
+            this.tableLayoutPanel2.RowCount = 2;
+            this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 45F));
+            this.tableLayoutPanel2.Size = new System.Drawing.Size(487, 71);
+            this.tableLayoutPanel2.TabIndex = 22;
+            // 
+            // label6
+            // 
+            this.label6.AutoSize = true;
+            this.label6.Dock = System.Windows.Forms.DockStyle.Left;
+            this.label6.Location = new System.Drawing.Point(3, 26);
+            this.label6.Name = "label6";
+            this.label6.Padding = new System.Windows.Forms.Padding(0, 0, 0, 24);
+            this.label6.Size = new System.Drawing.Size(51, 45);
+            this.label6.TabIndex = 23;
+            this.label6.Text = "Progress:";
+            this.label6.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
             // label3
             // 
-            this.label3.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.label3.AutoSize = true;
+            this.label3.Dock = System.Windows.Forms.DockStyle.Left;
             this.label3.Location = new System.Drawing.Point(3, 0);
             this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(109, 26);
+            this.label3.Size = new System.Drawing.Size(41, 26);
             this.label3.TabIndex = 21;
             this.label3.Text = "Speed:";
             this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // animationSpeedTrackbar
+            // animationPlayButtonx
             // 
-            this.animationSpeedTrackbar.AutoSize = false;
-            this.animationSpeedTrackbar.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.animationSpeedTrackbar.Location = new System.Drawing.Point(118, 3);
-            this.animationSpeedTrackbar.Maximum = 1000;
-            this.animationSpeedTrackbar.Minimum = 10;
-            this.animationSpeedTrackbar.Name = "animationSpeedTrackbar";
-            this.animationSpeedTrackbar.Size = new System.Drawing.Size(109, 20);
-            this.animationSpeedTrackbar.TabIndex = 17;
-            this.animationSpeedTrackbar.TickStyle = System.Windows.Forms.TickStyle.None;
-            this.animationSpeedTrackbar.Value = 100;
-            this.animationSpeedTrackbar.Scroll += new System.EventHandler(this.animationSpeedTrackbar_Scroll);
+            this.animationPlayButtonx.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.animationPlayButtonx.Enabled = false;
+            this.animationPlayButtonx.Location = new System.Drawing.Point(3, 87);
+            this.animationPlayButtonx.Name = "animationPlayButtonx";
+            this.animationPlayButtonx.Size = new System.Drawing.Size(487, 34);
+            this.animationPlayButtonx.TabIndex = 16;
+            this.animationPlayButtonx.Text = "Play Animation";
+            this.animationPlayButtonx.UseVisualStyleBackColor = true;
+            this.animationPlayButtonx.Click += new System.EventHandler(this.animationPlayButton_Click);
             // 
-            // animationPlayButton
+            // animationSpeedNumericUpDown
             // 
-            this.animationPlayButton.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.animationPlayButton.Enabled = false;
-            this.animationPlayButton.Location = new System.Drawing.Point(3, 71);
-            this.animationPlayButton.Name = "animationPlayButton";
-            this.animationPlayButton.Size = new System.Drawing.Size(230, 34);
-            this.animationPlayButton.TabIndex = 16;
-            this.animationPlayButton.Text = "Play Animation";
-            this.animationPlayButton.UseVisualStyleBackColor = true;
-            this.animationPlayButton.Click += new System.EventHandler(this.animationPlayButton_Click);
+            this.animationSpeedNumericUpDown.DecimalPlaces = 2;
+            this.animationSpeedNumericUpDown.Increment = new decimal(new int[] {
+            1,
+            0,
+            0,
+            65536});
+            this.animationSpeedNumericUpDown.Location = new System.Drawing.Point(69, 3);
+            this.animationSpeedNumericUpDown.Margin = new System.Windows.Forms.Padding(12, 3, 3, 3);
+            this.animationSpeedNumericUpDown.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            131072});
+            this.animationSpeedNumericUpDown.Name = "animationSpeedNumericUpDown";
+            this.animationSpeedNumericUpDown.Size = new System.Drawing.Size(120, 20);
+            this.animationSpeedNumericUpDown.TabIndex = 2;
+            this.animationSpeedNumericUpDown.Value = new decimal(new int[] {
+            10,
+            0,
+            0,
+            65536});
+            this.animationSpeedNumericUpDown.ValueChanged += new System.EventHandler(this.animationSpeedNumericUpDown_ValueChanged);
             // 
             // cmsModelExport
             // 
@@ -994,59 +1104,59 @@ namespace PSXPrev
             // exportSelectedToolStripMenuItem1
             // 
             this.exportSelectedToolStripMenuItem1.Name = "exportSelectedToolStripMenuItem1";
-            this.exportSelectedToolStripMenuItem1.Size = new System.Drawing.Size(180, 22);
+            this.exportSelectedToolStripMenuItem1.Size = new System.Drawing.Size(176, 22);
             this.exportSelectedToolStripMenuItem1.Text = "Export Selected";
             this.exportSelectedToolStripMenuItem1.Click += new System.EventHandler(this.exportBitmapButton_Click);
             // 
             // toolStripSeparator3
             // 
             this.toolStripSeparator3.Name = "toolStripSeparator3";
-            this.toolStripSeparator3.Size = new System.Drawing.Size(177, 6);
+            this.toolStripSeparator3.Size = new System.Drawing.Size(173, 6);
             // 
             // drawToVRAMToolStripMenuItem
             // 
             this.drawToVRAMToolStripMenuItem.Name = "drawToVRAMToolStripMenuItem";
-            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
             this.drawToVRAMToolStripMenuItem.Text = "Draw to VRAM";
             this.drawToVRAMToolStripMenuItem.Click += new System.EventHandler(this.drawToVRAMButton_Click);
             // 
             // findByPageToolStripMenuItem
             // 
             this.findByPageToolStripMenuItem.Name = "findByPageToolStripMenuItem";
-            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
             this.findByPageToolStripMenuItem.Text = "Find by Page";
             this.findByPageToolStripMenuItem.Click += new System.EventHandler(this.findByPageToolStripMenuItem_Click);
             // 
             // clearSearchToolStripMenuItem
             // 
             this.clearSearchToolStripMenuItem.Name = "clearSearchToolStripMenuItem";
-            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
             this.clearSearchToolStripMenuItem.Text = "Clear Results";
             this.clearSearchToolStripMenuItem.Click += new System.EventHandler(this.clearSearchToolStripMenuItem_Click);
             // 
             // toolStripSeparator1
             // 
             this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(177, 6);
+            this.toolStripSeparator1.Size = new System.Drawing.Size(173, 6);
             // 
             // autoDrawModelTexturesToolStripMenuItem
             // 
             this.autoDrawModelTexturesToolStripMenuItem.CheckOnClick = true;
             this.autoDrawModelTexturesToolStripMenuItem.Name = "autoDrawModelTexturesToolStripMenuItem";
-            this.autoDrawModelTexturesToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.autoDrawModelTexturesToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
             this.autoDrawModelTexturesToolStripMenuItem.Text = "Auto Draw Textures";
             this.autoDrawModelTexturesToolStripMenuItem.Click += new System.EventHandler(this.autoDrawModelTexturesToolStripMenuItem_Click);
             // 
             // toolStripSeparator6
             // 
             this.toolStripSeparator6.Name = "toolStripSeparator6";
-            this.toolStripSeparator6.Size = new System.Drawing.Size(177, 6);
+            this.toolStripSeparator6.Size = new System.Drawing.Size(173, 6);
             // 
             // setMaskColorToolStripMenuItem
             // 
             this.setMaskColorToolStripMenuItem.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.setMaskColorToolStripMenuItem.Name = "setMaskColorToolStripMenuItem";
-            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
             this.setMaskColorToolStripMenuItem.Text = "Set Mask Color";
             this.setMaskColorToolStripMenuItem.Click += new System.EventHandler(this.setMaskColorToolStripMenuItem_Click);
             // 
@@ -1064,21 +1174,21 @@ namespace PSXPrev
             // clearPageToolStripMenuItem
             // 
             this.clearPageToolStripMenuItem.Name = "clearPageToolStripMenuItem";
-            this.clearPageToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.clearPageToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.clearPageToolStripMenuItem.Text = "Clear Page";
             this.clearPageToolStripMenuItem.Click += new System.EventHandler(this.btnClearPage_Click);
             // 
             // clearAllPagesToolStripMenuItem
             // 
             this.clearAllPagesToolStripMenuItem.Name = "clearAllPagesToolStripMenuItem";
-            this.clearAllPagesToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.clearAllPagesToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.clearAllPagesToolStripMenuItem.Text = "Clear All Pages";
             this.clearAllPagesToolStripMenuItem.Click += new System.EventHandler(this.clearAllPagesToolStripMenuItem_Click);
             // 
             // toolStripSeparator4
             // 
             this.toolStripSeparator4.Name = "toolStripSeparator4";
-            this.toolStripSeparator4.Size = new System.Drawing.Size(177, 6);
+            this.toolStripSeparator4.Size = new System.Drawing.Size(149, 6);
             // 
             // showUVToolStripMenuItem
             // 
@@ -1086,7 +1196,7 @@ namespace PSXPrev
             this.showUVToolStripMenuItem.CheckOnClick = true;
             this.showUVToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.showUVToolStripMenuItem.Name = "showUVToolStripMenuItem";
-            this.showUVToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.showUVToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.showUVToolStripMenuItem.Text = "Show UV";
             this.showUVToolStripMenuItem.Click += new System.EventHandler(this.showUVToolStripMenuItem_Click);
             // 
@@ -1299,63 +1409,10 @@ namespace PSXPrev
             // 
             // splitContainer1.Panel2
             // 
-            this.splitContainer1.Panel2.Controls.Add(this.groupBox2);
             this.splitContainer1.Panel2.Controls.Add(this.groupBox1);
             this.splitContainer1.Size = new System.Drawing.Size(1008, 625);
             this.splitContainer1.SplitterDistance = 768;
             this.splitContainer1.TabIndex = 20;
-            // 
-            // groupBox2
-            // 
-            this.groupBox2.AutoSize = true;
-            this.groupBox2.Controls.Add(this.tableLayoutPanel2);
-            this.groupBox2.Controls.Add(this.animationPlayButton);
-            this.groupBox2.Dock = System.Windows.Forms.DockStyle.Top;
-            this.groupBox2.Location = new System.Drawing.Point(0, 123);
-            this.groupBox2.Name = "groupBox2";
-            this.groupBox2.Size = new System.Drawing.Size(236, 108);
-            this.groupBox2.TabIndex = 1;
-            this.groupBox2.TabStop = false;
-            this.groupBox2.Text = "Animation";
-            // 
-            // tableLayoutPanel2
-            // 
-            this.tableLayoutPanel2.AutoSize = true;
-            this.tableLayoutPanel2.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.tableLayoutPanel2.ColumnCount = 2;
-            this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tableLayoutPanel2.Controls.Add(this.label6, 0, 1);
-            this.tableLayoutPanel2.Controls.Add(this.animationFrameLabel, 0, 1);
-            this.tableLayoutPanel2.Controls.Add(this.label3, 0, 0);
-            this.tableLayoutPanel2.Controls.Add(this.animationSpeedTrackbar, 1, 0);
-            this.tableLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Top;
-            this.tableLayoutPanel2.Location = new System.Drawing.Point(3, 16);
-            this.tableLayoutPanel2.Name = "tableLayoutPanel2";
-            this.tableLayoutPanel2.RowCount = 2;
-            this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel2.Size = new System.Drawing.Size(230, 55);
-            this.tableLayoutPanel2.TabIndex = 22;
-            // 
-            // label6
-            // 
-            this.label6.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.label6.Location = new System.Drawing.Point(3, 26);
-            this.label6.Name = "label6";
-            this.label6.Size = new System.Drawing.Size(109, 29);
-            this.label6.TabIndex = 23;
-            this.label6.Text = "Progress:";
-            this.label6.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // animationFrameLabel
-            // 
-            this.animationFrameLabel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.animationFrameLabel.Location = new System.Drawing.Point(118, 26);
-            this.animationFrameLabel.Name = "animationFrameLabel";
-            this.animationFrameLabel.Size = new System.Drawing.Size(109, 29);
-            this.animationFrameLabel.TabIndex = 22;
-            this.animationFrameLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // groupBox1
             // 
@@ -1447,33 +1504,43 @@ namespace PSXPrev
             0});
             this.vertexSizeUpDown.ValueChanged += new System.EventHandler(this.vertexSizeUpDown_ValueChanged);
             // 
-            // tableLayoutPanel3
+            // animationFrameTrackBar
             // 
-            this.tableLayoutPanel3.ColumnCount = 1;
-            this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel3.Controls.Add(this.gotoPageButton, 0, 0);
-            this.tableLayoutPanel3.Controls.Add(this.btnClearPage, 0, 1);
-            this.tableLayoutPanel3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tableLayoutPanel3.Location = new System.Drawing.Point(0, 0);
-            this.tableLayoutPanel3.Margin = new System.Windows.Forms.Padding(0);
-            this.tableLayoutPanel3.Name = "tableLayoutPanel3";
-            this.tableLayoutPanel3.RowCount = 2;
-            this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel3.Size = new System.Drawing.Size(251, 441);
-            this.tableLayoutPanel3.TabIndex = 13;
+            this.animationFrameTrackBar.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.animationFrameTrackBar.Location = new System.Drawing.Point(0, 0);
+            this.animationFrameTrackBar.Margin = new System.Windows.Forms.Padding(0);
+            this.animationFrameTrackBar.Name = "animationFrameTrackBar";
+            this.animationFrameTrackBar.Size = new System.Drawing.Size(370, 45);
+            this.animationFrameTrackBar.TabIndex = 24;
+            this.animationFrameTrackBar.TickStyle = System.Windows.Forms.TickStyle.None;
             // 
-            // gotoPageButton
+            // tableLayoutPanel6
             // 
-            this.gotoPageButton.Dock = System.Windows.Forms.DockStyle.Top;
-            this.gotoPageButton.Location = new System.Drawing.Point(0, 0);
-            this.gotoPageButton.Margin = new System.Windows.Forms.Padding(0, 0, 0, 3);
-            this.gotoPageButton.Name = "gotoPageButton";
-            this.gotoPageButton.Size = new System.Drawing.Size(251, 34);
-            this.gotoPageButton.TabIndex = 13;
-            this.gotoPageButton.Text = "Go to Page";
-            this.gotoPageButton.UseVisualStyleBackColor = true;
-            this.gotoPageButton.Click += new System.EventHandler(this.gotoPageButton_Click);
+            this.tableLayoutPanel6.ColumnCount = 2;
+            this.tableLayoutPanel6.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel6.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tableLayoutPanel6.Controls.Add(this.animationFrameTrackBar, 0, 0);
+            this.tableLayoutPanel6.Controls.Add(this.animationProgressLabel, 1, 0);
+            this.tableLayoutPanel6.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tableLayoutPanel6.Location = new System.Drawing.Point(60, 26);
+            this.tableLayoutPanel6.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
+            this.tableLayoutPanel6.Name = "tableLayoutPanel6";
+            this.tableLayoutPanel6.RowCount = 1;
+            this.tableLayoutPanel6.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            this.tableLayoutPanel6.Size = new System.Drawing.Size(424, 45);
+            this.tableLayoutPanel6.TabIndex = 24;
+            // 
+            // animationProgressLabel
+            // 
+            this.animationProgressLabel.Dock = System.Windows.Forms.DockStyle.Left;
+            this.animationProgressLabel.Location = new System.Drawing.Point(370, 0);
+            this.animationProgressLabel.Margin = new System.Windows.Forms.Padding(0);
+            this.animationProgressLabel.Name = "animationProgressLabel";
+            this.animationProgressLabel.Padding = new System.Windows.Forms.Padding(0, 0, 0, 24);
+            this.animationProgressLabel.Size = new System.Drawing.Size(54, 45);
+            this.animationProgressLabel.TabIndex = 25;
+            this.animationProgressLabel.Text = "0/0";
+            this.animationProgressLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // PreviewForm
             // 
@@ -1523,17 +1590,25 @@ namespace PSXPrev
             this.splitContainer7.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer7)).EndInit();
             this.splitContainer7.ResumeLayout(false);
+            this.tableLayoutPanel3.ResumeLayout(false);
             this.vramPanel.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.vramPagePictureBox)).EndInit();
             this.animationsTabPage.ResumeLayout(false);
             this.animationsSplitContainer.Panel1.ResumeLayout(false);
+            this.animationsSplitContainer.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.animationsSplitContainer)).EndInit();
             this.animationsSplitContainer.ResumeLayout(false);
             this.splitContainer5.Panel1.ResumeLayout(false);
             this.splitContainer5.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer5)).EndInit();
             this.splitContainer5.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.animationSpeedTrackbar)).EndInit();
+            this.animationsTableLayoutPanel.ResumeLayout(false);
+            this.animationsTableLayoutPanel.PerformLayout();
+            this.animationGroupBox.ResumeLayout(false);
+            this.animationGroupBox.PerformLayout();
+            this.tableLayoutPanel2.ResumeLayout(false);
+            this.tableLayoutPanel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.animationSpeedNumericUpDown)).EndInit();
             this.cmsModelExport.ResumeLayout(false);
             this.mainMenuStrip.ResumeLayout(false);
             this.mainMenuStrip.PerformLayout();
@@ -1550,16 +1625,15 @@ namespace PSXPrev
             this.splitContainer1.Panel2.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
             this.splitContainer1.ResumeLayout(false);
-            this.groupBox2.ResumeLayout(false);
-            this.groupBox2.PerformLayout();
-            this.tableLayoutPanel2.ResumeLayout(false);
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
             this.tableLayoutPanel1.ResumeLayout(false);
             this.tableLayoutPanel1.PerformLayout();
             this.flowLayoutPanel1.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).EndInit();
-            this.tableLayoutPanel3.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.animationFrameTrackBar)).EndInit();
+            this.tableLayoutPanel6.ResumeLayout(false);
+            this.tableLayoutPanel6.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -1602,7 +1676,7 @@ namespace PSXPrev
         private System.Windows.Forms.ToolStripMenuItem animationsToolStripMenuItem;
         private System.Windows.Forms.PropertyGrid animationPropertyGrid;
         private System.Windows.Forms.TreeView animationsTreeView;
-        private System.Windows.Forms.Button animationPlayButton;
+        private System.Windows.Forms.Button animationPlayButtonx;
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripProgressBar toolStripProgressBar1;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;
@@ -1612,7 +1686,6 @@ namespace PSXPrev
         private System.Windows.Forms.ToolStripMenuItem showBoundsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem showUVToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem showSkeletonToolStripMenuItem;
-        private System.Windows.Forms.TrackBar animationSpeedTrackbar;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem helpToolStripMenuItem;
@@ -1649,9 +1722,8 @@ namespace PSXPrev
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
         private System.Windows.Forms.Label label4;
-        private System.Windows.Forms.GroupBox groupBox2;
+        private System.Windows.Forms.GroupBox animationGroupBox;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel2;
-        private System.Windows.Forms.Label animationFrameLabel;
         private System.Windows.Forms.SplitContainer splitContainer2;
         private System.Windows.Forms.SplitContainer splitContainer3;
         private System.Windows.Forms.SplitContainer modelsSplitContainer;
@@ -1680,5 +1752,10 @@ namespace PSXPrev
         private System.Windows.Forms.Label vramZoomLabel;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel3;
         private System.Windows.Forms.Button gotoPageButton;
+        private System.Windows.Forms.TableLayoutPanel animationsTableLayoutPanel;
+        private System.Windows.Forms.NumericUpDown animationSpeedNumericUpDown;
+        private System.Windows.Forms.TrackBar animationFrameTrackBar;
+        private System.Windows.Forms.TableLayoutPanel tableLayoutPanel6;
+        private System.Windows.Forms.Label animationProgressLabel;
     }
 }

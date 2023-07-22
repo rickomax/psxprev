@@ -226,7 +226,7 @@ namespace PSXPrev.Classes
 
         private void ResetAnimationCoords(AnimationObject animationObject, RootEntity selectedRootEntity)
         {
-            if (selectedRootEntity.Coords != null)
+            if (selectedRootEntity?.Coords != null)
             {
                 var coords = selectedRootEntity.Coords;
                 foreach (var coord in selectedRootEntity.Coords)
