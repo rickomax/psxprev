@@ -828,6 +828,7 @@ namespace PSXPrev
             // 
             // animationFrameTrackBar
             // 
+            this.animationFrameTrackBar.BackColor = System.Drawing.SystemColors.Window;
             this.animationFrameTrackBar.Dock = System.Windows.Forms.DockStyle.Fill;
             this.animationFrameTrackBar.Location = new System.Drawing.Point(0, 0);
             this.animationFrameTrackBar.Margin = new System.Windows.Forms.Padding(0);

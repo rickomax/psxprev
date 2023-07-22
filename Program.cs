@@ -312,6 +312,7 @@ namespace PSXPrev
 
         public static void Initialize(string[] args)
         {
+            Application.EnableVisualStyles();
             if (args == null || args.Length == 0)
             {
                 // No arguments specified. Show the launcher window and let the user choose what to do in the GUI.
@@ -325,7 +326,6 @@ namespace PSXPrev
                         // InvokeRequired won't return true unless the form's handle has been created.
                         _waitForLauncherForm.Set(); // LauncherForm has been assigned and is setup, let the main thread continue.
                     };
-                    Application.EnableVisualStyles();
                     Application.Run(LauncherForm);
                 }));
                 thread.SetApartmentState(ApartmentState.STA);
@@ -455,7 +455,6 @@ namespace PSXPrev
                     // InvokeRequired won't return true unless the form's handle has been created.
                     _waitForPreviewForm.Set(); // PreviewForm has been assigned and is setup, let the main thread continue.
                 };
-                Application.EnableVisualStyles();
                 Application.Run(PreviewForm);
             }));
             thread.SetApartmentState(ApartmentState.STA);
