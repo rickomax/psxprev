@@ -465,12 +465,26 @@ namespace PSXPrev
             return selectedEntities.Count == 0 ? null : selectedEntities.ToArray();
         }
 
-        private DialogResult ShowEntityFolderSelect(out string path)
+        private bool OutputFolderSelect(out string path)
         {
-            var fbd = new FolderBrowserDialog { Description = "Select the output folder" };
-            var result = fbd.ShowDialog();
-            path = fbd.SelectedPath;
-            return result;
+            // Don't use FolderBrowserDialog because it has the usability of a brick.
+            using (var folderBrowserDialog = new Microsoft.WindowsAPICodePack.Dialogs.CommonOpenFileDialog())
+            {
+                folderBrowserDialog.IsFolderPicker = true;
+                folderBrowserDialog.Title = "Select the output folder";
+                if (folderBrowserDialog.ShowDialog() == Microsoft.WindowsAPICodePack.Dialogs.CommonFileDialogResult.Ok)
+                {
+                    path = folderBrowserDialog.FileName;
+                    return true;
+                }
+            }
+            path = null;
+            return false;
+
+            //var fbd = new FolderBrowserDialog { Description = "Select the output folder" };
+            //var result = fbd.ShowDialog() == DialogResult.OK;
+            //path = fbd.SelectedPath;
+            //return result;
         }
 
         private void exportEntityButton_Click(object sender, EventArgs e)
@@ -487,19 +501,22 @@ namespace PSXPrev
                 MessageBox.Show("Select the textures to export first");
                 return;
             }
-            var fbd = new FolderBrowserDialog { Description = "Select the output folder" };
-            if (fbd.ShowDialog() != DialogResult.OK)
+
+            // Use BeginInvoke so that dialog doesn't show up behind menu items...
+            BeginInvoke((Action)(() =>
             {
-                return;
-            }
-            var selectedTextures = new Texture[selectedCount];
-            for (var i = 0; i < selectedCount; i++)
-            {
-                selectedTextures[i] = _textures[selectedIndices[i]];
-            }
-            var exporter = new PngExporter();
-            exporter.Export(selectedTextures, fbd.SelectedPath);
-            MessageBox.Show("Textures exported");
+                if (OutputFolderSelect(out var path))
+                {
+                    var selectedTextures = new Texture[selectedCount];
+                    for (var i = 0; i < selectedCount; i++)
+                    {
+                        selectedTextures[i] = _textures[selectedIndices[i]];
+                    }
+                    var exporter = new PngExporter();
+                    exporter.Export(selectedTextures, path);
+                    MessageBox.Show("Textures exported");
+                }
+            }));
         }
 
         private void SelectEntity(EntityBase entity, bool focus = false)
@@ -1036,31 +1053,34 @@ namespace PSXPrev
                 MessageBox.Show("Check the models to export first");
                 return;
             }
-            string path;
-            if (ShowEntityFolderSelect(out path) == DialogResult.OK)
-            {
-                if (e.ClickedItem == miOBJ)
+
+            // Use BeginInvoke so that dialog doesn't show up behind menu items...
+            BeginInvoke((Action)(() => {
+                if (OutputFolderSelect(out var path))
                 {
-                    var objExporter = new ObjExporter();
-                    objExporter.Export(checkedEntities, path);
+                    if (e.ClickedItem == miOBJ)
+                    {
+                        var objExporter = new ObjExporter();
+                        objExporter.Export(checkedEntities, path);
+                    }
+                    if (e.ClickedItem == miOBJVC)
+                    {
+                        var objExporter = new ObjExporter();
+                        objExporter.Export(checkedEntities, path, true);
+                    }
+                    if (e.ClickedItem == miOBJMerged)
+                    {
+                        var objExporter = new ObjExporter();
+                        objExporter.Export(checkedEntities, path, false, true);
+                    }
+                    if (e.ClickedItem == miOBJVCMerged)
+                    {
+                        var objExporter = new ObjExporter();
+                        objExporter.Export(checkedEntities, path, true, true);
+                    }
+                    MessageBox.Show("Models exported");
                 }
-                if (e.ClickedItem == miOBJVC)
-                {
-                    var objExporter = new ObjExporter();
-                    objExporter.Export(checkedEntities, path, true);
-                }
-                if (e.ClickedItem == miOBJMerged)
-                {
-                    var objExporter = new ObjExporter();
-                    objExporter.Export(checkedEntities, path, false, true);
-                }
-                if (e.ClickedItem == miOBJVCMerged)
-                {
-                    var objExporter = new ObjExporter();
-                    objExporter.Export(checkedEntities, path, true, true);
-                }
-                MessageBox.Show("Models exported");
-            }
+            }));
         }
 
         private void findByPageToolStripMenuItem_Click(object sender, EventArgs e)
