@@ -522,7 +522,7 @@ namespace PSXPrev
             var selectedCount = selectedIndices.Count;
             if (selectedCount == 0)
             {
-                MessageBox.Show("Select the textures to export first");
+                MessageBox.Show("Select the textures to export first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -538,7 +538,7 @@ namespace PSXPrev
                     }
                     var exporter = new PngExporter();
                     exporter.Export(selectedTextures, path);
-                    MessageBox.Show("Textures exported");
+                    MessageBox.Show("Textures exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }));
         }
