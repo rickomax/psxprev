@@ -69,6 +69,7 @@ namespace PSXPrev.Forms
 
                 IgnoreTMDVersion = optionIgnoreTMDVersionCheckBox.Checked,
                 IgnoreHMDVersion = optionIgnoreHMDVersionCheckBox.Checked,
+                IgnoreTIMVersion = optionIgnoreTIMVersionCheckBox.Checked,
 
                 LogToFile = optionLogToFileCheckBox.Checked,
                 NoVerbose = optionNoVerboseCheckBox.Checked,

@@ -24,7 +24,7 @@ namespace PSXPrev.Classes
             if (id == 0x10)
             {
                 var version = reader.ReadUInt16();
-                if (version == 0x00)
+                if (Program.IgnoreTimVersion || version == 0x00)
                 {
                     var texture = ParseTim(reader);
                     if (texture != null)

@@ -48,6 +48,7 @@
             this.scanVDFCheckBox = new System.Windows.Forms.CheckBox();
             this.scanTMDCheckBox = new System.Windows.Forms.CheckBox();
             this.groupBox4 = new System.Windows.Forms.GroupBox();
+            this.optionIgnoreHMDVersionCheckBox = new System.Windows.Forms.CheckBox();
             this.optionNoOffsetCheckBox = new System.Windows.Forms.CheckBox();
             this.optionShowErrorsCheckBox = new System.Windows.Forms.CheckBox();
             this.optionAutoAttachLimbsCheckBox = new System.Windows.Forms.CheckBox();
@@ -57,7 +58,7 @@
             this.optionNoVerboseCheckBox = new System.Windows.Forms.CheckBox();
             this.optionLogToFileCheckBox = new System.Windows.Forms.CheckBox();
             this.scanButton = new System.Windows.Forms.Button();
-            this.optionIgnoreHMDVersionCheckBox = new System.Windows.Forms.CheckBox();
+            this.optionIgnoreTIMVersionCheckBox = new System.Windows.Forms.CheckBox();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox3.SuspendLayout();
@@ -256,6 +257,7 @@
             // 
             // groupBox4
             // 
+            this.groupBox4.Controls.Add(this.optionIgnoreTIMVersionCheckBox);
             this.groupBox4.Controls.Add(this.optionIgnoreHMDVersionCheckBox);
             this.groupBox4.Controls.Add(this.optionNoOffsetCheckBox);
             this.groupBox4.Controls.Add(this.optionShowErrorsCheckBox);
@@ -272,6 +274,16 @@
             this.groupBox4.TabIndex = 3;
             this.groupBox4.TabStop = false;
             this.groupBox4.Text = "Options";
+            // 
+            // optionIgnoreHMDVersionCheckBox
+            // 
+            this.optionIgnoreHMDVersionCheckBox.AutoSize = true;
+            this.optionIgnoreHMDVersionCheckBox.Location = new System.Drawing.Point(129, 65);
+            this.optionIgnoreHMDVersionCheckBox.Name = "optionIgnoreHMDVersionCheckBox";
+            this.optionIgnoreHMDVersionCheckBox.Size = new System.Drawing.Size(113, 17);
+            this.optionIgnoreHMDVersionCheckBox.TabIndex = 10;
+            this.optionIgnoreHMDVersionCheckBox.Text = "Skip HMD Version";
+            this.optionIgnoreHMDVersionCheckBox.UseVisualStyleBackColor = true;
             // 
             // optionNoOffsetCheckBox
             // 
@@ -364,15 +376,15 @@
             this.scanButton.UseVisualStyleBackColor = true;
             this.scanButton.Click += new System.EventHandler(this.scanButton_Click);
             // 
-            // optionIgnoreHMDVersionCheckBox
+            // optionIgnoreTIMVersionCheckBox
             // 
-            this.optionIgnoreHMDVersionCheckBox.AutoSize = true;
-            this.optionIgnoreHMDVersionCheckBox.Location = new System.Drawing.Point(129, 65);
-            this.optionIgnoreHMDVersionCheckBox.Name = "optionIgnoreHMDVersionCheckBox";
-            this.optionIgnoreHMDVersionCheckBox.Size = new System.Drawing.Size(113, 17);
-            this.optionIgnoreHMDVersionCheckBox.TabIndex = 10;
-            this.optionIgnoreHMDVersionCheckBox.Text = "Skip HMD Version";
-            this.optionIgnoreHMDVersionCheckBox.UseVisualStyleBackColor = true;
+            this.optionIgnoreTIMVersionCheckBox.AutoSize = true;
+            this.optionIgnoreTIMVersionCheckBox.Location = new System.Drawing.Point(246, 65);
+            this.optionIgnoreTIMVersionCheckBox.Name = "optionIgnoreTIMVersionCheckBox";
+            this.optionIgnoreTIMVersionCheckBox.Size = new System.Drawing.Size(107, 17);
+            this.optionIgnoreTIMVersionCheckBox.TabIndex = 11;
+            this.optionIgnoreTIMVersionCheckBox.Text = "Skip TIM Version";
+            this.optionIgnoreTIMVersionCheckBox.UseVisualStyleBackColor = true;
             // 
             // LauncherForm
             // 
@@ -433,5 +445,6 @@
         private System.Windows.Forms.CheckBox optionShowErrorsCheckBox;
         private System.Windows.Forms.CheckBox optionNoOffsetCheckBox;
         private System.Windows.Forms.CheckBox optionIgnoreHMDVersionCheckBox;
+        private System.Windows.Forms.CheckBox optionIgnoreTIMVersionCheckBox;
     }
 }

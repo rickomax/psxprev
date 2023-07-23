@@ -36,6 +36,7 @@ namespace PSXPrev
 
             public bool IgnoreTMDVersion { get; set; }
             public bool IgnoreHMDVersion { get; set; }
+            public bool IgnoreTIMVersion { get; set; }
 
             public bool LogToFile { get; set; }
             public bool NoVerbose { get; set; }
@@ -77,6 +78,7 @@ namespace PSXPrev
 
         public static bool IgnoreTmdVersion => _options.IgnoreTMDVersion;
         public static bool IgnoreHmdVersion => _options.IgnoreHMDVersion;
+        public static bool IgnoreTimVersion => _options.IgnoreTIMVersion;
 
         public static bool Debug => _options.Debug;
         public static bool ShowErrors => _options.ShowErrors;
@@ -140,7 +142,7 @@ namespace PSXPrev
 
             Console.WriteLine("usage: PSXPrev <PATH> [FILTER=\"" + DefaultFilter + "\"] [-help]"  // general
                 + " [-an] [-bff] [-croc] [-hmd] [-mod] [-pmd] [-psx] [-tim] [-tmd] [-tod] [-vdf]" // scanner formats
-                + " [-ignoretmdversion]" // scanner options
+                + " [-ignoretmdversion] [-ignorehmdversion] [-ignoretimversion]" // scanner options
                 + " [-log] [-noverbose] [-debug] [-error] [-nocolor]" // log options
                 + " [-drawvram] [-nooffset] [-attachlimbs] [-autoplay] [-autoselect]" // program options
                 );
@@ -180,6 +182,7 @@ namespace PSXPrev
             Console.WriteLine("  -vdf       : scan for VDF animations");
             Console.WriteLine("  -ignoretmdversion : reduce strictness when scanning TMD models");
             Console.WriteLine("  -ignorehmdversion : reduce strictness when scanning HMD models");
+            Console.WriteLine("  -ignoretimversion : reduce strictness when scanning TIM models");
             Console.WriteLine();
             Console.WriteLine("log options:");
             Console.WriteLine("  -log       : write output to log file");
@@ -271,6 +274,9 @@ namespace PSXPrev
                     break;
                 case "-ignorehmdversion":
                     options.IgnoreHMDVersion = true;
+                    break;
+                case "-ignoretimversion":
+                    options.IgnoreTIMVersion = true;
                     break;
                 case "-log":
                     options.LogToFile = true;
