@@ -542,7 +542,8 @@ namespace PSXPrev
             {
                 folderBrowserDialog.IsFolderPicker = true;
                 folderBrowserDialog.Title = "Select the output folder";
-                if (folderBrowserDialog.ShowDialog() == Microsoft.WindowsAPICodePack.Dialogs.CommonFileDialogResult.Ok)
+                // Parameter name used to avoid overload resolution with WPF Window, which we don't have a reference to.
+                if (folderBrowserDialog.ShowDialog(ownerWindowHandle: Handle) == Microsoft.WindowsAPICodePack.Dialogs.CommonFileDialogResult.Ok)
                 {
                     path = folderBrowserDialog.FileName;
                     return true;
@@ -552,7 +553,7 @@ namespace PSXPrev
             return false;
 
             //var fbd = new FolderBrowserDialog { Description = "Select the output folder" };
-            //var result = fbd.ShowDialog() == DialogResult.OK;
+            //var result = fbd.ShowDialog(this) == DialogResult.OK;
             //path = fbd.SelectedPath;
             //return result;
         }
@@ -568,7 +569,7 @@ namespace PSXPrev
             var selectedCount = selectedIndices.Count;
             if (selectedCount == 0)
             {
-                MessageBox.Show("Select the textures to export first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, "Select the textures to export first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -584,7 +585,7 @@ namespace PSXPrev
                     }
                     var exporter = new PngExporter();
                     exporter.Export(selectedTextures, path);
-                    MessageBox.Show("Textures exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(this, "Textures exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }));
         }
@@ -963,7 +964,7 @@ namespace PSXPrev
             var selectedIndices = texturesListView.SelectedIndices;
             if (selectedIndices.Count == 0)
             {
-                MessageBox.Show("Select the textures to draw to VRAM first");
+                MessageBox.Show(this, "Select the textures to draw to VRAM first");
                 return;
             }
             foreach (int index in texturesListView.SelectedIndices)
@@ -1054,11 +1055,11 @@ namespace PSXPrev
             var index = _vramSelectedPage;
             if (index <= -1)
             {
-                MessageBox.Show("Select a page first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, "Select a page first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             ClearPage(index);
-            MessageBox.Show("Page cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "Page cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void ClearPage(int index)
@@ -1073,7 +1074,7 @@ namespace PSXPrev
             var checkedEntities = GetCheckedEntities();
             if (checkedEntities == null)
             {
-                MessageBox.Show("Check the models to export first");
+                MessageBox.Show(this, "Check the models to export first");
                 return;
             }
 
@@ -1099,7 +1100,7 @@ namespace PSXPrev
                     {
                         objExporter.Export(checkedEntities, path, true, true);
                     }
-                    MessageBox.Show("Models exported");
+                    MessageBox.Show(this, "Models exported");
                 }
             }));
         }
@@ -1109,7 +1110,7 @@ namespace PSXPrev
             var pageIndexString = DialogForm.Show(this, "Please type in the VRAM Page index (0-31)", "Find by Page");
             if (!int.TryParse(pageIndexString, out var pageIndex))
             {
-                MessageBox.Show("Please type in a valid VRAM Page index between 0 and 31", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, "Please type in a valid VRAM Page index between 0 and 31", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             var found = 0;
@@ -1125,7 +1126,7 @@ namespace PSXPrev
                 item.Group = texturesListView.Groups[0];
                 found++;
             }
-            MessageBox.Show(found > 0 ? $"Found {found} items" : "Nothing found", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, found > 0 ? $"Found {found} items" : "Nothing found", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void texturesListView_SelectedIndexChanged(object sender, EventArgs e)
@@ -1216,7 +1217,7 @@ namespace PSXPrev
                 var item = texturesListView.Items[i];
                 item.Group = null;
             }
-            MessageBox.Show("Results cleared");
+            MessageBox.Show(this, "Results cleared");
         }
 
         private void wireframeToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
@@ -1228,7 +1229,7 @@ namespace PSXPrev
         {
             _vram.ClearAllPages();
             UpdateVRAMComboBoxPageItems();
-            MessageBox.Show("Pages cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "Pages cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void openTKControl_Load(object sender, EventArgs e)
@@ -1517,7 +1518,7 @@ namespace PSXPrev
 
         private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            MessageBox.Show("PSXPrev - Playstation (PSX) Files Previewer/Extractor\n" + "(c) PSX Prev Contributors - 2020-2023", "About");
+            MessageBox.Show(this, "PSXPrev - Playstation (PSX) Files Previewer/Extractor\n" + "(c) PSX Prev Contributors - 2020-2023", "About");
         }
 
         private void videoTutorialToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1556,28 +1557,27 @@ namespace PSXPrev
             UpdateLightDirection();
         }
 
+        private void enableLightToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _scene.LightEnabled = enableLightToolStripMenuItem.Checked;
+        }
+
         private void setMaskColorToolStripMenuItem_Click(object sender, EventArgs e)
         {
             using (var colorDialog = new ColorDialog())
             {
-                if (colorDialog.ShowDialog() == DialogResult.OK)
+                if (colorDialog.ShowDialog(this) == DialogResult.OK)
                 {
                     SetMaskColor(colorDialog.Color);
                 }
             }
         }
 
-        private void enableLightToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            _scene.LightEnabled = enableLightToolStripMenuItem.Checked;
-        }
-
-
         private void setAmbientColorToolStripMenuItem_Click(object sender, EventArgs e)
         {
             using (var colorDialog = new ColorDialog())
             {
-                if (colorDialog.ShowDialog() == DialogResult.OK)
+                if (colorDialog.ShowDialog(this) == DialogResult.OK)
                 {
                     SetAmbientColor(colorDialog.Color);
                 }
@@ -1588,7 +1588,7 @@ namespace PSXPrev
         {
             using (var colorDialog = new ColorDialog())
             {
-                if (colorDialog.ShowDialog() == DialogResult.OK)
+                if (colorDialog.ShowDialog(this) == DialogResult.OK)
                 {
                     SetBackgroundColor(colorDialog.Color);
                 }
@@ -1816,7 +1816,7 @@ namespace PSXPrev
             }
             else
             {
-                MessageBox.Show("Please type in a valid VRAM Page index between 0 and 31", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, "Please type in a valid VRAM Page index between 0 and 31", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
