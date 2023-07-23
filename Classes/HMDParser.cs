@@ -252,11 +252,14 @@ namespace PSXPrev.Classes
                     //0: Polygon data 1: Shared polygon data 2: Image data 3: Animation data 4: MIMe data 5: Ground data 6: Envmap data 7: Equipment data
 
                     var type = reader.ReadUInt32();
-                    var developerId = (type >> 27) & 0b00001111; //4
-                    var category = (type >> 24) & 0b00001111; //4  
-                    var driver = (type >> 16) & 0b11111111; //8
-                    var primitiveType = type & 0xFFFF; //16
-                    
+                    var developerId   = (type >> 28) &    0xf; //4
+                    var category      = (type >> 24) &    0xf; //4
+                    var driver        = (type >> 16) &   0xff; //8
+                    var primitiveType = (type >>  0) & 0xffff; //16
+
+                    // todo: If developerId != 0 (SCE), then ignore this type data.
+                    // But currently we can't just use continue, since seeking is done at the bottom of the loop.
+
                     // dataSize is the remaining size of this type data in units of 4 bytes.
                     // This size includes the definition of dataSize/dataCount.
                     var typeDataPosition = reader.BaseStream.Position;
@@ -264,7 +267,7 @@ namespace PSXPrev.Classes
                     ReadMappedValue16(reader, out var dataSizeMapped, out var dataSize);
                     ReadMappedValue16(reader, out var dataCountMapped, out var dataCount);
                     dataSize *= 4;
-                    
+
                     if (dataSize == 0 || dataSize > Program.MaxHMDDataSize)
                     {
                         return;
@@ -281,12 +284,7 @@ namespace PSXPrev.Classes
 
                     if (Program.Debug)
                     {
-                        Program.Logger.WriteLine($"HMD Type: {type} of category {category} and primitive type {primitiveType}");
-                    }
-
-                    if (Program.Debug)
-                    {
-                        Program.Logger.WriteLine("Primitive type bits:" + new BitArray(BitConverter.GetBytes(primitiveType)).ToBitString());
+                        Program.Logger.WriteLine($"HMD category {category}, driver 0x{driver:x02}, primitive type 0x{primitiveType:x04}");
                     }
 
                     if (category == 0)
@@ -300,13 +298,12 @@ namespace PSXPrev.Classes
                     }
                     else if (category == 1)
                     {
-                        if (Program.Debug)
-                        {
-                            Program.Logger.WriteLine($"HMD Shared Vertices Geometry");
-                        }
-
                         // You would expect this to be (type == 0x01000000), but examples have been found where the driver was unexpectedly 0x80.
                         var preCalculation = (primitiveType == 0);
+                        if (Program.Debug)
+                        {
+                            Program.Logger.WriteLine($"HMD Shared Vertices: " + (preCalculation ? "Indices" : "Geometry"));
+                        }
                         if (preCalculation)
                         {
                             // Shared indices (attachable)

@@ -19,7 +19,7 @@ namespace PSXPrev.Classes
             {
                 return;
             }
-            var file = File.Open(filename, FileMode.Open);
+            var file = File.OpenRead(filename);
             Reader = new BinaryReader(file, Encoding.ASCII);
         }
     }

@@ -21,6 +21,7 @@ namespace PSXPrev
     {
         public class ScanOptions
         {
+            // Scanner formats:
             public bool CheckAll => !CheckAN && !CheckBFF && !CheckHMD && !CheckMOD && !CheckPMD && !CheckPSX && !CheckTIM && !CheckTMD && !CheckTOD && !CheckVDF;
 
             public bool CheckAN { get; set; }
@@ -34,18 +35,27 @@ namespace PSXPrev
             public bool CheckTOD { get; set; }
             public bool CheckVDF { get; set; }
 
-            public bool IgnoreTMDVersion { get; set; }
+            // Scanner options:
             public bool IgnoreHMDVersion { get; set; }
             public bool IgnoreTIMVersion { get; set; }
+            public bool IgnoreTMDVersion { get; set; }
 
+            public long? StartOffset { get; set; }
+            public long? StopOffset { get; set; }
+            public bool NextOffset { get; set; }
+
+            public bool DepthFirstFileSearch { get; set; } = true; // AKA top-down
+            public bool AsyncFileScan { get; set; } = true;
+
+            // Log options:
             public bool LogToFile { get; set; }
-            public bool NoVerbose { get; set; }
+            public bool LogToConsole { get; set; } = true;
             public bool Debug { get; set; }
             public bool ShowErrors { get; set; }
-            public bool NoConsoleColor { get; set; }
+            public bool ConsoleColor { get; set; } = true;
 
+            // Program options:
             public bool DrawAllToVRAM { get; set; }
-            public bool NoOffset { get; set; }
             public bool AutoAttachLimbs { get; set; }
             public bool AutoPlayAnimations { get; set; }
             public bool AutoSelect { get; set; }
@@ -64,30 +74,38 @@ namespace PSXPrev
         private static AutoResetEvent _waitForPreviewForm = new AutoResetEvent(false);
         private static AutoResetEvent _waitForLauncherForm = new AutoResetEvent(false);
 
-        public static bool Scanning { get; private set; }
         public static List<RootEntity> AllEntities { get; private set; }
         public static List<Texture> AllTextures { get; private set; }
         public static List<Animation> AllAnimations { get; private set; }
 
-        private static long _largestFileLength;
+        // Lock for _currentFileLength and _largestCurrentFilePosition, because longs can't be volatile.
+        private static readonly object _fileProgressLock = new object();
+        private static long _currentFileLength;
         private static long _largestCurrentFilePosition;
         private static string _path;
         private static string _filter;
         private static ScanOptions _options = new ScanOptions();
 
+        private static volatile bool _scanning;        // Is a scan currently running?
+        private static volatile bool _pauseRequested;  // Is the scan currently paused? Reset when _scanning is false.
+        private static volatile bool _cancelRequested; // Is the scan being canceled? Reset when _scanning is false.
 
-        public static bool IgnoreTmdVersion => _options.IgnoreTMDVersion;
+        public static bool IsScanning => _scanning;
+        public static bool IsScanPaused => _pauseRequested;
+        public static bool IsScanCanceling => _cancelRequested;
+
         public static bool IgnoreHmdVersion => _options.IgnoreHMDVersion;
         public static bool IgnoreTimVersion => _options.IgnoreTIMVersion;
+        public static bool IgnoreTmdVersion => _options.IgnoreTMDVersion;
 
         public static bool Debug => _options.Debug;
         public static bool ShowErrors => _options.ShowErrors;
-        public static bool LogToFile => _options.LogToFile;
-        public static bool NoVerbose => _options.NoVerbose;
-        public static bool NoOffset => _options.NoOffset;
 
 
         public const string DefaultFilter = "*.*";
+
+        private static readonly string[] InvalidFileExtensions = { ".str", ".str;1", ".xa", ".xa;1", ".vb", ".vb;1" };
+        private static readonly string[] ISOFileExtensions = { ".iso" };
 
         // Sanity check values
         public static ulong MaxTODPackets = 10000;
@@ -121,8 +139,6 @@ namespace PSXPrev
         public static uint MaxANJoints = 512;
         public static uint MaxANFrames = 5000;
 
-        public static volatile bool HaltRequested; //Field used to pause/resume scanning
-
 
         private static void Main(string[] args)
         {
@@ -141,10 +157,12 @@ namespace PSXPrev
             }
 
             Console.WriteLine("usage: PSXPrev <PATH> [FILTER=\"" + DefaultFilter + "\"] [-help]"  // general
-                + " [-an] [-bff] [-croc] [-hmd] [-mod] [-pmd] [-psx] [-tim] [-tmd] [-tod] [-vdf]" // scanner formats
-                + " [-ignoretmdversion] [-ignorehmdversion] [-ignoretimversion]" // scanner options
-                + " [-log] [-noverbose] [-debug] [-error] [-nocolor]" // log options
-                + " [-drawvram] [-nooffset] [-attachlimbs] [-autoplay] [-autoselect]" // program options
+                + " [...options]" // Just use -help to see the rest
+                //+ " [-an] [-bff] [-croc] [-hmd] [-mod] [-pmd] [-psx] [-tim] [-tmd] [-tod] [-vdf]" // scanner formats
+                //+ " [-ignorehmdversion] [-ignoretimversion] [-ignoretmdversion]" // scanner options
+                //+ " [-start <OFFSET>] [-stop <OFFSET>] [-range [START],[STOP]] [-nooffset] [-nextoffset] [-syncscan]"
+                //+ " [-log] [-noverbose] [-debug] [-error] [-nocolor]" // log options
+                //+ " [-drawvram] [-nooffset] [-attachlimbs] [-autoplay] [-autoselect]" // program options
                 );
 
             Console.ResetColor();
@@ -169,7 +187,7 @@ namespace PSXPrev
             Console.WriteLine("  PATH   : folder or file path to scan");
             Console.WriteLine("  FILTER : wildcard filter for files to include (default: \"" + DefaultFilter + "\")");
             Console.WriteLine();
-            Console.WriteLine("scanner options: (default: all formats)");
+            Console.WriteLine("scanner formats: (default: all formats)");
             Console.WriteLine("  -an        : scan for AN animations");
             Console.WriteLine("  -bff       : scan for BFF models");
             Console.WriteLine("  -hmd       : scan for HMD models, textures, and animations");
@@ -180,9 +198,17 @@ namespace PSXPrev
             Console.WriteLine("  -tmd       : scan for TMD models");
             Console.WriteLine("  -tod       : scan for TOD animations");
             Console.WriteLine("  -vdf       : scan for VDF animations");
-            Console.WriteLine("  -ignoretmdversion : reduce strictness when scanning TMD models");
-            Console.WriteLine("  -ignorehmdversion : reduce strictness when scanning HMD models");
-            Console.WriteLine("  -ignoretimversion : reduce strictness when scanning TIM models");
+            Console.WriteLine();
+            Console.WriteLine("scanner options:");
+            Console.WriteLine("  -ignorehmdversion     : less strict scanning of HMD models");
+            Console.WriteLine("  -ignoretimversion     : less strict scanning of TIM textures");
+            Console.WriteLine("  -ignoretmdversion     : less strict scanning of TMD models");
+            //Console.WriteLine("  -start [OFFSET]       : scan files starting at offset (hex)");
+            //Console.WriteLine("  -stop [OFFSET]        : scan files up to offset (hex)");
+            Console.WriteLine("  -range [START],[STOP] : scan files between offsets (hex)");
+            Console.WriteLine("  -nooffset             : alias for -range 0,1");
+            Console.WriteLine("  -nextoffset           : continue scan at end of previous match");
+            Console.WriteLine("  -syncscan             : disable multi-threaded scanning");
             Console.WriteLine();
             Console.WriteLine("log options:");
             Console.WriteLine("  -log       : write output to log file");
@@ -194,7 +220,6 @@ namespace PSXPrev
             Console.WriteLine("program options:");
             //Console.WriteLine("  -help        : show this help message"); // It's redundant to display this
             Console.WriteLine("  -drawvram    : draw all loaded textures to VRAM (not advised when scanning many files)");
-            Console.WriteLine("  -nooffset    : only scan files at offset 0");
             Console.WriteLine("  -attachlimbs : enable Auto Attach Limbs by default");
             Console.WriteLine("  -autoplay    : automatically play selected animations");
             Console.WriteLine("  -autoselect  : select animation's model and draw selected model's textures (HMD only)");
@@ -222,8 +247,12 @@ namespace PSXPrev
             }
         }
 
-        private static bool TryParseOption(string arg, ScanOptions options, ref bool help)
+        // Consumed is number of extra arguments consumed after index.
+        private static bool TryParseOption(string[] args, int index, ScanOptions options, ref bool help, out int consumed)
         {
+            consumed = 0;
+            var arg = args[index];
+
             if (options == null)
             {
                 // Use dummy options. We're just checking for a valid argument.
@@ -238,6 +267,7 @@ namespace PSXPrev
 
             switch (arg)
             {
+                // Scanner formats:
                 case "-an":
                     options.CheckAN = true;
                     break;
@@ -269,20 +299,70 @@ namespace PSXPrev
                 case "-vdf":
                     options.CheckVDF = true;
                     break;
-                case "-ignoretmdversion":
-                    options.IgnoreTMDVersion = true;
-                    break;
+
+                // Scanner options:
                 case "-ignorehmdversion":
                     options.IgnoreHMDVersion = true;
                     break;
                 case "-ignoretimversion":
                     options.IgnoreTIMVersion = true;
                     break;
+                case "-ignoretmdversion":
+                    options.IgnoreTMDVersion = true;
+                    break;
+
+                /*case "-start": // -start <OFFSET>
+                    if (index + 1 < args.Length)
+                    {
+                        consumed++;
+                        if (TryParseOffset(args[index + 1], out var startOffset))
+                        {
+                            options.StartOffset = startOffset;
+                        }
+                        break;
+                    }
+                    return false;
+                case "-stop": // -stop <OFFSET>
+                    if (index + 1 < args.Length)
+                    {
+                        consumed++;
+                        if (TryParseOffset(args[index + 1], out var stopOffset))
+                        {
+                            options.StopOffset = stopOffset;
+                        }
+                        break;
+                    }
+                    return false;*/
+                case "-range": // -range [START],[STOP]  Shorthand for -start <START> -stop <STOP>
+                    if (index + 1 < args.Length)
+                    {
+                        consumed++;
+                        if (TryParseRange(args[index + 1], out var start, out var stop))
+                        {
+                            options.StartOffset = start;
+                            options.StopOffset  = stop;
+                        }
+                        break;
+                    }
+                    return false;
+                case "-nooffset": // Shorthand for -range 0,1
+                    options.StartOffset = 0;
+                    options.StopOffset  = 1;
+                    break;
+                case "-nextoffset":
+                    options.NextOffset = true;
+                    break;
+
+                case "-syncscan":
+                    options.AsyncFileScan = false;
+                    break;
+
+                // Log options:
                 case "-log":
                     options.LogToFile = true;
                     break;
                 case "-noverbose":
-                    options.NoVerbose = true;
+                    options.LogToConsole = false;
                     break;
                 case "-debug":
                     options.Debug = true;
@@ -291,14 +371,12 @@ namespace PSXPrev
                     options.ShowErrors = true;
                     break;
                 case "-nocolor":
-                    options.NoConsoleColor = true;
+                    options.ConsoleColor = false;
                     break;
 
+                // Program options:
                 case "-drawvram":
                     options.DrawAllToVRAM = true;
-                    break;
-                case "-nooffset":
-                    options.NoOffset = true;
                     break;
                 case "-attachlimbs":
                     options.AutoAttachLimbs = true;
@@ -314,6 +392,67 @@ namespace PSXPrev
                     return false;
             }
             return true;
+        }
+
+        private static bool TryParseOffset(string text, out long offset)
+        {
+            // This style has a terrible name. "0x" prefix is illegal and the number is always parsed as hex.
+            var style = NumberStyles.AllowHexSpecifier; // Only accept offsets as hexadecimal integer
+            if (text.StartsWith("0x", StringComparison.InvariantCultureIgnoreCase))
+            {
+                text = text.Substring(2); // Strip prefix
+            }
+            else if (text.StartsWith(".", StringComparison.InvariantCultureIgnoreCase))
+            {
+                // Use the decimal prefix observed in OllyDbg, I'm at a loss for what else could be used...
+                text = text.Substring(1); // Strip prefix
+                style = NumberStyles.None; // Decimal integer
+            }
+            return long.TryParse(text, style, CultureInfo.InvariantCulture, out offset);
+        }
+
+        private static bool TryParseRange(string text, out long? start, out long? stop)
+        {
+            //-range BE740       : BE740-BE741
+            //-range BE740,      : BE740-end
+            //-range ,F580A      : 0-F580A
+            //-range BE740,F580A : BE740-F580A
+            start = stop = null;
+            var param = text.Split(new[] { ',' }, StringSplitOptions.None);
+            if (param.Length == 1)
+            {
+                // Parse a single offset as both the start and stop.
+                if (!TryParseOffset(param[0], out var offset))
+                {
+                    return false;
+                }
+                start = offset;
+                stop = offset + 1;
+                return true;
+            }
+            else if (param.Length == 2)
+            {
+                // Parse a start and/or stop offset.
+                // Empty strings are treated as null.
+                if (!string.IsNullOrEmpty(param[0]))
+                {
+                    if (!TryParseOffset(param[0], out var startOffset))
+                    {
+                        return false;
+                    }
+                    start = startOffset;
+                }
+                if (!string.IsNullOrEmpty(param[1]))
+                {
+                    if (!TryParseOffset(param[1], out var stopOffset))
+                    {
+                        return false;
+                    }
+                    stop = stopOffset;
+                }
+                return true;
+            }
+            return false;
         }
 
         public static void Initialize(string[] args)
@@ -355,27 +494,20 @@ namespace PSXPrev
                 }
             }
 
+            // Use a default logger before starting a scan.
+            Logger = new Logger();
+
             if (!help)
             {
                 // Parse positional arguments PATH and FILTER.
                 path = args[0];
-                //if (!Directory.Exists(path) && !File.Exists(path))
-                //{
-                //    Logger = new Logger();
-                //    Program.Logger.WriteErrorLine("Directory/File not found");
-                //    if (options.Debug)
-                //    {
-                //        PressAnyKeyToContinue(); // Make it easier to check console output before closing.
-                //    }
-                //    return;
-                //}
 
                 filter = args.Length > 1 ? args[1] : DefaultFilter;
                 // If we want, we can make FILTER truly optional by checking TryParseOption, and skipping FILTER if one was found.
                 // However, this would prevent the user from specifying a filter that matches a command line option.
                 // This is a pretty unlikely scenario, but it's worth considering.
                 //filter = DefaultFilter;
-                //if (args.Length > 1 && !TryParseOption(args[1], options, ref help))
+                //if (args.Length > 1 && !TryParseOption(args, 1, options, ref help, out _))
                 //{
                 //    filter = args[1];
                 //}
@@ -388,17 +520,32 @@ namespace PSXPrev
                 // Parse all remaining options that aren't PATH or FILTER.
                 for (var a = 2; a < args.Length; a++)
                 {
-                    if (!TryParseOption(args[a], options, ref help))
+                    if (!TryParseOption(args, a, options, ref help, out var consumed))
                     {
-                        // If we want, we can show some warning or error that an unknown option was passed.
+                        if (a == 1)
+                        {
+                            // If we want to make filter optional, then handle it here.
+                            filter = args[a];
+                            if (string.IsNullOrEmpty(filter))
+                            {
+                                filter = "*"; // When filter is empty, default to matching all files (with or without an extension).
+                            }
+                        }
+                        else
+                        {
+                            // If we want, we can show some warning or error that an unknown option was passed.
+                            Program.Logger.WriteWarningLine($"Unknown or invalid usage of argument: {args[a]}");
+                        }
                     }
+                    // Skip consumed extra arguments (consumed count does not include the base argument).
+                    a += consumed;
                 }
             }
 
             // Show help and quit.
             if (help)
             {
-                PrintHelp(options.NoConsoleColor);
+                PrintHelp(!options.ConsoleColor);
                 if (options.Debug)
                 {
                     PressAnyKeyToContinue(); // Make it easier to check console output before closing.
@@ -416,12 +563,12 @@ namespace PSXPrev
                 options = new ScanOptions(); // Use default options if none given.
             }
             
-            Logger = new Logger(options.LogToFile, !options.NoVerbose, !options.NoConsoleColor);
+            Logger = new Logger(options.LogToFile, options.LogToConsole, options.ConsoleColor);
 
             if (!Directory.Exists(path) && !File.Exists(path))
             {
                 Program.Logger.WriteErrorLine($"Directory/File not found: {path}");
-                if (options.Debug)
+                if (options.Debug && options.LogToConsole)
                 {
                     PressAnyKeyToContinue(); // Make it easier to check console output before closing.
                 }
@@ -432,7 +579,9 @@ namespace PSXPrev
             _filter = filter ?? DefaultFilter;
             _options = options.Clone();
 
-            Scanning = true;
+            _scanning = true;
+            _pauseRequested = false;
+            _cancelRequested = false;
 
             AllEntities = new List<RootEntity>();
             AllTextures = new List<Texture>();
@@ -504,17 +653,40 @@ namespace PSXPrev
                 Program.Logger.WriteExceptionLine(exp, "Error scanning files");
             }
 
-            Scanning = false;
+            _scanning = false;
+            _pauseRequested = false;
+            _cancelRequested = false;
         }
 
-        private static void UpdateProgress(long filePos, string message)
+        private static void ResetFileProgress(bool nextParser = false)
         {
-            if (filePos > _largestCurrentFilePosition)
+            lock (_fileProgressLock)
             {
-                _largestCurrentFilePosition = filePos;
+                _largestCurrentFilePosition = 0;
+                _currentFileLength = 0;
             }
-            var perc = (double)_largestCurrentFilePosition / _largestFileLength;
-            PreviewForm.UpdateProgress((int)(perc * 100), 100, false, message);
+            if (!nextParser)
+            {
+                //PreviewForm.UpdateProgress(0, 100, false, "File Started");
+            }
+        }
+
+        private static void UpdateFileProgress(long filePos, string message)
+        {
+            var percent = 1d;
+            lock (_fileProgressLock)
+            {
+                if (filePos > _largestCurrentFilePosition)
+                {
+                    _largestCurrentFilePosition = filePos;
+                }
+                // Avoid divide-by-zero when scanning a file that's 0 bytes in size.
+                if (_currentFileLength > 0)
+                {
+                    percent = (double)_largestCurrentFilePosition / _currentFileLength;
+                }
+            }
+            PreviewForm.UpdateProgress((int)(percent * 100), 100, false, message);
         }
 
         private static void AddEntity(RootEntity entity, long fp)
@@ -524,7 +696,7 @@ namespace PSXPrev
             {
                 AllEntities.Add(entity);
             }
-            UpdateProgress(fp, $"Found Model with {entity.ChildCount} objects");
+            UpdateFileProgress(fp, $"Found Model with {entity.ChildCount} objects");
             PreviewForm.ReloadItems();
         }
 
@@ -535,7 +707,7 @@ namespace PSXPrev
             {
                 AllTextures.Add(texture);
             }
-            UpdateProgress(fp, $"Found Texture {texture.Width}x{texture.Height} {texture.Bpp}bpp");
+            UpdateFileProgress(fp, $"Found Texture {texture.Width}x{texture.Height} {texture.Bpp}bpp");
             PreviewForm.ReloadItems();
         }
 
@@ -546,160 +718,123 @@ namespace PSXPrev
             {
                 AllAnimations.Add(animation);
             }
-            UpdateProgress(fp, $"Found Animation with {animation.ObjectCount} objects and {animation.FrameCount} frames");
+            UpdateFileProgress(fp, $"Found Animation with {animation.ObjectCount} objects and {animation.FrameCount} frames");
             PreviewForm.ReloadItems();
         }
 
-        private static void WaitWhileHalted()
+        internal static bool PauseScan(bool paused)
         {
-            while (HaltRequested)
+            if (_scanning)
             {
-                // todo: could we use Thread.Yield() here?
-                //Thread.Yield();
+                if (!paused)
+                {
+                    _pauseRequested = false;
+                }
+                else if (!_cancelRequested)
+                {
+                    _pauseRequested = true; // Cannot pause while scan is canceled.
+                }
             }
+            return _pauseRequested;
+        }
+
+        internal static bool CancelScan()
+        {
+            if (_scanning)
+            {
+                _pauseRequested = false; // Prevent waiting in while loop if canceled.
+                _cancelRequested = true;
+            }
+            return _cancelRequested;
+        }
+
+        // Returns true if the program has requested to cancel the scan.
+        internal static bool WaitOnScanState()
+        {
+            // Currently the code is written so that _pauseRequested and _cancelRequested
+            // will never be true at the same time. Otherwise we could wait in an endless loop,
+            // even if we canceled the scan.
+            // 
+            // If we want to be lazier when managing the state of these two variables then
+            // change the while loop condition to: `_pauseRequested && !_cancelRequested`.
+            while (_pauseRequested)
+            {
+                // Give priority to other threads and don't run up the CPU with constant looping.
+                // This is fine to use here, because we don't expect _pauseRequested to change frequently.
+                // Note that lms will average at least 10ms due to how Sleep works, which is fine.
+                Thread.Sleep(1);
+            }
+            return _cancelRequested;
+        }
+
+        private static bool HasFileExtension(string file, string[] extensions)
+        {
+            var ext = Path.GetExtension(file).ToLowerInvariant();
+            return Array.IndexOf(extensions, ext) != -1;
+        }
+
+        private static bool HasInvalidExtension(string file)
+        {
+            return HasFileExtension(file, InvalidFileExtensions);
+        }
+
+        private static bool HasISOExtension(string file)
+        {
+            return HasFileExtension(file, ISOFileExtensions);
         }
 
         private static void ScanFiles()
         {
-            var parsers = new List<Action<BinaryReader, string>>();
-
-            if (_options.CheckAll || _options.CheckTIM)
-            {
-                parsers.Add((binaryReader, fileTitle) =>
-                {
-                    var timParser = new TIMParser(AddTexture);
-                    //Program.Logger.WriteLine();
-                    timParser.ScanFile(binaryReader, fileTitle);
-                });
-            }
-
-            if (_options.CheckAll || _options.CheckMOD)
-            {
-                parsers.Add((binaryReader, fileTitle) =>
-                {
-                    var modModelReader = new CrocModelReader(AddEntity);
-                    //Program.Logger.WriteLine();
-                    modModelReader.ScanFile(binaryReader, fileTitle);
-                });
-            }
-
-            if (_options.CheckAll || _options.CheckBFF)
-            {
-                parsers.Add((binaryReader, fileTitle) =>
-                {
-                    var bffModelReader = new BFFModelReader(AddEntity);
-                    //Program.Logger.WriteLine();
-                    bffModelReader.ScanFile(binaryReader, fileTitle);
-                });
-            }
-
-            if (_options.CheckAll || _options.CheckPSX)
-            {
-                parsers.Add((binaryReader, fileTitle) =>
-                {
-                    var psxParser = new PSXParser(AddEntity);
-                    //Program.Logger.WriteLine();
-                    psxParser.ScanFile(binaryReader, fileTitle);
-                });
-            }
-
-            if (_options.CheckAll || _options.CheckTMD)
-            {
-                parsers.Add((binaryReader, fileTitle) =>
-                {
-                    var tmdParser = new TMDParser(AddEntity);
-                    //Program.Logger.WriteLine();
-                    tmdParser.ScanFile(binaryReader, fileTitle);
-                });
-            }
-
-            if (_options.CheckAll || _options.CheckVDF)
-            {
-                parsers.Add((binaryReader, fileTitle) =>
-                {
-                    var vdfParser = new VDFParser(AddAnimation);
-                    //Program.Logger.WriteLine();
-                    vdfParser.ScanFile(binaryReader, fileTitle);
-                });
-            }
+            var parsers = new List<Func<FileOffsetScanner>>();
 
             if (_options.CheckAll || _options.CheckAN)
             {
-                parsers.Add((binaryReader, fileTitle) =>
-                {
-                    var anParser = new ANParser(AddAnimation);
-                    //Program.Logger.WriteLine();
-                    anParser.ScanFile(binaryReader, fileTitle);
-                });
+                parsers.Add(() => new ANParser(AddAnimation));
             }
-
-            if (_options.CheckAll || _options.CheckPMD)
+            if (_options.CheckAll || _options.CheckBFF)
             {
-                parsers.Add((binaryReader, fileTitle) =>
-                {
-                    var pmdParser = new PMDParser(AddEntity);
-                    //Program.Logger.WriteLine();
-                    pmdParser.ScanFile(binaryReader, fileTitle);
-                });
+                parsers.Add(() => new BFFModelReader(AddEntity));
             }
-
-            if (_options.CheckAll || _options.CheckTOD)
-            {
-                parsers.Add((binaryReader, fileTitle) =>
-                {
-                    var todParser = new TODParser(AddAnimation);
-                    //Program.Logger.WriteLine();
-                    todParser.ScanFile(binaryReader, fileTitle);
-                });
-            }
-
             if (_options.CheckAll || _options.CheckHMD)
             {
-                parsers.Add((binaryReader, fileTitle) =>
-                {
-                    var hmdParser = new HMDParser(AddEntity, AddAnimation, AddTexture);
-                    //Program.Logger.WriteLine();
-                    hmdParser.ScanFile(binaryReader, fileTitle);
-                });
+                parsers.Add(() => new HMDParser(AddEntity, AddAnimation, AddTexture));
+            }
+            if (_options.CheckAll || _options.CheckMOD)
+            {
+                parsers.Add(() => new CrocModelReader(AddEntity));
+            }
+            if (_options.CheckAll || _options.CheckPMD)
+            {
+                parsers.Add(() => new PMDParser(AddEntity));
+            }
+            if (_options.CheckAll || _options.CheckPSX)
+            {
+                parsers.Add(() => new PSXParser(AddEntity));
+            }
+            if (_options.CheckAll || _options.CheckTIM)
+            {
+                parsers.Add(() => new TIMParser(AddTexture));
+            }
+            if (_options.CheckAll || _options.CheckTMD)
+            {
+                parsers.Add(() => new TMDParser(AddEntity));
+            }
+            if (_options.CheckAll || _options.CheckTOD)
+            {
+                parsers.Add(() => new TODParser(AddAnimation));
+            }
+            if (_options.CheckAll || _options.CheckVDF)
+            {
+                parsers.Add(() => new VDFParser(AddAnimation));
             }
 
-            if (_path.ToLowerInvariant().EndsWith(".iso"))
+            if (HasISOExtension(_path))
             {
-                using (var isoStream = File.Open(_path, FileMode.Open))
-                {
-                    var cdReader = new CDReader(isoStream, true);
-                    var files = cdReader.GetFiles("", _filter ?? DefaultFilter, SearchOption.AllDirectories);
-                    foreach (var file in files)
-                    {
-                        if (HasInvalidExtension(file))
-                        {
-                            continue;
-                        }
-                        var fileInfo = cdReader.GetFileInfo(file);
-                        if (fileInfo.Exists)
-                        {
-                            foreach (var parser in parsers)
-                            {
-                                using (var stream = fileInfo.OpenRead())
-                                {
-                                    ProcessFile(stream, file, parser);
-                                }
-                            }
-                        }
-                        WaitWhileHalted();
-                    }
-                }
+                ProcessISO(_path, _filter, parsers);
             }
             else if (File.Exists(_path))
             {
-                Parallel.ForEach(parsers, parser =>
-                {
-                    using (var fs = File.Open(_path, FileMode.Open, FileAccess.Read, FileShare.Read))
-                    {
-                        ProcessFile(fs, _path, parser);
-                    }
-                    WaitWhileHalted();
-                });
+                ProcessFile(_path, parsers);
             }
             else
             {
@@ -707,56 +842,230 @@ namespace PSXPrev
             }
         }
 
-        private static void ProcessFiles(string path, string filter, List<Action<BinaryReader, string>> parsers)
+        private static bool ProcessISO(string isoPath, string filter, List<Func<FileOffsetScanner>> parsers)
         {
-            var files = Directory.GetFiles(path, filter);
-            foreach (var file in files)
+            using (var isoStream = File.OpenRead(isoPath))
+            using (var cdReader = new CDReader(isoStream, true))
             {
-                if (HasInvalidExtension(file))
+                var files = cdReader.GetFiles("", filter, SearchOption.AllDirectories);
+                foreach (var file in files)
                 {
-                    continue;
-                }
-                Parallel.ForEach(parsers, parser =>
-                {
-                    using (var fs = File.Open(file, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    var fileInfo = cdReader.GetFileInfo(file);
+                    // fileInfo.Exists is here for a reason (unsure what that reason was)
+                    if (HasInvalidExtension(file) || !fileInfo.Exists)
                     {
-                        ProcessFile(fs, file, parser);
+                        continue;
                     }
-                    WaitWhileHalted();
+                    ResetFileProgress();
+
+                    foreach (var parser in parsers)
+                    {
+                        ResetFileProgress(true);
+                        if (WaitOnScanState())
+                        {
+                            return true; // Canceled
+                        }
+                        using (var fs = fileInfo.OpenRead())
+                        {
+                            ScanFile(fs, file, parser);
+                        }
+                    }
+                }
+
+                // Implementation to support depth-last file search in ISO files.
+#if false
+                // Avoid recursion and just use a stack/queue for directories to process. This will give cleaner stack traces.
+                var directoryList = new List<string> { "" };
+
+                while (directoryList.Count > 0)
+                {
+                    var path = directoryList[0]; // Pop/Dequeue
+                    directoryList.RemoveAt(0);
+
+                    var directoryInfo = cdReader.GetDirectoryInfo(path);
+                    if (!directoryInfo.Exists)
+                    {
+                        continue;
+                    }
+
+                    foreach (var fileInfo in directoryInfo.GetFiles(filter))
+                    {
+                        var file = fileInfo.FullName;
+                        if (HasInvalidExtension(file) || !fileInfo.Exists)
+                        {
+                            continue;
+                        }
+                        ResetFileProgress();
+
+                        foreach (var parser in parsers)
+                        {
+                            ResetFileProgress(true);
+                            if (WaitOnScanState())
+                            {
+                                return true; // Canceled
+                            }
+                            using (var stream = fileInfo.OpenRead())
+                            {
+                                ScanFile(stream, file, parser);
+                            }
+                        }
+                    }
+
+                    if (WaitOnScanState())
+                    {
+                        return true; // Canceled
+                    }
+
+                    var directories = directoryInfo.GetDirectories(); // PushRange/EnqueueRange
+                    for (var i = 0; i < directories.Length; i++)
+                    {
+                        if (_options.DepthFirstFileSearch)
+                        {
+                            directoryList.Insert(i, directories[i].FullName);
+                        }
+                        else
+                        {
+                            directoryList.Add(directories[i].FullName);
+                        }
+                    }
+                }
+#endif
+            }
+            return false;
+        }
+
+        private static bool ProcessFiles(string basePath, string filter, List<Func<FileOffsetScanner>> parsers)
+        {
+            // Note: We can also just use SearchOption.AllDirectories as the third argument to GetFiles,
+            // but that might be slow if there are A LOT of files to get. And we can't use EnumerateFiles
+            // because the enumerator can throw UnauthorizedAccessException for individual files, which is really stupid.
+
+            // Avoid recursion and just use a stack/queue for directories to process.
+            // This will give cleaner stack traces, and make it easier to cancel the scan.
+            var directoryList = new List<string> { basePath };
+
+            while (directoryList.Count > 0)
+            {
+                var path = directoryList[0]; // Pop/Dequeue
+                directoryList.RemoveAt(0);
+
+                foreach (var file in Directory.GetFiles(path, filter))
+                {
+                    if (HasInvalidExtension(file))
+                    {
+                        continue;
+                    }
+                    // If we want, we could add support to process ISOs in directories.
+                    /*if (HasISOExtension(file))
+                    {
+                        if (ProcessISO(file, filter, parsers))
+                        {
+                            return true; // Canceled
+                        }
+                    }
+                    else*/ if (ProcessFile(file, parsers))
+                    {
+                        return true; // Canceled
+                    }
+                }
+
+                if (WaitOnScanState())
+                {
+                    return true; // Canceled
+                }
+
+                var directories = Directory.GetDirectories(path); // PushRange/EnqueueRange
+                if (_options.DepthFirstFileSearch)
+                {
+                    directoryList.InsertRange(0, directories);
+                }
+                else
+                {
+                    directoryList.AddRange(directories);
+                }
+            }
+            return false;
+        }
+
+        private static bool ProcessFile(string file, List<Func<FileOffsetScanner>> parsers)
+        {
+            ResetFileProgress();
+            if (_options.AsyncFileScan)
+            {
+                if (WaitOnScanState())
+                {
+                    return true; // Canceled
+                }
+                Parallel.ForEach(parsers, parser => {
+                    using (var fs = File.OpenRead(file))
+                    {
+                        ScanFile(fs, file, parser);
+                    }
                 });
             }
-            var directories = Directory.GetDirectories(path);
-            foreach (var directory in directories)
+            else
             {
-                ProcessFiles(directory, filter, parsers);
-
-                WaitWhileHalted();
+                foreach (var parser in parsers)
+                {
+                    ResetFileProgress(true);
+                    if (WaitOnScanState())
+                    {
+                        return true; // Canceled
+                    }
+                    using (var fs = File.OpenRead(file))
+                    {
+                        ScanFile(fs, file, parser);
+                    }
+                }
             }
+            return false;
         }
 
-        private static bool HasInvalidExtension(string file)
-        {
-            return file.ToLowerInvariant().EndsWith(".str") || file.ToLowerInvariant().EndsWith(".xa") || file.ToLowerInvariant().EndsWith(".vb") || file.ToLowerInvariant().EndsWith(".str;1") || file.ToLowerInvariant().EndsWith(".xa;1") || file.ToLowerInvariant().EndsWith(".vb;1");
-        }
-
-        private static void ProcessFile(Stream stream, string file, Action<BinaryReader, string> parser)
+        private static void ScanFile(Stream stream, string file, Func<FileOffsetScanner> parser)
         {
             using (var bs = new BufferedStream(stream))
+            using (var reader = new BinaryReader(bs, Encoding.BigEndianUnicode))
+            //using (var fileOffsetStream = new FileOffsetStream(bs))
+            //using (var reader = new BinaryReader(fileOffsetStream, Encoding.BigEndianUnicode))
             {
-                using (var binaryReader = new BinaryReader(bs, Encoding.BigEndianUnicode))
+                var scanner = parser();
+                try
+                {
+                    lock (_fileProgressLock)
+                    {
+                        if (stream.Length > _currentFileLength)
+                        {
+                            _currentFileLength = stream.Length;
+                        }
+                    }
+
+                    var fileTitle = Path.GetFileName(file);
+
+                    // Setup scanner settings
+                    // In the future we could move Debug, ShowErrors, and Logger into the scanner.
+                    scanner.StartOffset = _options.StartOffset;
+                    scanner.StopOffset  = _options.StopOffset;
+                    scanner.NextOffset  = _options.NextOffset;
+
+                    scanner.ScanFile(reader, fileTitle);
+                }
+                catch (Exception exp)
+                {
+                    Program.Logger.WriteExceptionLine(exp, $"Error processing file for {scanner.FormatName} scanner");
+                }
+                finally
                 {
                     try
                     {
-                        if (stream.Length > _largestFileLength)
-                        {
-                            _largestFileLength = stream.Length;
-                        }
-                        var fileTitle = file.Substring(file.LastIndexOf('\\') + 1);
-                        parser(binaryReader, fileTitle);
+                        scanner.Dispose();
                     }
                     catch (Exception exp)
                     {
-                        Program.Logger.WriteExceptionLine(exp, "Error processing file");
+                        // It's pretty bad if we're erroring during disposal, but handle it anyway.
+                        if (Program.Debug || Program.ShowErrors)
+                        {
+                            Program.Logger.WriteExceptionLine(exp, $"Error disposing of {scanner.FormatName} scanner");
+                        }
                     }
                 }
             }

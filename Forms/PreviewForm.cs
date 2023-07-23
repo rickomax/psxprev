@@ -9,6 +9,7 @@ using System.Timers;
 using System.Windows.Forms;
 using OpenTK;
 using PSXPrev.Classes;
+using PSXPrev.Forms;
 using Color = System.Drawing.Color;
 using Timer = System.Timers.Timer;
 
@@ -58,6 +59,7 @@ namespace PSXPrev
         private bool _autoDrawModelTextures;
         private bool _autoSelectAnimationModel;
         private bool _autoPlayAnimations;
+        private bool _closing;
 
         public PreviewForm(Action<PreviewForm> refreshAction)
         {
@@ -147,6 +149,10 @@ namespace PSXPrev
 
         public void UpdateRootEntities(List<RootEntity> entities)
         {
+            if (IsDisposed || _closing)
+            {
+                return;
+            }
             foreach (var entity in entities)
             {
                 if (_rootEntities.Contains(entity))
@@ -160,6 +166,10 @@ namespace PSXPrev
 
         public void UpdateTextures(List<Texture> textures)
         {
+            if (IsDisposed || _closing)
+            {
+                return;
+            }
             foreach (var texture in textures)
             {
                 if (_textures.Contains(texture))
@@ -174,6 +184,10 @@ namespace PSXPrev
 
         public void UpdateAnimations(List<Animation> animations)
         {
+            if (IsDisposed || _closing)
+            {
+                return;
+            }
             foreach (var animation in animations)
             {
                 if (_animations.Contains(animation))
@@ -187,6 +201,10 @@ namespace PSXPrev
 
         public void SetAutoAttachLimbs(bool attachLimbs)
         {
+            if (IsDisposed || _closing)
+            {
+                return;
+            }
             if (InvokeRequired)
             {
                 var invokeAction = new Action<bool>(SetAutoAttachLimbs);
@@ -202,6 +220,10 @@ namespace PSXPrev
 
         public void SetAutoDrawModelTextures(bool autoDraw)
         {
+            if (IsDisposed || _closing)
+            {
+                return;
+            }
             if (InvokeRequired)
             {
                 var invokeAction = new Action<bool>(SetAutoDrawModelTextures);
@@ -216,6 +238,10 @@ namespace PSXPrev
 
         public void SetAutoSelectAnimationModel(bool autoSelect)
         {
+            if (IsDisposed || _closing)
+            {
+                return;
+            }
             if (InvokeRequired)
             {
                 var invokeAction = new Action<bool>(SetAutoSelectAnimationModel);
@@ -230,6 +256,10 @@ namespace PSXPrev
 
         public void SetAutoPlayAnimations(bool autoPlay)
         {
+            if (IsDisposed || _closing)
+            {
+                return;
+            }
             if (InvokeRequired)
             {
                 var invokeAction = new Action<bool>(SetAutoPlayAnimations);
@@ -244,6 +274,10 @@ namespace PSXPrev
 
         public void SelectFirstEntity()
         {
+            if (IsDisposed || _closing)
+            {
+                return;
+            }
             if (InvokeRequired)
             {
                 Invoke(new Action(SelectFirstEntity));
@@ -261,6 +295,10 @@ namespace PSXPrev
 
         public void DrawAllTexturesToVRAM()
         {
+            if (IsDisposed || _closing)
+            {
+                return;
+            }
             if (InvokeRequired)
             {
                 Invoke(new Action(DrawAllTexturesToVRAM));
@@ -442,6 +480,14 @@ namespace PSXPrev
             var assembly = Assembly.GetExecutingAssembly();
             var fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
             Text = $@"{Text} {fileVersionInfo.FileVersion}";
+        }
+
+        private void previewForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            _closing = true;
+            _redrawTimer?.Stop();
+            _animateTimer?.Stop();
+            Program.CancelScan(); // Cancel the scan if one is active.
         }
 
         private void _animateTimer_Elapsed(object sender, ElapsedEventArgs e)
@@ -1036,24 +1082,21 @@ namespace PSXPrev
             {
                 if (OutputFolderSelect(out var path))
                 {
+                    var objExporter = new ObjExporter();
                     if (e.ClickedItem == miOBJ)
                     {
-                        var objExporter = new ObjExporter();
                         objExporter.Export(checkedEntities, path);
                     }
-                    if (e.ClickedItem == miOBJVC)
+                    else if (e.ClickedItem == miOBJVC)
                     {
-                        var objExporter = new ObjExporter();
                         objExporter.Export(checkedEntities, path, true);
                     }
-                    if (e.ClickedItem == miOBJMerged)
+                    else if (e.ClickedItem == miOBJMerged)
                     {
-                        var objExporter = new ObjExporter();
                         objExporter.Export(checkedEntities, path, false, true);
                     }
-                    if (e.ClickedItem == miOBJVCMerged)
+                    else if (e.ClickedItem == miOBJVCMerged)
                     {
-                        var objExporter = new ObjExporter();
                         objExporter.Export(checkedEntities, path, true, true);
                     }
                     MessageBox.Show("Models exported");
@@ -1063,7 +1106,7 @@ namespace PSXPrev
 
         private void findByPageToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var pageIndexString = Utils.ShowDialog("Find by Page", "Please type in the VRAM Page index (0-31)");
+            var pageIndexString = DialogForm.Show(this, "Please type in the VRAM Page index (0-31)", "Find by Page");
             if (!int.TryParse(pageIndexString, out var pageIndex))
             {
                 MessageBox.Show("Please type in a valid VRAM Page index between 0 and 31", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -1352,7 +1395,7 @@ namespace PSXPrev
 
         public void UpdateProgress(int value, int max, bool complete, string message)
         {
-            if (IsDisposed)
+            if (IsDisposed || _closing)
             {
                 return;
             }
@@ -1364,6 +1407,12 @@ namespace PSXPrev
             else
             {
                 messageToolStripLabel.Text = message;
+                if (complete)
+                {
+                    pauseScanningToolStripMenuItem.Checked = false;
+                    pauseScanningToolStripMenuItem.Enabled = false;
+                    stopScanningToolStripMenuItem.Enabled = false;
+                }
             }
         }
 
@@ -1658,7 +1707,29 @@ namespace PSXPrev
 
         private void pauseScanningToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
-            Program.HaltRequested = pauseScanningToolStripMenuItem.Checked;
+            if (Program.IsScanning && !Program.IsScanCanceling)
+            {
+                var paused = Program.PauseScan(pauseScanningToolStripMenuItem.Checked);
+                messageToolStripLabel.Text = "Scan " + (paused ? "Paused" : "Resumed");
+            }
+        }
+
+        private void stopScanningToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (Program.IsScanning && !Program.IsScanCanceling)
+            {
+                var result = MessageBox.Show(this, "Are you sure you want to cancel the current scan?", "Stop Scanning", MessageBoxButtons.YesNo);
+                if (result == DialogResult.Yes)
+                {
+                    var canceled = Program.CancelScan();
+                    if (canceled)
+                    {
+                        pauseScanningToolStripMenuItem.Checked = false;
+                        pauseScanningToolStripMenuItem.Enabled = false;
+                        stopScanningToolStripMenuItem.Enabled = false;
+                    }
+                }
+            }
         }
 
         private void autoDrawModelTexturesToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1737,7 +1808,7 @@ namespace PSXPrev
 
         private void gotoPageButton_Click(object sender, EventArgs e)
         {
-            var pageIndexString = Utils.ShowDialog("Go to VRAM Page", "Please type in the VRAM Page index (0-31)");
+            var pageIndexString = DialogForm.Show(this, "Please type in the VRAM Page index (0-31)", "Go to VRAM Page");
             if (int.TryParse(pageIndexString, out var pageIndex) && pageIndex >= 0 && pageIndex <= 31)
             {
                 _vramSelectedPage = pageIndex;

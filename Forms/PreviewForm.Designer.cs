@@ -87,6 +87,7 @@ namespace PSXPrev
             this.mainMenuStrip = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.pauseScanningToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.stopScanningToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
             this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.modelsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -925,6 +926,7 @@ namespace PSXPrev
             // 
             this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.pauseScanningToolStripMenuItem,
+            this.stopScanningToolStripMenuItem,
             this.toolStripMenuItem1,
             this.exitToolStripMenuItem});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
@@ -938,6 +940,13 @@ namespace PSXPrev
             this.pauseScanningToolStripMenuItem.Size = new System.Drawing.Size(157, 22);
             this.pauseScanningToolStripMenuItem.Text = "Pause Scanning";
             this.pauseScanningToolStripMenuItem.CheckedChanged += new System.EventHandler(this.pauseScanningToolStripMenuItem_CheckedChanged);
+            // 
+            // stopScanningToolStripMenuItem
+            // 
+            this.stopScanningToolStripMenuItem.Name = "stopScanningToolStripMenuItem";
+            this.stopScanningToolStripMenuItem.Size = new System.Drawing.Size(157, 22);
+            this.stopScanningToolStripMenuItem.Text = "Stop Scanning";
+            this.stopScanningToolStripMenuItem.Click += new System.EventHandler(this.stopScanningToolStripMenuItem_Click);
             // 
             // toolStripMenuItem1
             // 
@@ -1498,6 +1507,7 @@ namespace PSXPrev
             this.Name = "PreviewForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "PSXPrev";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.previewForm_FormClosing);
             this.Load += new System.EventHandler(this.previewForm_Load);
             this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.previewForm_KeyDown);
             this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.previewForm_KeyUp);
@@ -1687,5 +1697,6 @@ namespace PSXPrev
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel6;
         private System.Windows.Forms.Label animationProgressLabel;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel2;
+        private System.Windows.Forms.ToolStripMenuItem stopScanningToolStripMenuItem;
     }
 }

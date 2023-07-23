@@ -16,30 +16,18 @@ namespace PSXPrev.Classes
 
         public override object EditValue(ITypeDescriptorContext context, IServiceProvider provider, object value)
         {
-            if (Program.Scanning)
+            if (Program.IsScanning)
             {
                 MessageBox.Show("Please wait until the scan finishes.");
                 return null;
             }
             var svc = provider.GetService(typeof(IWindowsFormsEditorService)) as IWindowsFormsEditorService;
-            if (svc != null)
+            using (var form = new SelectTMDForm())
             {
-                using (var form = new SelectTMDForm())
+                var result = svc != null ? svc.ShowDialog(form) : form.ShowDialog();
+                if (result == DialogResult.OK)
                 {
-                    if (svc.ShowDialog(form) == DialogResult.OK)
-                    {
-                        return form.SelectedTMD;
-                    }
-                }
-            }
-            else
-            {
-                using (var form = new SelectTMDForm())
-                {
-                    if (form.ShowDialog() == DialogResult.OK)
-                    {
-                        return form.SelectedTMD;
-                    }
+                    return form.SelectedTMD;
                 }
             }
             return base.EditValue(context, provider, value);
