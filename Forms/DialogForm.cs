@@ -1,25 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace PSXPrev.Forms
 {
     public partial class DialogForm : Form
     {
-        public String ResultText
-        {
-            get { return mainTextBox.Text; }
-        }
+        public string ResultText => mainTextBox.Text;
 
-        public String LabelText
+        public string LabelText
         {
-            set { mainLabel.Text = value; }
+            get => mainLabel.Text;
+            set => mainLabel.Text = value;
         }
 
         public DialogForm()
@@ -30,6 +21,17 @@ namespace PSXPrev.Forms
         private void okButton_Click(object sender, EventArgs e)
         {
             Close();
+        }
+
+        public static string Show(string text, string caption) => Show(null, text, caption);
+
+        public static string Show(IWin32Window owner, string text, string caption)
+        {
+            using (var prompt = new DialogForm { LabelText = text, Text = caption })
+            {
+                prompt.ShowDialog(owner);
+                return prompt.ResultText;
+            }
         }
     }
 }

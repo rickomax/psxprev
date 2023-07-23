@@ -67,21 +67,27 @@ namespace PSXPrev.Forms
                 CheckTOD = scanTODCheckBox.Checked,
                 CheckVDF = scanVDFCheckBox.Checked,
 
-                IgnoreTMDVersion = optionIgnoreTMDVersionCheckBox.Checked,
                 IgnoreHMDVersion = optionIgnoreHMDVersionCheckBox.Checked,
                 IgnoreTIMVersion = optionIgnoreTIMVersionCheckBox.Checked,
+                IgnoreTMDVersion = optionIgnoreTMDVersionCheckBox.Checked,
+
+                StartOffset = optionNoOffsetCheckBox.Checked ? (long?)0 : null,
+                StopOffset = optionNoOffsetCheckBox.Checked ? (long?)1 : null,
+                //NextOffset = false, //todo
+
+                //DepthFirstFileSearch = true, //todo
+                //AsyncFileScan = true, //todo
 
                 LogToFile = optionLogToFileCheckBox.Checked,
-                NoVerbose = optionNoVerboseCheckBox.Checked,
+                LogToConsole = !optionNoVerboseCheckBox.Checked,
                 Debug = optionDebugCheckBox.Checked,
                 ShowErrors = optionShowErrorsCheckBox.Checked,
-                NoConsoleColor = false, //todo
+                //ConsoleColor = true, //todo
 
                 DrawAllToVRAM = optionDrawAllToVRAMCheckBox.Checked,
-                NoOffset = optionNoOffsetCheckBox.Checked,
                 AutoAttachLimbs = optionAutoAttachLimbsCheckBox.Checked,
-                AutoPlayAnimations = false, //todo
-                AutoSelect = false, //todo
+                //AutoPlayAnimations = false, //todo
+                //AutoSelect = false, //todo
             });
 
             Close();

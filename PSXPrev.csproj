@@ -82,6 +82,7 @@
     <Compile Include="Classes\CoordUnit.cs" />
     <Compile Include="Classes\DaeExporter.cs" />
     <Compile Include="Classes\EntityBase.cs" />
+    <Compile Include="Classes\FileOffsetStream.cs" />
     <Compile Include="Classes\FInt.cs" />
     <Compile Include="Classes\HMDHelper.cs" />
     <Compile Include="Classes\HMDParser.cs" />
