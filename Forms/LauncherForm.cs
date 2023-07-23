@@ -19,7 +19,7 @@ namespace PSXPrev.Forms
             {
                 openFileDialog.Filter = "Everything (*.*)|*.*";
                 openFileDialog.Title = "Select a File to Scan";
-                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                if (openFileDialog.ShowDialog(this) == DialogResult.OK)
                 {
                     fileNameTextBox.Text = openFileDialog.FileName;
                 }
@@ -32,7 +32,7 @@ namespace PSXPrev.Forms
             {
                 openFileDialog.Filter = "Iso Files (*.iso)|*.iso";
                 openFileDialog.Title = "Select an ISO to Scan";
-                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                if (openFileDialog.ShowDialog(this) == DialogResult.OK)
                 {
                     fileNameTextBox.Text = openFileDialog.FileName;
                 }
@@ -45,7 +45,8 @@ namespace PSXPrev.Forms
             {
                 folderBrowserDialog.IsFolderPicker = true;
                 folderBrowserDialog.Title = "Select a Folder to Scan";
-                if (folderBrowserDialog.ShowDialog() == CommonFileDialogResult.Ok)
+                // Parameter name used to avoid overload resolution with WPF Window, which we don't have a reference to.
+                if (folderBrowserDialog.ShowDialog(ownerWindowHandle: Handle) == CommonFileDialogResult.Ok)
                 {
                     fileNameTextBox.Text = folderBrowserDialog.FileName;
                 }
