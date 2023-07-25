@@ -105,7 +105,7 @@ namespace PSXPrev.Classes
                             var matrixType = (flag & 0x1);
                             var rotation = (flag & 0x2) >> 0x1;
                             var scaling = (flag & 0x4) >> 0x2;
-                            var translation = (flag & 0x8) >> 0x3;
+                            var transfer = (flag & 0x8) >> 0x3;
                             if (rotation != 0x00)
                             {
                                 var rx = (reader.ReadInt32() / 4096f) * GeomUtils.Deg2Rad;
@@ -121,12 +121,12 @@ namespace PSXPrev.Classes
                                 reader.ReadUInt16();
                                 animationFrame.Scale = new Vector3(sx, sy, sz);
                             }
-                            if (translation != 0x00)
+                            if (transfer != 0x00)
                             {
                                 float tx = reader.ReadInt32();
                                 float ty = reader.ReadInt32();
                                 float tz = reader.ReadInt32();
-                                animationFrame.Translation = new Vector3(tx, ty, tz);
+                                animationFrame.Transfer = new Vector3(tx, ty, tz);
                             }
                             animationFrame.AbsoluteMatrix = matrixType == 0x00;
                             break;
@@ -158,10 +158,8 @@ namespace PSXPrev.Classes
                             var z = reader.ReadInt32();
 
                             var matrix = new Matrix3(new Vector3(r00, r01, r02), new Vector3(r10, r11, r12), new Vector3(r20, r21, r22));
-
-                            animationFrame.Translation = new Vector3(x, y, z);
-                            animationFrame.Rotation = matrix.ExtractRotation();
-                            animationFrame.Scale = matrix.ExtractScale();
+                            animationFrame.Transfer = new Vector3(x, y, z);
+                            animationFrame.Matrix = matrix;
                             animationFrame.AbsoluteMatrix = true;
                             break;
                         default:
@@ -170,14 +168,9 @@ namespace PSXPrev.Classes
                     }
                 }
             }
-
             animation.AnimationType = AnimationType.Common;
-            animation.FPS = 60f / (resolution == 0 ? 1 : resolution);
+            animation.FPS = resolution == 0 ? 60f : 1f / resolution * 60f;
             animation.AssignObjects(animationObjects, false, false);
-            // Override frame count calculated by AssignObjects.
-            // todo: Is frameCount actually the duration of the animation, or just the number of parsed frames?
-            // Maybe this should be removed...
-            animation.FrameCount = frameCount;
             return animation;
         }
     }

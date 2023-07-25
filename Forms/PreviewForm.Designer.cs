@@ -837,6 +837,7 @@ namespace PSXPrev
             this.animationFrameTrackBar.Size = new System.Drawing.Size(531, 45);
             this.animationFrameTrackBar.TabIndex = 24;
             this.animationFrameTrackBar.TickStyle = System.Windows.Forms.TickStyle.None;
+            this.animationFrameTrackBar.Scroll += new System.EventHandler(this.animationFrameTrackBar_Scroll);
             // 
             // animationProgressLabel
             // 
@@ -870,6 +871,7 @@ namespace PSXPrev
             this.miOBJMerged,
             this.miOBJVCMerged});
             this.cmsModelExport.Name = "cmsModelExport";
+            this.cmsModelExport.OwnerItem = this.exportSelectedToolStripMenuItem;
             this.cmsModelExport.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
             this.cmsModelExport.Size = new System.Drawing.Size(355, 92);
             this.cmsModelExport.ItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.cmsModelExport_ItemClicked);
@@ -1143,59 +1145,59 @@ namespace PSXPrev
             // exportSelectedToolStripMenuItem1
             // 
             this.exportSelectedToolStripMenuItem1.Name = "exportSelectedToolStripMenuItem1";
-            this.exportSelectedToolStripMenuItem1.Size = new System.Drawing.Size(180, 22);
+            this.exportSelectedToolStripMenuItem1.Size = new System.Drawing.Size(176, 22);
             this.exportSelectedToolStripMenuItem1.Text = "Export Selected";
             this.exportSelectedToolStripMenuItem1.Click += new System.EventHandler(this.exportBitmapButton_Click);
             // 
             // toolStripSeparator3
             // 
             this.toolStripSeparator3.Name = "toolStripSeparator3";
-            this.toolStripSeparator3.Size = new System.Drawing.Size(177, 6);
+            this.toolStripSeparator3.Size = new System.Drawing.Size(173, 6);
             // 
             // drawToVRAMToolStripMenuItem
             // 
             this.drawToVRAMToolStripMenuItem.Name = "drawToVRAMToolStripMenuItem";
-            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
             this.drawToVRAMToolStripMenuItem.Text = "Draw to VRAM";
             this.drawToVRAMToolStripMenuItem.Click += new System.EventHandler(this.drawToVRAMButton_Click);
             // 
             // findByPageToolStripMenuItem
             // 
             this.findByPageToolStripMenuItem.Name = "findByPageToolStripMenuItem";
-            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
             this.findByPageToolStripMenuItem.Text = "Find by Page";
             this.findByPageToolStripMenuItem.Click += new System.EventHandler(this.findByPageToolStripMenuItem_Click);
             // 
             // clearSearchToolStripMenuItem
             // 
             this.clearSearchToolStripMenuItem.Name = "clearSearchToolStripMenuItem";
-            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
             this.clearSearchToolStripMenuItem.Text = "Clear Results";
             this.clearSearchToolStripMenuItem.Click += new System.EventHandler(this.clearSearchToolStripMenuItem_Click);
             // 
             // toolStripSeparator1
             // 
             this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(177, 6);
+            this.toolStripSeparator1.Size = new System.Drawing.Size(173, 6);
             // 
             // autoDrawModelTexturesToolStripMenuItem
             // 
             this.autoDrawModelTexturesToolStripMenuItem.CheckOnClick = true;
             this.autoDrawModelTexturesToolStripMenuItem.Name = "autoDrawModelTexturesToolStripMenuItem";
-            this.autoDrawModelTexturesToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.autoDrawModelTexturesToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
             this.autoDrawModelTexturesToolStripMenuItem.Text = "Auto Draw Textures";
             this.autoDrawModelTexturesToolStripMenuItem.Click += new System.EventHandler(this.autoDrawModelTexturesToolStripMenuItem_Click);
             // 
             // toolStripSeparator6
             // 
             this.toolStripSeparator6.Name = "toolStripSeparator6";
-            this.toolStripSeparator6.Size = new System.Drawing.Size(177, 6);
+            this.toolStripSeparator6.Size = new System.Drawing.Size(173, 6);
             // 
             // setMaskColorToolStripMenuItem
             // 
             this.setMaskColorToolStripMenuItem.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.setMaskColorToolStripMenuItem.Name = "setMaskColorToolStripMenuItem";
-            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
             this.setMaskColorToolStripMenuItem.Text = "Set Mask Color";
             this.setMaskColorToolStripMenuItem.Click += new System.EventHandler(this.setMaskColorToolStripMenuItem_Click);
             // 
@@ -1334,7 +1336,7 @@ namespace PSXPrev
             // 
             this.label1.AutoSize = true;
             this.label1.Dock = System.Windows.Forms.DockStyle.Left;
-            this.label1.Location = new System.Drawing.Point(673, 0);
+            this.label1.Location = new System.Drawing.Point(675, 0);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(76, 26);
             this.label1.TabIndex = 14;
@@ -1343,7 +1345,7 @@ namespace PSXPrev
             // 
             // gridSizeNumericUpDown
             // 
-            this.gridSizeNumericUpDown.Location = new System.Drawing.Point(960, 3);
+            this.gridSizeNumericUpDown.Location = new System.Drawing.Point(962, 3);
             this.gridSizeNumericUpDown.Name = "gridSizeNumericUpDown";
             this.gridSizeNumericUpDown.Size = new System.Drawing.Size(43, 20);
             this.gridSizeNumericUpDown.TabIndex = 15;
@@ -1357,7 +1359,7 @@ namespace PSXPrev
             // 
             this.label2.AutoSize = true;
             this.label2.Dock = System.Windows.Forms.DockStyle.Left;
-            this.label2.Location = new System.Drawing.Point(902, 0);
+            this.label2.Location = new System.Drawing.Point(904, 0);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(52, 26);
             this.label2.TabIndex = 16;
@@ -1366,7 +1368,7 @@ namespace PSXPrev
             // 
             // lightPitchNumericUpDown
             // 
-            this.lightPitchNumericUpDown.Location = new System.Drawing.Point(853, 3);
+            this.lightPitchNumericUpDown.Location = new System.Drawing.Point(855, 3);
             this.lightPitchNumericUpDown.Maximum = new decimal(new int[] {
             360,
             0,
@@ -1384,7 +1386,7 @@ namespace PSXPrev
             // 
             // lightYawNumericUpDown
             // 
-            this.lightYawNumericUpDown.Location = new System.Drawing.Point(804, 3);
+            this.lightYawNumericUpDown.Location = new System.Drawing.Point(806, 3);
             this.lightYawNumericUpDown.Maximum = new decimal(new int[] {
             360,
             0,
@@ -1402,7 +1404,7 @@ namespace PSXPrev
             // 
             // lightRollNumericUpDown
             // 
-            this.lightRollNumericUpDown.Location = new System.Drawing.Point(755, 3);
+            this.lightRollNumericUpDown.Location = new System.Drawing.Point(757, 3);
             this.lightRollNumericUpDown.Maximum = new decimal(new int[] {
             360,
             0,
@@ -1415,7 +1417,7 @@ namespace PSXPrev
             // 
             // lightIntensityNumericUpDown
             // 
-            this.lightIntensityNumericUpDown.Location = new System.Drawing.Point(624, 3);
+            this.lightIntensityNumericUpDown.Location = new System.Drawing.Point(626, 3);
             this.lightIntensityNumericUpDown.Maximum = new decimal(new int[] {
             1000,
             0,
@@ -1435,7 +1437,7 @@ namespace PSXPrev
             // 
             this.label5.AutoSize = true;
             this.label5.Dock = System.Windows.Forms.DockStyle.Left;
-            this.label5.Location = new System.Drawing.Point(431, 0);
+            this.label5.Location = new System.Drawing.Point(433, 0);
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(57, 26);
             this.label5.TabIndex = 20;
@@ -1446,7 +1448,7 @@ namespace PSXPrev
             // 
             this.label4.AutoSize = true;
             this.label4.Dock = System.Windows.Forms.DockStyle.Left;
-            this.label4.Location = new System.Drawing.Point(543, 0);
+            this.label4.Location = new System.Drawing.Point(545, 0);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(75, 26);
             this.label4.TabIndex = 18;
@@ -1455,7 +1457,7 @@ namespace PSXPrev
             // 
             // vertexSizeUpDown
             // 
-            this.vertexSizeUpDown.Location = new System.Drawing.Point(494, 3);
+            this.vertexSizeUpDown.Location = new System.Drawing.Point(496, 3);
             this.vertexSizeUpDown.Maximum = new decimal(new int[] {
             1000,
             0,

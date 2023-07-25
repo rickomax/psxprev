@@ -25,6 +25,27 @@ namespace PSXPrev.Classes
         //    return (float)Math.Sqrt((x * x) + (y * y) + (z * z));
         //}
 
+        public static Matrix4 SetRotation(this Matrix4 matrix, Quaternion rotation)
+        {
+            matrix = matrix.ClearRotation();
+            matrix *= Matrix4.CreateFromQuaternion(rotation);
+            return matrix;
+        }
+
+        public static Matrix4 SetScale(this Matrix4 matrix, Vector3 scale)
+        {
+            matrix = matrix.ClearScale();
+            matrix *= Matrix4.CreateScale(scale);
+            return matrix;
+        }
+
+        public static Matrix4 SetTranslation(this Matrix4 matrix, Vector3 translation)
+        {
+            matrix = matrix.ClearTranslation();
+            matrix *= Matrix4.CreateTranslation(translation);
+            return matrix;
+        }
+
         public static string WriteVector3(Vector3? v)
         {
             var stringBuilder = new StringBuilder();

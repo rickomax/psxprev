@@ -11,6 +11,14 @@ namespace PSXPrev.Classes
         [Browsable(false)]
         public bool AbsoluteMatrix { get; set; }
 
+        //Matrix coming from TOD files
+        [Browsable(false)]
+        public Matrix3 Matrix { get; set; }
+
+        //Transfer coming from TOD files
+        [Browsable(false)]
+        public Vector3? Transfer { get; set; }
+
         [Browsable(false)]
         public Quaternion? Rotation { get; set; }
 

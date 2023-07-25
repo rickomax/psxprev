@@ -1511,7 +1511,7 @@ namespace PSXPrev
         {
             _scene.ShowSkeleton = showSkeletonToolStripMenuItem.Checked;
         }
-        
+
         private void lightRoll_Scroll(object sender, EventArgs e)
         {
             UpdateLightDirection();
@@ -1845,6 +1845,15 @@ namespace PSXPrev
         private void animationSpeedNumericUpDown_ValueChanged(object sender, EventArgs e)
         {
             UpdateAnimationTimerSpeed();
+        }
+
+        private void animationFrameTrackBar_Scroll(object sender, EventArgs e)
+        {
+            if (_inAnimationTab && !Playing)
+            {
+                _scene.AnimationBatch.Time = animationFrameTrackBar.Value / _scene.AnimationBatch.FPS;
+                UpdateAnimationProgressLabel();
+            }
         }
     }
 }

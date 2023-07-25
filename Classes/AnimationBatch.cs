@@ -2,6 +2,8 @@ using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using System;
 using System.Linq;
+using System.Net.Sockets;
+using static System.Windows.Forms.AxHost;
 
 namespace PSXPrev.Classes
 {
@@ -174,7 +176,6 @@ namespace PSXPrev.Classes
             }
         }
 
-
         public void SetupAnimationBatch(Animation animation)
         {
             // todo: Is this correct for handling reseting the mesh batch?
@@ -213,7 +214,7 @@ namespace PSXPrev.Classes
             _lastPlaybackFrameTime = _playbackFrameTime;
             _lastFinished = _finished;
             _lastRootEntity.SetTarget(rootEntity);
-            
+
             // The result has been changed to signal if anything has been processed or not.
             if (needsUpdate)
             {
@@ -326,49 +327,48 @@ namespace PSXPrev.Classes
                         {
                             var animationFrames = animationObject.AnimationFrames;
                             var totalFrames = animationFrames.Count;
-                            var localMatrix = Matrix4.Identity;
+                            var frameTransfer = Vector3.Zero;
+                            var frameRotation = Vector3.Zero;
+                            var frameScale = Vector3.One;
                             for (uint f = 0; f <= frameIndex && f < totalFrames; f++)
                             {
-                                if (!animationFrames.ContainsKey(f))
+                                if (!animationFrames.TryGetValue(f, out var animationFrame))
                                 {
                                     continue;
                                 }
-                                var frameMatrix = Matrix4.Identity;
-                                var sumFrame = animationFrames[f];
-                                if (sumFrame.Rotation != null)
+                                if (!animationFrame.AbsoluteMatrix)
                                 {
-                                    var r = Matrix4.CreateFromQuaternion(sumFrame.Rotation.Value);
-                                    frameMatrix *= r;
+                                    if (animationFrame.EulerRotation != null)
+                                    {
+                                        frameRotation += animationFrame.EulerRotation.Value;
+                                    }
+                                    if (animationFrame.Scale != null)
+                                    {
+                                        frameScale *= animationFrame.Scale.Value;
+                                    }
+                                    if (animationFrame.Transfer != null)
+                                    {
+                                        frameTransfer += animationFrame.Transfer.Value;
+                                    }
                                 }
-                                else if (sumFrame.EulerRotation != null)
+                                else
                                 {
-                                    var r = GeomUtils.CreateR(sumFrame.EulerRotation.Value);
-                                    frameMatrix *= r;
+                                    if (animationFrame.EulerRotation != null)
+                                    {
+                                        frameRotation = animationFrame.EulerRotation.Value;
+                                    }
+                                    if (animationFrame.Scale != null)
+                                    {
+                                        frameScale = animationFrame.Scale.Value;
+                                    }
+                                    if (animationFrame.Transfer != null)
+                                    {
+                                        frameTransfer = animationFrame.Transfer.Value;
+                                    }
                                 }
-                                if (sumFrame.Scale != null)
-                                {
-                                    var scale = (Vector3)sumFrame.Scale;
-                                    var s = GeomUtils.CreateS(scale);
-                                    frameMatrix *= s;
-                                }
-                                if (sumFrame.Translation != null)
-                                {
-                                    var translation = (Vector3)sumFrame.Translation;
-                                    var t = GeomUtils.CreateT(translation);
-                                    frameMatrix *= t;
-                                }
-                                var absoluteMatrixValue = sumFrame.AbsoluteMatrix;
-                                if (!absoluteMatrixValue)
-                                {
-                                    frameMatrix = localMatrix * frameMatrix;
-                                }
-                                localMatrix = frameMatrix;
                             }
-                            if (animationObject.Parent != null && _scene.ShowSkeleton)
-                            {
-                                _scene.SkeletonBatch.AddLine(Vector3.TransformPosition(Vector3.One, worldMatrix), Vector3.TransformPosition(Vector3.One, worldMatrix * localMatrix), Color.Blue);
-                            }
-                            worldMatrix *= localMatrix;
+                            var frameMatrix = GeomUtils.CreateR(frameRotation) * Matrix4.CreateScale(frameScale) * Matrix4.CreateTranslation(frameTransfer);
+                            worldMatrix *= frameMatrix;
                             if (animationObject.HandlesRoot)
                             {
                                 selectedRootEntity.TempMatrix = worldMatrix;
