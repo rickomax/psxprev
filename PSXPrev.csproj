@@ -133,6 +133,7 @@
     <Compile Include="Forms\DialogForm.Designer.cs">
       <DependentUpon>DialogForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Classes\DictionaryPropertyGridAdapter.cs" />
     <Compile Include="Forms\LauncherForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -150,6 +151,12 @@
     </Compile>
     <Compile Include="Forms\SelectTMDForm.Designer.cs">
       <DependentUpon>SelectTMDForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\TMDBindingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\TMDBindingsForm.Designer.cs">
+      <DependentUpon>TMDBindingsForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -171,6 +178,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\SelectTMDForm.resx">
       <DependentUpon>SelectTMDForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\TMDBindingsForm.resx">
+      <DependentUpon>TMDBindingsForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>

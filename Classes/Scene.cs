@@ -74,6 +74,8 @@ namespace PSXPrev.Classes
         public AnimationBatch AnimationBatch { get; private set; }
         public TextureBinder TextureBinder { get; private set; }
 
+        public Dictionary<uint, uint> TMDBindings = new Dictionary<uint, uint>();
+
         private Vector4 _transformedLight;
         private Matrix4 _projectionMatrix;
         private Matrix4 _viewMatrix; // Final view matrix.

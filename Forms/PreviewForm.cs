@@ -1855,5 +1855,14 @@ namespace PSXPrev
                 UpdateAnimationProgressLabel();
             }
         }
+
+        private void showTMDBindingsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (_curAnimation == null)
+            {
+                MessageBox.Show("Please select an Animation first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            TMDBindingsForm.ShowTool(_scene.TMDBindings, _curAnimation.RootAnimationObject);
+        }
     }
 }

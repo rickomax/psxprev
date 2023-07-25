@@ -1,6 +1,7 @@
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
 using static System.Windows.Forms.AxHost;
@@ -387,7 +388,15 @@ namespace PSXPrev.Classes
                                 {
                                     if (objectId > 0)
                                     {
-                                        var models = selectedRootEntity.GetModelsWithTMDID(objectId - 1);
+                                        List<ModelEntity> models;
+                                        if (_scene.TMDBindings.TryGetValue(objectId, out var binding))
+                                        {
+                                            models = selectedRootEntity.GetModelsWithTMDID(binding);
+                                        }
+                                        else
+                                        {
+                                            models = selectedRootEntity.GetModelsWithTMDID(objectId - 1);
+                                        }
                                         foreach (var childModel in models)
                                         {
                                             childModel.Interpolator = 0;

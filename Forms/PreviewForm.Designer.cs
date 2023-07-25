@@ -146,6 +146,7 @@ namespace PSXPrev
             this.label4 = new System.Windows.Forms.Label();
             this.vertexSizeUpDown = new System.Windows.Forms.NumericUpDown();
             this.flowLayoutPanel2 = new System.Windows.Forms.FlowLayoutPanel();
+            this.showTMDBindingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -1246,7 +1247,8 @@ namespace PSXPrev
             this.animationsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.showSkeletonToolStripMenuItem,
             this.autoPlayAnimationsToolStripMenuItem,
-            this.autoSelectAnimationModelToolStripMenuItem});
+            this.autoSelectAnimationModelToolStripMenuItem,
+            this.showTMDBindingsToolStripMenuItem});
             this.animationsToolStripMenuItem.Name = "animationsToolStripMenuItem";
             this.animationsToolStripMenuItem.Size = new System.Drawing.Size(80, 20);
             this.animationsToolStripMenuItem.Text = "Animations";
@@ -1494,6 +1496,13 @@ namespace PSXPrev
             this.flowLayoutPanel2.Size = new System.Drawing.Size(1008, 26);
             this.flowLayoutPanel2.TabIndex = 21;
             // 
+            // showTMDBindingsToolStripMenuItem
+            // 
+            this.showTMDBindingsToolStripMenuItem.Name = "showTMDBindingsToolStripMenuItem";
+            this.showTMDBindingsToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+            this.showTMDBindingsToolStripMenuItem.Text = "Edit TMD Bindings";
+            this.showTMDBindingsToolStripMenuItem.Click += new System.EventHandler(this.showTMDBindingsToolStripMenuItem_Click);
+            // 
             // PreviewForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -1700,5 +1709,6 @@ namespace PSXPrev
         private System.Windows.Forms.Label animationProgressLabel;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel2;
         private System.Windows.Forms.ToolStripMenuItem stopScanningToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem showTMDBindingsToolStripMenuItem;
     }
 }
