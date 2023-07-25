@@ -1174,16 +1174,18 @@ namespace PSXPrev
 
         private void DrawUVLines(Graphics graphics, Pen pen, Vector2[] uvs)
         {
+            var scalar = GeomUtils.UVScalar * _vramPageScale;
             for (var i = 0; i < uvs.Length; i++)
             {
                 var i2 = (i + 1) % uvs.Length;
-                graphics.DrawLine(pen, uvs[i].X * 255f * _vramPageScale, uvs[i].Y * 255f * _vramPageScale, uvs[i2].X * 255f * _vramPageScale, uvs[i2].Y * 255f * _vramPageScale);
+                graphics.DrawLine(pen, uvs[i].X * scalar, uvs[i].Y * scalar, uvs[i2].X * scalar, uvs[i2].Y * scalar);
             }
         }
 
         private void DrawTiledUVRectangle(Graphics graphics, Pen pen, TiledUV tiledUv)
         {
-            graphics.DrawRectangle(pen, tiledUv.X * 255f * _vramPageScale, tiledUv.Y * 255f * _vramPageScale, tiledUv.Width * 255f * _vramPageScale, tiledUv.Height * 255f * _vramPageScale);
+            var scalar = GeomUtils.UVScalar * _vramPageScale;
+            graphics.DrawRectangle(pen, tiledUv.X * scalar, tiledUv.Y * scalar, tiledUv.Width * scalar, tiledUv.Height * scalar);
         }
 
         private void DrawUV(EntityBase entity, Graphics graphics)

@@ -372,15 +372,21 @@ namespace PSXPrev.Classes
                     var row    = cellIndex / _countX;
                     foreach (var texture in cellTextures)
                     {
-                        var width  = !texture.IsVRAMPage ? texture.Width  : 255; //(VRAMPages.PageSize - 1);
-                        var height = !texture.IsVRAMPage ? texture.Height : 255; //(VRAMPages.PageSize - 1);
+                        // We can't just use this, since we still need to support disabling the UV alignment fix.
+                        //var uvScalar = (float)VRAMPages.PageSize;
+                        //var width  = texture.RenderWidth;
+                        //var height = texture.RenderHeight;
+                        var uvScalar = GeomUtils.UVScalar;
+                        var width  = !texture.IsVRAMPage ? texture.Width  : (int)uvScalar; //VRAMPages.PageSize;
+                        var height = !texture.IsVRAMPage ? texture.Height : (int)uvScalar; //VRAMPages.PageSize;
                         var packedInfo = new PackedTextureInfo
                         {
                             //Texture = texture,
-                            OffsetX = (texture.X / 255f + column) / _countX,
-                            OffsetY = (texture.Y / 255f + row)    / _countY,
-                            ScalarX = (width  > 0 ? ((float)(width  - 0) / (255 * _countX)) : (1f / _countX)),
-                            ScalarY = (height > 0 ? ((float)(height - 0) / (255 * _countY)) : (1f / _countY)),
+                            // Keep float casts in-case we replace uvScalar with VRAMPages.PageSize.
+                            OffsetX = ((float)texture.X / uvScalar + column) / _countX,
+                            OffsetY = ((float)texture.Y / uvScalar + row)    / _countY,
+                            ScalarX = (width  > 0 ? ((float)width  / (uvScalar * _countX)) : (1f / _countX)),
+                            ScalarY = (height > 0 ? ((float)height / (uvScalar * _countY)) : (1f / _countY)),
                         };
                         _packedTextureInfos.Add(texture, packedInfo);
                     }
@@ -536,10 +542,13 @@ namespace PSXPrev.Classes
 
                 if (TiledTexture == null)
                 {
-                    var srcX = (int)(X * 255f);
-                    var srcY = (int)(Y * 255f);
-                    var srcWidth  = Width  != 0f ? (int)(Width  * 255f) : VRAMPages.PageSize;
-                    var srcHeight = Height != 0f ? (int)(Height * 255f) : VRAMPages.PageSize;
+                    // We can't just use this, since we still need to support disabling the UV alignment fix.
+                    //var uvScalar = (float)VRAMPages.PageSize;
+                    var uvScalar = GeomUtils.UVScalar;
+                    var srcX = (int)(X * uvScalar);
+                    var srcY = (int)(Y * uvScalar);
+                    var srcWidth  = Width  != 0f ? (int)(Width  * uvScalar) : VRAMPages.PageSize;
+                    var srcHeight = Height != 0f ? (int)(Height * uvScalar) : VRAMPages.PageSize;
                     var srcRect = new Rectangle(srcX, srcY, srcWidth, srcHeight);
 
                     var bitmap = VRAMPages.ConvertTiledTexture(OriginalTexture, srcRect, _repeatX, _repeatY, false);

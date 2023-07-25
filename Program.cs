@@ -59,6 +59,7 @@ namespace PSXPrev
             public bool AutoAttachLimbs { get; set; }
             public bool AutoPlayAnimations { get; set; }
             public bool AutoSelect { get; set; }
+            public bool FixUVAlignment { get; set; } = true;
 
             public ScanOptions Clone()
             {
@@ -97,6 +98,7 @@ namespace PSXPrev
         public static bool IgnoreHmdVersion => _options.IgnoreHMDVersion;
         public static bool IgnoreTimVersion => _options.IgnoreTIMVersion;
         public static bool IgnoreTmdVersion => _options.IgnoreTMDVersion;
+        public static bool FixUVAlignment => _options.FixUVAlignment;
 
         public static bool Debug => _options.Debug;
         public static bool ShowErrors => _options.ShowErrors;
@@ -223,6 +225,8 @@ namespace PSXPrev
             Console.WriteLine("  -attachlimbs : enable Auto Attach Limbs by default");
             Console.WriteLine("  -autoplay    : automatically play selected animations");
             Console.WriteLine("  -autoselect  : select animation's model and draw selected model's textures (HMD only)");
+            //Console.WriteLine("  -fixuv       : fix UV alignment to closely match that on the PlayStation");
+            Console.WriteLine("  -olduv       : use old UV alignment that less-accurately matches the PlayStation");
 
             Console.ResetColor();
         }
@@ -386,6 +390,9 @@ namespace PSXPrev
                     break;
                 case "-autoselect":
                     options.AutoSelect = true;
+                    break;
+                case "-olduv":
+                    options.FixUVAlignment = false;
                     break;
 
                 default:

@@ -10,7 +10,7 @@ namespace PSXPrev.Classes
     public class Scene
     {
         private const float CameraFOV = 60.0f;
-        private const float CameraFOVRads = CameraFOV * ((float)Math.PI * 2f) / 360f;
+        private const float CameraFOVRads = CameraFOV * GeomUtils.Deg2Rad;
         private const float CameraNearClip = 0.1f;
         private const float CameraFarClip = 500000f;
         private const float CameraMinDistance = 0.01f;

@@ -41,6 +41,10 @@ namespace PSXPrev.Classes
             void AddTriangle(Triangle triangle, uint modelIndex, uint tPage, RenderFlags renderFlags)
             {
                 renderFlags |= RenderFlags.DoubleSided; //todo
+                if (renderFlags.HasFlag(RenderFlags.Textured))
+                {
+                    triangle.CorrectUVTearing();
+                }
                 var renderInfo = new RenderInfo(tPage, renderFlags);
                 var tuple = new Tuple<uint, RenderInfo>(modelIndex, renderInfo);
                 if (!groupedTriangles.TryGetValue(tuple, out var triangles))
@@ -223,18 +227,18 @@ namespace PSXPrev.Classes
                         {
                             renderFlags |= RenderFlags.Textured;
                             tPage = reader.ReadUInt32(); //todo
-                            var u0 = reader.ReadByte() / 255f;
-                            var v0 = reader.ReadByte() / 255f;
-                            var u1 = reader.ReadByte() / 255f;
-                            var v1 = reader.ReadByte() / 255f;
-                            var u2 = reader.ReadByte() / 255f;
-                            var v2 = reader.ReadByte() / 255f;
-                            var u3 = reader.ReadByte() / 255f;
-                            var v3 = reader.ReadByte() / 255f;
-                            uv0 = new Vector2(u0, v0);
-                            uv1 = new Vector2(u1, v1);
-                            uv2 = new Vector2(u2, v2);
-                            uv3 = new Vector2(u3, v3);
+                            var u0 = reader.ReadByte();
+                            var v0 = reader.ReadByte();
+                            var u1 = reader.ReadByte();
+                            var v1 = reader.ReadByte();
+                            var u2 = reader.ReadByte();
+                            var v2 = reader.ReadByte();
+                            var u3 = reader.ReadByte();
+                            var v3 = reader.ReadByte();
+                            uv0 = GeomUtils.ConvertUV(u0, v0);
+                            uv1 = GeomUtils.ConvertUV(u1, v1);
+                            uv2 = GeomUtils.ConvertUV(u2, v2);
+                            uv3 = GeomUtils.ConvertUV(u3, v3);
                         }
                         if (!invisible)
                         {
@@ -322,18 +326,18 @@ namespace PSXPrev.Classes
                         {
                             renderFlags |= RenderFlags.Textured;
                             tPage = reader.ReadUInt32(); //todo
-                            var u0 = reader.ReadByte() / 255f;
-                            var v0 = reader.ReadByte() / 255f;
-                            var u1 = reader.ReadByte() / 255f;
-                            var v1 = reader.ReadByte() / 255f;
-                            var u2 = reader.ReadByte() / 255f;
-                            var v2 = reader.ReadByte() / 255f;
-                            var u3 = reader.ReadByte() / 255f;
-                            var v3 = reader.ReadByte() / 255f;
-                            uv0 = new Vector2(u0, v0);
-                            uv1 = new Vector2(u1, v1);
-                            uv2 = new Vector2(u2, v2);
-                            uv3 = new Vector2(u3, v3);
+                            var u0 = reader.ReadByte();
+                            var v0 = reader.ReadByte();
+                            var u1 = reader.ReadByte();
+                            var v1 = reader.ReadByte();
+                            var u2 = reader.ReadByte();
+                            var v2 = reader.ReadByte();
+                            var u3 = reader.ReadByte();
+                            var v3 = reader.ReadByte();
+                            uv0 = GeomUtils.ConvertUV(u0, v0);
+                            uv1 = GeomUtils.ConvertUV(u1, v1);
+                            uv2 = GeomUtils.ConvertUV(u2, v2);
+                            uv3 = GeomUtils.ConvertUV(u3, v3);
                         }
                         if (!invisible)
                         {
