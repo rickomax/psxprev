@@ -74,6 +74,9 @@ namespace PSXPrev.Classes
         [ReadOnly(true), DisplayName("Is Tiled Texture")]
         public bool IsTiled => TiledUv != null;
 
+        [Browsable(false)]
+        public bool NeedsTiled => TiledUv?.NeedsTiled ?? false;
+
         [ReadOnly(true)]
         public Color[] Colors { get; set; }
 

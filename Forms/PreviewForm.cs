@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Printing;
+using System.IO;
 using System.Reflection;
 using System.Timers;
 using System.Windows.Forms;
@@ -1072,6 +1073,8 @@ namespace PSXPrev
         private void cmsModelExport_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
         {
             var checkedEntities = GetCheckedEntities();
+            // Uncomment this line to test exporting all loaded models (so we don't need to check them).
+            //checkedEntities = _rootEntities.ToArray();
             if (checkedEntities == null)
             {
                 MessageBox.Show(this, "Check the models to export first");
@@ -1084,21 +1087,40 @@ namespace PSXPrev
                 if (OutputFolderSelect(out var path))
                 {
                     var objExporter = new ObjExporter();
+
+                    // Set to true to debug the PlyExporter by writing to the `ply/` subdirectory.
+                    const bool PLY_DEBUG = false;
+                    PlyExporter plyExporter = null;
+                    string plyPath = null;
+                    if (PLY_DEBUG)
+                    {
+                        plyExporter = new PlyExporter();
+                        plyPath = Path.Combine(path, "ply");
+                        if (!Directory.Exists(plyPath))
+                        {
+                            Directory.CreateDirectory(plyPath);
+                        }
+                    }
+
                     if (e.ClickedItem == miOBJ)
                     {
-                        objExporter.Export(checkedEntities, path);
+                        objExporter.Export(checkedEntities, path, joinEntities: false, experimentalVertexColor: false);
+                        if (PLY_DEBUG) plyExporter.Export(checkedEntities, plyPath, joinEntities: false);
                     }
                     else if (e.ClickedItem == miOBJVC)
                     {
-                        objExporter.Export(checkedEntities, path, true);
+                        objExporter.Export(checkedEntities, path, joinEntities: false, experimentalVertexColor: true);
+                        if (PLY_DEBUG) plyExporter.Export(checkedEntities, plyPath, joinEntities: false);
                     }
                     else if (e.ClickedItem == miOBJMerged)
                     {
-                        objExporter.Export(checkedEntities, path, false, true);
+                        objExporter.Export(checkedEntities, path, joinEntities: true, experimentalVertexColor: false);
+                        if (PLY_DEBUG) plyExporter.Export(checkedEntities, plyPath, joinEntities: true);
                     }
                     else if (e.ClickedItem == miOBJVCMerged)
                     {
-                        objExporter.Export(checkedEntities, path, true, true);
+                        objExporter.Export(checkedEntities, path, joinEntities: true, experimentalVertexColor: true);
+                        if (PLY_DEBUG) plyExporter.Export(checkedEntities, plyPath, joinEntities: true);
                     }
                     MessageBox.Show(this, "Models exported");
                 }

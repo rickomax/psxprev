@@ -77,6 +77,20 @@ namespace PSXPrev.Classes
         }
 
         [Browsable(false)]
+        public bool NeedsTiled
+        {
+            get
+            {
+                foreach (var triangle in Triangles)
+                {
+                    if (triangle.NeedsTiled)
+                        return true;
+                }
+                return false;
+            }
+        }
+
+        [Browsable(false)]
         public bool IsTextured => RenderFlags.HasFlag(RenderFlags.Textured);
 
         //[ReadOnly(true)]
@@ -107,6 +121,36 @@ namespace PSXPrev.Classes
         public Dictionary<uint, Vector3> AttachableVertices { get; set; }
         [Browsable(false)]
         public Dictionary<uint, Vector3> AttachableNormals { get; set; }
+
+
+        public ModelEntity()
+        {
+        }
+
+        public ModelEntity(ModelEntity fromModel, Triangle[] triangles)
+            : base(fromModel)
+        {
+            Triangles = triangles;
+            TexturePage = fromModel.TexturePage;
+            RenderFlags = fromModel.RenderFlags;
+            MixtureRate = fromModel.MixtureRate;
+            Texture = fromModel.Texture;
+            TMDID = fromModel.TMDID;
+            Visible = fromModel.Visible;
+            SharedID = fromModel.SharedID;
+            AttachableVertices = fromModel.AttachableVertices;
+            AttachableNormals = fromModel.AttachableNormals;
+            //AttachableVertices = new Dictionary<uint, Vector3>(fromModel.AttachableVertices);
+            //AttachableNormals = new Dictionary<uint, Vector3>(fromModel.AttachableNormals);
+        }
+
+
+        public override string ToString()
+        {
+            var name = EntityName ?? GetType().Name;
+            var page = IsTextured ? TexturePage.ToString() : "null";
+            return $"{name} Triangles={TrianglesCount} TexturePage={page}";
+        }
 
         public override void ComputeBounds()
         {
