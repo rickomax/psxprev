@@ -33,7 +33,7 @@ namespace PSXPrev.Forms
                 {
                     if (!_bindings.ContainsKey(tmdID))
                     {
-                        _bindings.Add(tmdID, tmdID);
+                        _bindings.Add(tmdID, tmdID - 1);
                     }
                 }
             }
