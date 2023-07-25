@@ -11,13 +11,15 @@ namespace PSXPrev.Classes
         public const int PageSize = 256;
         private const int PageSemiTransparencyX = PageSize;
 
+        public static readonly System.Drawing.Color DefaultBackgroundColor = System.Drawing.Color.White;
+
 
         private readonly Scene _scene;
         private readonly Texture[] _vramPages;
         private readonly bool[] _modifiedPages; // Pages that that require a scene update.
         private readonly bool[] _usedPages; // Pages that have textures drawn to them (not reset unless cleared).
 
-        public System.Drawing.Color BackgroundColor { get; set; } = System.Drawing.Color.White;
+        public System.Drawing.Color BackgroundColor { get; set; } = DefaultBackgroundColor;
 
         public VRAMPages(Scene scene)
         {
@@ -59,6 +61,7 @@ namespace PSXPrev.Classes
                     // X coordinates [0,256) store texture data.
                     // X coordinates [256,512) store semi-transparency information for textures.
                     _vramPages[i] = new Texture(PageSize * 2, PageSize, 0, 0, 32, i, true); // Is VRAM page
+                    _vramPages[i].TextureName = $"VRAM[{i}]";
                     ClearPage(i, suppressUpdate);
                 }
             }
@@ -189,8 +192,11 @@ namespace PSXPrev.Classes
 
         // Returns a bitmap of the VRAM texture page without the semi-transparency section.
         // Must dispose of Bitmap after use.
-        public static Bitmap GetTextureOnly(Texture texture)
+        public static Bitmap ConvertTexture(Texture texture, bool semiTransparency)
         {
+            var stpX = semiTransparency ? PageSemiTransparencyX : 0;
+            var srcRect = new Rectangle(stpX, 0, PageSize, PageSize);
+
             var bitmap = new Bitmap(PageSize, PageSize);
             try
             {
@@ -199,7 +205,111 @@ namespace PSXPrev.Classes
                     graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
                     graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
 
-                    graphics.DrawImage(texture.Bitmap, 0, 0, texture.Width, texture.Height);
+                    graphics.DrawImage(texture.Bitmap, 0, 0, srcRect, GraphicsUnit.Pixel);
+                }
+                return bitmap;
+            }
+            catch
+            {
+                bitmap?.Dispose();
+                throw;
+            }
+        }
+
+        public static Bitmap ConvertTiledTexture(Texture texture, Rectangle srcRect, int repeatX, int repeatY, bool semiTransparency)
+        {
+            var stpX = semiTransparency ? PageSemiTransparencyX : 0;
+            srcRect.X += stpX;
+
+            var bitmap = new Bitmap(repeatX * srcRect.Width, repeatY * srcRect.Height);
+            try
+            {
+                using (var graphics = Graphics.FromImage(bitmap))
+                {
+                    graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                    graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+
+                    for (var ry = 0; ry < repeatY; ry++)
+                    {
+                        for (var rx = 0; rx < repeatX; rx++)
+                        {
+                            var x = rx * srcRect.Width;
+                            var y = ry * srcRect.Height;
+                            graphics.DrawImage(texture.Bitmap, x, y, srcRect, GraphicsUnit.Pixel);
+                        }
+                    }
+                }
+                return bitmap;
+            }
+            catch
+            {
+                bitmap?.Dispose();
+                throw;
+            }
+        }
+
+        // Draw individual textures into 256x256 cells.
+        public static Bitmap ConvertSingleTexture(IEnumerable<Texture> textures, int countX, int countY, bool semiTransparency)
+        {
+            var packedTextures = new List<Texture[]>();
+            foreach (var texture in textures)
+            {
+                packedTextures.Add(new Texture[1] { texture });
+            }
+            return ConvertSingleTexture(packedTextures, countX, countY, semiTransparency);
+        }
+
+        // Pack textures into 256x256 cells. The inner enumerable of textures will all be drawn to the same cell,
+        // and the Texture X,Y determines where in the cell that texture is drawn.
+        public static Bitmap ConvertSingleTexture(IEnumerable<IEnumerable<Texture>> packedTextures, int countX, int countY, bool semiTransparency)
+        {
+            var bitmap = new Bitmap(countX * PageSize, countY * PageSize);
+            try
+            {
+                using (var graphics = Graphics.FromImage(bitmap))
+                {
+                    graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                    graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+
+                    // Clear the image, because there may be cells that we don't fill in.
+                    if (!semiTransparency)
+                    {
+                        graphics.Clear(DefaultBackgroundColor);
+                    }
+                    else
+                    {
+                        graphics.Clear(Texture.NoSemiTransparentFlag);
+                    }
+
+                    var i = 0;
+                    foreach (var cell in packedTextures)
+                    {
+                        var x = (i % countX) * PageSize;
+                        var y = (i / countX) * PageSize;
+                        i++;
+
+                        foreach (var texture in cell)
+                        {
+                            graphics.SetClip(new Rectangle(x, y, PageSize, PageSize));
+                            if (texture.IsVRAMPage)
+                            {
+                                var stpX = semiTransparency ? PageSemiTransparencyX : 0;
+                                var srcRect = new Rectangle(stpX, 0, PageSize, PageSize);
+                                graphics.DrawImage(texture.Bitmap, x, y, srcRect, GraphicsUnit.Pixel);
+                            }
+                            else
+                            {
+                                var textureBitmap = semiTransparency ? texture.SemiTransparentMap : texture.Bitmap;
+                                // Texture may not have semi-transparent map
+                                if (textureBitmap != null)
+                                {
+                                    graphics.DrawImage(textureBitmap, x + texture.X, y + texture.Y);
+                                    // Packed boundary debugging:
+                                    //graphics.DrawRectangle(Pens.Red, new Rectangle(x + texture.X, y + texture.Y, texture.Width, texture.Height));
+                                }
+                            }
+                        }
+                    }
                 }
                 return bitmap;
             }

@@ -75,6 +75,12 @@ namespace PSXPrev.Classes
             }
         }
 
+        public override string ToString()
+        {
+            var name = AnimationName ?? nameof(Animation);
+            return $"{name} Frames={FrameCount} Objects={ObjectCount}";
+        }
+
 
         // Assign a flat collection of objects and setup parenting and hierarchy.
         public void AssignObjects(Dictionary<uint, AnimationObject> animationObjects, bool calcObjectFrameCounts, bool calcFrameDurations)

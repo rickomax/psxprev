@@ -14,6 +14,22 @@ namespace PSXPrev.Classes
         public Vector2 Size => new Vector2(Width, Height);
         public Vector4 Area => new Vector4(X, Y, Width, Height);
 
+        // Tests if any of the base UVs extend outside of the base tiled area.
+        public bool NeedsTiled
+        {
+            get
+            {
+                foreach (var uv in BaseUv)
+                {
+                    if ((Width != 0f && uv.X > Width) || (Height != 0f && uv.Y > Height))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+
         public TiledUV(Vector2[] baseUv, float x, float y, float width, float height)
         {
             BaseUv = baseUv;

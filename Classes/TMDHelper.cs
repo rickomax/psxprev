@@ -456,9 +456,8 @@ namespace PSXPrev.Classes
                 var tva = 0f;
                 var isTiled = false;
                 // Confirm that tiled information is non-zero, otherwise we can just ignore it.
-                if (primitiveData.TryGetValue(m, PrimitiveDataType.TILE, out var tile) && (tile & 0xfffff) != 0)
+                if (primitiveData.TryGetValue(m, PrimitiveDataType.TILE, out var tile)) //&& (tile & 0xfffff) != 0)
                 {
-                    isTiled = true;
                     tumValue = (tile >>  0) & 0x1f;
                     tvmValue = (tile >>  5) & 0x1f;
                     tuaValue = (tile >> 10) & 0x1f;
@@ -471,18 +470,23 @@ namespace PSXPrev.Classes
                     // This is because all four values are required to be multiples of 8.
                     // So to recover tum and tvm, we need to unshift, negate, and then (realistically) add 1 to get the original value.
                     // However, adding 1 right now produces gaps in the textures. We can only add 1 when UV_DIV == 256f.
-                    if (UV_DIV == 256f)
+
+                    if (tumValue != 0 || tvmValue != 0) // We're not tiled if there's no wrap size.
                     {
-                        tum = (((tumValue << 3) ^ 0xff) + 1) / UV_DIV;
-                        tvm = (((tvmValue << 3) ^ 0xff) + 1) / UV_DIV;
+                        isTiled = true;
+                        if (UV_DIV == 256f)
+                        {
+                            tum = ((((tumValue << 3) ^ 0xff) + 1) & 0xff) / UV_DIV;
+                            tvm = ((((tvmValue << 3) ^ 0xff) + 1) & 0xff) / UV_DIV;
+                        }
+                        else
+                        {
+                            tum = ((tumValue << 3) ^ 0xff) / UV_DIV;
+                            tvm = ((tvmValue << 3) ^ 0xff) / UV_DIV;
+                        }
+                        tua = (tuaValue << 3) / UV_DIV;
+                        tva = (tvaValue << 3) / UV_DIV;
                     }
-                    else
-                    {
-                        tum = ((tumValue << 3) ^ 0xff) / UV_DIV;
-                        tvm = ((tvmValue << 3) ^ 0xff) / UV_DIV;
-                    }
-                    tua = (tuaValue << 3) / UV_DIV;
-                    tva = (tvaValue << 3) / UV_DIV;
                 }
 
                 // Converts UV base coordinates to tiled UV coordinates (for use with display/exporter).

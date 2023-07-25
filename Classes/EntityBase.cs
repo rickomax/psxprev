@@ -166,11 +166,26 @@ namespace PSXPrev.Classes
         [Browsable(false)]
         public Matrix4 TempWorldMatrix => TempMatrix * WorldMatrix;
 
+
         protected EntityBase()
         {
             // Also assigns LocalMatrix, Translation, Rotation, and Scale.
             OriginalLocalMatrix = Matrix4.Identity;
         }
+
+        protected EntityBase(EntityBase fromEntity)
+        {
+            EntityName = fromEntity.EntityName;
+            ParentEntity = fromEntity.ParentEntity;
+            Bounds3D = fromEntity.Bounds3D;
+            TempMatrix = fromEntity.TempMatrix;
+            _originalLocalMatrix = fromEntity._originalLocalMatrix;
+            _localMatrix = fromEntity._localMatrix;
+            _translation = fromEntity._translation;
+            _scale = fromEntity._scale;
+            _rotation = fromEntity._rotation;
+        }
+
 
         public virtual void ComputeBounds()
         {
@@ -235,7 +250,8 @@ namespace PSXPrev.Classes
 
         public override string ToString()
         {
-            return EntityName;
+            var name = EntityName ?? GetType().Name;
+            return $"{name} Children={ChildCount}";
         }
 
         public virtual void FixConnections()

@@ -11,14 +11,19 @@ namespace PSXPrev.Classes
 
         private readonly WeakReference<RootEntity> _ownerEntity = new WeakReference<RootEntity>(null);
 
-        public Texture(int width, int height, int x, int y, int bpp, int texturePage, bool isVRAMPage = false)
+        public Texture(Bitmap bitmap, int x, int y, int bpp, int texturePage, bool isVRAMPage = false)
         {
-            Bitmap = new Bitmap(width, height);
+            Bitmap = bitmap;
             X = x;
             Y = y;
             Bpp = bpp;
             TexturePage = texturePage;
             IsVRAMPage = isVRAMPage;
+        }
+
+        public Texture(int width, int height, int x, int y, int bpp, int texturePage, bool isVRAMPage = false)
+            : this(new Bitmap(width, height), x, y, bpp, texturePage, isVRAMPage)
+        {
         }
 
         [DisplayName("Name")]
@@ -57,6 +62,12 @@ namespace PSXPrev.Classes
         {
             get => _ownerEntity.TryGetTarget(out var owner) ? owner : null;
             set => _ownerEntity.SetTarget(value);
+        }
+
+        public override string ToString()
+        {
+            var name = TextureName ?? nameof(Texture);
+            return $"{name} {X},{Y} {Width}x{Height} {Bpp}bpp";
         }
 
 
