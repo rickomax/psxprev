@@ -11,6 +11,8 @@ namespace PSXPrev.Forms
 
         private static TMDBindingsForm _instance;
 
+        private static object _clipboard;
+
         public static bool IsVisible { get; private set; }
 
         public TMDBindingsForm()
@@ -67,13 +69,12 @@ namespace PSXPrev.Forms
 
         private void copyBindingsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Clipboard.SetData("TMDBINDINGS", _currentAnimation.TMDBindings);
+            _clipboard = _currentAnimation.TMDBindings;
         }
 
         private void pasteBindingsToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            var data = Clipboard.GetDataObject();
-            if (data?.GetData("TMDBINDINGS") is Dictionary<uint, uint> dataObject)
+        {;
+            if (_clipboard is Dictionary<uint, uint> dataObject)
             {
                 _currentAnimation.TMDBindings.Clear();
                 foreach (var kvp in dataObject)
