@@ -330,11 +330,17 @@ namespace PSXPrev.Classes
                             var frameTransfer = Vector3.Zero;
                             var frameRotation = Vector3.Zero;
                             var frameScale = Vector3.One;
+                            Matrix4? frameMatrix = null;
                             for (uint f = 0; f <= frameIndex && f < totalFrames; f++)
                             {
                                 if (!animationFrames.TryGetValue(f, out var animationFrame))
                                 {
                                     continue;
+                                }
+                                if (animationFrame.Matrix != null)
+                                {
+                                    //todo
+                                    break;
                                 }
                                 if (!animationFrame.AbsoluteMatrix)
                                 {
@@ -367,8 +373,11 @@ namespace PSXPrev.Classes
                                     }
                                 }
                             }
-                            var frameMatrix = GeomUtils.CreateR(frameRotation) * Matrix4.CreateScale(frameScale) * Matrix4.CreateTranslation(frameTransfer);
-                            worldMatrix *= frameMatrix;
+                            if (frameMatrix == null)
+                            {
+                                frameMatrix = GeomUtils.CreateR(frameRotation, RotationOrder.XYZ) * Matrix4.CreateScale(frameScale) * Matrix4.CreateTranslation(frameTransfer);
+                            }
+                            worldMatrix = frameMatrix.Value  * worldMatrix;
                             if (animationObject.HandlesRoot)
                             {
                                 selectedRootEntity.TempMatrix = worldMatrix;

@@ -13,7 +13,7 @@ namespace PSXPrev.Classes
 
         //Matrix coming from TOD files
         [Browsable(false)]
-        public Matrix3 Matrix { get; set; }
+        public Matrix3? Matrix { get; set; }
 
         //Transfer coming from TOD files
         [Browsable(false)]
