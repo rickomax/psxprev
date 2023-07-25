@@ -47,6 +47,8 @@ namespace PSXPrev.Classes
             set => _ownerEntity.SetTarget(value);
         }
 
+        // TOD TMD bindings
+        public Dictionary<uint, uint> TMDBindings = new Dictionary<uint, uint>();
 
         // When animation objects have their own frame counts/speeds, they will become unsynced as the animation loops.
         [DisplayName("Unsynced Objects")]

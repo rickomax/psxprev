@@ -389,7 +389,7 @@ namespace PSXPrev.Classes
                                     if (objectId > 0)
                                     {
                                         List<ModelEntity> models;
-                                        if (_scene.TMDBindings.TryGetValue(objectId, out var binding))
+                                        if (_animation.TMDBindings.TryGetValue(objectId, out var binding))
                                         {
                                             models = selectedRootEntity.GetModelsWithTMDID(binding);
                                         }

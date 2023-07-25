@@ -1401,6 +1401,11 @@ namespace PSXPrev
                 _scene.AnimationBatch.SetTimeToFrame(_curAnimationFrameObj);
                 UpdateAnimationProgressLabel();
             }
+
+            if (TMDBindingsForm.IsVisible)
+            {
+                TMDBindingsForm.ShowTool(_curAnimation);
+            }
         }
 
         private void animationPropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
@@ -1862,7 +1867,7 @@ namespace PSXPrev
             {
                 MessageBox.Show("Please select an Animation first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
-            TMDBindingsForm.ShowTool(_scene.TMDBindings, _curAnimation.RootAnimationObject);
+            TMDBindingsForm.ShowTool(_curAnimation);
         }
     }
 }
