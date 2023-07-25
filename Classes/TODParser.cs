@@ -160,7 +160,6 @@ namespace PSXPrev.Classes
                             var matrix = new Matrix3(new Vector3(r00, r01, r02), new Vector3(r10, r11, r12), new Vector3(r20, r21, r22));
                             animationFrame.Transfer = new Vector3(x, y, z);
                             animationFrame.Matrix = matrix;
-                            animationFrame.AbsoluteMatrix = true;
                             break;
                         default:
                             reader.BaseStream.Seek(packetPosition + packetLength * 4, SeekOrigin.Begin);

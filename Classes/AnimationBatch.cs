@@ -339,8 +339,7 @@ namespace PSXPrev.Classes
                                 }
                                 if (animationFrame.Matrix != null)
                                 {
-                                    //todo
-                                    break;
+                                    frameMatrix = Matrix4.CreateFromQuaternion(animationFrame.Matrix.Value.ExtractRotation()) * Matrix4.CreateScale(animationFrame.Matrix.Value.ExtractScale()) * Matrix4.CreateTranslation(animationFrame.Transfer.GetValueOrDefault());
                                 }
                                 if (!animationFrame.AbsoluteMatrix)
                                 {
@@ -377,7 +376,7 @@ namespace PSXPrev.Classes
                             {
                                 frameMatrix = GeomUtils.CreateR(frameRotation, RotationOrder.XYZ) * Matrix4.CreateScale(frameScale) * Matrix4.CreateTranslation(frameTransfer);
                             }
-                            worldMatrix = frameMatrix.Value  * worldMatrix;
+                            worldMatrix = frameMatrix.Value * worldMatrix;
                             if (animationObject.HandlesRoot)
                             {
                                 selectedRootEntity.TempMatrix = worldMatrix;
