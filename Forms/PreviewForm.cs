@@ -993,7 +993,10 @@ namespace PSXPrev
             if (index > -1)
             {
                 _vramSelectedPage = index;
-                vramPagePictureBox.Image = _vram[index].Bitmap;
+                // We can't assign VRAM image because it would include the semi-transparency zone.
+                // The image is drawn manually instead.
+                //vramPagePictureBox.Image = _vram[_vramSelectedPage].Bitmap;
+                vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
             }
         }
 
@@ -1066,7 +1069,7 @@ namespace PSXPrev
         private void ClearPage(int index)
         {
             _vram.ClearPage(index);
-            vramPagePictureBox.Image = _vram[index].Bitmap;
+            vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
             UpdateVRAMComboBoxPageItems();
         }
 
@@ -1129,10 +1132,10 @@ namespace PSXPrev
 
         private void findByPageToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var pageIndexString = DialogForm.Show(this, "Please type in the VRAM Page index (0-31)", "Find by Page");
+            var pageIndexString = DialogForm.Show(this, $"Please type in the VRAM Page index (0-{VRAMPages.PageCount-1})", "Find by Page");
             if (!int.TryParse(pageIndexString, out var pageIndex))
             {
-                MessageBox.Show(this, "Please type in a valid VRAM Page index between 0 and 31", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, $"Please type in a valid VRAM Page index between 0 and {VRAMPages.PageCount-1}", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             var found = 0;
@@ -1406,7 +1409,7 @@ namespace PSXPrev
 
             if (TMDBindingsForm.IsVisible)
             {
-                TMDBindingsForm.ShowTool(_curAnimation);
+                TMDBindingsForm.ShowTool(this, _curAnimation);
             }
         }
 
@@ -1461,36 +1464,48 @@ namespace PSXPrev
 
         private void vramPagePictureBox_Paint(object sender, PaintEventArgs e)
         {
-            if (vramPagePictureBox.Image == null)
+            if (_vramSelectedPage == -1)
             {
                 return;
             }
+            var dstRect = new Rectangle(0, 0, vramPagePictureBox.Width, vramPagePictureBox.Height);
+            var srcRect = new Rectangle(0, 0, VRAMPages.PageSize, VRAMPages.PageSize);
+
             e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+            // Despite what it sounds like, we want Half. Otherwise we end up drawing half a pixel back.
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
             e.Graphics.DrawImage(
-                vramPagePictureBox.Image,
-                new Rectangle(0, 0, vramPagePictureBox.Width, vramPagePictureBox.Height),
-                0,
-                0,
-                VRAMPages.PageSize,
-                VRAMPages.PageSize,
+                _vram[_vramSelectedPage].Bitmap, //vramPagePictureBox.Image,
+                dstRect,
+                srcRect,
                 GraphicsUnit.Pixel);
-            if (!_showUv)
+
+            if (_showUv)
             {
-                return;
-            }
-            var checkedEntities = GetCheckedEntities();
-            if (checkedEntities != null)
-            {
-                foreach (var checkedEntity in checkedEntities)
+                // todo: If we want smoother lines, then we can turn on Anti-aliasing.
+                // Note that PixelOffsetMode needs to be changed back to None first.
+                // Also note that diagonal lines will be a bit thicker than normal.
+                e.Graphics.PixelOffsetMode = PixelOffsetMode.None;
+                //e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                var checkedEntities = GetCheckedEntities();
+                if (checkedEntities != null)
                 {
-                    if (checkedEntity == _selectedRootEntity)
+                    foreach (var checkedEntity in checkedEntities)
                     {
-                        continue;
+                        if (checkedEntity == _selectedRootEntity)
+                        {
+                            continue;
+                        }
+                        DrawUV(checkedEntity, e.Graphics);
                     }
-                    DrawUV(checkedEntity, e.Graphics);
                 }
+                DrawUV((EntityBase)_selectedRootEntity ?? _selectedModelEntity, e.Graphics);
             }
-            DrawUV((EntityBase)_selectedRootEntity ?? _selectedModelEntity, e.Graphics);
+
+            // Reset drawing mode back to default.
+            e.Graphics.InterpolationMode = InterpolationMode.Default;
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.Default;
+            e.Graphics.SmoothingMode = SmoothingMode.Default;
         }
 
         private void entitiesTreeView_AfterCheck(object sender, TreeViewEventArgs e)
@@ -1713,15 +1728,21 @@ namespace PSXPrev
             {
                 return;
             }
+            var dstRect = new Rectangle(0, 0, texturePreviewPictureBox.Width, texturePreviewPictureBox.Height);
+            var srcRect = new Rectangle(0, 0, texturePreviewPictureBox.Image.Width, texturePreviewPictureBox.Image.Height);
+
             e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+            // Despite what it sounds like, we want Half. Otherwise we end up drawing half a pixel back.
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
             e.Graphics.DrawImage(
                 texturePreviewPictureBox.Image,
-                new Rectangle(0, 0, texturePreviewPictureBox.Width, texturePreviewPictureBox.Height),
-                0,
-                0,
-                texturePreviewPictureBox.Image.Width,
-                texturePreviewPictureBox.Image.Height,
+                dstRect,
+                srcRect,
                 GraphicsUnit.Pixel);
+
+            // Reset drawing mode back to default.
+            e.Graphics.InterpolationMode = InterpolationMode.Default;
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.Default;
         }
 
         private void verticesOnlyToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1837,15 +1858,19 @@ namespace PSXPrev
 
         private void gotoPageButton_Click(object sender, EventArgs e)
         {
-            var pageIndexString = DialogForm.Show(this, "Please type in the VRAM Page index (0-31)", "Go to VRAM Page");
-            if (int.TryParse(pageIndexString, out var pageIndex) && pageIndex >= 0 && pageIndex <= 31)
+            var pageIndexString = DialogForm.Show(this, $"Please type in the VRAM Page index (0-{VRAMPages.PageCount-1})", "Go to VRAM Page");
+            if (int.TryParse(pageIndexString, out var pageIndex) && pageIndex >= 0 && pageIndex < VRAMPages.PageCount)
             {
                 _vramSelectedPage = pageIndex;
+                // We can't assign VRAM image because it would include the semi-transparency zone.
+                // The image is drawn manually instead.
+                //vramPagePictureBox.Image = _vram[_vramSelectedPage].Bitmap;
                 vramListBox.SelectedIndex = pageIndex;
+                vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
             }
             else
             {
-                MessageBox.Show(this, "Please type in a valid VRAM Page index between 0 and 31", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, $"Please type in a valid VRAM Page index between 0 and {VRAMPages.PageCount-1}", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -1858,7 +1883,7 @@ namespace PSXPrev
         {
             if (_inAnimationTab && !Playing)
             {
-                _scene.AnimationBatch.Time = animationFrameTrackBar.Value / _scene.AnimationBatch.FPS;
+                _scene.AnimationBatch.FrameTime = animationFrameTrackBar.Value;
                 UpdateAnimationProgressLabel();
             }
         }
@@ -1867,9 +1892,9 @@ namespace PSXPrev
         {
             if (_curAnimation == null)
             {
-                MessageBox.Show("Please select an Animation first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, "Please select an Animation first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
-            TMDBindingsForm.ShowTool(_curAnimation);
+            TMDBindingsForm.ShowTool(this, _curAnimation);
         }
     }
 }

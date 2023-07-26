@@ -132,7 +132,11 @@ namespace PSXPrev.Classes
         // Total number of frames in animation and frames to wait between restarting loops.
         public double TotalFrameCount => FrameCount + LoopDelayFrameCount;
         // Real time in frames (including looping and delayed time). (Time x FPS)
-        public double FrameTime => Time * FPS;
+        public double FrameTime
+        {
+            get => Time * FPS;
+            set => Time = (FPS == 0 ? 0 : value / FPS);
+        }
         // Looped, capped, and mirrored playback time in frames.
         public double CurrentFrameTime => Math.Max(0, Math.Min(FrameCount, LoopFrameTime()));
 
@@ -753,6 +757,11 @@ namespace PSXPrev.Classes
         // Useful for when Modulus calculations prevent the animation from displaying in its end state.
         private static double CloseToFrameCount(bool start, double frameTime, double frameCount, double timeMultiplier)
         {
+            if (timeMultiplier == 0)
+            {
+                return 0d;
+            }
+
             //const double EPSILON = 0.0001d;
             var frameEpsilon = EPSILON / timeMultiplier;
 
