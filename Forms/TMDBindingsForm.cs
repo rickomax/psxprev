@@ -50,14 +50,14 @@ namespace PSXPrev.Forms
             bindingPropertyGrid.SelectedObject = new DictionaryPropertyGridAdapter(_currentAnimation.TMDBindings);
         }
 
-        public static void ShowTool(Animation currentAnimation)
+        public static void ShowTool(IWin32Window owner, Animation currentAnimation)
         {
             if (_instance == null)
             {
                 _instance = new TMDBindingsForm();
             }
             _instance.Reload(currentAnimation);
-            _instance.Show();
+            _instance.Show(owner);
             IsVisible = true;
         }
 
