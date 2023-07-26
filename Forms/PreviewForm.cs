@@ -86,7 +86,7 @@ namespace PSXPrev
                     _playing = value;
                     if (_playing)
                     {
-                        animationPlayButtonx.Text = "Stop Animation";
+                        animationPlayButtonx.Text = "Pause Animation";
                         _animateTimer.Start();
                     }
                     else
