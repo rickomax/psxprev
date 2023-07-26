@@ -46,6 +46,9 @@
     <Reference Include="DiscUtils.Streams, Version=0.14.0.0, Culture=neutral, PublicKeyToken=5fa5b410cc9c6289, processorArchitecture=MSIL">
       <HintPath>packages\DiscUtils.Streams.0.14.0-alpha234\lib\net45\DiscUtils.Streams.dll</HintPath>
     </Reference>
+    <Reference Include="ImageListView, Version=13.8.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\ImageListView.13.8.2\lib\net35\ImageListView.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.WindowsAPICodePack, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>packages\WindowsAPICodePack-Core.1.1.1\lib\Microsoft.WindowsAPICodePack.dll</HintPath>
     </Reference>

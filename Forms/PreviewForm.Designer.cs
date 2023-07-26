@@ -31,7 +31,8 @@ namespace PSXPrev
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            System.Windows.Forms.ListViewGroup listViewGroup1 = new System.Windows.Forms.ListViewGroup("Found", System.Windows.Forms.HorizontalAlignment.Left);
+            Manina.Windows.Forms.ImageListView.ImageListViewColumnHeader imageListViewColumnHeader1 = new Manina.Windows.Forms.ImageListView.ImageListViewColumnHeader(Manina.Windows.Forms.ColumnType.Custom, "Found", "Found", 100, 0, true);
+            Manina.Windows.Forms.ImageListView.ImageListViewColumnHeader imageListViewColumnHeader2 = new Manina.Windows.Forms.ImageListView.ImageListViewColumnHeader(Manina.Windows.Forms.ColumnType.Custom, "Textures", "Textures", 100, 1, true);
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(PreviewForm));
             this.entitiesTabPage = new System.Windows.Forms.TabPage();
             this.modelsSplitContainer = new System.Windows.Forms.SplitContainer();
@@ -44,8 +45,7 @@ namespace PSXPrev
             this.bitmapsTabPage = new System.Windows.Forms.TabPage();
             this.splitContainer2 = new System.Windows.Forms.SplitContainer();
             this.splitContainer3 = new System.Windows.Forms.SplitContainer();
-            this.texturesListView = new System.Windows.Forms.ListView();
-            this.thumbsImageList = new System.Windows.Forms.ImageList(this.components);
+            this.texturesListView = new Manina.Windows.Forms.ImageListView();
             this.tableLayoutPanel4 = new System.Windows.Forms.TableLayoutPanel();
             this.drawToVRAMButton = new System.Windows.Forms.Button();
             this.texturePropertyGrid = new System.Windows.Forms.PropertyGrid();
@@ -248,7 +248,7 @@ namespace PSXPrev
             // 
             this.splitContainer6.Panel2.Controls.Add(this.tableLayoutPanel5);
             this.splitContainer6.Size = new System.Drawing.Size(330, 567);
-            this.splitContainer6.SplitterDistance = 141;
+            this.splitContainer6.SplitterDistance = 180;
             this.splitContainer6.TabIndex = 0;
             // 
             // entitiesTreeView
@@ -258,7 +258,7 @@ namespace PSXPrev
             this.entitiesTreeView.HideSelection = false;
             this.entitiesTreeView.Location = new System.Drawing.Point(0, 0);
             this.entitiesTreeView.Name = "entitiesTreeView";
-            this.entitiesTreeView.Size = new System.Drawing.Size(330, 141);
+            this.entitiesTreeView.Size = new System.Drawing.Size(330, 180);
             this.entitiesTreeView.TabIndex = 9;
             this.entitiesTreeView.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.entitiesTreeView_AfterCheck);
             this.entitiesTreeView.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.entitiesTreeView_AfterSelect);
@@ -277,13 +277,13 @@ namespace PSXPrev
             this.tableLayoutPanel5.RowCount = 2;
             this.tableLayoutPanel5.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel5.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel5.Size = new System.Drawing.Size(330, 422);
+            this.tableLayoutPanel5.Size = new System.Drawing.Size(330, 383);
             this.tableLayoutPanel5.TabIndex = 1;
             // 
             // exportEntityButton
             // 
             this.exportEntityButton.Dock = System.Windows.Forms.DockStyle.Top;
-            this.exportEntityButton.Location = new System.Drawing.Point(0, 388);
+            this.exportEntityButton.Location = new System.Drawing.Point(0, 349);
             this.exportEntityButton.Margin = new System.Windows.Forms.Padding(0, 3, 0, 0);
             this.exportEntityButton.Name = "exportEntityButton";
             this.exportEntityButton.Size = new System.Drawing.Size(330, 34);
@@ -300,7 +300,7 @@ namespace PSXPrev
             this.modelPropertyGrid.Margin = new System.Windows.Forms.Padding(0);
             this.modelPropertyGrid.Name = "modelPropertyGrid";
             this.modelPropertyGrid.PropertySort = System.Windows.Forms.PropertySort.NoSort;
-            this.modelPropertyGrid.Size = new System.Drawing.Size(330, 385);
+            this.modelPropertyGrid.Size = new System.Drawing.Size(330, 346);
             this.modelPropertyGrid.TabIndex = 14;
             this.modelPropertyGrid.ToolbarVisible = false;
             this.modelPropertyGrid.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.modelPropertyGrid_PropertyValueChanged);
@@ -351,6 +351,7 @@ namespace PSXPrev
             // splitContainer3
             // 
             this.splitContainer3.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainer3.FixedPanel = System.Windows.Forms.FixedPanel.Panel2;
             this.splitContainer3.Location = new System.Drawing.Point(0, 0);
             this.splitContainer3.Name = "splitContainer3";
             this.splitContainer3.Orientation = System.Windows.Forms.Orientation.Horizontal;
@@ -363,30 +364,41 @@ namespace PSXPrev
             // 
             this.splitContainer3.Panel2.Controls.Add(this.tableLayoutPanel4);
             this.splitContainer3.Size = new System.Drawing.Size(330, 567);
-            this.splitContainer3.SplitterDistance = 141;
+            this.splitContainer3.SplitterDistance = 350;
             this.splitContainer3.TabIndex = 0;
             // 
             // texturesListView
             // 
+            this.texturesListView.AllowItemReorder = false;
+            this.texturesListView.AutoRotateThumbnails = false;
+            imageListViewColumnHeader1.Comparer = null;
+            imageListViewColumnHeader1.DisplayIndex = 0;
+            imageListViewColumnHeader1.Grouper = null;
+            imageListViewColumnHeader1.Key = "Found";
+            imageListViewColumnHeader1.Text = "Found";
+            imageListViewColumnHeader1.Type = Manina.Windows.Forms.ColumnType.Custom;
+            imageListViewColumnHeader2.Comparer = null;
+            imageListViewColumnHeader2.DisplayIndex = 1;
+            imageListViewColumnHeader2.Grouper = null;
+            imageListViewColumnHeader2.Key = "Textures";
+            imageListViewColumnHeader2.Text = "Textures";
+            imageListViewColumnHeader2.Type = Manina.Windows.Forms.ColumnType.Custom;
+            this.texturesListView.Columns.AddRange(new Manina.Windows.Forms.ImageListView.ImageListViewColumnHeader[] {
+            imageListViewColumnHeader1,
+            imageListViewColumnHeader2});
             this.texturesListView.Dock = System.Windows.Forms.DockStyle.Fill;
-            listViewGroup1.Header = "Found";
-            listViewGroup1.Name = "foundListViewGroup";
-            this.texturesListView.Groups.AddRange(new System.Windows.Forms.ListViewGroup[] {
-            listViewGroup1});
-            this.texturesListView.HideSelection = false;
-            this.texturesListView.LargeImageList = this.thumbsImageList;
+            this.texturesListView.GroupColumn = 1;
+            this.texturesListView.GroupOrder = Manina.Windows.Forms.SortOrder.Ascending;
             this.texturesListView.Location = new System.Drawing.Point(0, 0);
             this.texturesListView.Name = "texturesListView";
-            this.texturesListView.Size = new System.Drawing.Size(330, 141);
+            this.texturesListView.PersistentCacheDirectory = "";
+            this.texturesListView.PersistentCacheSize = ((long)(100));
+            this.texturesListView.Size = new System.Drawing.Size(330, 350);
+            this.texturesListView.SortColumn = 1;
+            this.texturesListView.SortOrder = Manina.Windows.Forms.SortOrder.Ascending;
             this.texturesListView.TabIndex = 16;
-            this.texturesListView.UseCompatibleStateImageBehavior = false;
-            this.texturesListView.SelectedIndexChanged += new System.EventHandler(this.texturesListView_SelectedIndexChanged);
-            // 
-            // thumbsImageList
-            // 
-            this.thumbsImageList.ColorDepth = System.Windows.Forms.ColorDepth.Depth24Bit;
-            this.thumbsImageList.ImageSize = new System.Drawing.Size(64, 64);
-            this.thumbsImageList.TransparentColor = System.Drawing.Color.Transparent;
+            this.texturesListView.ThumbnailSize = new System.Drawing.Size(80, 80);
+            this.texturesListView.SelectionChanged += new System.EventHandler(this.texturesListView_SelectedIndexChanged);
             // 
             // tableLayoutPanel4
             // 
@@ -403,13 +415,13 @@ namespace PSXPrev
             this.tableLayoutPanel4.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel4.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.tableLayoutPanel4.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel4.Size = new System.Drawing.Size(330, 422);
+            this.tableLayoutPanel4.Size = new System.Drawing.Size(330, 213);
             this.tableLayoutPanel4.TabIndex = 1;
             // 
             // drawToVRAMButton
             // 
             this.drawToVRAMButton.Dock = System.Windows.Forms.DockStyle.Top;
-            this.drawToVRAMButton.Location = new System.Drawing.Point(0, 388);
+            this.drawToVRAMButton.Location = new System.Drawing.Point(0, 179);
             this.drawToVRAMButton.Margin = new System.Windows.Forms.Padding(0, 3, 0, 0);
             this.drawToVRAMButton.Name = "drawToVRAMButton";
             this.drawToVRAMButton.Size = new System.Drawing.Size(330, 34);
@@ -426,7 +438,7 @@ namespace PSXPrev
             this.texturePropertyGrid.Margin = new System.Windows.Forms.Padding(0);
             this.texturePropertyGrid.Name = "texturePropertyGrid";
             this.texturePropertyGrid.PropertySort = System.Windows.Forms.PropertySort.NoSort;
-            this.texturePropertyGrid.Size = new System.Drawing.Size(330, 348);
+            this.texturePropertyGrid.Size = new System.Drawing.Size(330, 139);
             this.texturePropertyGrid.TabIndex = 15;
             this.texturePropertyGrid.ToolbarVisible = false;
             this.texturePropertyGrid.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.texturePropertyGrid_PropertyValueChanged);
@@ -434,7 +446,7 @@ namespace PSXPrev
             // exportBitmapButton
             // 
             this.exportBitmapButton.Dock = System.Windows.Forms.DockStyle.Top;
-            this.exportBitmapButton.Location = new System.Drawing.Point(0, 351);
+            this.exportBitmapButton.Location = new System.Drawing.Point(0, 142);
             this.exportBitmapButton.Margin = new System.Windows.Forms.Padding(0, 3, 0, 0);
             this.exportBitmapButton.Name = "exportBitmapButton";
             this.exportBitmapButton.Size = new System.Drawing.Size(330, 34);
@@ -511,6 +523,8 @@ namespace PSXPrev
             // splitContainer7
             // 
             this.splitContainer7.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainer7.FixedPanel = System.Windows.Forms.FixedPanel.Panel2;
+            this.splitContainer7.IsSplitterFixed = true;
             this.splitContainer7.Location = new System.Drawing.Point(0, 0);
             this.splitContainer7.Name = "splitContainer7";
             this.splitContainer7.Orientation = System.Windows.Forms.Orientation.Horizontal;
@@ -523,7 +537,7 @@ namespace PSXPrev
             // 
             this.splitContainer7.Panel2.Controls.Add(this.tableLayoutPanel3);
             this.splitContainer7.Size = new System.Drawing.Size(330, 567);
-            this.splitContainer7.SplitterDistance = 141;
+            this.splitContainer7.SplitterDistance = 492;
             this.splitContainer7.TabIndex = 0;
             // 
             // vramListBox
@@ -566,7 +580,7 @@ namespace PSXPrev
             this.vramListBox.Location = new System.Drawing.Point(0, 0);
             this.vramListBox.Margin = new System.Windows.Forms.Padding(0);
             this.vramListBox.Name = "vramListBox";
-            this.vramListBox.Size = new System.Drawing.Size(330, 141);
+            this.vramListBox.Size = new System.Drawing.Size(330, 492);
             this.vramListBox.TabIndex = 0;
             this.vramListBox.SelectedIndexChanged += new System.EventHandler(this.vramComboBox_SelectedIndexChanged);
             // 
@@ -583,7 +597,7 @@ namespace PSXPrev
             this.tableLayoutPanel3.RowCount = 2;
             this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel3.Size = new System.Drawing.Size(330, 422);
+            this.tableLayoutPanel3.Size = new System.Drawing.Size(330, 71);
             this.tableLayoutPanel3.TabIndex = 13;
             // 
             // gotoPageButton
@@ -678,6 +692,7 @@ namespace PSXPrev
             // splitContainer5
             // 
             this.splitContainer5.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainer5.FixedPanel = System.Windows.Forms.FixedPanel.Panel2;
             this.splitContainer5.Location = new System.Drawing.Point(0, 0);
             this.splitContainer5.Name = "splitContainer5";
             this.splitContainer5.Orientation = System.Windows.Forms.Orientation.Horizontal;
@@ -690,7 +705,7 @@ namespace PSXPrev
             // 
             this.splitContainer5.Panel2.Controls.Add(this.animationPropertyGrid);
             this.splitContainer5.Size = new System.Drawing.Size(330, 567);
-            this.splitContainer5.SplitterDistance = 140;
+            this.splitContainer5.SplitterDistance = 400;
             this.splitContainer5.TabIndex = 0;
             // 
             // animationsTreeView
@@ -700,7 +715,7 @@ namespace PSXPrev
             this.animationsTreeView.HideSelection = false;
             this.animationsTreeView.Location = new System.Drawing.Point(0, 0);
             this.animationsTreeView.Name = "animationsTreeView";
-            this.animationsTreeView.Size = new System.Drawing.Size(330, 140);
+            this.animationsTreeView.Size = new System.Drawing.Size(330, 400);
             this.animationsTreeView.TabIndex = 10;
             this.animationsTreeView.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.animationsTreeView_AfterSelect);
             // 
@@ -711,7 +726,7 @@ namespace PSXPrev
             this.animationPropertyGrid.Location = new System.Drawing.Point(0, 0);
             this.animationPropertyGrid.Name = "animationPropertyGrid";
             this.animationPropertyGrid.PropertySort = System.Windows.Forms.PropertySort.NoSort;
-            this.animationPropertyGrid.Size = new System.Drawing.Size(330, 423);
+            this.animationPropertyGrid.Size = new System.Drawing.Size(330, 163);
             this.animationPropertyGrid.TabIndex = 15;
             this.animationPropertyGrid.ToolbarVisible = false;
             this.animationPropertyGrid.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.animationPropertyGrid_PropertyValueChanged);
@@ -1622,8 +1637,7 @@ namespace PSXPrev
         private System.Windows.Forms.ToolStripMenuItem drawToVRAMToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem findByPageToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem clearPageToolStripMenuItem;
-        private System.Windows.Forms.ListView texturesListView;
-        private System.Windows.Forms.ImageList thumbsImageList;
+        private Manina.Windows.Forms.ImageListView texturesListView;
         private System.Windows.Forms.ToolStripMenuItem clearSearchToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem wireframeToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem clearAllPagesToolStripMenuItem;
