@@ -1252,6 +1252,10 @@ namespace PSXPrev.Classes
 
             void AddTriangle(Triangle triangle, uint tPageNum, RenderFlags renderFlags, MixtureRate mixtureRate)
             {
+                if (renderFlags.HasFlag(RenderFlags.Textured))
+                {
+                    triangle.CorrectUVTearing();
+                }
                 var renderInfo = new RenderInfo(tPageNum, renderFlags, mixtureRate);
                 if (!groupedTriangles.TryGetValue(renderInfo, out var triangles))
                 {
@@ -1331,23 +1335,23 @@ namespace PSXPrev.Classes
 
                         // Read UV data
                         reader.BaseStream.Seek(_offset + uvTop + uvIndex * 12, SeekOrigin.Begin);
-                        var u0 = reader.ReadByte() / 255f;
-                        var v0 = reader.ReadByte() / 255f;
+                        var u0 = reader.ReadByte();
+                        var v0 = reader.ReadByte();
                         var cbaValue = reader.ReadUInt16();
-                        var u1 = reader.ReadByte() / 255f;
-                        var v1 = reader.ReadByte() / 255f;
+                        var u1 = reader.ReadByte();
+                        var v1 = reader.ReadByte();
                         var tsbValue = reader.ReadUInt16();
-                        var u2 = reader.ReadByte() / 255f;
-                        var v2 = reader.ReadByte() / 255f;
-                        var u3 = reader.ReadByte() / 255f;
-                        var v3 = reader.ReadByte() / 255f;
+                        var u2 = reader.ReadByte();
+                        var v2 = reader.ReadByte();
+                        var u3 = reader.ReadByte();
+                        var v3 = reader.ReadByte();
 
                         TMDHelper.ParseTSB(tsbValue, out tPage, out var pmode, out mixtureRate);
                         mixtureRate = MixtureRate.None; // No semi-transparency
-                        uv0 = new Vector2(u0, v0);
-                        uv1 = new Vector2(u1, v1);
-                        uv2 = new Vector2(u2, v2);
-                        uv3 = new Vector2(u3, v3);
+                        uv0 = GeomUtils.ConvertUV(u0, v0);
+                        uv1 = GeomUtils.ConvertUV(u1, v1);
+                        uv2 = GeomUtils.ConvertUV(u2, v2);
+                        uv3 = GeomUtils.ConvertUV(u3, v3);
                     }
 
                     // Read Z vertices
@@ -1378,17 +1382,17 @@ namespace PSXPrev.Classes
                     var vertex2 = new Vector3(x0, y1, z2);
                     var vertex3 = new Vector3(x1, y1, z3);
 
-                    var normal0 = normal;
                     var normal1 = normal;
+                    var normal2 = normal;
                     // Not part of the format, but uncomment if you want to see
                     // clearer terrain lighting when all normals are the same.
-                    //normal0 = GeomUtils.CalculateNormal(vertex0, vertex1, vertex2);
-                    //normal1 = GeomUtils.CalculateNormal(vertex1, vertex3, vertex2);
+                    //normal1 = GeomUtils.CalculateNormal(vertex0, vertex1, vertex2);
+                    //normal2 = GeomUtils.CalculateNormal(vertex1, vertex3, vertex2);
 
                     AddTriangle(new Triangle
                     {
                         Vertices = new[] { vertex0, vertex1, vertex2 },
-                        Normals = new[] { normal0, normal0, normal0 },
+                        Normals = new[] { normal1, normal1, normal1 },
                         Colors = new[] { color, color, color },
                         Uv = new[] { uv0, uv1, uv2 },
                         AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
@@ -1397,7 +1401,7 @@ namespace PSXPrev.Classes
                     AddTriangle(new Triangle
                     {
                         Vertices = new[] { vertex1, vertex3, vertex2 },
-                        Normals = new[] { normal1, normal1, normal1 },
+                        Normals = new[] { normal2, normal2, normal2 },
                         Uv = new[] { uv1, uv3, uv2 },
                         Colors = new[] { color, color, color },
                         AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }

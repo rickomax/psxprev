@@ -222,7 +222,7 @@ namespace PSXPrev.Classes
                 value = (uint)dataLength.Value;
             }
             var isPadding = dataType >= PrimitiveDataType.PAD1;
-            if (!isPadding || Program.Debug)
+            if (!isPadding) //|| Program.Debug)
             {
                 // Unlike MeshData, PadCount includes index 0.
                 var key = isPadding ? PrimitiveDataType.PAD1 + PadCount[index]++ : dataType;
@@ -265,14 +265,14 @@ namespace PSXPrev.Classes
         {
             switch (dataType)
             {
-                case PrimitiveDataType.S0:
-                case PrimitiveDataType.S1:
-                case PrimitiveDataType.S2:
-                case PrimitiveDataType.S3:
-                case PrimitiveDataType.T0:
-                case PrimitiveDataType.T1:
-                case PrimitiveDataType.T2:
-                case PrimitiveDataType.T3:
+                case PrimitiveDataType.U0:
+                case PrimitiveDataType.U1:
+                case PrimitiveDataType.U2:
+                case PrimitiveDataType.U3:
+                case PrimitiveDataType.V0:
+                case PrimitiveDataType.V1:
+                case PrimitiveDataType.V2:
+                case PrimitiveDataType.V3:
                 case PrimitiveDataType.R0:
                 case PrimitiveDataType.R1:
                 case PrimitiveDataType.R2:

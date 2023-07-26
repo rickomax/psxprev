@@ -8,8 +8,16 @@ namespace PSXPrev.Classes
     {
         public const string FloatFormat = "0.00000";
         public const string IntegerFormat = "0";
-        public static string CompleteFloatFormat = "{0:0.00000}";
-        public const float Deg2Rad = (float)((Math.PI * 2f) / 360.0f);
+        public const string CompleteFloatFormat = "{0:0.00000}";
+
+        public const float One2Rad = (float)(Math.PI * 2d);
+        public const float Deg2Rad = (float)((Math.PI * 2d) / 360d);
+        public const float Rad2Deg = (float)(360d / (Math.PI * 2d));
+
+        public const float Fixed12Scalar = 4096f;
+        public const float Fixed16Scalar = 65536f;
+
+        public static float UVScalar => Program.FixUVAlignment ? 256f : 255f;
 
         // Use Vector3.Unit(XYZ) fields instead.
         //public static Vector3 XVector = new Vector3(1f, 0f, 0f);
@@ -278,6 +286,18 @@ namespace PSXPrev.Classes
         {
             var r = x % m;
             return r < 0 ? r + m : r;
+        }
+
+        public static float ConvertFixed12(int value) => value / Fixed12Scalar;
+
+        public static float ConvertFixed16(int value) => value / Fixed16Scalar;
+
+        public static float ConvertUV(uint uvComponent) => uvComponent / UVScalar;
+
+        public static Vector2 ConvertUV(uint u, uint v)
+        {
+            var scalar = UVScalar;
+            return new Vector2(u / scalar, v / scalar);
         }
 
         public static float InterpolateValue(float src, float dst, float delta)

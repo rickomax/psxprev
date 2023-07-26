@@ -103,8 +103,6 @@ namespace PSXPrev.Classes
         [Browsable(false)]
         public float IntersectionDistance { get; set; }
 
-        public List<Tuple<uint, uint>> ExtraPaddingData { get; set; } = new List<Tuple<uint, uint>>();
-
         public Triangle()
         {
 
@@ -122,6 +120,41 @@ namespace PSXPrev.Classes
             AttachableIndices = fromTriangle.AttachableIndices;
             AttachedIndices = fromTriangle.AttachedIndices;
             AttachedNormalIndices = fromTriangle.AttachedNormalIndices;
+        }
+
+
+        // A fix to correct UVs where either all U or V coordinates are identical, which causes tearing.
+        public void CorrectUVTearing()
+        {
+            // This fix should be applied even if all 3 UVs are Vector2.Zero.
+            // However, it should not be applied if this face is untextured.
+            if (Program.FixUVAlignment)
+            {
+                // This type of tearing occurs only when the UV alignment fix is in place.
+                // It happens if all of the U or V coordinates or identical, effectively turning the UV face into a 1D line.
+                // When this happens with the alignment fix, the UV line is right on the pixel boundary.
+                // Incrementing any one of the 3 U/V coordinates will fix 1D UV tearing.
+
+                // The reason it's safe to increment by one, is because the area covered by the UV will still only be one pixel.
+                // Before:
+                // |
+                // |_
+                // After:
+                // |\
+                // |_\
+
+                var uvs = TiledUv?.BaseUv ?? Uv;
+
+                // index 2 is arbitrarily chosen.
+                if (uvs[0].X == uvs[1].X && uvs[0].X == uvs[2].X)
+                {
+                    uvs[2].X += 1f / GeomUtils.UVScalar;
+                }
+                if (uvs[0].Y == uvs[1].Y && uvs[0].Y == uvs[2].Y)
+                {
+                    uvs[2].Y += 1f / GeomUtils.UVScalar;
+                }
+            }
         }
     }
 }

@@ -53,6 +53,10 @@ namespace PSXPrev.Classes
             void AddTriangle(Triangle triangle, uint tPage, RenderFlags renderFlags)
             {
                 renderFlags |= RenderFlags.DoubleSided; //todo
+                if (renderFlags.HasFlag(RenderFlags.Textured))
+                {
+                    triangle.CorrectUVTearing();
+                }
                 var renderInfo = new RenderInfo(tPage, renderFlags);
                 if (!groupedTriangles.TryGetValue(renderInfo, out var triangles))
                 {

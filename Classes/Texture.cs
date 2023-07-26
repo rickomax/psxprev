@@ -47,6 +47,13 @@ namespace PSXPrev.Classes
         [ReadOnly(true), DisplayName("Height")]
         public int Height => Bitmap.Height;
 
+        // Usable area of the texture (only different from Width/Height when IsVRAMPage is true).
+        [Browsable(false)]
+        public int RenderWidth => IsVRAMPage ? VRAMPages.PageSize : Width;
+
+        [Browsable(false)]
+        public int RenderHeight => IsVRAMPage ? VRAMPages.PageSize : Height;
+
         [Browsable(false)]
         public bool IsVRAMPage { get; set; }
 

@@ -38,6 +38,10 @@ namespace PSXPrev.Classes
             void AddTriangle(Triangle triangle, uint tPage, RenderFlags renderFlags)
             {
                 renderFlags |= RenderFlags.DoubleSided; //todo
+                if (renderFlags.HasFlag(RenderFlags.Textured))
+                {
+                    triangle.CorrectUVTearing();
+                }
                 var renderInfo = new RenderInfo(tPage, renderFlags);
                 if (!groupedTriangles.TryGetValue(renderInfo, out var triangles))
                 {
@@ -572,9 +576,9 @@ namespace PSXPrev.Classes
             var color1 = new Color(r1/255f, g1/255f, b1/255f);
             var color2 = new Color(r2/255f, g2/255f, b2/255f);
 
-            var uv0 = new Vector2(u0/255f, v0/255f);
-            var uv1 = new Vector2(u1/255f, v1/255f);
-            var uv2 = new Vector2(u2/255f, v2/255f);
+            var uv0 = GeomUtils.ConvertUV(u0, v0);
+            var uv1 = GeomUtils.ConvertUV(u1, v1);
+            var uv2 = GeomUtils.ConvertUV(u2, v2);
 
             var triangle = new Triangle
             {

@@ -89,6 +89,7 @@ namespace PSXPrev.Forms
                 AutoAttachLimbs = optionAutoAttachLimbsCheckBox.Checked,
                 //AutoPlayAnimations = false, //todo
                 //AutoSelect = false, //todo
+                //FixUVAlignment = true, //todo
             });
 
             Close();
