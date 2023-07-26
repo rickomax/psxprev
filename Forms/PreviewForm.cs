@@ -511,7 +511,7 @@ namespace PSXPrev
 
         private void UpdateAnimationProgressLabel()
         {
-            animationFrameTrackBar.Maximum = Math.Min(1, (int)_scene.AnimationBatch.FrameCount);
+            animationFrameTrackBar.Maximum = Math.Max(0, Math.Min(1, (int)_scene.AnimationBatch.FrameCount));
             animationFrameTrackBar.Value = (int)_scene.AnimationBatch.CurrentFrameTime;
             animationProgressLabel.Text = $"{animationFrameTrackBar.Value}/{animationFrameTrackBar.Maximum}";
             animationFrameTrackBar.Refresh();
