@@ -2,10 +2,10 @@
 
 PSXPREV - PlayStation (PSX) Files Previewer/Extractor
 
-[![Release](https://img.shields.io/github/v/release/rickomax/PSXPrev
+[![Release](https://img.shields.io/github/v/release/rickomax/psxprev
 )](https://github.com/rickomax/psxprev/releases/latest)
-[![Release Date](https://img.shields.io/github/release-date-pre/rickomax/PSXPrev)](https://github.com/rickomax/psxprev/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/rickomax/PSXPrev/total
+[![Release Date](https://img.shields.io/github/release-date-pre/rickomax/psxprev)](https://github.com/rickomax/psxprev/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/rickomax/psxprev/total
 )](https://github.com/rickomax/psxprev/releases)
 [![Discord](https://img.shields.io/discord/1126965151011184660.svg?style=flat&logo=discord&label=Discord&colorB=7389DC&link=https://discord.gg/Haan9wVdKB)](https://discord.gg/Haan9wVdKB)
 
