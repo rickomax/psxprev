@@ -8,6 +8,7 @@ using System.IO;
 using System.Reflection;
 using System.Timers;
 using System.Windows.Forms;
+using Manina.Windows.Forms;
 using OpenTK;
 using PSXPrev.Classes;
 using PSXPrev.Forms;
@@ -18,6 +19,25 @@ namespace PSXPrev
 {
     public partial class PreviewForm : Form
     {
+        private class TexturesListViewTagInfo
+        {
+            //public Texture Texture { get; set; }
+            // We need to store index because ImageListViewItem.Index does not represent the original index.
+            public int Index { get; set; }
+            public bool Found { get; set; }
+        }
+
+        private class TexturesListViewGrouper : ImageListView.IGrouper
+        {
+            public ImageListView.GroupInfo GetGroupInfo(ImageListViewItem item)
+            {
+                var tagInfo = (TexturesListViewTagInfo)item.Tag;
+                var name = tagInfo.Found ? "Found" : "Textures"; // Name ID of group
+                var order = tagInfo.Found ? 0 : 1;               // Index of group
+                return new ImageListView.GroupInfo(name, order);
+            }
+        }
+
         private const float MouseSensivity = 0.0035f;
 
         private static readonly Pen Black3Px = new Pen(Color.Black, 3f);
@@ -134,8 +154,17 @@ namespace PSXPrev
 
         private void TextureAdded(Texture texture, int index)
         {
-            thumbsImageList.Images.Add(texture.Bitmap);
-            texturesListView.Items.Add(texture.TextureName, index);
+            texturesListView.Items.Add(new ImageListViewItem
+            {
+                //Text = index.ToString(), //debug
+                Text = texture.TextureName,
+                Tag = new TexturesListViewTagInfo
+                {
+                    //Texture = texture,
+                    Index = index,
+                    Found = false,
+                },
+            }, texture.Bitmap);
         }
 
         private void AnimationAdded(Animation animation)
@@ -470,6 +499,7 @@ namespace PSXPrev
 
         private void previewForm_Load(object sender, EventArgs e)
         {
+            // Setup timers
             _redrawTimer = new Timer();
             _redrawTimer.Interval = 1f / 60f;
             _redrawTimer.Elapsed += _redrawTimer_Elapsed;
@@ -478,9 +508,25 @@ namespace PSXPrev
             _animateTimer = new Timer();
             _animateTimer.Elapsed += _animateTimer_Elapsed;
             _animateTimer.SynchronizingObject = this;
+
+            // Set window title to format: PSXPrev #.#.#.#
             var assembly = Assembly.GetExecutingAssembly();
             var fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
-            Text = $@"{Text} {fileVersionInfo.FileVersion}";
+            Text = $"{Text} {fileVersionInfo.FileVersion}";
+
+            // Setup texturesListView
+            // Set renderer to use a sharp-cornered square box, and nameplate below the box.
+            texturesListView.SetRenderer(new Manina.Windows.Forms.ImageListViewRenderers.XPRenderer());
+
+            // Set handlers for "Found" and "Textures" groups.
+            var grouper = new TexturesListViewGrouper();
+            var comparer = Comparer<ImageListViewItem>.Create(CompareTexturesListViewItems);
+            // Set grouper and comparer for "Found" group.
+            texturesListView.Columns[0].Grouper  = grouper;
+            texturesListView.Columns[0].Comparer = comparer;
+            // Set grouper and comparer for "Textures" (everything else) group.
+            texturesListView.Columns[1].Grouper  = grouper;
+            texturesListView.Columns[1].Comparer = comparer;
         }
 
         private void previewForm_FormClosing(object sender, FormClosingEventArgs e)
@@ -566,12 +612,19 @@ namespace PSXPrev
 
         private void exportBitmapButton_Click(object sender, EventArgs e)
         {
-            var selectedIndices = texturesListView.SelectedIndices;
-            var selectedCount = selectedIndices.Count;
-            if (selectedCount == 0)
+            var selectedItems = texturesListView.SelectedItems;
+            if (selectedItems.Count == 0)
             {
                 MessageBox.Show(this, "Select the textures to export first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
+            }
+            // Create an array of selectedTextures now because we'll be
+            // calling BeginInvoke, where SelectedItems could change.
+            var selectedTextures = new Texture[selectedItems.Count];
+            for (var i = 0; i < selectedItems.Count; i++)
+            {
+                var tagInfo = (TexturesListViewTagInfo)selectedItems[i].Tag;
+                selectedTextures[i] = _textures[tagInfo.Index];
             }
 
             // Use BeginInvoke so that dialog doesn't show up behind menu items...
@@ -579,11 +632,6 @@ namespace PSXPrev
             {
                 if (OutputFolderSelect(out var path))
                 {
-                    var selectedTextures = new Texture[selectedCount];
-                    for (var i = 0; i < selectedCount; i++)
-                    {
-                        selectedTextures[i] = _textures[selectedIndices[i]];
-                    }
                     var exporter = new PngExporter();
                     exporter.Export(selectedTextures, path);
                     MessageBox.Show(this, "Textures exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -948,11 +996,12 @@ namespace PSXPrev
 
         private Texture GetSelectedTexture(int? index = null)
         {
-            if (!index.HasValue && texturesListView.SelectedIndices.Count == 0)
+            var selectedItems = texturesListView.SelectedItems;
+            if (!index.HasValue && selectedItems.Count == 0)
             {
                 return null;
             }
-            var textureIndex = index ?? texturesListView.SelectedIndices[0];
+            var textureIndex = index ?? ((TexturesListViewTagInfo)selectedItems[0].Tag).Index;
             if (textureIndex < 0)
             {
                 return null;
@@ -962,15 +1011,17 @@ namespace PSXPrev
 
         private void drawToVRAMButton_Click(object sender, EventArgs e)
         {
-            var selectedIndices = texturesListView.SelectedIndices;
-            if (selectedIndices.Count == 0)
+            var selectedItems = texturesListView.SelectedItems;
+            if (selectedItems.Count == 0)
             {
                 MessageBox.Show(this, "Select the textures to draw to VRAM first");
                 return;
             }
-            foreach (int index in texturesListView.SelectedIndices)
+            foreach (var item in selectedItems)
             {
-                _vram.DrawTexture(GetSelectedTexture(index), true); // Suppress updates to scene until all textures are drawn.
+                var tagInfo = (TexturesListViewTagInfo)item.Tag;
+                var texture = _textures[tagInfo.Index];
+                _vram.DrawTexture(texture, true); // Suppress updates to scene until all textures are drawn.
             }
             _vram.UpdateAllPages();
             UpdateVRAMComboBoxPageItems();
@@ -1033,13 +1084,13 @@ namespace PSXPrev
 
         private void texturePropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
         {
-            var selectedNodes = texturesListView.SelectedItems;
-            if (selectedNodes.Count == 0)
+            var selectedItems = texturesListView.SelectedItems;
+            if (selectedItems.Count == 0)
             {
                 return;
             }
-            var selectedNode = selectedNodes[0];
-            if (selectedNode == null)
+            var selectedItem = selectedItems[0];
+            if (selectedItem == null)
             {
                 return;
             }
@@ -1048,10 +1099,12 @@ namespace PSXPrev
             {
                 return;
             }
+            // Validate changes to texture properties.
             texture.X = VRAMPages.ClampTextureX(texture.X);
             texture.Y = VRAMPages.ClampTextureY(texture.Y);
             texture.TexturePage = VRAMPages.ClampTexturePage(texture.TexturePage);
-            selectedNode.Text = texture.TextureName;
+            // Update changes to TextureName property in ListViewItem.
+            selectedItem.Text = texture.TextureName;
         }
 
         private void btnClearPage_Click(object sender, EventArgs e)
@@ -1130,34 +1183,56 @@ namespace PSXPrev
             }));
         }
 
+        private static int CompareTexturesListViewItems(ImageListViewItem a, ImageListViewItem b)
+        {
+            var tagInfoA = (TexturesListViewTagInfo)a.Tag;
+            var tagInfoB = (TexturesListViewTagInfo)b.Tag;
+            return tagInfoA.Index.CompareTo(tagInfoB.Index);
+        }
+
+        private bool AskForVRAMPage(string title, int? defaultPage, out int pageIndex)
+        {
+            pageIndex = 0;
+            var defaultText = (defaultPage.HasValue && defaultPage.Value != -1) ? defaultPage.ToString() : null;
+            var pageStr = DialogForm.Show(this, $"Please type in the VRAM Page index (0-{VRAMPages.PageCount-1})", title, defaultText);
+            if (pageStr != null)
+            {
+                if (int.TryParse(pageStr, out pageIndex) && pageIndex >= 0 && pageIndex < VRAMPages.PageCount)
+                {
+                    return true; // OK (valid page)
+                }
+                MessageBox.Show(this, $"Please type in a valid VRAM Page index between 0 and {VRAMPages.PageCount-1}", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            return false; // Canceled / OK (invalid page)
+        }
+
         private void findByPageToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var pageIndexString = DialogForm.Show(this, $"Please type in the VRAM Page index (0-{VRAMPages.PageCount-1})", "Find by Page");
-            if (!int.TryParse(pageIndexString, out var pageIndex))
+            if (AskForVRAMPage("Find by Page", null, out var pageIndex))
             {
-                MessageBox.Show(this, $"Please type in a valid VRAM Page index between 0 and {VRAMPages.PageCount-1}", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-            var found = 0;
-            for (var i = 0; i < texturesListView.Items.Count; i++)
-            {
-                var item = texturesListView.Items[i];
-                item.Group = null;
-                var texture = _textures[i];
-                if (texture.TexturePage != pageIndex)
+                var found = 0;
+                foreach (var item in texturesListView.Items)
                 {
-                    continue;
+                    var tagInfo = (TexturesListViewTagInfo)item.Tag;
+                    tagInfo.Found = false;
+                    var texture = _textures[tagInfo.Index];
+                    if (texture.TexturePage == pageIndex)
+                    {
+                        tagInfo.Found = true; // Mark as found so the grouper will add it to the "Found" group
+                        found++;
+                    }
                 }
-                item.Group = texturesListView.Groups[0];
-                found++;
+                texturesListView.GroupColumn = found > 0 ? 0 : 1; // Set primary group to "Found" (only if any items were found)
+                texturesListView.Sort(); // Sort items added to "Found" group (is this necessary?)
+                MessageBox.Show(this, found > 0 ? $"Found {found} items" : "Nothing found", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
-            MessageBox.Show(this, found > 0 ? $"Found {found} items" : "Nothing found", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void texturesListView_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (texturesListView.SelectedIndices.Count == 0 || texturesListView.SelectedIndices.Count > 1)
+            if (texturesListView.SelectedItems.Count != 1)
             {
+                // Only show a texture in the property grid if exactly one item is selected.
                 texturePropertyGrid.SelectedObject = null;
                 return;
             }
@@ -1239,11 +1314,13 @@ namespace PSXPrev
 
         private void clearSearchToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            for (var i = 0; i < texturesListView.Items.Count; i++)
+            foreach (var item in texturesListView.Items)
             {
-                var item = texturesListView.Items[i];
-                item.Group = null;
+                var tagInfo = (TexturesListViewTagInfo)item.Tag;
+                tagInfo.Found = false; // Unmark found so the grouper will return it to the "Textures" group
             }
+            texturesListView.GroupColumn = 1; // Set primary group back to "Textures"
+            texturesListView.Sort(); // Re-sort now that "Found" group has been merged back with "Textures" group
             MessageBox.Show(this, "Results cleared");
         }
 
@@ -1858,8 +1935,7 @@ namespace PSXPrev
 
         private void gotoPageButton_Click(object sender, EventArgs e)
         {
-            var pageIndexString = DialogForm.Show(this, $"Please type in the VRAM Page index (0-{VRAMPages.PageCount-1})", "Go to VRAM Page");
-            if (int.TryParse(pageIndexString, out var pageIndex) && pageIndex >= 0 && pageIndex < VRAMPages.PageCount)
+            if (AskForVRAMPage("Go to VRAM Page", _vramSelectedPage, out var pageIndex))
             {
                 _vramSelectedPage = pageIndex;
                 // We can't assign VRAM image because it would include the semi-transparency zone.
@@ -1867,10 +1943,6 @@ namespace PSXPrev
                 //vramPagePictureBox.Image = _vram[_vramSelectedPage].Bitmap;
                 vramListBox.SelectedIndex = pageIndex;
                 vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
-            }
-            else
-            {
-                MessageBox.Show(this, $"Please type in a valid VRAM Page index between 0 and {VRAMPages.PageCount-1}", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 

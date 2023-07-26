@@ -5,7 +5,15 @@ namespace PSXPrev.Forms
 {
     public partial class DialogForm : Form
     {
-        public string ResultText => mainTextBox.Text;
+        public string InputText
+        {
+            get => mainTextBox.Text;
+            set
+            {
+                mainTextBox.Text = value;
+                mainTextBox.SelectAll();
+            }
+        }
 
         public string LabelText
         {
@@ -18,20 +26,23 @@ namespace PSXPrev.Forms
             InitializeComponent();
         }
 
-        private void okButton_Click(object sender, EventArgs e)
-        {
-            Close();
-        }
 
-        public static string Show(string text, string caption) => Show(null, text, caption);
+        // Returns null when canceled.
+        public static string Show(string text, string caption, string defaultText = null) => Show(null, text, caption, defaultText);
 
-        public static string Show(IWin32Window owner, string text, string caption)
+        public static string Show(IWin32Window owner, string text, string caption, string defaultText = null)
         {
-            using (var prompt = new DialogForm { LabelText = text, Text = caption })
+            using (var prompt = new DialogForm())
             {
-                prompt.ShowDialog(owner);
-                return prompt.ResultText;
+                prompt.LabelText = text;
+                prompt.Text = caption;
+                prompt.InputText = defaultText ?? string.Empty;
+                if (prompt.ShowDialog(owner) == DialogResult.OK)
+                {
+                    return prompt.InputText;
+                }
             }
+            return null; // Canceled
         }
     }
 }
