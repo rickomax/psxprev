@@ -24,7 +24,6 @@ namespace PSXPrev.Forms
 
         private void TMDBindingForm_Load(object sender, EventArgs e)
         {
-
         }
 
         private static void AddRecursively(AnimationObject animationObject)
@@ -57,9 +56,9 @@ namespace PSXPrev.Forms
             if (_instance == null)
             {
                 _instance = new TMDBindingsForm();
+                _instance.Show(owner);
             }
             _instance.Reload(currentAnimation);
-            _instance.Show(owner);
             IsVisible = true;
         }
 
@@ -86,5 +85,6 @@ namespace PSXPrev.Forms
                 _instance.bindingPropertyGrid.Refresh();
             }
         }
+
     }
 }
