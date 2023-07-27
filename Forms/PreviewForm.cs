@@ -923,7 +923,6 @@ namespace PSXPrev.Forms
         private void UpdateSelectedEntity(bool updateMeshData = true)
         {
             _scene.BoundsBatch.Reset();
-            _scene.SkeletonBatch.Reset();
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
             var rootEntity = selectedEntityBase?.GetRootEntity();
             if (rootEntity != null)
@@ -1611,10 +1610,6 @@ namespace PSXPrev.Forms
             vramPagePictureBox.Refresh();
         }
 
-        private void showSkeletonToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
-        {
-            _scene.ShowSkeleton = showSkeletonToolStripMenuItem.Checked;
-        }
 
         private void lightRoll_Scroll(object sender, EventArgs e)
         {

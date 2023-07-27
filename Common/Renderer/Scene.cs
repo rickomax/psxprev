@@ -71,7 +71,6 @@ namespace PSXPrev.Common.Renderer
         public MeshBatch GizmosMeshBatch { get; private set; }
         public LineBatch BoundsBatch { get; private set; }
         public LineBatch TriangleOutlineBatch { get; private set; }
-        public LineBatch SkeletonBatch { get; private set; }
         public AnimationBatch AnimationBatch { get; private set; }
         public TextureBinder TextureBinder { get; private set; }
 
@@ -112,7 +111,6 @@ namespace PSXPrev.Common.Renderer
 
         public bool ShowBounds { get; set; } = true;
 
-        public bool ShowSkeleton { get; set; }
         public bool VerticesOnly { get; set; }
 
         public bool SemiTransparencyEnabled { get; set; } = true;
@@ -206,7 +204,6 @@ namespace PSXPrev.Common.Renderer
             GizmosMeshBatch = new MeshBatch(this);
             BoundsBatch = new LineBatch();
             TriangleOutlineBatch = new LineBatch();
-            SkeletonBatch = new LineBatch();
             AnimationBatch = new AnimationBatch(this);
             TextureBinder = new TextureBinder();
         }
@@ -339,10 +336,6 @@ namespace PSXPrev.Common.Renderer
             }
             GL.Disable(EnableCap.DepthTest);
             GL.Disable(EnableCap.Texture2D);
-            if (ShowSkeleton)
-            {
-                SkeletonBatch.SetupAndDraw(_viewMatrix, _projectionMatrix, 2f);
-            }
             GL.UseProgram(0);
         }
 

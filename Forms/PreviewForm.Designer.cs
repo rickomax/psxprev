@@ -125,12 +125,13 @@ namespace PSXPrev.Forms
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.showUVToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.animationsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.showSkeletonToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoPlayAnimationsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoSelectAnimationModelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.showTMDBindingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.videoTutorialToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.compatibilityListToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.viewOnGitHubToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator5 = new System.Windows.Forms.ToolStripSeparator();
             this.aboutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
@@ -146,8 +147,7 @@ namespace PSXPrev.Forms
             this.label4 = new System.Windows.Forms.Label();
             this.vertexSizeUpDown = new System.Windows.Forms.NumericUpDown();
             this.flowLayoutPanel2 = new System.Windows.Forms.FlowLayoutPanel();
-            this.showTMDBindingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.viewOnGitHubToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItem2 = new System.Windows.Forms.ToolStripSeparator();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -387,6 +387,7 @@ namespace PSXPrev.Forms
             this.texturesListView.Columns.AddRange(new Manina.Windows.Forms.ImageListView.ImageListViewColumnHeader[] {
             imageListViewColumnHeader1,
             imageListViewColumnHeader2});
+            this.texturesListView.Cursor = System.Windows.Forms.Cursors.Default;
             this.texturesListView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.texturesListView.GroupColumn = 1;
             this.texturesListView.GroupOrder = Manina.Windows.Forms.SortOrder.Ascending;
@@ -399,6 +400,7 @@ namespace PSXPrev.Forms
             this.texturesListView.SortOrder = Manina.Windows.Forms.SortOrder.Ascending;
             this.texturesListView.TabIndex = 16;
             this.texturesListView.ThumbnailSize = new System.Drawing.Size(80, 80);
+            this.texturesListView.UseWIC = true;
             this.texturesListView.SelectionChanged += new System.EventHandler(this.texturesListView_SelectedIndexChanged);
             // 
             // tableLayoutPanel4
@@ -1261,21 +1263,13 @@ namespace PSXPrev.Forms
             // animationsToolStripMenuItem
             // 
             this.animationsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.showSkeletonToolStripMenuItem,
             this.autoPlayAnimationsToolStripMenuItem,
             this.autoSelectAnimationModelToolStripMenuItem,
+            this.toolStripMenuItem2,
             this.showTMDBindingsToolStripMenuItem});
             this.animationsToolStripMenuItem.Name = "animationsToolStripMenuItem";
             this.animationsToolStripMenuItem.Size = new System.Drawing.Size(80, 20);
             this.animationsToolStripMenuItem.Text = "Animations";
-            // 
-            // showSkeletonToolStripMenuItem
-            // 
-            this.showSkeletonToolStripMenuItem.CheckOnClick = true;
-            this.showSkeletonToolStripMenuItem.Name = "showSkeletonToolStripMenuItem";
-            this.showSkeletonToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
-            this.showSkeletonToolStripMenuItem.Text = "Show Skeleton";
-            this.showSkeletonToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showSkeletonToolStripMenuItem_CheckedChanged);
             // 
             // autoPlayAnimationsToolStripMenuItem
             // 
@@ -1292,6 +1286,13 @@ namespace PSXPrev.Forms
             this.autoSelectAnimationModelToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
             this.autoSelectAnimationModelToolStripMenuItem.Text = "Auto Select Model";
             this.autoSelectAnimationModelToolStripMenuItem.Click += new System.EventHandler(this.autoSelectAnimationModelToolStripMenuItem_Click);
+            // 
+            // showTMDBindingsToolStripMenuItem
+            // 
+            this.showTMDBindingsToolStripMenuItem.Name = "showTMDBindingsToolStripMenuItem";
+            this.showTMDBindingsToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+            this.showTMDBindingsToolStripMenuItem.Text = "Edit TMD Bindings";
+            this.showTMDBindingsToolStripMenuItem.Click += new System.EventHandler(this.showTMDBindingsToolStripMenuItem_Click);
             // 
             // helpToolStripMenuItem
             // 
@@ -1318,6 +1319,13 @@ namespace PSXPrev.Forms
             this.compatibilityListToolStripMenuItem.Size = new System.Drawing.Size(167, 22);
             this.compatibilityListToolStripMenuItem.Text = "Compatibility List";
             this.compatibilityListToolStripMenuItem.Click += new System.EventHandler(this.compatibilityListToolStripMenuItem_Click);
+            // 
+            // viewOnGitHubToolStripMenuItem
+            // 
+            this.viewOnGitHubToolStripMenuItem.Name = "viewOnGitHubToolStripMenuItem";
+            this.viewOnGitHubToolStripMenuItem.Size = new System.Drawing.Size(167, 22);
+            this.viewOnGitHubToolStripMenuItem.Text = "View on GitHub";
+            this.viewOnGitHubToolStripMenuItem.Click += new System.EventHandler(this.viewOnGitHubToolStripMenuItem_Click);
             // 
             // toolStripSeparator5
             // 
@@ -1513,19 +1521,10 @@ namespace PSXPrev.Forms
             this.flowLayoutPanel2.Size = new System.Drawing.Size(1008, 26);
             this.flowLayoutPanel2.TabIndex = 21;
             // 
-            // showTMDBindingsToolStripMenuItem
+            // toolStripMenuItem2
             // 
-            this.showTMDBindingsToolStripMenuItem.Name = "showTMDBindingsToolStripMenuItem";
-            this.showTMDBindingsToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
-            this.showTMDBindingsToolStripMenuItem.Text = "Edit TMD Bindings";
-            this.showTMDBindingsToolStripMenuItem.Click += new System.EventHandler(this.showTMDBindingsToolStripMenuItem_Click);
-            // 
-            // viewOnGitHubToolStripMenuItem
-            // 
-            this.viewOnGitHubToolStripMenuItem.Name = "viewOnGitHubToolStripMenuItem";
-            this.viewOnGitHubToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.viewOnGitHubToolStripMenuItem.Text = "View on GitHub";
-            this.viewOnGitHubToolStripMenuItem.Click += new System.EventHandler(this.viewOnGitHubToolStripMenuItem_Click);
+            this.toolStripMenuItem2.Name = "toolStripMenuItem2";
+            this.toolStripMenuItem2.Size = new System.Drawing.Size(181, 6);
             // 
             // PreviewForm
             // 
@@ -1662,7 +1661,6 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.ToolStripMenuItem showGizmosToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem showBoundsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem showUVToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem showSkeletonToolStripMenuItem;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem helpToolStripMenuItem;
@@ -1734,5 +1732,6 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.ToolStripMenuItem stopScanningToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem showTMDBindingsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem viewOnGitHubToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripMenuItem2;
     }
 }

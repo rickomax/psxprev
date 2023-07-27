@@ -187,7 +187,6 @@ namespace PSXPrev.Common.Animator
             _scene.MeshBatch.Reset(objectCount);
             _scene.BoundsBatch.Reset();
             _scene.TriangleOutlineBatch.Reset();
-            _scene.SkeletonBatch.Reset();
             _scene.GizmosMeshBatch.Reset(0);
             if (_animation != animation)
             {
@@ -201,7 +200,6 @@ namespace PSXPrev.Common.Animator
         // Returns true if the animation has been processed (updated), or false if nothing needed to be updated.
         public bool SetupAnimationFrame(RootEntity[] checkedEntities, RootEntity selectedRootEntity, ModelEntity selectedModelEntity, bool updateMeshData = false)
         {
-            _scene.SkeletonBatch.Reset();
             var rootEntity = selectedRootEntity ?? selectedModelEntity?.GetRootEntity();
 
             _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, selectedModelEntity, selectedRootEntity, _scene.TextureBinder, updateMeshData || _scene.AutoAttach, false, true);
