@@ -33,8 +33,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>
-    </ApplicationIcon>
+    <ApplicationIcon>Resources\Icons\PlayStation_DarkSquare.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="DiscUtils.Core, Version=0.14.0.0, Culture=neutral, PublicKeyToken=5fa5b410cc9c6289, processorArchitecture=MSIL">

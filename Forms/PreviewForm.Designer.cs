@@ -147,6 +147,7 @@ namespace PSXPrev.Forms
             this.vertexSizeUpDown = new System.Windows.Forms.NumericUpDown();
             this.flowLayoutPanel2 = new System.Windows.Forms.FlowLayoutPanel();
             this.showTMDBindingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.viewOnGitHubToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -1297,6 +1298,7 @@ namespace PSXPrev.Forms
             this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.videoTutorialToolStripMenuItem,
             this.compatibilityListToolStripMenuItem,
+            this.viewOnGitHubToolStripMenuItem,
             this.toolStripSeparator5,
             this.aboutToolStripMenuItem});
             this.helpToolStripMenuItem.Name = "helpToolStripMenuItem";
@@ -1518,6 +1520,13 @@ namespace PSXPrev.Forms
             this.showTMDBindingsToolStripMenuItem.Text = "Edit TMD Bindings";
             this.showTMDBindingsToolStripMenuItem.Click += new System.EventHandler(this.showTMDBindingsToolStripMenuItem_Click);
             // 
+            // viewOnGitHubToolStripMenuItem
+            // 
+            this.viewOnGitHubToolStripMenuItem.Name = "viewOnGitHubToolStripMenuItem";
+            this.viewOnGitHubToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.viewOnGitHubToolStripMenuItem.Text = "View on GitHub";
+            this.viewOnGitHubToolStripMenuItem.Click += new System.EventHandler(this.viewOnGitHubToolStripMenuItem_Click);
+            // 
             // PreviewForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -1724,5 +1733,6 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel2;
         private System.Windows.Forms.ToolStripMenuItem stopScanningToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem showTMDBindingsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem viewOnGitHubToolStripMenuItem;
     }
 }

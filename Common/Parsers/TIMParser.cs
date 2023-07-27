@@ -39,7 +39,6 @@ namespace PSXPrev.Common.Parsers
         private Texture ParseTim(BinaryReader reader)
         {
             Texture texture = null;
-            Bitmap bitmap;
 
             var palette = new System.Drawing.Color[] { };
 
