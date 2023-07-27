@@ -10,12 +10,17 @@ using System.Timers;
 using System.Windows.Forms;
 using Manina.Windows.Forms;
 using OpenTK;
-using PSXPrev.Classes;
+using PSXPrev.Common;
+using PSXPrev.Common.Animator;
+using PSXPrev.Common.Exporters;
+using PSXPrev.Common.Renderer;
 using PSXPrev.Forms;
+using PSXPrev.Forms.Dialogs;
+using PSXPrev.Forms.Utils;
 using Color = System.Drawing.Color;
 using Timer = System.Timers.Timer;
 
-namespace PSXPrev
+namespace PSXPrev.Forms
 {
     public partial class PreviewForm : Form
     {
@@ -908,9 +913,9 @@ namespace PSXPrev
             var matrix = Matrix4.CreateTranslation(selectedEntityBase.Bounds3D.Center);
             var scaleMatrix = _scene.GetGizmoScaleMatrix(matrix.ExtractTranslation());
             var finalMatrix = scaleMatrix * matrix;
-            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.XMover || selectedGizmo == Scene.GizmoId.XMover ? Classes.Color.White : Classes.Color.Red, Scene.XGizmoDimensions, Scene.XGizmoDimensions, 0, null, updateMeshData);
-            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.YMover || selectedGizmo == Scene.GizmoId.YMover ? Classes.Color.White : Classes.Color.Green, Scene.YGizmoDimensions, Scene.YGizmoDimensions, 1, null, updateMeshData);
-            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.ZMover || selectedGizmo == Scene.GizmoId.ZMover ? Classes.Color.White : Classes.Color.Blue, Scene.ZGizmoDimensions, Scene.ZGizmoDimensions, 2, null, updateMeshData);
+            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.XMover || selectedGizmo == Scene.GizmoId.XMover ? Common.Color.White : Common.Color.Red, Scene.XGizmoDimensions, Scene.XGizmoDimensions, 0, null, updateMeshData);
+            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.YMover || selectedGizmo == Scene.GizmoId.YMover ? Common.Color.White : Common.Color.Green, Scene.YGizmoDimensions, Scene.YGizmoDimensions, 1, null, updateMeshData);
+            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.ZMover || selectedGizmo == Scene.GizmoId.ZMover ? Common.Color.White : Common.Color.Blue, Scene.ZGizmoDimensions, Scene.ZGizmoDimensions, 2, null, updateMeshData);
             _selectedGizmo = selectedGizmo;
             _hoveredGizmo = hoveredGizmo;
         }
@@ -1376,7 +1381,7 @@ namespace PSXPrev
 
         private void SetBackgroundColor(Color color)
         {
-            _scene.ClearColor = new Classes.Color(color.R / 255f, color.G / 255f, color.B / 255f);
+            _scene.ClearColor = new Common.Color(color.R / 255f, color.G / 255f, color.B / 255f);
             if (_backgroundColorBitmap == null)
             {
                 _backgroundColorBitmap = new Bitmap(16, 16);

@@ -12,7 +12,10 @@ using System.Windows.Forms;
 
 using DiscUtils;
 using DiscUtils.Iso9660;
-using PSXPrev.Classes;
+using PSXPrev.Common;
+using PSXPrev.Common.Animator;
+using PSXPrev.Common.Parsers;
+using PSXPrev.Common.Utils;
 using PSXPrev.Forms;
 
 namespace PSXPrev
