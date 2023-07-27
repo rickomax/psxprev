@@ -1083,7 +1083,13 @@ namespace PSXPrev.Forms
 
         private float AlignToGrid(float value)
         {
-            return (float)((int)(value / (float)gridSizeNumericUpDown.Value) * gridSizeNumericUpDown.Value);
+            var gridSize = (double)gridSizeNumericUpDown.Value;
+            if (gridSize == 0)
+            {
+                // Grid size of zero should not align at all. Also we want to avoid divide-by-zero.
+                return value;
+            }
+            return (float)(Math.Floor(value / gridSize) * gridSize);
         }
 
         private void texturePropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
