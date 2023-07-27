@@ -374,16 +374,16 @@ namespace PSXPrev.Common.Exporters
                     foreach (var texture in cellTextures)
                     {
                         // We can't just use this, since we still need to support disabling the UV alignment fix.
-                        //var uvScalar = (float)VRAMPages.PageSize;
+                        //var uvScalar = (float)VRAM.PageSize;
                         //var width  = texture.RenderWidth;
                         //var height = texture.RenderHeight;
-                        var uvScalar = GeomUtils.UVScalar;
-                        var width  = !texture.IsVRAMPage ? texture.Width  : (int)uvScalar; //VRAMPages.PageSize;
-                        var height = !texture.IsVRAMPage ? texture.Height : (int)uvScalar; //VRAMPages.PageSize;
+                        var uvScalar = GeomMath.UVScalar;
+                        var width  = !texture.IsVRAMPage ? texture.Width  : (int)uvScalar; //VRAM.PageSize;
+                        var height = !texture.IsVRAMPage ? texture.Height : (int)uvScalar; //VRAM.PageSize;
                         var packedInfo = new PackedTextureInfo
                         {
                             //Texture = texture,
-                            // Keep float casts in-case we replace uvScalar with VRAMPages.PageSize.
+                            // Keep float casts in-case we replace uvScalar with VRAM.PageSize.
                             OffsetX = ((float)texture.X / uvScalar + column) / _countX,
                             OffsetY = ((float)texture.Y / uvScalar + row)    / _countY,
                             ScalarX = (width  > 0 ? ((float)width  / (uvScalar * _countX)) : (1f / _countX)),
@@ -396,12 +396,12 @@ namespace PSXPrev.Common.Exporters
 
                 if (SingleTexture == null)
                 {
-                    var bitmap = VRAMPages.ConvertSingleTexture(_packedTextures, _countX, _countY, false);
+                    var bitmap = VRAM.ConvertSingleTexture(_packedTextures, _countX, _countY, false);
                     try
                     {
                         SingleTexture = new Texture(bitmap, 0, 0, 32, 0);
                         SingleTexture.TextureName = $"Single[{_countX}x{_countY}]";
-                        //SingleTexture.SemiTransparentMap = VRAMPages.ConvertSingleTexture(_packedTextures, _countX, _countY, true);
+                        //SingleTexture.SemiTransparentMap = VRAM.ConvertSingleTexture(_packedTextures, _countX, _countY, true);
                     }
                     catch
                     {
@@ -439,10 +439,10 @@ namespace PSXPrev.Common.Exporters
                     var cellIndex = 0;
                     foreach (var cellRects in packedRects)
                     {
-                        for (var x = 0; x + rect.Width <= VRAMPages.PageSize && !cellFound; x += PACKED_ALIGN)
+                        for (var x = 0; x + rect.Width <= VRAM.PageSize && !cellFound; x += PACKED_ALIGN)
                         {
                             rect.X = x;
-                            for (var y = 0; y + rect.Height <= VRAMPages.PageSize && !cellFound; y += PACKED_ALIGN)
+                            for (var y = 0; y + rect.Height <= VRAM.PageSize && !cellFound; y += PACKED_ALIGN)
                             {
                                 rect.Y = y;
 
@@ -544,21 +544,21 @@ namespace PSXPrev.Common.Exporters
                 if (TiledTexture == null)
                 {
                     // We can't just use this, since we still need to support disabling the UV alignment fix.
-                    //var uvScalar = (float)VRAMPages.PageSize;
-                    var uvScalar = GeomUtils.UVScalar;
+                    //var uvScalar = (float)VRAM.PageSize;
+                    var uvScalar = GeomMath.UVScalar;
                     var srcX = (int)(X * uvScalar);
                     var srcY = (int)(Y * uvScalar);
-                    var srcWidth  = Width  != 0f ? (int)(Width  * uvScalar) : VRAMPages.PageSize;
-                    var srcHeight = Height != 0f ? (int)(Height * uvScalar) : VRAMPages.PageSize;
+                    var srcWidth  = Width  != 0f ? (int)(Width  * uvScalar) : VRAM.PageSize;
+                    var srcHeight = Height != 0f ? (int)(Height * uvScalar) : VRAM.PageSize;
                     var srcRect = new Rectangle(srcX, srcY, srcWidth, srcHeight);
 
-                    var bitmap = VRAMPages.ConvertTiledTexture(OriginalTexture, srcRect, _repeatX, _repeatY, false);
+                    var bitmap = VRAM.ConvertTiledTexture(OriginalTexture, srcRect, _repeatX, _repeatY, false);
                     try
                     {
                         TiledTexture = new Texture(bitmap, 0, 0, 32, TexturePage);
                         //TiledTexture.TextureName = $"Tiled[{srcX},{srcY} {srcWidth}x{srcHeight}]";
                         TiledTexture.TextureName = $"Tiled[{_repeatX}x{_repeatY}]";
-                        //TiledTexture.SemiTransparentMap = VRAMPages.ConvertTiledTexture(OriginalTexture, srcRect, _repeatX, _repeatY, true);
+                        //TiledTexture.SemiTransparentMap = VRAM.ConvertTiledTexture(OriginalTexture, srcRect, _repeatX, _repeatY, true);
                     }
                     catch
                     {

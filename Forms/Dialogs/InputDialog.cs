@@ -3,7 +3,7 @@ using System.Windows.Forms;
 
 namespace PSXPrev.Forms.Dialogs
 {
-    public partial class DialogForm : Form
+    public partial class InputDialog : Form
     {
         public string InputText
         {
@@ -21,7 +21,7 @@ namespace PSXPrev.Forms.Dialogs
             set => mainLabel.Text = value;
         }
 
-        public DialogForm()
+        public InputDialog()
         {
             InitializeComponent();
         }
@@ -32,7 +32,7 @@ namespace PSXPrev.Forms.Dialogs
 
         public static string Show(IWin32Window owner, string text, string caption, string defaultText = null)
         {
-            using (var prompt = new DialogForm())
+            using (var prompt = new InputDialog())
             {
                 prompt.LabelText = text;
                 prompt.Text = caption;

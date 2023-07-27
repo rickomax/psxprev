@@ -1,6 +1,6 @@
 ﻿namespace PSXPrev.Forms
 {
-    partial class LauncherForm
+    partial class ScannerForm
     {
         /// <summary>
         /// Required designer variable.
@@ -28,7 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(LauncherForm));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ScannerForm));
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.selectFolderButton = new System.Windows.Forms.Button();
             this.selectISOButton = new System.Windows.Forms.Button();
@@ -386,7 +386,7 @@
             this.optionIgnoreTIMVersionCheckBox.Text = "Skip TIM Version";
             this.optionIgnoreTIMVersionCheckBox.UseVisualStyleBackColor = true;
             // 
-            // LauncherForm
+            // ScannerForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -399,7 +399,7 @@
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MaximizeBox = false;
-            this.Name = "LauncherForm";
+            this.Name = "ScannerForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "PSXPrev Launcher";
             this.groupBox1.ResumeLayout(false);

@@ -50,10 +50,10 @@ namespace PSXPrev.Common
 
         // Usable area of the texture (only different from Width/Height when IsVRAMPage is true).
         [Browsable(false)]
-        public int RenderWidth => IsVRAMPage ? VRAMPages.PageSize : Width;
+        public int RenderWidth => IsVRAMPage ? VRAM.PageSize : Width;
 
         [Browsable(false)]
-        public int RenderHeight => IsVRAMPage ? VRAMPages.PageSize : Height;
+        public int RenderHeight => IsVRAMPage ? VRAM.PageSize : Height;
 
         [Browsable(false)]
         public bool IsVRAMPage { get; set; }

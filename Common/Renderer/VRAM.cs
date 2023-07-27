@@ -5,7 +5,7 @@ using System.Drawing;
 
 namespace PSXPrev.Common.Renderer
 {
-    public class VRAMPages : IReadOnlyList<Texture>, IDisposable
+    public class VRAM : IReadOnlyList<Texture>, IDisposable
     {
         public const int PageCount = 32;
         public const int PageSize = 256;
@@ -21,7 +21,7 @@ namespace PSXPrev.Common.Renderer
 
         public System.Drawing.Color BackgroundColor { get; set; } = DefaultBackgroundColor;
 
-        public VRAMPages(Scene scene)
+        public VRAM(Scene scene)
         {
             _scene = scene;
             _vramPages = new Texture[PageCount];

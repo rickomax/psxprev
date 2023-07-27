@@ -5,16 +5,11 @@ using Collada141;
 
 namespace PSXPrev.Common.Exporters
 {
-    public class DaeExporter
+    public class DAEExporter
     {
-        public DaeExporter()
-        {
-
-        }
-
         public void Export(RootEntity[] entities, string selectedPath)
         {
-            for (int i = 0; i < entities.Length; i++)
+            for (var i = 0; i < entities.Length; i++)
             {
                 var entity = entities[i];
                 var modelCount = entity.ChildEntities.Length;
@@ -36,7 +31,7 @@ namespace PSXPrev.Common.Exporters
                         }
                     }
                 };
-                for (int j = 0; j < modelCount; j++)
+                for (var j = 0; j < modelCount; j++)
                 {
                     var model = (ModelEntity) entity.ChildEntities[j];
                     var modelName = string.Format("model-{0}-lib", j);
@@ -130,7 +125,7 @@ namespace PSXPrev.Common.Exporters
 
                     #region Processing
                     var triangleIndices = new StringBuilder();
-                    for (int l = 0; l < model.Triangles.Length; l++)
+                    for (var l = 0; l < model.Triangles.Length; l++)
                     {
                         var triangle = model.Triangles[l];
                         for (var k = 0; k < 3; k++)
@@ -231,7 +226,7 @@ namespace PSXPrev.Common.Exporters
                 }
                 var collada = new COLLADA
                 {
-                    Items = new Object[]
+                    Items = new object[]
                     {
                         geometries,
                         visualScenes

@@ -5,7 +5,7 @@ using PSXPrev.Common.Renderer;
 
 namespace PSXPrev.Common.Exporters
 {
-    public class MtlExporter : IDisposable
+    public class MTLExporter : IDisposable
     {
         public const string UntexturedID = "none";
 
@@ -17,7 +17,7 @@ namespace PSXPrev.Common.Exporters
 
         public string FileName { get; }
 
-        public MtlExporter(string selectedPath, int modelIndex, MaterialDictionary materialIds = null)
+        public MTLExporter(string selectedPath, int modelIndex, MaterialDictionary materialIds = null)
         {
             FileName = $"mtl{modelIndex}.mtl";
             _writer = new StreamWriter($"{selectedPath}/{FileName}");
@@ -36,7 +36,7 @@ namespace PSXPrev.Common.Exporters
 
         public string GetMaterialName(int? materialId)
         {
-            return $"mtl{materialId?.ToString() ?? MtlExporter.UntexturedID}";
+            return $"mtl{materialId?.ToString() ?? MTLExporter.UntexturedID}";
         }
 
         public bool AddMaterial(Texture texture, out int materialId)
@@ -80,7 +80,7 @@ namespace PSXPrev.Common.Exporters
 
         public class MaterialDictionary
         {
-            private readonly bool[] _exportedPages = new bool[VRAMPages.PageCount]; // 32
+            private readonly bool[] _exportedPages = new bool[VRAM.PageCount]; // 32
             private readonly Dictionary<Texture, int> _exportedTextures = new Dictionary<Texture, int>();
 
             public bool Add(Texture texture, out int materialId)

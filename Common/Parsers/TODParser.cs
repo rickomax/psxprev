@@ -109,9 +109,9 @@ namespace PSXPrev.Common.Parsers
                             var transfer = (flag & 0x8) >> 0x3;
                             if (rotation != 0x00)
                             {
-                                var rx = (reader.ReadInt32() / 4096f) * GeomUtils.Deg2Rad;
-                                var ry = (reader.ReadInt32() / 4096f) * GeomUtils.Deg2Rad;
-                                var rz = (reader.ReadInt32() / 4096f) * GeomUtils.Deg2Rad;
+                                var rx = (reader.ReadInt32() / 4096f) * GeomMath.Deg2Rad;
+                                var ry = (reader.ReadInt32() / 4096f) * GeomMath.Deg2Rad;
+                                var rz = (reader.ReadInt32() / 4096f) * GeomMath.Deg2Rad;
                                 animationFrame.EulerRotation = new Vector3(rx, ry, rz);
                             }
                             if (scaling != 0x00)

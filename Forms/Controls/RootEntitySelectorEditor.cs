@@ -22,12 +22,12 @@ namespace PSXPrev.Forms.Controls
                 return null;
             }
             var svc = provider.GetService(typeof(IWindowsFormsEditorService)) as IWindowsFormsEditorService;
-            using (var form = new SelectTMDForm())
+            using (var form = new SelectRootEntityDialog())
             {
                 var result = svc != null ? svc.ShowDialog(form) : form.ShowDialog();
                 if (result == DialogResult.OK)
                 {
-                    return form.SelectedTMD;
+                    return form.SelectedRootEntity;
                 }
             }
             return base.EditValue(context, provider, value);

@@ -1,6 +1,6 @@
 ﻿namespace PSXPrev.Forms.Dialogs
 {
-    partial class SelectTMDForm
+    partial class SelectRootEntityDialog
     {
         /// <summary>
         /// Required designer variable.
@@ -35,13 +35,13 @@
             // 
             // okButton
             // 
+            this.okButton.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.okButton.Location = new System.Drawing.Point(107, 58);
             this.okButton.Name = "okButton";
             this.okButton.Size = new System.Drawing.Size(91, 24);
             this.okButton.TabIndex = 3;
             this.okButton.Text = "OK";
             this.okButton.UseVisualStyleBackColor = true;
-            this.okButton.Click += new System.EventHandler(this.okButton_Click);
             // 
             // mainLabel
             // 
@@ -60,8 +60,9 @@
             this.TMDListBox.Size = new System.Drawing.Size(280, 21);
             this.TMDListBox.TabIndex = 6;
             // 
-            // SelectTMDForm
+            // SelectRootEntityDialog
             // 
+            this.AcceptButton = this.okButton;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(304, 90);
@@ -71,7 +72,7 @@
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.Name = "SelectTMDForm";
+            this.Name = "SelectRootEntityDialog";
             this.ShowIcon = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "PSXPrev";

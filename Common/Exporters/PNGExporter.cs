@@ -4,7 +4,7 @@ using PSXPrev.Common.Renderer;
 
 namespace PSXPrev.Common.Exporters
 {
-    public class PngExporter
+    public class PNGExporter
     {
         public void Export(Texture texture, int textureId, string selectedPath)
         {
@@ -16,7 +16,7 @@ namespace PSXPrev.Common.Exporters
             if (texture.IsVRAMPage)
             {
                 // Remove the semi-transparency section from the exported bitmap.
-                using (var bitmap = VRAMPages.ConvertTexture(texture, false))
+                using (var bitmap = VRAM.ConvertTexture(texture, false))
                 {
                     ExportBitmap(bitmap, name, selectedPath);
                 }

@@ -780,9 +780,9 @@ namespace PSXPrev.Common.Parsers
             var color1 = new Color(r1/255f, g1/255f, b1/255f);
             var color2 = new Color(r2/255f, g2/255f, b2/255f);
 
-            var uv0 = GeomUtils.ConvertUV(u0, v0);
-            var uv1 = GeomUtils.ConvertUV(u1, v1);
-            var uv2 = GeomUtils.ConvertUV(u2, v2);
+            var uv0 = GeomMath.ConvertUV(u0, v0);
+            var uv1 = GeomMath.ConvertUV(u1, v1);
+            var uv2 = GeomMath.ConvertUV(u2, v2);
 
             var triangle = new Triangle
             {

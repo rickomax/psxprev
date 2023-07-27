@@ -5,7 +5,7 @@ namespace PSXPrev.Common
     // Hierarchical coordinates for use with HMD models.
     // This is needed so that models can be treated as nested,
     // even when they're stored in a flat list of the root entity.
-    public class CoordUnit
+    public class Coordinate
     {
         public const uint NoID = uint.MaxValue;
 
@@ -40,12 +40,12 @@ namespace PSXPrev.Common
         public uint ID { get; set; } = NoID;
         public uint ParentID { get; set; } = NoID;
 
-        public CoordUnit[] Coords { get; set; }
+        public Coordinate[] Coords { get; set; }
 
         public uint TMDID => ID + 1;
 
         public bool HasParent => ParentID != NoID && ParentID != ID;
-        public CoordUnit Parent => (HasParent ? Coords?[ParentID] : null);
+        public Coordinate Parent => (HasParent ? Coords?[ParentID] : null);
         
         public Matrix4 WorldMatrix
         {
@@ -62,7 +62,7 @@ namespace PSXPrev.Common
             }
         }
 
-        public CoordUnit()
+        public Coordinate()
         {
             OriginalLocalMatrix = Matrix4.Identity;
             // Everything below is unused at the moment:
@@ -81,7 +81,7 @@ namespace PSXPrev.Common
         }
         
         // Check to see if any coord units have parents that eventually reference themselves.
-        public static bool FindCircularReferences(CoordUnit[] coords)
+        public static bool FindCircularReferences(Coordinate[] coords)
         {
             // Optimized circular reference detection so we only need to visit N coords, instead of N^2 coords.
             var visitedCoords = new uint[coords.Length];

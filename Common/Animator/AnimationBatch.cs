@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using OpenTK;
-using PSXPrev.Common.Parsers;
 using PSXPrev.Common.Renderer;
 
 namespace PSXPrev.Common.Animator
@@ -378,7 +377,7 @@ namespace PSXPrev.Common.Animator
                             }
                             if (frameMatrix == null)
                             {
-                                frameMatrix = GeomUtils.CreateR(frameRotation, RotationOrder.XYZ) * Matrix4.CreateScale(frameScale) * Matrix4.CreateTranslation(frameTransfer);
+                                frameMatrix = GeomMath.CreateRotation(frameRotation, RotationOrder.XYZ) * Matrix4.CreateScale(frameScale) * Matrix4.CreateTranslation(frameTransfer);
                             }
                             worldMatrix = frameMatrix.Value * worldMatrix;
                             if (animationObject.HandlesRoot)
@@ -460,8 +459,8 @@ namespace PSXPrev.Common.Animator
                                             var srcS = srcFrame.Scale;
                                             var curveS = srcFrame.CurveScales;
                                             var dstS = srcFrame.FinalScale;
-                                            var scale = HMDHelper.Interpolate(typeS, srcS, curveS, dstS, delta);
-                                            var s = GeomUtils.CreateS(scale);
+                                            var scale = Interpolate(typeS, srcS, curveS, dstS, delta);
+                                            var s = Matrix4.CreateScale(scale);
                                             frameMatrix *= s;
                                         }
 
@@ -472,7 +471,7 @@ namespace PSXPrev.Common.Animator
                                             var srcR = srcFrame.EulerRotation;
                                             var curveR = srcFrame.CurveEulerRotations;
                                             var dstR = srcFrame.FinalEulerRotation;
-                                            e = HMDHelper.Interpolate(typeR, srcR, curveR, dstR, delta);
+                                            e = Interpolate(typeR, srcR, curveR, dstR, delta);
                                             rotOrder = srcFrame.RotationOrder;
                                         }
                                         else
@@ -481,7 +480,7 @@ namespace PSXPrev.Common.Animator
                                             e = coord.Rotation;
                                             rotOrder = coord.OriginalRotationOrder; // Observed in Gods98 (PSX) source as the default rotation order.
                                         }
-                                        var r = GeomUtils.CreateR(e, rotOrder);
+                                        var r = GeomMath.CreateRotation(e, rotOrder);
                                         frameMatrix *= r;
                                     }
                                     else
@@ -493,19 +492,19 @@ namespace PSXPrev.Common.Animator
                                     var typeT = srcFrame.TranslationType;
                                     if (typeT != InterpolationType.None) // has supported translation
                                     {
-                                        var origT = GeomUtils.CreateT(frameMatrix.ExtractTranslation());
+                                        var origT = Matrix4.CreateTranslation(frameMatrix.ExtractTranslation());
                                         var srcT = srcFrame.Translation;
                                         var curveT = srcFrame.CurveTranslations;
                                         var dstT = srcFrame.FinalTranslation;
-                                        var translation = HMDHelper.Interpolate(typeT, srcT, curveT, dstT, delta);
-                                        var t = GeomUtils.CreateT(translation);
+                                        var translation = Interpolate(typeT, srcT, curveT, dstT, delta);
+                                        var t = Matrix4.CreateTranslation(translation);
                                         frameMatrix *= origT.Inverted(); // Overwrite old translation
                                         frameMatrix *= t;
                                     }
                                     else if (needsTranslation)
                                     {
                                         // Preserve old translation
-                                        frameMatrix *= GeomUtils.CreateT(coord.LocalMatrix.ExtractTranslation());
+                                        frameMatrix *= Matrix4.CreateTranslation(coord.LocalMatrix.ExtractTranslation());
                                     }
 
                                     coord.LocalMatrix = frameMatrix;
@@ -612,7 +611,7 @@ namespace PSXPrev.Common.Animator
                 // Count number of times repeated with delay, and add that while taking out the delay time.
                 var repeatFrameTime = Math.Floor(frameTime / totalFrameCount) * mirroredFrameCount;
 
-                var totalFrameTime = GeomUtils.PositiveModulus(frameTime, totalFrameCount);
+                var totalFrameTime = GeomMath.PositiveModulus(frameTime, totalFrameCount);
                 _delaying = totalFrameTime >= mirroredFrameCount;
                 _playbackFrameTime = repeatFrameTime + (_delaying ? mirroredFrameCount : totalFrameTime);
 
@@ -640,7 +639,7 @@ namespace PSXPrev.Common.Animator
             {
                 if (_loopMode.IsLooping())
                 {
-                    var mirroredFrameTime = GeomUtils.PositiveModulus(_playbackFrameTime, mirroredFrameCount);
+                    var mirroredFrameTime = GeomMath.PositiveModulus(_playbackFrameTime, mirroredFrameCount);
                     _mirroring = mirroredFrameTime >= animFrameCount;
                 }
                 else
@@ -697,7 +696,7 @@ namespace PSXPrev.Common.Animator
                     {
                         frameTime = -frameTime;
                     }
-                    frameTime = GeomUtils.PositiveModulus(frameTime, frameCount);
+                    frameTime = GeomMath.PositiveModulus(frameTime, frameCount);
                     closeToStart = reverse != (Time == 0);
                     break;
 
@@ -708,8 +707,8 @@ namespace PSXPrev.Common.Animator
                     }
                     // This loop method effectively resets all object times
                     // to 0 after looping, so % animFrameCount first.
-                    frameTime = GeomUtils.PositiveModulus(frameTime, animFrameCount);
-                    frameTime = GeomUtils.PositiveModulus(frameTime, frameCount);
+                    frameTime = GeomMath.PositiveModulus(frameTime, animFrameCount);
+                    frameTime = GeomMath.PositiveModulus(frameTime, frameCount);
                     closeToStart = reverse != (Time == 0);
                     break;
 
@@ -719,7 +718,7 @@ namespace PSXPrev.Common.Animator
                     goto case AnimationLoopMode.MirrorLoop;
 
                 case AnimationLoopMode.MirrorLoop:
-                    frameTime = GeomUtils.PositiveModulus(frameTime, animFrameCount * 2);
+                    frameTime = GeomMath.PositiveModulus(frameTime, animFrameCount * 2);
                     if (_mirroring) //if (frameTime >= animFrameCount)
                     {
                         frameTime = animFrameCount * 2 - frameTime; // Mirror animation on way back.
@@ -728,7 +727,7 @@ namespace PSXPrev.Common.Animator
                     {
                         frameTime = -frameTime; // Animation starts from end then mirrors at beginning.
                     }
-                    frameTime = GeomUtils.PositiveModulus(frameTime, frameCount);
+                    frameTime = GeomMath.PositiveModulus(frameTime, frameCount);
                     closeToStart = !reverse;
                     break;
             }
@@ -747,7 +746,7 @@ namespace PSXPrev.Common.Animator
         {
             var loopedFrameTime = LoopFrameTime(animationObject);
             loopedFrameIndex = (long)Math.Floor(loopedFrameTime);
-            loopedFrameDelta = (float)GeomUtils.PositiveModulus(loopedFrameTime, 1d);
+            loopedFrameDelta = (float)GeomMath.PositiveModulus(loopedFrameTime, 1d);
             return loopedFrameTime;
         }
 
@@ -799,6 +798,39 @@ namespace PSXPrev.Common.Animator
         private static float GetInterpolator(AnimationFrame frame, long frameIndex, float frameDelta)
         {
             return GetInterpolator(frame, (double)frameIndex + frameDelta);
+        }
+
+        private static Vector3 Interpolate(InterpolationType interpType, Vector3? src, Vector3[] curve, Vector3? dst, float delta)
+        {
+            switch (interpType)
+            {
+                case InterpolationType.Linear:
+                    if (!src.HasValue)// || !dst.HasValue)
+                    {
+                        break; // Missing source value //or missing destination value
+                    }
+                    return Vector3.Lerp(src.Value, dst ?? src.Value, delta);
+                case InterpolationType.Bezier:
+                    if (curve == null || curve.Length < 3 || !dst.HasValue)
+                    {
+                        break; // Invalid curve array or missing destination value
+                    }
+                    return GeomMath.InterpolateBezierCurve(curve[0], curve[1], curve[2], dst.Value, delta);
+                case InterpolationType.BSpline:
+                    if (curve == null || curve.Length < 3 || !dst.HasValue)
+                    {
+                        break; // Invalid curve array or missing destination value
+                    }
+                    return GeomMath.InterpolateBSpline(curve[0], curve[1], curve[2], dst.Value, delta);
+                case InterpolationType.BetaSpline:
+                    if (curve == null || curve.Length < 3 || !dst.HasValue)
+                    {
+                        break; // Invalid curve array or missing destination value
+                    }
+                    //return GeomMath.InterpolateBetaSpline(curve[0], curve[1], curve[2], dst.Value, delta);
+                    break; // Not supported yet
+            }
+            return Vector3.Zero;
         }
     }
 }

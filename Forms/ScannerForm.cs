@@ -5,9 +5,9 @@ using Microsoft.WindowsAPICodePack.Dialogs;
 
 namespace PSXPrev.Forms
 {
-    public partial class LauncherForm : Form
+    public partial class ScannerForm : Form
     {
-        public LauncherForm()
+        public ScannerForm()
         {
             InitializeComponent();
         }

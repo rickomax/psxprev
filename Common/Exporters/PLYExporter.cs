@@ -6,10 +6,10 @@ using OpenTK;
 
 namespace PSXPrev.Common.Exporters
 {
-    public class PlyExporter
+    public class PLYExporter
     {
         private StreamWriter _writer;
-        private PngExporter _pngExporter;
+        private PNGExporter _pngExporter;
         private Dictionary<Texture, int> _materialsDictionary;
         private bool _untexturedMaterialExported;
         private ModelPreparerExporter _modelPreparer;
@@ -19,7 +19,7 @@ namespace PSXPrev.Common.Exporters
         public void Export(RootEntity[] entities, string selectedPath, bool joinEntities = false, bool exportTextures = true)
         {
             // todo: Different material IDs aren't handled for different root entities.
-            _pngExporter = new PngExporter();
+            _pngExporter = new PNGExporter();
             _materialsDictionary = new Dictionary<Texture, int>();
             _untexturedMaterialExported = false;
             _modelPreparer = new ModelPreparerExporter(tiledTextures: exportTextures, singleTexture: exportTextures);
@@ -215,12 +215,12 @@ namespace PSXPrev.Common.Exporters
 
         private static string F(float value)
         {
-            return value.ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture);
+            return value.ToString(GeomMath.FloatFormat, CultureInfo.InvariantCulture);
         }
 
         private static string I(float value)
         {
-            return value.ToString(GeomUtils.IntegerFormat, CultureInfo.InvariantCulture);
+            return value.ToString(GeomMath.IntegerFormat, CultureInfo.InvariantCulture);
         }
     }
 }

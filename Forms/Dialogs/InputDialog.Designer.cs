@@ -1,6 +1,6 @@
 ﻿namespace PSXPrev.Forms.Dialogs
 {
-    partial class DialogForm
+    partial class InputDialog
     {
         /// <summary>
         /// Required designer variable.
@@ -59,7 +59,7 @@
             this.okButton.Text = "OK";
             this.okButton.UseVisualStyleBackColor = true;
             // 
-            // DialogForm
+            // InputDialog
             // 
             this.AcceptButton = this.okButton;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -71,7 +71,7 @@
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.Name = "DialogForm";
+            this.Name = "InputDialog";
             this.ShowIcon = false;
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;

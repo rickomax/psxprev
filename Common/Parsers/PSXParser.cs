@@ -236,10 +236,10 @@ namespace PSXPrev.Common.Parsers
                             var v2 = reader.ReadByte();
                             var u3 = reader.ReadByte();
                             var v3 = reader.ReadByte();
-                            uv0 = GeomUtils.ConvertUV(u0, v0);
-                            uv1 = GeomUtils.ConvertUV(u1, v1);
-                            uv2 = GeomUtils.ConvertUV(u2, v2);
-                            uv3 = GeomUtils.ConvertUV(u3, v3);
+                            uv0 = GeomMath.ConvertUV(u0, v0);
+                            uv1 = GeomMath.ConvertUV(u1, v1);
+                            uv2 = GeomMath.ConvertUV(u2, v2);
+                            uv3 = GeomMath.ConvertUV(u3, v3);
                         }
                         if (!invisible)
                         {
@@ -335,10 +335,10 @@ namespace PSXPrev.Common.Parsers
                             var v2 = reader.ReadByte();
                             var u3 = reader.ReadByte();
                             var v3 = reader.ReadByte();
-                            uv0 = GeomUtils.ConvertUV(u0, v0);
-                            uv1 = GeomUtils.ConvertUV(u1, v1);
-                            uv2 = GeomUtils.ConvertUV(u2, v2);
-                            uv3 = GeomUtils.ConvertUV(u3, v3);
+                            uv0 = GeomMath.ConvertUV(u0, v0);
+                            uv1 = GeomMath.ConvertUV(u1, v1);
+                            uv2 = GeomMath.ConvertUV(u2, v2);
+                            uv3 = GeomMath.ConvertUV(u3, v3);
                         }
                         if (!invisible)
                         {

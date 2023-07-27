@@ -148,11 +148,11 @@ namespace PSXPrev.Common
                 // index 2 is arbitrarily chosen.
                 if (uvs[0].X == uvs[1].X && uvs[0].X == uvs[2].X)
                 {
-                    uvs[2].X += 1f / GeomUtils.UVScalar;
+                    uvs[2].X += 1f / GeomMath.UVScalar;
                 }
                 if (uvs[0].Y == uvs[1].Y && uvs[0].Y == uvs[2].Y)
                 {
-                    uvs[2].Y += 1f / GeomUtils.UVScalar;
+                    uvs[2].Y += 1f / GeomMath.UVScalar;
                 }
             }
         }

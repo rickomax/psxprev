@@ -11,7 +11,7 @@ namespace PSXPrev.Common.Renderer
     public class Scene
     {
         private const float CameraFOV = 60.0f;
-        private const float CameraFOVRads = CameraFOV * GeomUtils.Deg2Rad;
+        private const float CameraFOVRads = CameraFOV * GeomMath.Deg2Rad;
         private const float CameraNearClip = 0.1f;
         private const float CameraFarClip = 500000f;
         private const float CameraMinDistance = 0.01f;
@@ -282,7 +282,7 @@ namespace PSXPrev.Common.Renderer
 
         private void UpdateLightRotation()
         {
-            _transformedLight = GeomUtils.CreateR(_lightRotation) * Vector4.One;
+            _transformedLight = GeomMath.CreateRotation(_lightRotation) * Vector4.One;
         }
 
         public void UpdateViewMatrix()
@@ -464,8 +464,8 @@ namespace PSXPrev.Common.Renderer
 
         private void CheckEntity(EntityBase entity, List<EntityBase> pickedEntities)
         {
-            GeomUtils.GetBoxMinMax(entity.Bounds3D.Center, entity.Bounds3D.Extents, out var boxMin, out var boxMax);
-            var intersectionDistance = GeomUtils.BoxIntersect(_rayOrigin, _rayDirection, boxMin, boxMax);
+            GeomMath.GetBoxMinMax(entity.Bounds3D.Center, entity.Bounds3D.Extents, out var boxMin, out var boxMax);
+            var intersectionDistance = GeomMath.BoxIntersect(_rayOrigin, _rayDirection, boxMin, boxMax);
             if (intersectionDistance > 0f)
             {
                 entity.IntersectionDistance = intersectionDistance;
@@ -484,7 +484,7 @@ namespace PSXPrev.Common.Renderer
                     var vertex1 = Vector3.TransformPosition(triangle.Vertices[1], worldMatrix);
                     var vertex2 = Vector3.TransformPosition(triangle.Vertices[2], worldMatrix);
 
-                    var intersectionDistance = GeomUtils.TriangleIntersect(_rayOrigin, _rayDirection, vertex0, vertex1, vertex2);
+                    var intersectionDistance = GeomMath.TriangleIntersect(_rayOrigin, _rayDirection, vertex0, vertex1, vertex2);
                     if (intersectionDistance > 0f)
                     {
                         triangle.IntersectionDistance = intersectionDistance;
@@ -529,18 +529,18 @@ namespace PSXPrev.Common.Renderer
                 var matrix = Matrix4.CreateTranslation(selectedEntityBase.Bounds3D.Center);
                 var scaleMatrix = GetGizmoScaleMatrix(matrix.ExtractTranslation());
                 var finalMatrix = scaleMatrix * matrix;
-                GeomUtils.GetBoxMinMax(XGizmoDimensions, XGizmoDimensions, out var xMin, out var xMax, finalMatrix);
-                if (GeomUtils.BoxIntersect(_rayOrigin, _rayDirection, xMin, xMax) > 0f)
+                GeomMath.GetBoxMinMax(XGizmoDimensions, XGizmoDimensions, out var xMin, out var xMax, finalMatrix);
+                if (GeomMath.BoxIntersect(_rayOrigin, _rayDirection, xMin, xMax) > 0f)
                 {
                     return GizmoId.XMover;
                 }
-                GeomUtils.GetBoxMinMax(YGizmoDimensions, YGizmoDimensions, out var yMin, out var yMax, finalMatrix);
-                if (GeomUtils.BoxIntersect(_rayOrigin, _rayDirection, yMin, yMax) > 0f)
+                GeomMath.GetBoxMinMax(YGizmoDimensions, YGizmoDimensions, out var yMin, out var yMax, finalMatrix);
+                if (GeomMath.BoxIntersect(_rayOrigin, _rayDirection, yMin, yMax) > 0f)
                 {
                     return GizmoId.YMover;
                 }
-                GeomUtils.GetBoxMinMax(ZGizmoDimensions, ZGizmoDimensions, out var zMin, out var zMax, finalMatrix);
-                if (GeomUtils.BoxIntersect(_rayOrigin, _rayDirection, zMin, zMax) > 0f)
+                GeomMath.GetBoxMinMax(ZGizmoDimensions, ZGizmoDimensions, out var zMin, out var zMax, finalMatrix);
+                if (GeomMath.BoxIntersect(_rayOrigin, _rayDirection, zMin, zMax) > 0f)
                 {
                     return GizmoId.ZMover;
                 }
@@ -550,7 +550,7 @@ namespace PSXPrev.Common.Renderer
 
         public Vector3 GetPickedPosition(Vector3 onNormal)
         {
-            return GeomUtils.PlaneIntersect(_rayOrigin, _rayDirection, Vector3.Zero, onNormal);
+            return GeomMath.PlaneIntersect(_rayOrigin, _rayDirection, Vector3.Zero, onNormal);
         }
 
         public void UpdatePicking(int x, int y, float width, float height)

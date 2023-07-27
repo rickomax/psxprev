@@ -75,7 +75,7 @@ namespace PSXPrev.Forms
         private RootEntity _selectedRootEntity;
         private EntitySelectionSource _selectionSource;
         private bool _showUv = true;
-        private readonly VRAMPages _vram;
+        private readonly VRAM _vram;
         private int _vramSelectedPage = -1; // Used because combo box SelectedIndex can be -1 while typing.
         private Bitmap _maskColorBitmap;
         private Bitmap _ambientColorBitmap;
@@ -94,7 +94,7 @@ namespace PSXPrev.Forms
             _textures = new List<Texture>();
             _rootEntities = new List<RootEntity>();
             _scene = new Scene();
-            _vram = new VRAMPages(_scene);
+            _vram = new VRAM(_scene);
             refreshAction(this);
             Toolkit.Init();
             InitializeComponent();
@@ -136,7 +136,7 @@ namespace PSXPrev.Forms
             foreach (var entityBase in entity.ChildEntities)
             {
                 var model = (ModelEntity)entityBase;
-                model.TexturePage = VRAMPages.ClampTexturePage(model.TexturePage);
+                model.TexturePage = VRAM.ClampTexturePage(model.TexturePage);
                 if (model.IsTextured)
                 {
                     model.Texture = _vram[model.TexturePage];
@@ -391,8 +391,8 @@ namespace PSXPrev.Forms
                 _vramPageScale /= 2f;
             }
             _vramPageScale = Math.Max(0.25f, Math.Min(8.0f, _vramPageScale));
-            vramPagePictureBox.Width = (int)(VRAMPages.PageSize * _vramPageScale);
-            vramPagePictureBox.Height = (int)(VRAMPages.PageSize * _vramPageScale);
+            vramPagePictureBox.Width = (int)(VRAM.PageSize * _vramPageScale);
+            vramPagePictureBox.Height = (int)(VRAM.PageSize * _vramPageScale);
             vramZoomLabel.Text = string.Format("{0:P0}", _vramPageScale);
         }
 
@@ -637,7 +637,7 @@ namespace PSXPrev.Forms
             {
                 if (OutputFolderSelect(out var path))
                 {
-                    var exporter = new PngExporter();
+                    var exporter = new PNGExporter();
                     exporter.Export(selectedTextures, path);
                     MessageBox.Show(this, "Textures exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
@@ -1065,7 +1065,7 @@ namespace PSXPrev.Forms
             }
             if (_selectedModelEntity != null)
             {
-                _selectedModelEntity.TexturePage = VRAMPages.ClampTexturePage(_selectedModelEntity.TexturePage);
+                _selectedModelEntity.TexturePage = VRAM.ClampTexturePage(_selectedModelEntity.TexturePage);
                 if (_selectedModelEntity.IsTextured)
                 {
                     _selectedModelEntity.Texture = _vram[_selectedModelEntity.TexturePage];
@@ -1105,9 +1105,9 @@ namespace PSXPrev.Forms
                 return;
             }
             // Validate changes to texture properties.
-            texture.X = VRAMPages.ClampTextureX(texture.X);
-            texture.Y = VRAMPages.ClampTextureY(texture.Y);
-            texture.TexturePage = VRAMPages.ClampTexturePage(texture.TexturePage);
+            texture.X = VRAM.ClampTextureX(texture.X);
+            texture.Y = VRAM.ClampTextureY(texture.Y);
+            texture.TexturePage = VRAM.ClampTexturePage(texture.TexturePage);
             // Update changes to TextureName property in ListViewItem.
             selectedItem.Text = texture.TextureName;
         }
@@ -1147,15 +1147,15 @@ namespace PSXPrev.Forms
             {
                 if (OutputFolderSelect(out var path))
                 {
-                    var objExporter = new ObjExporter();
+                    var objExporter = new OBJExporter();
 
-                    // Set to true to debug the PlyExporter by writing to the `ply/` subdirectory.
+                    // Set to true to debug the PLYExporter by writing to the `ply/` subdirectory.
                     const bool PLY_DEBUG = false;
-                    PlyExporter plyExporter = null;
+                    PLYExporter plyExporter = null;
                     string plyPath = null;
                     if (PLY_DEBUG)
                     {
-                        plyExporter = new PlyExporter();
+                        plyExporter = new PLYExporter();
                         plyPath = Path.Combine(path, "ply");
                         if (!Directory.Exists(plyPath))
                         {
@@ -1199,14 +1199,14 @@ namespace PSXPrev.Forms
         {
             pageIndex = 0;
             var defaultText = (defaultPage.HasValue && defaultPage.Value != -1) ? defaultPage.ToString() : null;
-            var pageStr = DialogForm.Show(this, $"Please type in the VRAM Page index (0-{VRAMPages.PageCount-1})", title, defaultText);
+            var pageStr = InputDialog.Show(this, $"Please type in the VRAM Page index (0-{VRAM.PageCount-1})", title, defaultText);
             if (pageStr != null)
             {
-                if (int.TryParse(pageStr, out pageIndex) && pageIndex >= 0 && pageIndex < VRAMPages.PageCount)
+                if (int.TryParse(pageStr, out pageIndex) && pageIndex >= 0 && pageIndex < VRAM.PageCount)
                 {
                     return true; // OK (valid page)
                 }
-                MessageBox.Show(this, $"Please type in a valid VRAM Page index between 0 and {VRAMPages.PageCount-1}", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, $"Please type in a valid VRAM Page index between 0 and {VRAM.PageCount-1}", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             return false; // Canceled / OK (invalid page)
         }
@@ -1257,7 +1257,7 @@ namespace PSXPrev.Forms
 
         private void DrawUVLines(Graphics graphics, Pen pen, Vector2[] uvs)
         {
-            var scalar = GeomUtils.UVScalar * _vramPageScale;
+            var scalar = GeomMath.UVScalar * _vramPageScale;
             for (var i = 0; i < uvs.Length; i++)
             {
                 var i2 = (i + 1) % uvs.Length;
@@ -1267,7 +1267,7 @@ namespace PSXPrev.Forms
 
         private void DrawTiledUVRectangle(Graphics graphics, Pen pen, TiledUV tiledUv)
         {
-            var scalar = GeomUtils.UVScalar * _vramPageScale;
+            var scalar = GeomMath.UVScalar * _vramPageScale;
             graphics.DrawRectangle(pen, tiledUv.X * scalar, tiledUv.Y * scalar, tiledUv.Width * scalar, tiledUv.Height * scalar);
         }
 
@@ -1551,7 +1551,7 @@ namespace PSXPrev.Forms
                 return;
             }
             var dstRect = new Rectangle(0, 0, vramPagePictureBox.Width, vramPagePictureBox.Height);
-            var srcRect = new Rectangle(0, 0, VRAMPages.PageSize, VRAMPages.PageSize);
+            var srcRect = new Rectangle(0, 0, VRAM.PageSize, VRAM.PageSize);
 
             e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
             // Despite what it sounds like, we want Half. Otherwise we end up drawing half a pixel back.

@@ -29,10 +29,7 @@ namespace PSXPrev.Common.Utils
         }
         #endregion
 
-        public int IntValue
-        {
-            get { return (int)(this.RawValue >> SHIFT_AMOUNT); }
-        }
+        public int IntValue => (int)(this.RawValue >> SHIFT_AMOUNT);
 
         public int ToInt()
         {
@@ -44,10 +41,7 @@ namespace PSXPrev.Common.Utils
             return (double)this.RawValue / (double)One;
         }
 
-        public FInt Inverse
-        {
-            get { return FInt.Create(-this.RawValue, false); }
-        }
+        public FInt Inverse => FInt.Create(-this.RawValue, false);
 
         #region FromParts
         /// <summary>

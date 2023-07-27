@@ -73,10 +73,10 @@ namespace PSXPrev
         public static Logger Logger;
         // Volatile because these are assigned and accessed in different threads.
         private static volatile PreviewForm PreviewForm;
-        private static volatile LauncherForm LauncherForm;
+        private static volatile ScannerForm ScannerForm;
         // Wait handles to make sure that forms can be constructed and assigned in their respective thread before continuing execution.
         private static AutoResetEvent _waitForPreviewForm = new AutoResetEvent(false);
-        private static AutoResetEvent _waitForLauncherForm = new AutoResetEvent(false);
+        private static AutoResetEvent _waitForScannerForm = new AutoResetEvent(false);
 
         public static List<RootEntity> AllEntities { get; private set; }
         public static List<Texture> AllTextures { get; private set; }
@@ -470,22 +470,22 @@ namespace PSXPrev
             Application.EnableVisualStyles();
             if (args == null || args.Length == 0)
             {
-                // No arguments specified. Show the launcher window and let the user choose what to do in the GUI.
+                // No arguments specified. Show the ScannerForm and let the user choose what to do in the GUI.
                 // Also print usage so that the user can either ask for help, or specify what they want without the GUI in the future.
                 PrintUsage();
                 
                 var thread = new Thread(new ThreadStart(delegate
                 {
-                    LauncherForm = new LauncherForm();
-                    LauncherForm.HandleCreated += (sender, e) => {
+                    ScannerForm = new ScannerForm();
+                    ScannerForm.HandleCreated += (sender, e) => {
                         // InvokeRequired won't return true unless the form's handle has been created.
-                        _waitForLauncherForm.Set(); // LauncherForm has been assigned and is setup, let the main thread continue.
+                        _waitForScannerForm.Set(); // ScannerForm has been assigned and is setup, let the main thread continue.
                     };
-                    Application.Run(LauncherForm);
+                    Application.Run(ScannerForm);
                 }));
                 thread.SetApartmentState(ApartmentState.STA);
                 thread.Start();
-                _waitForLauncherForm.WaitOne(); // Wait for LauncherForm to be assigned before continuing.
+                _waitForScannerForm.WaitOne(); // Wait for ScannerForm to be assigned before continuing.
                 return;
             }
 
@@ -803,15 +803,15 @@ namespace PSXPrev
             }
             if (_options.CheckAll || _options.CheckBFF)
             {
-                parsers.Add(() => new BFFModelReader(AddEntity));
+                parsers.Add(() => new BFFParser(AddEntity));
             }
             if (_options.CheckAll || _options.CheckHMD)
             {
-                parsers.Add(() => new HMDParser(AddEntity, AddAnimation, AddTexture));
+                parsers.Add(() => new HMDParser(AddEntity, AddTexture, AddAnimation));
             }
             if (_options.CheckAll || _options.CheckMOD)
             {
-                parsers.Add(() => new CrocModelReader(AddEntity));
+                parsers.Add(() => new MODParser(AddEntity));
             }
             if (_options.CheckAll || _options.CheckPMD)
             {

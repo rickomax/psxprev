@@ -4,7 +4,7 @@ using OpenTK;
 
 namespace PSXPrev.Common
 {
-    public static class GeomUtils
+    public static class GeomMath
     {
         public const string FloatFormat = "0.00000";
         public const string IntegerFormat = "0";
@@ -80,25 +80,13 @@ namespace PSXPrev.Common
             return stringBuilder.ToString();
         }
 
-        public static Matrix4 CreateT(Vector3 translation)
-        {
-            var mat = Matrix4.CreateTranslation(translation);
-            return mat;
-        }
-
-        public static Matrix4 CreateS(Vector3 scale)
-        {
-            var mat = Matrix4.CreateScale(scale);
-            return mat;
-        }
-
-        public static Matrix4 CreateR(Vector3 rotation)
+        public static Matrix4 CreateRotation(Vector3 rotation)
         {
             // todo: Should this actually be RotationOrder.XYZ (zRot * yRot * xRot)?
-            return CreateR(rotation, RotationOrder.ZYX); // RotationOrder.XYZ);
+            return CreateRotation(rotation, RotationOrder.ZYX); // RotationOrder.XYZ);
         }
 
-        public static Matrix4 CreateR(Vector3 rotation, RotationOrder order)
+        public static Matrix4 CreateRotation(Vector3 rotation, RotationOrder order)
         {
             var xRot = Matrix4.CreateRotationX(rotation.X);
             var yRot = Matrix4.CreateRotationY(rotation.Y);

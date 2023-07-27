@@ -4,12 +4,12 @@ using OpenTK;
 
 namespace PSXPrev.Common.Exporters
 {
-    public class ObjExporter
+    public class OBJExporter
     {
         private StreamWriter _writer;
-        private PngExporter _pngExporter;
-        private MtlExporter _mtlExporter;
-        private MtlExporter.MaterialDictionary _mtlDictionary;
+        private PNGExporter _pngExporter;
+        private MTLExporter _mtlExporter;
+        private MTLExporter.MaterialDictionary _mtlDictionary;
         private ModelPreparerExporter _modelPreparer;
         private string _selectedPath;
         private bool _experimentalVertexColor;
@@ -17,8 +17,8 @@ namespace PSXPrev.Common.Exporters
 
         public void Export(RootEntity[] entities, string selectedPath, bool joinEntities = false, bool experimentalVertexColor = false, bool exportTextures = true)
         {
-            _pngExporter = new PngExporter();
-            _mtlDictionary = new MtlExporter.MaterialDictionary();
+            _pngExporter = new PNGExporter();
+            _mtlDictionary = new MTLExporter.MaterialDictionary();
             _modelPreparer = new ModelPreparerExporter(tiledTextures: true, singleTexture: false);
             _selectedPath = selectedPath;
             _experimentalVertexColor = experimentalVertexColor;
@@ -56,7 +56,7 @@ namespace PSXPrev.Common.Exporters
             // Re-use the dictionary of materials so that we only export them once,
             // and so that different textures aren't assigned the same ID.
             // We're using a separate mtl file for each model so that unused materials aren't added.
-            _mtlExporter = new MtlExporter(_selectedPath, index, _mtlDictionary);
+            _mtlExporter = new MTLExporter(_selectedPath, index, _mtlDictionary);
             _writer = new StreamWriter($"{_selectedPath}/obj{index}.obj");
 
             // Prepare the state for the current model being exported.
@@ -170,12 +170,12 @@ namespace PSXPrev.Common.Exporters
 
         private static string F(float value)
         {
-            return value.ToString(GeomUtils.FloatFormat, CultureInfo.InvariantCulture);
+            return value.ToString(GeomMath.FloatFormat, CultureInfo.InvariantCulture);
         }
 
         private static string I(float value)
         {
-            return value.ToString(GeomUtils.IntegerFormat, CultureInfo.InvariantCulture);
+            return value.ToString(GeomMath.IntegerFormat, CultureInfo.InvariantCulture);
         }
     }
 }

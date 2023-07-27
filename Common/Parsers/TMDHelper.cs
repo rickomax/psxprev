@@ -432,7 +432,7 @@ namespace PSXPrev.Common.Parsers
                 else
                 {
                     hasNormals = false;
-                    normal0 = normal1 = normal2 = GeomUtils.CalculateNormal(vertex0, vertex1, vertex2);
+                    normal0 = normal1 = normal2 = GeomMath.CalculateNormal(vertex0, vertex1, vertex2);
                     normalIndex1 = normalIndex2 = normalIndex0;
                 }
 
@@ -440,7 +440,7 @@ namespace PSXPrev.Common.Parsers
                 // However, this can't be used because it causes texture glitching at pixel boundaries.
                 // There are a ton of other issues to consider when only changing this for TMDHelper.
                 // More research is needed...
-                // see: GeomUtils.UVScalar
+                // see: GeomMath.UVScalar
 
                 // HMD: Tiled information for textures.
                 // Default values when there's no tiled information.
@@ -472,15 +472,15 @@ namespace PSXPrev.Common.Parsers
                         isTiled = true;
                         if (Program.FixUVAlignment)
                         {
-                            tuvm = GeomUtils.ConvertUV(((((tumValue << 3) ^ 0xff) + 1) & 0xff),
+                            tuvm = GeomMath.ConvertUV(((((tumValue << 3) ^ 0xff) + 1) & 0xff),
                                                        ((((tvmValue << 3) ^ 0xff) + 1) & 0xff));
                         }
                         else
                         {
-                            tuvm = GeomUtils.ConvertUV(((tumValue << 3) ^ 0xff),
+                            tuvm = GeomMath.ConvertUV(((tumValue << 3) ^ 0xff),
                                                        ((tvmValue << 3) ^ 0xff));
                         }
-                        tuva = GeomUtils.ConvertUV((tuaValue << 3),
+                        tuva = GeomMath.ConvertUV((tuaValue << 3),
                                                    (tvaValue << 3));
                     }
                 }
@@ -491,7 +491,7 @@ namespace PSXPrev.Common.Parsers
                 {
                     uValue = (~(tumValue << 3) & uValue) | ((tumValue << 3) & (tuaValue << 3));
                     vValue = (~(tvmValue << 3) & vValue) | ((tvmValue << 3) & (tvaValue << 3));
-                    return GeomUtils.ConvertUV(uValue, vValue);
+                    return GeomMath.ConvertUV(uValue, vValue);
                 }
 
                 var r0 = primitiveData.TryGetValue(m, PrimitiveDataType.R0, out var r0Value) ? r0Value / 255f : Color.DefaultColorTone;
@@ -503,12 +503,12 @@ namespace PSXPrev.Common.Parsers
                 var b0 = primitiveData.TryGetValue(m, PrimitiveDataType.B0, out var b0Value) ? b0Value / 255f : Color.DefaultColorTone;
                 var b1 = primitiveData.TryGetValue(m, PrimitiveDataType.B1, out var b1Value) ? b1Value / 255f : b0;
                 var b2 = primitiveData.TryGetValue(m, PrimitiveDataType.B2, out var b2Value) ? b2Value / 255f : b0;
-                var u0 = primitiveData.TryGetValue(m, PrimitiveDataType.U0, out var u0Value) ? GeomUtils.ConvertUV(u0Value) : 0f;
-                var u1 = primitiveData.TryGetValue(m, PrimitiveDataType.U1, out var u1Value) ? GeomUtils.ConvertUV(u1Value) : 0f;
-                var u2 = primitiveData.TryGetValue(m, PrimitiveDataType.U2, out var u2Value) ? GeomUtils.ConvertUV(u2Value) : 0f;
-                var v0 = primitiveData.TryGetValue(m, PrimitiveDataType.V0, out var v0Value) ? GeomUtils.ConvertUV(v0Value) : 0f;
-                var v1 = primitiveData.TryGetValue(m, PrimitiveDataType.V1, out var v1Value) ? GeomUtils.ConvertUV(v1Value) : 0f;
-                var v2 = primitiveData.TryGetValue(m, PrimitiveDataType.V2, out var v2Value) ? GeomUtils.ConvertUV(v2Value) : 0f;
+                var u0 = primitiveData.TryGetValue(m, PrimitiveDataType.U0, out var u0Value) ? GeomMath.ConvertUV(u0Value) : 0f;
+                var u1 = primitiveData.TryGetValue(m, PrimitiveDataType.U1, out var u1Value) ? GeomMath.ConvertUV(u1Value) : 0f;
+                var u2 = primitiveData.TryGetValue(m, PrimitiveDataType.U2, out var u2Value) ? GeomMath.ConvertUV(u2Value) : 0f;
+                var v0 = primitiveData.TryGetValue(m, PrimitiveDataType.V0, out var v0Value) ? GeomMath.ConvertUV(v0Value) : 0f;
+                var v1 = primitiveData.TryGetValue(m, PrimitiveDataType.V1, out var v1Value) ? GeomMath.ConvertUV(v1Value) : 0f;
+                var v2 = primitiveData.TryGetValue(m, PrimitiveDataType.V2, out var v2Value) ? GeomMath.ConvertUV(v2Value) : 0f;
                 var triangle1 = new Triangle
                 {
                     Vertices = new[] { vertex0, vertex1, vertex2 },
@@ -556,15 +556,15 @@ namespace PSXPrev.Common.Parsers
                     }
                     else
                     {
-                        normal1 = normal3 = normal2 = GeomUtils.CalculateNormal(vertex1, vertex3, vertex2);
+                        normal1 = normal3 = normal2 = GeomMath.CalculateNormal(vertex1, vertex3, vertex2);
                         normalIndex3 = normalIndex0;
                     }
                     // todo: Do we need normal calculation for this triangle if !hasNormals?
                     var r3 = primitiveData.TryGetValue(m, PrimitiveDataType.R3, out var r3Value) ? r3Value / 255f : r0;
                     var g3 = primitiveData.TryGetValue(m, PrimitiveDataType.G3, out var g3Value) ? g3Value / 255f : g0;
                     var b3 = primitiveData.TryGetValue(m, PrimitiveDataType.B3, out var b3Value) ? b3Value / 255f : b0;
-                    var u3 = primitiveData.TryGetValue(m, PrimitiveDataType.U3, out var u3Value) ? GeomUtils.ConvertUV(u3Value) : 0f;
-                    var v3 = primitiveData.TryGetValue(m, PrimitiveDataType.V3, out var v3Value) ? GeomUtils.ConvertUV(v3Value) : 0f;
+                    var u3 = primitiveData.TryGetValue(m, PrimitiveDataType.U3, out var u3Value) ? GeomMath.ConvertUV(u3Value) : 0f;
+                    var v3 = primitiveData.TryGetValue(m, PrimitiveDataType.V3, out var v3Value) ? GeomMath.ConvertUV(v3Value) : 0f;
                     var triangle2 = new Triangle
                     {
                         Vertices = new[] { vertex1, vertex3, vertex2 },

@@ -6,9 +6,9 @@ using PSXPrev.Common.Animator;
 
 namespace PSXPrev.Common.Parsers
 {
-    public class CrocModelReader : FileOffsetScanner
+    public class MODParser : FileOffsetScanner
     {
-        public CrocModelReader(EntityAddedAction entityAdded)
+        public MODParser(EntityAddedAction entityAdded)
             : base(entityAdded: entityAdded)
         {
         }
@@ -193,7 +193,7 @@ namespace PSXPrev.Common.Parsers
                     //else
                     if (normal0.IsZero() || normal1.IsZero() || normal2.IsZero())
                     {
-                        normal0 = normal1 = normal2 = GeomUtils.CalculateNormal(vertex0, vertex1, vertex2);
+                        normal0 = normal1 = normal2 = GeomMath.CalculateNormal(vertex0, vertex1, vertex2);
                     }
 
                     var renderFlags = RenderFlags.None;
@@ -268,7 +268,7 @@ namespace PSXPrev.Common.Parsers
                         //else
                         if (normal1.IsZero() || normal3.IsZero() || normal2.IsZero())
                         {
-                            normal1 = normal3 = normal2 = GeomUtils.CalculateNormal(vertex1, vertex3, vertex2);
+                            normal1 = normal3 = normal2 = GeomMath.CalculateNormal(vertex1, vertex3, vertex2);
                         }
 
                         AddTriangle(new Triangle

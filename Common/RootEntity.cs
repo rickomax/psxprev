@@ -16,7 +16,7 @@ namespace PSXPrev.Common
         private WeakReferenceCollection<Animation> _ownedAnimations;
 
         [Browsable(false)]
-        public CoordUnit[] Coords { get; set; }
+        public Coordinate[] Coords { get; set; }
 
         [DisplayName("Total Triangles"), ReadOnly(false)]
         public int TotalTriangles

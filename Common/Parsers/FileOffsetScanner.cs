@@ -12,8 +12,8 @@ namespace PSXPrev.Common.Parsers
     public abstract class FileOffsetScanner : IDisposable
     {
         private readonly EntityAddedAction _entityAddedAction;
-        private readonly AnimationAddedAction _animationAddedAction;
         private readonly TextureAddedAction _textureAddedAction;
+        private readonly AnimationAddedAction _animationAddedAction;
 
         protected long _offset;
 
@@ -22,11 +22,11 @@ namespace PSXPrev.Common.Parsers
         // Next stream offset will be at the end of the last-read file.
         public bool NextOffset { get; set; }
 
-        public FileOffsetScanner(EntityAddedAction entityAdded = null, AnimationAddedAction animationAdded = null, TextureAddedAction textureAdded = null)
+        public FileOffsetScanner(EntityAddedAction entityAdded = null, TextureAddedAction textureAdded = null, AnimationAddedAction animationAdded = null)
         {
             _entityAddedAction = entityAdded;
-            _animationAddedAction = animationAdded;
             _textureAddedAction = textureAdded;
+            _animationAddedAction = animationAdded;
         }
 
         public void ScanFile(BinaryReader reader, string fileTitle)

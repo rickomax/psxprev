@@ -4,11 +4,11 @@ using PSXPrev.Common;
 
 namespace PSXPrev.Forms.Dialogs
 {
-    public partial class SelectTMDForm : Form
+    public partial class SelectRootEntityDialog : Form
     {
-        public RootEntity SelectedTMD { get { return TMDListBox.SelectedItem as RootEntity; } }
+        public RootEntity SelectedRootEntity => TMDListBox.SelectedItem as RootEntity;
 
-        public SelectTMDForm()
+        public SelectRootEntityDialog()
         {
             InitializeComponent();
         }
@@ -20,12 +20,6 @@ namespace PSXPrev.Forms.Dialogs
             {
                 TMDListBox.Items.Add(entity);
             }
-        }
-
-        private void okButton_Click(object sender, EventArgs e)
-        {
-            DialogResult = DialogResult.OK;
-            Close();
         }
     }
 }

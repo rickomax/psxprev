@@ -291,39 +291,6 @@ namespace PSXPrev.Common.Parsers
             }
         }
 
-        public static Vector3 Interpolate(InterpolationType interpType, Vector3? src, Vector3[] curve, Vector3? dst, float delta)
-        {
-            switch (interpType)
-            {
-                case InterpolationType.Linear:
-                    if (!src.HasValue)// || !dst.HasValue)
-                    {
-                        break; // Missing source value //or missing destination value
-                    }
-                    return Vector3.Lerp(src.Value, dst ?? src.Value, delta);
-                case InterpolationType.Bezier:
-                    if (curve == null || curve.Length < 3 || !dst.HasValue)
-                    {
-                        break; // Invalid curve array or missing destination value
-                    }
-                    return GeomUtils.InterpolateBezierCurve(curve[0], curve[1], curve[2], dst.Value, delta);
-                case InterpolationType.BSpline:
-                    if (curve == null || curve.Length < 3 || !dst.HasValue)
-                    {
-                        break; // Invalid curve array or missing destination value
-                    }
-                    return GeomUtils.InterpolateBSpline(curve[0], curve[1], curve[2], dst.Value, delta);
-                case InterpolationType.BetaSpline:
-                    if (curve == null || curve.Length < 3 || !dst.HasValue)
-                    {
-                        break; // Invalid curve array or missing destination value
-                    }
-                    //return GeomUtils.InterpolateBetaSpline(curve[0], curve[1], curve[2], dst.Value, delta);
-                    break; // Not supported yet
-            }
-            return Vector3.Zero;
-        }
-
         public static void PrintAnimInstructions(BinaryReader reader, uint ctrlTop, uint paramTop, long offset, Dictionary<uint, List<Tuple<uint, uint>>> tmdidStarts = null)
         {
             // Read instructions.

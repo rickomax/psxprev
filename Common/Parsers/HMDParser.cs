@@ -11,8 +11,8 @@ namespace PSXPrev.Common.Parsers
 {
     public class HMDParser : FileOffsetScanner
     {
-        public HMDParser(EntityAddedAction entityAdded, AnimationAddedAction animationAdded, TextureAddedAction textureAdded)
-            : base(entityAdded, animationAdded, textureAdded)
+        public HMDParser(EntityAddedAction entityAdded, TextureAddedAction textureAdded, AnimationAddedAction animationAdded)
+            : base(entityAdded, textureAdded, animationAdded)
         {
         }
 
@@ -108,7 +108,7 @@ namespace PSXPrev.Common.Parsers
                     Program.Logger.WriteLine($"coordCount {coordCount} exceeds blockCount - 2 ({blockCount - 2})");
                 }
             }
-            var coords = new CoordUnit[coordCount];
+            var coords = new Coordinate[coordCount];
             for (uint c = 0; c < coordCount; c++)
             {
                 var coord = ReadCoord(reader, coordTop, c, coords);
@@ -119,7 +119,7 @@ namespace PSXPrev.Common.Parsers
                 coords[c] = coord;
             }
             // Now that the table is fully read, ensure no circular references in coord parents.
-            if (CoordUnit.FindCircularReferences(coords))
+            if (Coordinate.FindCircularReferences(coords))
             {
                 return null; // Bad coords with parents that reference themselves.
             }
@@ -148,7 +148,7 @@ namespace PSXPrev.Common.Parsers
             return rootEntity;
         }
 
-        private CoordUnit ReadCoord(BinaryReader reader, uint coordTop, uint coordID, CoordUnit[] coords)
+        private Coordinate ReadCoord(BinaryReader reader, uint coordTop, uint coordID, Coordinate[] coords)
         {
             var flag = reader.ReadUInt32();
             var localMatrix = ReadMatrix(reader, out var translation);
@@ -172,7 +172,7 @@ namespace PSXPrev.Common.Parsers
                 {
                     return null; // Not aligned to coord table.
                 }
-                super /= 80; // Divide by size of CoordUnit to get super ID.
+                super /= 80; // Divide by size of Coordinate to get super ID.
                 if (super == coordID || super >= coords.Length)
                 {
                     return null; // Bad parent ID.
@@ -180,10 +180,10 @@ namespace PSXPrev.Common.Parsers
             }
             else
             {
-                super = CoordUnit.NoID;
+                super = Coordinate.NoID;
             }
 
-            return new CoordUnit
+            return new Coordinate
             {
                 OriginalLocalMatrix = localMatrix,
                 OriginalTranslation = translation,
@@ -196,17 +196,17 @@ namespace PSXPrev.Common.Parsers
 
         private static Matrix4 ReadMatrix(BinaryReader reader, out Vector3 translation)
         {
-            float r00 = reader.ReadInt16() / 4096f;
-            float r01 = reader.ReadInt16() / 4096f;
-            float r02 = reader.ReadInt16() / 4096f;
+            var r00 = reader.ReadInt16() / 4096f;
+            var r01 = reader.ReadInt16() / 4096f;
+            var r02 = reader.ReadInt16() / 4096f;
 
-            float r10 = reader.ReadInt16() / 4096f;
-            float r11 = reader.ReadInt16() / 4096f;
-            float r12 = reader.ReadInt16() / 4096f;
+            var r10 = reader.ReadInt16() / 4096f;
+            var r11 = reader.ReadInt16() / 4096f;
+            var r12 = reader.ReadInt16() / 4096f;
 
-            float r20 = reader.ReadInt16() / 4096f;
-            float r21 = reader.ReadInt16() / 4096f;
-            float r22 = reader.ReadInt16() / 4096f;
+            var r20 = reader.ReadInt16() / 4096f;
+            var r21 = reader.ReadInt16() / 4096f;
+            var r22 = reader.ReadInt16() / 4096f;
 
             var x = reader.ReadInt32() / 65536f;
             var y = reader.ReadInt32() / 65536f;
@@ -1349,10 +1349,10 @@ namespace PSXPrev.Common.Parsers
 
                         TMDHelper.ParseTSB(tsbValue, out tPage, out var pmode, out mixtureRate);
                         mixtureRate = MixtureRate.None; // No semi-transparency
-                        uv0 = GeomUtils.ConvertUV(u0, v0);
-                        uv1 = GeomUtils.ConvertUV(u1, v1);
-                        uv2 = GeomUtils.ConvertUV(u2, v2);
-                        uv3 = GeomUtils.ConvertUV(u3, v3);
+                        uv0 = GeomMath.ConvertUV(u0, v0);
+                        uv1 = GeomMath.ConvertUV(u1, v1);
+                        uv2 = GeomMath.ConvertUV(u2, v2);
+                        uv3 = GeomMath.ConvertUV(u3, v3);
                     }
 
                     // Read Z vertices
@@ -1387,8 +1387,8 @@ namespace PSXPrev.Common.Parsers
                     var normal2 = normal;
                     // Not part of the format, but uncomment if you want to see
                     // clearer terrain lighting when all normals are the same.
-                    //normal1 = GeomUtils.CalculateNormal(vertex0, vertex1, vertex2);
-                    //normal2 = GeomUtils.CalculateNormal(vertex1, vertex3, vertex2);
+                    //normal1 = GeomMath.CalculateNormal(vertex0, vertex1, vertex2);
+                    //normal2 = GeomMath.CalculateNormal(vertex1, vertex3, vertex2);
 
                     AddTriangle(new Triangle
                     {

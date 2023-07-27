@@ -3,7 +3,7 @@ using System.Text;
 
 namespace PSXPrev.Common.Utils
 {
-    public static class Utils
+    public static class StringUtils
     {
         public static string ToBitString(this BitArray bits)
         {
