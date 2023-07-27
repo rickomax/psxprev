@@ -340,7 +340,7 @@ namespace PSXPrev.Classes
                             var r0 = (data1 & 0x1F);
                             var g0 = (data1 & 0x3E0) >> 5;
                             var b0 = (data1 & 0x7C00) >> 10;
-                            var stpBit = ((data1 & 0x8000) >> 11) == 1; // Semi-transparency: 0-Off, 1-On
+                            var stpBit = ((data1 & 0x8000) >> 15) == 1; // Semi-transparency: 0-Off, 1-On
                             var a0 = 255;
 
                             // Note: stpMode (not stpBit) is defined on a per polygon basis. We can't apply alpha now, only during rendering.
