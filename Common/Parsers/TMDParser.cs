@@ -15,24 +15,20 @@ namespace PSXPrev.Common.Parsers
 
         public override string FormatName => "TMD";
 
-        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
+        protected override void Parse(BinaryReader reader)
         {
-            entities = null;
-            animations = null;
-            textures = null;
-
             var version = reader.ReadUInt32();
             if (Program.IgnoreTmdVersion || version == 0x00000041)
             {
-                var entity = ParseTmd(reader, fileTitle);
-                if (entity != null)
+                var rootEntity = ParseTmd(reader);
+                if (rootEntity != null)
                 {
-                    entities = new List<RootEntity> { entity };
+                    EntityResults.Add(rootEntity);
                 }
             }
         }
 
-        private RootEntity ParseTmd(BinaryReader reader, string fileTitle)
+        private RootEntity ParseTmd(BinaryReader reader)
         {
             var flags = reader.ReadUInt32();
             if (flags != 0 && flags != 1)
@@ -156,7 +152,7 @@ namespace PSXPrev.Common.Parsers
 
                 if (Program.Debug)
                 {
-                    Program.Logger.WriteLine($"Primitive count:{objBlock.NPrimitive} {fileTitle}");
+                    Program.Logger.WriteLine($"Primitive count:{objBlock.NPrimitive} {_fileTitle}");
                 }
                 for (var p = 0; p < objBlock.NPrimitive; p++)
                 {
@@ -183,9 +179,9 @@ namespace PSXPrev.Common.Parsers
                                             }
                                             if (!Program.ShowErrors)
                                             {
-                                                Program.Logger.WriteErrorLine($"Vertex index error: {fileTitle}");
+                                                Program.Logger.WriteErrorLine($"Vertex index error: {_fileTitle}");
                                             }
-                                            throw new Exception($"Vertex index error: {fileTitle}");
+                                            throw new Exception($"Vertex index error: {_fileTitle}");
                                         }
                                         return vertices[index];
                                     },
@@ -199,9 +195,9 @@ namespace PSXPrev.Common.Parsers
                                             }
                                             if (!Program.ShowErrors)
                                             {
-                                                Program.Logger.WriteErrorLine($"Normal index error: {fileTitle}");
+                                                Program.Logger.WriteErrorLine($"Normal index error: {_fileTitle}");
                                             }
-                                            throw new Exception($"Normal index error: {fileTitle}");
+                                            throw new Exception($"Normal index error: {_fileTitle}");
                                         }
                                         return normals[index];
                                     });

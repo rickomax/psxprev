@@ -21,16 +21,12 @@ namespace PSXPrev.Common.Parsers
 
         public override string FormatName => "PSX";
 
-        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
+        protected override void Parse(BinaryReader reader)
         {
-            entities = null;
-            animations = null;
-            textures = null;
-            
-            var model = ReadModels(reader);
-            if (model != null)
+            var rootEntity = ReadModels(reader);
+            if (rootEntity != null)
             {
-                entities = new List<RootEntity> { model };
+                EntityResults.Add(rootEntity);
             }
         }
 

@@ -15,19 +15,15 @@ namespace PSXPrev.Common.Parsers
 
         public override string FormatName => "AN";
 
-        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
+        protected override void Parse(BinaryReader reader)
         {
-            entities = null;
-            animations = null;
-            textures = null;
-
             var magic = reader.ReadUInt16();
             if (magic == 0xAAAA)
             {
                 var animation = ParseAN(reader);
                 if (animation != null)
                 {
-                    animations = new List<Animation> { animation };
+                    AnimationResults.Add(animation);
                 }
             }
         }

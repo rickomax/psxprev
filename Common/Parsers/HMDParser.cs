@@ -18,27 +18,21 @@ namespace PSXPrev.Common.Parsers
 
         public override string FormatName => "HMD";
 
-        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
+        protected override void Parse(BinaryReader reader)
         {
-            entities = null;
-            animations = null;
-            textures = null;
-
             var version = reader.ReadUInt32();
             if (Program.IgnoreHmdVersion || version == 0x00000050)
             {
-                var rootEntity = ParseHMD(reader, out animations, out textures);
+                var rootEntity = ParseHMD(reader);
                 if (rootEntity != null)
                 {
-                    entities = new List<RootEntity> { rootEntity };
+                    EntityResults.Add(rootEntity);
                 }
             }
         }
 
-        private RootEntity ParseHMD(BinaryReader reader, out List<Animation> animations, out List<Texture> textures)
+        private RootEntity ParseHMD(BinaryReader reader)
         {
-            animations = new List<Animation>();
-            textures = new List<Texture>();
             var mapFlag = reader.ReadUInt32();
             var primitiveHeaderTop = reader.ReadUInt32() * 4;
             var blockCount = reader.ReadUInt32();
@@ -58,7 +52,7 @@ namespace PSXPrev.Common.Parsers
                     continue;
                 }
                 var blockPosition = reader.BaseStream.Position;
-                ProcessPrimitiveSet(reader, modelEntities, animations, textures, i, primitiveSetTop, primitiveHeaderTop, blockCount, ref sharedIndex);
+                ProcessPrimitiveSet(reader, modelEntities, i, primitiveSetTop, primitiveHeaderTop, blockCount, ref sharedIndex);
                 reader.BaseStream.Seek(blockPosition, SeekOrigin.Begin);
             }
             RootEntity rootEntity;
@@ -69,21 +63,21 @@ namespace PSXPrev.Common.Parsers
                 {
                     modelEntity.ParentEntity = rootEntity;
                 }
-                if (textures.Count > 0)
+                if (TextureResults.Count > 0)
                 {
-                    foreach (var texture in textures)
+                    foreach (var texture in TextureResults)
                     {
                         texture.OwnerEntity = rootEntity;
                     }
-                    rootEntity.OwnedTextures = textures;
+                    rootEntity.OwnedTextures.AddRange(TextureResults);
                 }
-                if (animations.Count > 0)
+                if (AnimationResults.Count > 0)
                 {
-                    foreach (var animation in animations)
+                    foreach (var animation in AnimationResults)
                     {
                         animation.OwnerEntity = rootEntity;
                     }
-                    rootEntity.OwnedAnimations = animations;
+                    rootEntity.OwnedAnimations.AddRange(AnimationResults);
                 }
                 rootEntity.ChildEntities = modelEntities.ToArray();
                 rootEntity.ComputeBounds();
@@ -224,7 +218,7 @@ namespace PSXPrev.Common.Parsers
             return matrix;
         }
 
-        private void ProcessPrimitiveSet(BinaryReader reader, List<ModelEntity> modelEntities, List<Animation> animations, List<Texture> textures, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop, uint blockCount, ref uint sharedIndex)
+        private void ProcessPrimitiveSet(BinaryReader reader, List<ModelEntity> modelEntities, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop, uint blockCount, ref uint sharedIndex)
         {
             var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
             var sharedVertices = new Dictionary<uint, Vector3>();
@@ -335,7 +329,7 @@ namespace PSXPrev.Common.Parsers
                         var texture = ProcessImageData(reader, driver, primitiveType, primitiveHeaderPointer);
                         if (texture != null)
                         {
-                            textures.Add(texture);
+                            TextureResults.Add(texture);
                         }
                     }
                     else if (category == 3)
@@ -349,10 +343,7 @@ namespace PSXPrev.Common.Parsers
                             var addedAnimations = ProcessAnimationData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, dataCount, blockCount);
                             if (addedAnimations != null)
                             {
-                                foreach (var animation in addedAnimations)
-                                {
-                                    animations.Add(animation);
-                                }
+                                AnimationResults.AddRange(addedAnimations);
                             }
                         }
                         catch (Exception exp)
@@ -393,7 +384,7 @@ namespace PSXPrev.Common.Parsers
                         }
                         if (animation != null)
                         {
-                            animations.Add(animation);
+                            AnimationResults.Add(animation);
                         }
                     }
                     else if (category == 5)

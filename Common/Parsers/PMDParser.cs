@@ -15,19 +15,15 @@ namespace PSXPrev.Common.Parsers
 
         public override string FormatName => "PMD";
 
-        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
+        protected override void Parse(BinaryReader reader)
         {
-            entities = null;
-            animations = null;
-            textures = null;
-
             var version = reader.ReadUInt32();
             if (version == 0x00000042)
             {
-                var entity = ParsePMD(reader);
-                if (entity != null)
+                var rootEntity = ParsePMD(reader);
+                if (rootEntity != null)
                 {
-                    entities = new List<RootEntity> { entity };
+                    EntityResults.Add(rootEntity);
                 }
             }
         }
