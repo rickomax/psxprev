@@ -96,7 +96,7 @@
             this.label1.Size = new System.Drawing.Size(274, 71);
             this.label1.TabIndex = 2;
             this.label1.Text = "At the left column, you have the original TMD ID assigned to the Animation nodes." +
-    "\r\n\r\nAt the right column, you can assign a new TMD ID value to the current item.";
+    "\r\nAt the right column, you can assign a new TMD ID value to the current item.";
             // 
             // splitContainer1
             // 
