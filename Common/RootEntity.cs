@@ -12,8 +12,6 @@ namespace PSXPrev.Common
     public class RootEntity : EntityBase
     {
         private readonly List<ModelEntity> _groupedModels = new List<ModelEntity>();
-        private WeakReferenceCollection<Texture> _ownedTextures;
-        private WeakReferenceCollection<Animation> _ownedAnimations;
 
         [Browsable(false)]
         public Coordinate[] Coords { get; set; }
@@ -36,18 +34,10 @@ namespace PSXPrev.Common
         }
 
         [Browsable(false)]
-        public IEnumerable<Texture> OwnedTextures
-        {
-            get => _ownedTextures ?? Enumerable.Empty<Texture>();
-            set => _ownedTextures = new WeakReferenceCollection<Texture>(value);
-        }
+        public WeakReferenceCollection<Texture> OwnedTextures { get; } = new WeakReferenceCollection<Texture>();
 
         [Browsable(false)]
-        public IEnumerable<Animation> OwnedAnimations
-        {
-            get => _ownedAnimations ?? Enumerable.Empty<Animation>();
-            set => _ownedAnimations = new WeakReferenceCollection<Animation>(value);
-        }
+        public WeakReferenceCollection<Animation> OwnedAnimations { get; } = new WeakReferenceCollection<Animation>();
 
 
         public override void ComputeBounds()

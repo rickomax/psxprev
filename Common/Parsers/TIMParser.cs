@@ -15,12 +15,8 @@ namespace PSXPrev.Common.Parsers
 
         public override string FormatName => "TIM";
 
-        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
+        protected override void Parse(BinaryReader reader)
         {
-            entities = null;
-            animations = null;
-            textures = null;
-
             var id = reader.ReadUInt16();
             if (id == 0x10)
             {
@@ -30,7 +26,7 @@ namespace PSXPrev.Common.Parsers
                     var texture = ParseTim(reader);
                     if (texture != null)
                     {
-                        textures = new List<Texture> { texture };
+                        TextureResults.Add(texture);
                     }
                 }
             }
@@ -158,23 +154,23 @@ namespace PSXPrev.Common.Parsers
                 return null;
             }
 
-            int texturePage = imgDx / 64;
+            var texturePage = imgDx / 64;
             if (texturePage > 16)
             {
                 return null;
             }
 
-            int textureOffset = texturePage * 64;
+            var textureOffset = texturePage * 64;
 
-            int texturePageY = imgDy / 255;
+            var texturePageY = imgDy / 255;
             if (texturePageY > 2)
             {
                 return null;
             }
 
-            int textureOffsetY = texturePageY * 256;
+            var textureOffsetY = texturePageY * 256;
 
-            int finalTexturePage = (texturePageY * 16) + texturePage;
+            var finalTexturePage = (texturePageY * 16) + texturePage;
 
             int textureX;
             int textureY;

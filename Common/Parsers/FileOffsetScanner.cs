@@ -16,6 +16,13 @@ namespace PSXPrev.Common.Parsers
         private readonly AnimationAddedAction _animationAddedAction;
 
         protected long _offset;
+        protected BinaryReader _reader;
+        protected string _fileTitle;
+
+        // Result lists that shoud be added to during Parse.
+        protected List<RootEntity> EntityResults { get; } = new List<RootEntity>();
+        protected List<Texture> TextureResults { get; } = new List<Texture>();
+        protected List<Animation> AnimationResults { get; } = new List<Animation>();
 
         public long? StartOffset { get; set; }
         public long? StopOffset { get; set; }
@@ -31,10 +38,8 @@ namespace PSXPrev.Common.Parsers
 
         public void ScanFile(BinaryReader reader, string fileTitle)
         {
-            if (reader == null)
-            {
-                throw new Exception("File must be opened");
-            }
+            _reader = reader ?? throw new Exception("File must be opened");
+            _fileTitle = fileTitle;
 
             Program.Logger.WriteLine($"Scanning for {FormatName} at file: {fileTitle}");
 
@@ -55,55 +60,56 @@ namespace PSXPrev.Common.Parsers
                 var passed = false;
                 try
                 {
-                    Parse(reader, fileTitle, out var entities, out var animations, out var textures);
+                    EntityResults.Clear();
+                    TextureResults.Clear();
+                    AnimationResults.Clear();
+
+                    Parse(reader);
 
                     var offsetPostfix = (_offset > 0 ? $"_{_offset:X}" : string.Empty);
                     var name = $"{fileTitle}{offsetPostfix}";
 
-                    if (entities != null)
+                    foreach (var entity in EntityResults)
                     {
-                        foreach (var entity in entities)
+                        if (entity == null)
                         {
-                            if (entity == null)
-                            {
-                                continue;
-                            }
-                            passed = true;
-                            entity.EntityName = name;
-                            _entityAddedAction(entity, _offset);
-
-                            Program.Logger.WritePositiveLine($"Found {FormatName} Model {AtOffsetString}");
+                            continue;
                         }
+                        passed = true;
+                        entity.EntityName = name;
+                        _entityAddedAction(entity, _offset);
+
+                        Program.Logger.WritePositiveLine($"Found {FormatName} Model {AtOffsetString}");
                     }
-                    if (animations != null)
+                    // Enumerate textures differently so that we know whether to dispose of them or not.
+                    while (TextureResults.Count > 0)
                     {
-                        foreach (var animation in animations)
-                        {
-                            if (animation == null)
-                            {
-                                continue;
-                            }
-                            passed = true;
-                            animation.AnimationName = name;
-                            _animationAddedAction(animation, _offset);
+                        var texture = TextureResults[0]; // Pop (but remove later on)
 
-                            Program.Logger.WritePositiveLine($"Found {FormatName} Animation {AtOffsetString}");
+                        if (texture == null)
+                        {
+                            TextureResults.RemoveAt(0);
+                            continue;
                         }
+                        passed = true;
+                        texture.TextureName = name;
+                        _textureAddedAction(texture, _offset);
+
+                        TextureResults.RemoveAt(0); // We should no longer dispose of this during an exception
+
+                        Program.Logger.WritePositiveLine($"Found {FormatName} Texture {AtOffsetString}");
                     }
-                    if (textures != null)
+                    foreach (var animation in AnimationResults)
                     {
-                        foreach (var texture in textures)
+                        if (animation == null)
                         {
-                            if (texture == null)
-                            {
-                                continue;
-                            }
-                            passed = true;
-                            texture.TextureName = name;
-                            _textureAddedAction(texture, _offset);
-
-                            Program.Logger.WritePositiveLine($"Found {FormatName} Texture {AtOffsetString}");
+                            continue;
                         }
+                        passed = true;
+                        animation.AnimationName = name;
+                        _animationAddedAction(animation, _offset);
+
+                        Program.Logger.WritePositiveLine($"Found {FormatName} Animation {AtOffsetString}");
                     }
                 }
                 catch (Exception exp)
@@ -111,6 +117,17 @@ namespace PSXPrev.Common.Parsers
                     if (Program.ShowErrors)
                     {
                         Program.Logger.WriteExceptionLine(exp, $"Error scanning {FormatName} {AtOffsetString}");
+                    }
+                    // Make sure to dispose of textures that we never got to add.
+                    foreach (var leakedTexture in TextureResults)
+                    {
+                        leakedTexture.Dispose();
+                        // Remove owned leaked textures from root entities.
+                        // This is important in-case the entity was successfully added.
+                        foreach (var entity in EntityResults)
+                        {
+                            entity.OwnedTextures.Remove(leakedTexture);
+                        }
                     }
                 }
 
@@ -129,6 +146,12 @@ namespace PSXPrev.Common.Parsers
             }
 
             Program.Logger.WriteLine($"{FormatName} - Reached file end: {fileTitle}");
+
+            _reader = null;
+            _fileTitle = null;
+            EntityResults.Clear();
+            TextureResults.Clear();
+            AnimationResults.Clear();
         }
 
         public void Dispose()
@@ -146,6 +169,8 @@ namespace PSXPrev.Common.Parsers
 
         public abstract string FormatName { get; }
 
-        protected abstract void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures);
+        // Parse the file format at the given offset. Results should be added to
+        // the following lists: EntityResults, TextureResults, AnimationResults.
+        protected abstract void Parse(BinaryReader reader);
     }
 }

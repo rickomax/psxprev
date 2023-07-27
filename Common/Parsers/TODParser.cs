@@ -15,19 +15,15 @@ namespace PSXPrev.Common.Parsers
 
         public override string FormatName => "TOD";
 
-        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
+        protected override void Parse(BinaryReader reader)
         {
-            entities = null;
-            animations = null;
-            textures = null;
-
             var fileID = reader.ReadByte();
             if (fileID == 0x50)
             {
                 var animation = ParseTOD(reader);
                 if (animation != null)
                 {
-                    animations = new List<Animation> { animation };
+                    AnimationResults.Add(animation);
                 }
             }
         }

@@ -15,16 +15,12 @@ namespace PSXPrev.Common.Parsers
 
         public override string FormatName => "VDF";
 
-        protected override void Parse(BinaryReader reader, string fileTitle, out List<RootEntity> entities, out List<Animation> animations, out List<Texture> textures)
+        protected override void Parse(BinaryReader reader)
         {
-            entities = null;
-            animations = null;
-            textures = null;
-            
             var animation = ParseVDF(reader);
             if (animation != null)
             {
-                animations = new List<Animation> { animation };
+                AnimationResults.Add(animation);
             }
         }
 
