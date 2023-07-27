@@ -42,7 +42,9 @@ Treat this as an experimental release and use this tool at your own risk. Warnin
 - [OpenTK](https://github.com/opentk/opentk)
 - [DiscUtils](https://github.com/DiscUtils/DiscUtils)
 - Ozgur Ozcitak's [ImageListView](https://github.com/oozcitak/imagelistview)
-- Daniele de Santis's [Playstation Icons](http://www.danieledesantis.net/)
+- Daniele de Santis's [Playstation Icons](https://www.behance.net/gallery/26021809/Playstation-icons-%28free-download%29)
+
+<!-- Daniele de Santis's personal site: <http://www.danieledesantis.net/> -->
 
 **PSXPrev requirements ro run:**
 - An OpenGL 3.0 compatible video card
