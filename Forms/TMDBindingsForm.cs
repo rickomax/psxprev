@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
-using PSXPrev.Classes;
+using PSXPrev.Common;
+using PSXPrev.Common.Animator;
+using PSXPrev.Forms.Utils;
 
 namespace PSXPrev.Forms
 {

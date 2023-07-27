@@ -1,6 +1,6 @@
-﻿using PSXPrev.Classes;
+﻿using PSXPrev.Common;
 
-namespace PSXPrev
+namespace PSXPrev.Forms
 {
     partial class PreviewForm
     {
