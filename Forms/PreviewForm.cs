@@ -1644,12 +1644,17 @@ namespace PSXPrev.Forms
 
         private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            MessageBox.Show(this, "PSXPrev - Playstation (PSX) Files Previewer/Extractor\n" + "(c) PSX Prev Contributors - 2020-2023", "About");
+            MessageBox.Show(this, "PSXPrev - PlayStation (PSX) Files Previewer/Extractor\n" + "(c) PSXPrev Contributors - 2020-2023", "About");
         }
 
         private void videoTutorialToolStripMenuItem_Click(object sender, EventArgs e)
         {
             Process.Start("https://www.youtube.com/watch?v=hPDa8l3ZE6U");
+        }
+
+        private void viewOnGitHubToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Process.Start("https://github.com/rickomax/psxprev");
         }
 
         private void autoAttachLimbsToolStripMenuItem_Click(object sender, EventArgs e)

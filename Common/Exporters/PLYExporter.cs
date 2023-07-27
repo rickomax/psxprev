@@ -37,10 +37,6 @@ namespace PSXPrev.Common.Exporters
             {
                 for (var i = 0; i < entities.Length; i++)
                 {
-                    if (i == 27)
-                    {
-                        var x = 0;
-                    }
                     ExportEntities(i, entities[i]);
                 }
             }
