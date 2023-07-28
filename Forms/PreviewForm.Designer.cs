@@ -148,6 +148,8 @@ namespace PSXPrev.Forms
             this.vertexSizeUpDown = new System.Windows.Forms.NumericUpDown();
             this.flowLayoutPanel2 = new System.Windows.Forms.FlowLayoutPanel();
             this.toolStripMenuItem2 = new System.Windows.Forms.ToolStripSeparator();
+            this.cameraFOVUpDown = new System.Windows.Forms.NumericUpDown();
+            this.label7 = new System.Windows.Forms.Label();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -208,6 +210,7 @@ namespace PSXPrev.Forms
             ((System.ComponentModel.ISupportInitialize)(this.lightIntensityNumericUpDown)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).BeginInit();
             this.flowLayoutPanel2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.cameraFOVUpDown)).BeginInit();
             this.SuspendLayout();
             // 
             // entitiesTabPage
@@ -1513,6 +1516,8 @@ namespace PSXPrev.Forms
             this.flowLayoutPanel2.Controls.Add(this.label4);
             this.flowLayoutPanel2.Controls.Add(this.vertexSizeUpDown);
             this.flowLayoutPanel2.Controls.Add(this.label5);
+            this.flowLayoutPanel2.Controls.Add(this.cameraFOVUpDown);
+            this.flowLayoutPanel2.Controls.Add(this.label7);
             this.flowLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.flowLayoutPanel2.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
             this.flowLayoutPanel2.Location = new System.Drawing.Point(0, 623);
@@ -1525,6 +1530,40 @@ namespace PSXPrev.Forms
             // 
             this.toolStripMenuItem2.Name = "toolStripMenuItem2";
             this.toolStripMenuItem2.Size = new System.Drawing.Size(181, 6);
+            // 
+            // cameraFOVUpDown
+            // 
+            this.cameraFOVUpDown.Location = new System.Drawing.Point(384, 3);
+            this.cameraFOVUpDown.Maximum = new decimal(new int[] {
+            160,
+            0,
+            0,
+            0});
+            this.cameraFOVUpDown.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.cameraFOVUpDown.Name = "cameraFOVUpDown";
+            this.cameraFOVUpDown.Size = new System.Drawing.Size(43, 20);
+            this.cameraFOVUpDown.TabIndex = 22;
+            this.cameraFOVUpDown.Value = new decimal(new int[] {
+            60,
+            0,
+            0,
+            0});
+            this.cameraFOVUpDown.ValueChanged += new System.EventHandler(this.cameraFOVUpDown_ValueChanged);
+            // 
+            // label7
+            // 
+            this.label7.AutoSize = true;
+            this.label7.Dock = System.Windows.Forms.DockStyle.Left;
+            this.label7.Location = new System.Drawing.Point(347, 0);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(31, 26);
+            this.label7.TabIndex = 23;
+            this.label7.Text = "FOV:";
+            this.label7.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // PreviewForm
             // 
@@ -1612,6 +1651,7 @@ namespace PSXPrev.Forms
             ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).EndInit();
             this.flowLayoutPanel2.ResumeLayout(false);
             this.flowLayoutPanel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.cameraFOVUpDown)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -1733,5 +1773,7 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.ToolStripMenuItem showTMDBindingsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem viewOnGitHubToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem2;
+        private System.Windows.Forms.NumericUpDown cameraFOVUpDown;
+        private System.Windows.Forms.Label label7;
     }
 }

@@ -10,20 +10,52 @@ namespace PSXPrev.Common.Renderer
 {
     public class Scene
     {
-        private const float CameraFOV = 60.0f;
-        private const float CameraFOVRads = CameraFOV * GeomMath.Deg2Rad;
+        private const float CameraMinFOV = 1f;
+        private const float CameraMaxFOV = 160f; // Anything above this just looks unintelligible
         private const float CameraNearClip = 0.1f;
         private const float CameraFarClip = 500000f;
         private const float CameraMinDistance = 0.01f;
-        private const float MaxCameraPitch = 0.9f;
-        private const float GizmoHeight = 0.075f;
-        private const float GizmoWidth = 0.005f;
+        private const float CameraMaxPitch = 89f * GeomMath.Deg2Rad; // 90f is too high, the view flips once we hit that
         private const float CameraDistanceIncrementFactor = 0.25f;
         private const float CameraPanIncrementFactor = 0.5f;
 
-        public static Vector3 XGizmoDimensions = new Vector3(GizmoHeight, GizmoWidth, GizmoWidth);
-        public static Vector3 YGizmoDimensions = new Vector3(GizmoWidth, GizmoHeight, GizmoWidth);
-        public static Vector3 ZGizmoDimensions = new Vector3(GizmoWidth, GizmoWidth, GizmoHeight);
+        // All of our math is based off when FOV was 60 degrees. So use 60 degrees as the base scalar.
+        private static readonly float CameraBaseDistanceScalar = (float)(Math.Tan(60d * GeomMath.Deg2Rad / 2d) * 2d);
+
+        private const float GizmoHeight = 0.075f;
+        private const float GizmoWidth = 0.005f;
+
+        private static readonly Color SelectedGizmoColor = Color.White;
+
+        private class GizmoInfo
+        {
+            public Vector3 Center { get; set; }
+            public Vector3 Size { get; set; }
+            public Color Color { get; set; }
+        }
+
+        private static readonly Dictionary<GizmoId, GizmoInfo> GizmoInfos = new Dictionary<GizmoId, GizmoInfo>
+        {
+            { GizmoId.XMover, new GizmoInfo
+            {
+                Center = new Vector3(GizmoHeight, GizmoWidth, GizmoWidth), // X gizmo occupies the center
+                Size   = new Vector3(GizmoHeight, GizmoWidth, GizmoWidth),
+                Color = Color.Red,
+            } },
+            { GizmoId.YMover, new GizmoInfo
+            {
+                Center = new Vector3(GizmoWidth, -GizmoHeight + GizmoWidth, GizmoWidth), // Y center is inverted
+                Size   = new Vector3(GizmoWidth, GizmoHeight - GizmoWidth, GizmoWidth),
+                Color = Color.Green,
+            } },
+            { GizmoId.ZMover, new GizmoInfo
+            {
+                Center = new Vector3(GizmoWidth, GizmoWidth, GizmoHeight + GizmoWidth),
+                Size   = new Vector3(GizmoWidth, GizmoWidth, GizmoHeight - GizmoWidth),
+                Color = Color.Blue,
+            } },
+        };
+
 
         public static int AttributeIndexPosition = 0;
         public static int AttributeIndexColour = 1;
@@ -89,6 +121,9 @@ namespace PSXPrev.Common.Renderer
         private List<Tuple<ModelEntity, Triangle>> _lastPickedTriangles;
         private int _lastPickedEntityIndex;
         private int _lastPickedTriangleIndex;
+        private float _currentWidth = 1f;
+        private float _currentHeight = 1f;
+        private float _cameraDistanceScalar = 1f; // Applied when using _viewMatrix(Origin) to correct distance
 
         private Color _clearColor;
         public Color ClearColor
@@ -121,6 +156,20 @@ namespace PSXPrev.Common.Renderer
 
         public float CameraPanIncrement => CameraDistanceToTarget * CameraPanIncrementFactor;
 
+        private float _cameraFOV = 60f;
+        public float CameraFOV
+        {
+            get => _cameraFOV;
+            set
+            {
+                _cameraFOV = Math.Max(CameraMinFOV, Math.Min(CameraMaxFOV, value));
+                _cameraDistanceScalar = (float)(Math.Tan(CameraFOVRads / 2d) * 2d / CameraBaseDistanceScalar);
+                SetupMatrices(_currentWidth, _currentHeight, CameraNearClip, CameraFarClip);
+                UpdateViewMatrix(); // Update view matrix because it relies on FOV to preserve distance
+            }
+        }
+        private float CameraFOVRads => CameraFOV * GeomMath.Deg2Rad;
+
         private float _cameraDistance;
         public float CameraDistance
         {
@@ -139,7 +188,7 @@ namespace PSXPrev.Common.Renderer
         public float CameraPitch
         {
             get => _cameraPitch;
-            set => _cameraPitch = Math.Max(-MaxCameraPitch, Math.Min(MaxCameraPitch, value));
+            set => _cameraPitch = Math.Max(-CameraMaxPitch, Math.Min(CameraMaxPitch, value));
         }
 
         public float CameraX { get; set; }
@@ -150,7 +199,7 @@ namespace PSXPrev.Common.Renderer
 
         public Vector3 CameraDirection => CameraRotation * Vector3.UnitZ;
 
-        public float CameraDistanceToTarget => -_viewOriginMatrix.ExtractTranslation().Z;
+        public float CameraDistanceToTarget => -_viewOriginMatrix.ExtractTranslation().Z * _cameraDistanceScalar;
 
         private Vector3 _lightRotation;
 
@@ -274,6 +323,16 @@ namespace PSXPrev.Common.Renderer
 
         private void SetupMatrices(float width, float height, float nearClip, float farClip)
         {
+            _currentWidth = width;
+            _currentHeight = height;
+
+            // I'm not sure what the math is here, I just know multiplying the clips like this is what works.
+            // 1 FOV has too much Z-fighting, without any division and when dividing by scalar.
+            nearClip /= _cameraDistanceScalar * _cameraDistanceScalar;
+            // 1 FOV will disappear too soon if we don't divide by scalar.
+            // 160 FOV will disappear too soon if we divide by scalar^2.
+            farClip  /= _cameraDistanceScalar;
+
             _projectionMatrix = Matrix4.CreatePerspectiveFieldOfView(CameraFOVRads, width / height, nearClip, farClip);
         }
 
@@ -292,7 +351,8 @@ namespace PSXPrev.Common.Renderer
             var targetTranslation = Matrix4.CreateTranslation(-_viewTarget);
             var cameraTranslation = Matrix4.CreateTranslation(CameraX, -CameraY, 0f);
             var rotation = Matrix4.CreateRotationY(_cameraYaw) * Matrix4.CreateRotationX(_cameraPitch);
-            var eye = (rotation * new Vector4(0f, 0f, -_cameraDistance, 1f)).Xyz;
+            var distance = -_cameraDistance / _cameraDistanceScalar;
+            var eye = (rotation * new Vector4(0f, 0f, distance, 1f)).Xyz;
 
             // Target (0, 0, 0), then apply _viewTarget translation later, because we need _viewOriginMatrix.
             _viewOriginMatrix = Matrix4.LookAt(eye, Vector3.Zero, new Vector3(0f, -1f, 0f));
@@ -325,6 +385,7 @@ namespace PSXPrev.Common.Renderer
                 BoundsBatch.SetupAndDraw(_viewMatrix, _projectionMatrix);
             }
             GL.Clear(ClearBufferMask.DepthBufferBit);
+            // todo: Should ShowBounds really determine if the selected triangle is highlighted?
             if (ShowBounds)
             {
                 TriangleOutlineBatch.SetupAndDraw(_viewMatrix, _projectionMatrix, 2f);
@@ -337,6 +398,31 @@ namespace PSXPrev.Common.Renderer
             GL.Disable(EnableCap.DepthTest);
             GL.Disable(EnableCap.Texture2D);
             GL.UseProgram(0);
+        }
+
+        public void UpdateGizmos(EntityBase selectedEntityBase, GizmoId hoveredGizmo, GizmoId selectedGizmo, bool updateMeshData)
+        {
+            if (updateMeshData)
+            {
+                GizmosMeshBatch.Reset(3);
+            }
+            if (selectedEntityBase == null)
+            {
+                return;
+            }
+            var center = selectedEntityBase.Bounds3D.Center;
+            var matrix = Matrix4.CreateTranslation(center);
+            var scaleMatrix = GetGizmoScaleMatrix(center);
+            var finalMatrix = scaleMatrix * matrix;
+
+            var i = 0;
+            for (var gizmo = GizmoId.XMover; gizmo <= GizmoId.ZMover; gizmo++, i++)
+            {
+                var gizmoInfo = GizmoInfos[gizmo];
+                var selected = hoveredGizmo == gizmo || selectedGizmo == gizmo;
+                var color = selected ? SelectedGizmoColor : gizmoInfo.Color;
+                GizmosMeshBatch.BindCube(finalMatrix, color, gizmoInfo.Center, gizmoInfo.Size, i, null, updateMeshData);
+            }
         }
 
         public EntityBase GetEntityUnderMouse(RootEntity[] checkedEntities, RootEntity selectedRootEntity, int x, int y, float width, float height, bool selectRoot = false)
@@ -506,7 +592,9 @@ namespace PSXPrev.Common.Renderer
         private void DistanceToFitBounds(BoundingBox bounds)
         {
             var radius = bounds.MagnitudeFromPosition(_viewTarget);
-            var distance = radius / (float)Math.Sin(CameraFOVRads * 0.5f) + 0.1f;
+            // Legacy FOV logic: camera distance is already divided by
+            // FOV distance scalar, but we want 60 FOV as the baseline.
+            var distance = radius / (float)Math.Sin(60f * GeomMath.Deg2Rad / 2f) + 0.1f;
             CameraDistance = distance;
             UpdateViewMatrix();
         }
@@ -519,24 +607,27 @@ namespace PSXPrev.Common.Renderer
             }
             if (selectedEntityBase != null)
             {
-                var matrix = Matrix4.CreateTranslation(selectedEntityBase.Bounds3D.Center);
-                var scaleMatrix = GetGizmoScaleMatrix(matrix.ExtractTranslation());
+                var center = selectedEntityBase.Bounds3D.Center;
+                var matrix = Matrix4.CreateTranslation(center);
+                var scaleMatrix = GetGizmoScaleMatrix(center);
                 var finalMatrix = scaleMatrix * matrix;
-                GeomMath.GetBoxMinMax(XGizmoDimensions, XGizmoDimensions, out var xMin, out var xMax, finalMatrix);
-                if (GeomMath.BoxIntersect(_rayOrigin, _rayDirection, xMin, xMax) > 0f)
+
+                // Find the closest gizmo that's intersected
+                var minIntersectionGizmo = GizmoId.None;
+                var minIntersectionDistance = float.MaxValue;
+                for (var gizmo = GizmoId.XMover; gizmo <= GizmoId.ZMover; gizmo++)
                 {
-                    return GizmoId.XMover;
+                    var gizmoInfo = GizmoInfos[gizmo];
+                    GeomMath.GetBoxMinMax(gizmoInfo.Center, gizmoInfo.Size, out var boxMin, out var boxMax, finalMatrix);
+
+                    var intersectionDistance = GeomMath.BoxIntersect(_rayOrigin, _rayDirection, boxMin, boxMax);
+                    if (intersectionDistance > 0f && intersectionDistance < minIntersectionDistance)
+                    {
+                        minIntersectionDistance = intersectionDistance;
+                        minIntersectionGizmo = gizmo;
+                    }
                 }
-                GeomMath.GetBoxMinMax(YGizmoDimensions, YGizmoDimensions, out var yMin, out var yMax, finalMatrix);
-                if (GeomMath.BoxIntersect(_rayOrigin, _rayDirection, yMin, yMax) > 0f)
-                {
-                    return GizmoId.YMover;
-                }
-                GeomMath.GetBoxMinMax(ZGizmoDimensions, ZGizmoDimensions, out var zMin, out var zMax, finalMatrix);
-                if (GeomMath.BoxIntersect(_rayOrigin, _rayDirection, zMin, zMax) > 0f)
-                {
-                    return GizmoId.ZMover;
-                }
+                return minIntersectionGizmo;
             }
             return GizmoId.None;
         }
@@ -559,7 +650,8 @@ namespace PSXPrev.Common.Renderer
 
         private float CameraDistanceFrom(Vector3 point)
         {
-            return (_viewMatrix.Inverted().ExtractTranslation() - point).Length;
+            var distance = (_viewMatrix.Inverted().ExtractTranslation() - point).Length;
+            return distance * _cameraDistanceScalar;
         }
 
         public Matrix4 GetGizmoScaleMatrix(Vector3 position)

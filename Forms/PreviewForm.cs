@@ -901,23 +901,13 @@ namespace PSXPrev.Forms
 
         private void UpdateGizmos(Scene.GizmoId selectedGizmo = Scene.GizmoId.None, Scene.GizmoId hoveredGizmo = Scene.GizmoId.None, bool updateMeshData = true)
         {
-            if (updateMeshData)
-            {
-                _scene.GizmosMeshBatch.Reset(3);
-            }
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
-            if (selectedEntityBase == null)
+            _scene.UpdateGizmos(selectedEntityBase, hoveredGizmo, selectedGizmo, updateMeshData);
+            if (selectedEntityBase != null)
             {
-                return;
+                _selectedGizmo = selectedGizmo;
+                _hoveredGizmo = hoveredGizmo;
             }
-            var matrix = Matrix4.CreateTranslation(selectedEntityBase.Bounds3D.Center);
-            var scaleMatrix = _scene.GetGizmoScaleMatrix(matrix.ExtractTranslation());
-            var finalMatrix = scaleMatrix * matrix;
-            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.XMover || selectedGizmo == Scene.GizmoId.XMover ? Common.Color.White : Common.Color.Red, Scene.XGizmoDimensions, Scene.XGizmoDimensions, 0, null, updateMeshData);
-            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.YMover || selectedGizmo == Scene.GizmoId.YMover ? Common.Color.White : Common.Color.Green, Scene.YGizmoDimensions, Scene.YGizmoDimensions, 1, null, updateMeshData);
-            _scene.GizmosMeshBatch.BindCube(finalMatrix, hoveredGizmo == Scene.GizmoId.ZMover || selectedGizmo == Scene.GizmoId.ZMover ? Common.Color.White : Common.Color.Blue, Scene.ZGizmoDimensions, Scene.ZGizmoDimensions, 2, null, updateMeshData);
-            _selectedGizmo = selectedGizmo;
-            _hoveredGizmo = hoveredGizmo;
         }
 
         private void UpdateSelectedEntity(bool updateMeshData = true)
@@ -1841,6 +1831,13 @@ namespace PSXPrev.Forms
         private void vertexSizeUpDown_ValueChanged(object sender, EventArgs e)
         {
             _scene.VertexSize = vertexSizeUpDown.Value;
+        }
+
+        private void cameraFOVUpDown_ValueChanged(object sender, EventArgs e)
+        {
+            _scene.CameraFOV = (float)cameraFOVUpDown.Value;
+            cameraFOVUpDown.Refresh(); // Too slow to refresh number normally if using the arrow keys
+            UpdateGizmos(_selectedGizmo, _hoveredGizmo, false);
         }
 
         private void pauseScanningToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
