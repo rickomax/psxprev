@@ -28,9 +28,9 @@ PSXPREV - PlayStation (PSX) Files Previewer/Extractor
 </details>
 
 <!-- Preview image markdown reference links -->
-[Preview Space Shuttle]: <https://i.snipboard.io/hLlNy5.jpg>
+[Preview Space Shuttle]: <https://github.com/rickomax/psxprev/assets/9752430/20a11609-d75f-49ce-ad6c-84d458802082>
 [Preview Planet DOB cast]: <https://github.com/rickomax/psxprev/assets/12863984/3070bf42-33f1-42b1-b09f-48386390f397>
-[Preview Planet DOB DOB]: <https://cdn.discordapp.com/attachments/1126965151694852179/1133838519312334948/image.png>
+[Preview Planet DOB DOB]: <https://github.com/rickomax/psxprev/assets/9752430/ba2da3bd-cfca-441b-9bcd-dc695a645530>
 
 ---
 
