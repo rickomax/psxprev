@@ -109,35 +109,47 @@ namespace PSXPrev.Common.Renderer
             line.Draw(width);
         }
 
-        public void SetupEntityBounds(EntityBase entity)
+        public void SetupEntityBounds(EntityBase entity, Color color = null)
         {
             if (entity == null)
             {
                 return;
             }
+            if (color == null)
+            {
+                color = Color.White;
+            }
             var corners = entity.Bounds3D.Corners;
-            AddLine(corners[0], corners[2], Color.White);
-            AddLine(corners[2], corners[4], Color.White);
-            AddLine(corners[4], corners[1], Color.White);
-            AddLine(corners[1], corners[0], Color.White);
-            AddLine(corners[6], corners[7], Color.White);
-            AddLine(corners[7], corners[5], Color.White);
-            AddLine(corners[5], corners[3], Color.White);
-            AddLine(corners[3], corners[6], Color.White);
-            AddLine(corners[4], corners[7], Color.White);
-            AddLine(corners[6], corners[2], Color.White);
-            AddLine(corners[1], corners[5], Color.White);
-            AddLine(corners[3], corners[0], Color.White);
+            AddLine(corners[0], corners[2], color);
+            AddLine(corners[2], corners[4], color);
+            AddLine(corners[4], corners[1], color);
+            AddLine(corners[1], corners[0], color);
+            AddLine(corners[6], corners[7], color);
+            AddLine(corners[7], corners[5], color);
+            AddLine(corners[5], corners[3], color);
+            AddLine(corners[3], corners[6], color);
+            AddLine(corners[4], corners[7], color);
+            AddLine(corners[6], corners[2], color);
+            AddLine(corners[1], corners[5], color);
+            AddLine(corners[3], corners[0], color);
         }
 
-        public void SetupTriangleOutline(Triangle triangle, Matrix4 worldMatrix)
+        public void SetupTriangleOutline(Triangle triangle, Matrix4 worldMatrix, Color color = null)
         {
+            if (triangle == null)
+            {
+                return;
+            }
+            if (color == null)
+            {
+                color = Color.White;
+            }
             var vertex0 = Vector3.TransformPosition(triangle.Vertices[0], worldMatrix);
             var vertex1 = Vector3.TransformPosition(triangle.Vertices[1], worldMatrix);
             var vertex2 = Vector3.TransformPosition(triangle.Vertices[2], worldMatrix);
-            AddLine(vertex0, vertex1, Color.White);
-            AddLine(vertex1, vertex2, Color.White);
-            AddLine(vertex2, vertex0, Color.White);
+            AddLine(vertex0, vertex1, color);
+            AddLine(vertex1, vertex2, color);
+            AddLine(vertex2, vertex0, color);
         }
     }
 }

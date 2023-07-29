@@ -107,13 +107,15 @@ namespace PSXPrev.Common.Renderer
             BindMesh(modelEntity, matrix, textureBinder, finalVertices != null || finalNormals != null, initialVertices, initialNormals, finalVertices, finalNormals, interpolator);
         }
 
-        public void BindCube(Matrix4 matrix, Color color, Vector3 center, Vector3 size, int index, TextureBinder textureBinder = null, bool updateMeshData = true)
+        public void BindCube(Matrix4 matrix, Color color, Vector3 center, Vector3 size, int index, TextureBinder textureBinder = null, bool updateMeshData = true, RenderFlags renderFlags = RenderFlags.DoubleSided, MixtureRate mixtureRate = MixtureRate.None)
         {
             var mesh = GetMesh(index);
             if (mesh == null)
             {
                 return;
             }
+            mesh.RenderFlags = renderFlags;
+            mesh.MixtureRate = mixtureRate;
             if (updateMeshData)
             {
                 const int numTriangles = 12;
