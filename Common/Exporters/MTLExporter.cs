@@ -11,18 +11,20 @@ namespace PSXPrev.Common.Exporters
 
         private readonly StreamWriter _writer;
         private readonly string _selectedPath;
-        private readonly int _modelIndex;
+        private readonly string _baseName;
+        private readonly string _baseTextureName;
         private readonly MaterialDictionary _materialIds;
         private readonly HashSet<Texture> _writtenMaterials = new HashSet<Texture>();
 
         public string FileName { get; }
 
-        public MTLExporter(string selectedPath, int modelIndex, MaterialDictionary materialIds = null)
+        public MTLExporter(string selectedPath, string baseName, string baseTextureName, MaterialDictionary materialIds = null)
         {
-            FileName = $"mtl{modelIndex}.mtl";
+            FileName = $"{baseName}.mtl";
             _writer = new StreamWriter($"{selectedPath}/{FileName}");
             _selectedPath = selectedPath;
-            _modelIndex = modelIndex;
+            _baseName = baseName;
+            _baseTextureName = baseTextureName;
             _materialIds = materialIds ?? new MaterialDictionary();
 
             // Add a material without a file for use with untextured models.
@@ -66,9 +68,9 @@ namespace PSXPrev.Common.Exporters
             _writer.WriteLine("illum 0"); // illumination: 0-color on and ambient off
             if (materialId.HasValue)
             {
-                _writer.WriteLine("map_Kd {0}.png", materialId); // diffuse texture map
+                _writer.WriteLine("map_Kd {0}.png", _baseTextureName + materialId); // diffuse texture map
                 //todo: Output alpha for transparent pixels
-                //_writer.WriteLine("map_d {0}a.png", materialId); // alpha texture map
+                //_writer.WriteLine("map_d {0}a.png", _baseTextureName + materialId); // alpha texture map
             }
         }
 

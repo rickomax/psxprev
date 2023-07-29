@@ -27,6 +27,44 @@ namespace PSXPrev.Common
         {
         }
 
+        public Texture(Texture fromTexture)
+            : this(fromTexture.Width, fromTexture.Height, fromTexture.X, fromTexture.Y, fromTexture.Bpp, fromTexture.TexturePage, fromTexture.IsVRAMPage)
+        {
+            try
+            {
+                TextureName = fromTexture.TextureName;
+
+                // Copy main bitmap
+                using (var graphics = Graphics.FromImage(Bitmap))
+                {
+                    // Use SourceCopy to overwrite image alpha with alpha stored in textures.
+                    graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                    graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+
+                    graphics.DrawImage(fromTexture.Bitmap, 0, 0);
+                }
+
+                if (fromTexture.SemiTransparentMap != null)
+                {
+                    // Copy semi-transparent bitmap
+                    SetupSemiTransparentMap();
+                    using (var graphics = Graphics.FromImage(SemiTransparentMap))
+                    {
+                        // Use SourceCopy to overwrite image alpha with alpha stored in textures.
+                        graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+
+                        graphics.DrawImage(fromTexture.SemiTransparentMap, 0, 0);
+                    }
+                }
+            }
+            catch
+            {
+                Dispose();
+                throw;
+            }
+        }
+
         [DisplayName("Name")]
         public string TextureName { get; set; }
 

@@ -30,7 +30,6 @@ namespace PSXPrev.Forms
         /// </summary>
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
             Manina.Windows.Forms.ImageListView.ImageListViewColumnHeader imageListViewColumnHeader1 = new Manina.Windows.Forms.ImageListView.ImageListViewColumnHeader(Manina.Windows.Forms.ColumnType.Custom, "Found", "Found", 100, 0, true);
             Manina.Windows.Forms.ImageListView.ImageListViewColumnHeader imageListViewColumnHeader2 = new Manina.Windows.Forms.ImageListView.ImageListViewColumnHeader(Manina.Windows.Forms.ColumnType.Custom, "Textures", "Textures", 100, 1, true);
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(PreviewForm));
@@ -39,7 +38,7 @@ namespace PSXPrev.Forms
             this.splitContainer6 = new System.Windows.Forms.SplitContainer();
             this.entitiesTreeView = new System.Windows.Forms.TreeView();
             this.tableLayoutPanel5 = new System.Windows.Forms.TableLayoutPanel();
-            this.exportEntityButton = new System.Windows.Forms.Button();
+            this.exportSelectedModelsButton = new System.Windows.Forms.Button();
             this.modelPropertyGrid = new System.Windows.Forms.PropertyGrid();
             this.menusTabControl = new System.Windows.Forms.TabControl();
             this.bitmapsTabPage = new System.Windows.Forms.TabPage();
@@ -72,18 +71,16 @@ namespace PSXPrev.Forms
             this.animationGroupBox = new System.Windows.Forms.GroupBox();
             this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
             this.label6 = new System.Windows.Forms.Label();
-            this.animationSpeedNumericUpDown = new System.Windows.Forms.NumericUpDown();
             this.label3 = new System.Windows.Forms.Label();
             this.tableLayoutPanel6 = new System.Windows.Forms.TableLayoutPanel();
             this.animationFrameTrackBar = new System.Windows.Forms.TrackBar();
             this.animationProgressLabel = new System.Windows.Forms.Label();
+            this.flowLayoutPanel7 = new System.Windows.Forms.FlowLayoutPanel();
+            this.animationSpeedNumericUpDown = new System.Windows.Forms.NumericUpDown();
             this.animationPlayButtonx = new System.Windows.Forms.Button();
-            this.cmsModelExport = new System.Windows.Forms.ContextMenuStrip(this.components);
-            this.miOBJ = new System.Windows.Forms.ToolStripMenuItem();
-            this.miOBJVC = new System.Windows.Forms.ToolStripMenuItem();
-            this.miOBJMerged = new System.Windows.Forms.ToolStripMenuItem();
-            this.miOBJVCMerged = new System.Windows.Forms.ToolStripMenuItem();
-            this.exportSelectedToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.exportModelsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.exportSelectedModelsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.exportAllModelsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.mainMenuStrip = new System.Windows.Forms.MenuStrip();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.pauseScanningToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -92,7 +89,6 @@ namespace PSXPrev.Forms
             this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.modelsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.resetTransformToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.cmsResetTransform = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.resetWholeModelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.resetSelectedModelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
@@ -101,7 +97,7 @@ namespace PSXPrev.Forms
             this.showGizmosToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.showBoundsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.enableLightToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.enableTransparencyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.enableSemiTransparencyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.forceDoubleSidedToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoAttachLimbsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator7 = new System.Windows.Forms.ToolStripSeparator();
@@ -110,9 +106,12 @@ namespace PSXPrev.Forms
             this.toolStripSeparator8 = new System.Windows.Forms.ToolStripSeparator();
             this.lineRendererToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.texturesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.exportSelectedToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.exportTexturesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.exportSelectedTexturesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.exportAllTexturesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.drawToVRAMToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.drawAllToVRAMToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.findByPageToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.clearSearchToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
@@ -120,6 +119,11 @@ namespace PSXPrev.Forms
             this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
             this.setMaskColorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.vRAMToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.exportVRAMPagesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.exportSelectedVRAMPageToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.exportDrawnToVRAMPagesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.exportAllVRAMPagesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator9 = new System.Windows.Forms.ToolStripSeparator();
             this.clearPageToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.clearAllPagesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
@@ -127,6 +131,7 @@ namespace PSXPrev.Forms
             this.animationsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoPlayAnimationsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoSelectAnimationModelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItem2 = new System.Windows.Forms.ToolStripSeparator();
             this.showTMDBindingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.videoTutorialToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -136,20 +141,30 @@ namespace PSXPrev.Forms
             this.aboutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.messageToolStripLabel = new System.Windows.Forms.ToolStripStatusLabel();
-            this.label1 = new System.Windows.Forms.Label();
-            this.gridSizeNumericUpDown = new System.Windows.Forms.NumericUpDown();
-            this.label2 = new System.Windows.Forms.Label();
-            this.lightPitchNumericUpDown = new System.Windows.Forms.NumericUpDown();
-            this.lightYawNumericUpDown = new System.Windows.Forms.NumericUpDown();
-            this.lightRollNumericUpDown = new System.Windows.Forms.NumericUpDown();
-            this.lightIntensityNumericUpDown = new System.Windows.Forms.NumericUpDown();
-            this.label5 = new System.Windows.Forms.Label();
-            this.label4 = new System.Windows.Forms.Label();
-            this.vertexSizeUpDown = new System.Windows.Forms.NumericUpDown();
             this.flowLayoutPanel2 = new System.Windows.Forms.FlowLayoutPanel();
-            this.toolStripMenuItem2 = new System.Windows.Forms.ToolStripSeparator();
-            this.cameraFOVUpDown = new System.Windows.Forms.NumericUpDown();
+            this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
+            this.label2 = new System.Windows.Forms.Label();
+            this.gridSizeNumericUpDown = new System.Windows.Forms.NumericUpDown();
+            this.flowLayoutPanel3 = new System.Windows.Forms.FlowLayoutPanel();
+            this.label1 = new System.Windows.Forms.Label();
+            this.lightRollNumericUpDown = new System.Windows.Forms.NumericUpDown();
+            this.lightYawNumericUpDown = new System.Windows.Forms.NumericUpDown();
+            this.lightPitchNumericUpDown = new System.Windows.Forms.NumericUpDown();
+            this.flowLayoutPanel4 = new System.Windows.Forms.FlowLayoutPanel();
+            this.label4 = new System.Windows.Forms.Label();
+            this.lightIntensityNumericUpDown = new System.Windows.Forms.NumericUpDown();
+            this.flowLayoutPanel5 = new System.Windows.Forms.FlowLayoutPanel();
+            this.label5 = new System.Windows.Forms.Label();
+            this.vertexSizeUpDown = new System.Windows.Forms.NumericUpDown();
+            this.flowLayoutPanel6 = new System.Windows.Forms.FlowLayoutPanel();
             this.label7 = new System.Windows.Forms.Label();
+            this.cameraFOVUpDown = new System.Windows.Forms.NumericUpDown();
+            this.flowLayoutPanel8 = new System.Windows.Forms.FlowLayoutPanel();
+            this.label8 = new System.Windows.Forms.Label();
+            this.animationLoopModeComboBox = new System.Windows.Forms.ComboBox();
+            this.flowLayoutPanel9 = new System.Windows.Forms.FlowLayoutPanel();
+            this.label9 = new System.Windows.Forms.Label();
+            this.animationReverseCheckBox = new System.Windows.Forms.CheckBox();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -196,21 +211,27 @@ namespace PSXPrev.Forms
             this.animationsTableLayoutPanel.SuspendLayout();
             this.animationGroupBox.SuspendLayout();
             this.tableLayoutPanel2.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.animationSpeedNumericUpDown)).BeginInit();
             this.tableLayoutPanel6.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.animationFrameTrackBar)).BeginInit();
-            this.cmsModelExport.SuspendLayout();
+            this.flowLayoutPanel7.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.animationSpeedNumericUpDown)).BeginInit();
             this.mainMenuStrip.SuspendLayout();
-            this.cmsResetTransform.SuspendLayout();
             this.statusStrip1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.gridSizeNumericUpDown)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.lightPitchNumericUpDown)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.lightYawNumericUpDown)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.lightRollNumericUpDown)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.lightIntensityNumericUpDown)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).BeginInit();
             this.flowLayoutPanel2.SuspendLayout();
+            this.flowLayoutPanel1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.gridSizeNumericUpDown)).BeginInit();
+            this.flowLayoutPanel3.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.lightRollNumericUpDown)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.lightYawNumericUpDown)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.lightPitchNumericUpDown)).BeginInit();
+            this.flowLayoutPanel4.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.lightIntensityNumericUpDown)).BeginInit();
+            this.flowLayoutPanel5.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).BeginInit();
+            this.flowLayoutPanel6.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.cameraFOVUpDown)).BeginInit();
+            this.flowLayoutPanel8.SuspendLayout();
+            this.flowLayoutPanel9.SuspendLayout();
             this.SuspendLayout();
             // 
             // entitiesTabPage
@@ -252,7 +273,7 @@ namespace PSXPrev.Forms
             // 
             this.splitContainer6.Panel2.Controls.Add(this.tableLayoutPanel5);
             this.splitContainer6.Size = new System.Drawing.Size(330, 567);
-            this.splitContainer6.SplitterDistance = 180;
+            this.splitContainer6.SplitterDistance = 200;
             this.splitContainer6.TabIndex = 0;
             // 
             // entitiesTreeView
@@ -262,7 +283,7 @@ namespace PSXPrev.Forms
             this.entitiesTreeView.HideSelection = false;
             this.entitiesTreeView.Location = new System.Drawing.Point(0, 0);
             this.entitiesTreeView.Name = "entitiesTreeView";
-            this.entitiesTreeView.Size = new System.Drawing.Size(330, 180);
+            this.entitiesTreeView.Size = new System.Drawing.Size(330, 200);
             this.entitiesTreeView.TabIndex = 9;
             this.entitiesTreeView.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.entitiesTreeView_AfterCheck);
             this.entitiesTreeView.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.entitiesTreeView_AfterSelect);
@@ -272,7 +293,7 @@ namespace PSXPrev.Forms
             // 
             this.tableLayoutPanel5.ColumnCount = 1;
             this.tableLayoutPanel5.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel5.Controls.Add(this.exportEntityButton, 0, 1);
+            this.tableLayoutPanel5.Controls.Add(this.exportSelectedModelsButton, 0, 1);
             this.tableLayoutPanel5.Controls.Add(this.modelPropertyGrid, 0, 0);
             this.tableLayoutPanel5.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tableLayoutPanel5.Location = new System.Drawing.Point(0, 0);
@@ -281,20 +302,20 @@ namespace PSXPrev.Forms
             this.tableLayoutPanel5.RowCount = 2;
             this.tableLayoutPanel5.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel5.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel5.Size = new System.Drawing.Size(330, 383);
+            this.tableLayoutPanel5.Size = new System.Drawing.Size(330, 363);
             this.tableLayoutPanel5.TabIndex = 1;
             // 
-            // exportEntityButton
+            // exportSelectedModelsButton
             // 
-            this.exportEntityButton.Dock = System.Windows.Forms.DockStyle.Top;
-            this.exportEntityButton.Location = new System.Drawing.Point(0, 349);
-            this.exportEntityButton.Margin = new System.Windows.Forms.Padding(0, 3, 0, 0);
-            this.exportEntityButton.Name = "exportEntityButton";
-            this.exportEntityButton.Size = new System.Drawing.Size(330, 34);
-            this.exportEntityButton.TabIndex = 8;
-            this.exportEntityButton.Text = "Export Checked Models";
-            this.exportEntityButton.UseVisualStyleBackColor = true;
-            this.exportEntityButton.Click += new System.EventHandler(this.exportEntityButton_Click);
+            this.exportSelectedModelsButton.Dock = System.Windows.Forms.DockStyle.Top;
+            this.exportSelectedModelsButton.Location = new System.Drawing.Point(0, 329);
+            this.exportSelectedModelsButton.Margin = new System.Windows.Forms.Padding(0, 3, 0, 0);
+            this.exportSelectedModelsButton.Name = "exportSelectedModelsButton";
+            this.exportSelectedModelsButton.Size = new System.Drawing.Size(330, 34);
+            this.exportSelectedModelsButton.TabIndex = 8;
+            this.exportSelectedModelsButton.Text = "Export Selected Models";
+            this.exportSelectedModelsButton.UseVisualStyleBackColor = true;
+            this.exportSelectedModelsButton.Click += new System.EventHandler(this.exportSelectedModels_Click);
             // 
             // modelPropertyGrid
             // 
@@ -304,7 +325,7 @@ namespace PSXPrev.Forms
             this.modelPropertyGrid.Margin = new System.Windows.Forms.Padding(0);
             this.modelPropertyGrid.Name = "modelPropertyGrid";
             this.modelPropertyGrid.PropertySort = System.Windows.Forms.PropertySort.NoSort;
-            this.modelPropertyGrid.Size = new System.Drawing.Size(330, 346);
+            this.modelPropertyGrid.Size = new System.Drawing.Size(330, 326);
             this.modelPropertyGrid.TabIndex = 14;
             this.modelPropertyGrid.ToolbarVisible = false;
             this.modelPropertyGrid.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.modelPropertyGrid_PropertyValueChanged);
@@ -434,7 +455,7 @@ namespace PSXPrev.Forms
             this.drawToVRAMButton.TabIndex = 13;
             this.drawToVRAMButton.Text = "Draw to VRAM";
             this.drawToVRAMButton.UseVisualStyleBackColor = true;
-            this.drawToVRAMButton.Click += new System.EventHandler(this.drawToVRAMButton_Click);
+            this.drawToVRAMButton.Click += new System.EventHandler(this.drawSelectedToVRAM_Click);
             // 
             // texturePropertyGrid
             // 
@@ -459,7 +480,7 @@ namespace PSXPrev.Forms
             this.exportBitmapButton.TabIndex = 9;
             this.exportBitmapButton.Text = "Export Selected Textures";
             this.exportBitmapButton.UseVisualStyleBackColor = true;
-            this.exportBitmapButton.Click += new System.EventHandler(this.exportBitmapButton_Click);
+            this.exportBitmapButton.Click += new System.EventHandler(this.exportSelectedTextures_Click);
             // 
             // texturesZoomLabel
             // 
@@ -758,9 +779,9 @@ namespace PSXPrev.Forms
             this.animationGroupBox.Controls.Add(this.tableLayoutPanel2);
             this.animationGroupBox.Controls.Add(this.animationPlayButtonx);
             this.animationGroupBox.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.animationGroupBox.Location = new System.Drawing.Point(3, 440);
+            this.animationGroupBox.Location = new System.Drawing.Point(3, 439);
             this.animationGroupBox.Name = "animationGroupBox";
-            this.animationGroupBox.Size = new System.Drawing.Size(654, 124);
+            this.animationGroupBox.Size = new System.Drawing.Size(654, 125);
             this.animationGroupBox.TabIndex = 1;
             this.animationGroupBox.TabStop = false;
             this.animationGroupBox.Text = "Animation";
@@ -773,23 +794,23 @@ namespace PSXPrev.Forms
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel2.Controls.Add(this.label6, 0, 1);
-            this.tableLayoutPanel2.Controls.Add(this.animationSpeedNumericUpDown, 1, 0);
             this.tableLayoutPanel2.Controls.Add(this.label3, 0, 0);
             this.tableLayoutPanel2.Controls.Add(this.tableLayoutPanel6, 1, 1);
+            this.tableLayoutPanel2.Controls.Add(this.flowLayoutPanel7, 1, 0);
             this.tableLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Top;
             this.tableLayoutPanel2.Location = new System.Drawing.Point(3, 16);
             this.tableLayoutPanel2.Name = "tableLayoutPanel2";
             this.tableLayoutPanel2.RowCount = 2;
             this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 45F));
-            this.tableLayoutPanel2.Size = new System.Drawing.Size(648, 71);
+            this.tableLayoutPanel2.Size = new System.Drawing.Size(648, 72);
             this.tableLayoutPanel2.TabIndex = 22;
             // 
             // label6
             // 
             this.label6.AutoSize = true;
             this.label6.Dock = System.Windows.Forms.DockStyle.Left;
-            this.label6.Location = new System.Drawing.Point(3, 26);
+            this.label6.Location = new System.Drawing.Point(3, 27);
             this.label6.Name = "label6";
             this.label6.Padding = new System.Windows.Forms.Padding(0, 0, 0, 24);
             this.label6.Size = new System.Drawing.Size(51, 45);
@@ -797,38 +818,13 @@ namespace PSXPrev.Forms
             this.label6.Text = "Progress:";
             this.label6.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // animationSpeedNumericUpDown
-            // 
-            this.animationSpeedNumericUpDown.DecimalPlaces = 2;
-            this.animationSpeedNumericUpDown.Increment = new decimal(new int[] {
-            1,
-            0,
-            0,
-            65536});
-            this.animationSpeedNumericUpDown.Location = new System.Drawing.Point(69, 3);
-            this.animationSpeedNumericUpDown.Margin = new System.Windows.Forms.Padding(12, 3, 3, 3);
-            this.animationSpeedNumericUpDown.Minimum = new decimal(new int[] {
-            1,
-            0,
-            0,
-            131072});
-            this.animationSpeedNumericUpDown.Name = "animationSpeedNumericUpDown";
-            this.animationSpeedNumericUpDown.Size = new System.Drawing.Size(120, 20);
-            this.animationSpeedNumericUpDown.TabIndex = 2;
-            this.animationSpeedNumericUpDown.Value = new decimal(new int[] {
-            10,
-            0,
-            0,
-            65536});
-            this.animationSpeedNumericUpDown.ValueChanged += new System.EventHandler(this.animationSpeedNumericUpDown_ValueChanged);
-            // 
             // label3
             // 
             this.label3.AutoSize = true;
             this.label3.Dock = System.Windows.Forms.DockStyle.Left;
             this.label3.Location = new System.Drawing.Point(3, 0);
             this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(41, 26);
+            this.label3.Size = new System.Drawing.Size(41, 27);
             this.label3.TabIndex = 21;
             this.label3.Text = "Speed:";
             this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -841,7 +837,7 @@ namespace PSXPrev.Forms
             this.tableLayoutPanel6.Controls.Add(this.animationFrameTrackBar, 0, 0);
             this.tableLayoutPanel6.Controls.Add(this.animationProgressLabel, 1, 0);
             this.tableLayoutPanel6.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tableLayoutPanel6.Location = new System.Drawing.Point(60, 26);
+            this.tableLayoutPanel6.Location = new System.Drawing.Point(60, 27);
             this.tableLayoutPanel6.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this.tableLayoutPanel6.Name = "tableLayoutPanel6";
             this.tableLayoutPanel6.RowCount = 1;
@@ -873,11 +869,49 @@ namespace PSXPrev.Forms
             this.animationProgressLabel.Text = "0/0";
             this.animationProgressLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
+            // flowLayoutPanel7
+            // 
+            this.flowLayoutPanel7.AutoSize = true;
+            this.flowLayoutPanel7.Controls.Add(this.animationSpeedNumericUpDown);
+            this.flowLayoutPanel7.Controls.Add(this.flowLayoutPanel8);
+            this.flowLayoutPanel7.Controls.Add(this.flowLayoutPanel9);
+            this.flowLayoutPanel7.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.flowLayoutPanel7.Location = new System.Drawing.Point(57, 0);
+            this.flowLayoutPanel7.Margin = new System.Windows.Forms.Padding(0);
+            this.flowLayoutPanel7.Name = "flowLayoutPanel7";
+            this.flowLayoutPanel7.Size = new System.Drawing.Size(591, 27);
+            this.flowLayoutPanel7.TabIndex = 25;
+            // 
+            // animationSpeedNumericUpDown
+            // 
+            this.animationSpeedNumericUpDown.DecimalPlaces = 2;
+            this.animationSpeedNumericUpDown.Increment = new decimal(new int[] {
+            1,
+            0,
+            0,
+            65536});
+            this.animationSpeedNumericUpDown.Location = new System.Drawing.Point(12, 3);
+            this.animationSpeedNumericUpDown.Margin = new System.Windows.Forms.Padding(12, 3, 3, 3);
+            this.animationSpeedNumericUpDown.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            131072});
+            this.animationSpeedNumericUpDown.Name = "animationSpeedNumericUpDown";
+            this.animationSpeedNumericUpDown.Size = new System.Drawing.Size(70, 20);
+            this.animationSpeedNumericUpDown.TabIndex = 3;
+            this.animationSpeedNumericUpDown.Value = new decimal(new int[] {
+            10,
+            0,
+            0,
+            65536});
+            this.animationSpeedNumericUpDown.ValueChanged += new System.EventHandler(this.animationSpeedNumericUpDown_ValueChanged);
+            // 
             // animationPlayButtonx
             // 
             this.animationPlayButtonx.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.animationPlayButtonx.Enabled = false;
-            this.animationPlayButtonx.Location = new System.Drawing.Point(3, 87);
+            this.animationPlayButtonx.Location = new System.Drawing.Point(3, 88);
             this.animationPlayButtonx.Name = "animationPlayButtonx";
             this.animationPlayButtonx.Size = new System.Drawing.Size(648, 34);
             this.animationPlayButtonx.TabIndex = 16;
@@ -885,49 +919,28 @@ namespace PSXPrev.Forms
             this.animationPlayButtonx.UseVisualStyleBackColor = true;
             this.animationPlayButtonx.Click += new System.EventHandler(this.animationPlayButton_Click);
             // 
-            // cmsModelExport
+            // exportModelsToolStripMenuItem
             // 
-            this.cmsModelExport.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.miOBJ,
-            this.miOBJVC,
-            this.miOBJMerged,
-            this.miOBJVCMerged});
-            this.cmsModelExport.Name = "cmsModelExport";
-            this.cmsModelExport.OwnerItem = this.exportSelectedToolStripMenuItem;
-            this.cmsModelExport.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
-            this.cmsModelExport.Size = new System.Drawing.Size(355, 92);
-            this.cmsModelExport.ItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.cmsModelExport_ItemClicked);
+            this.exportModelsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.exportSelectedModelsToolStripMenuItem,
+            this.exportAllModelsToolStripMenuItem});
+            this.exportModelsToolStripMenuItem.Name = "exportModelsToolStripMenuItem";
+            this.exportModelsToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
+            this.exportModelsToolStripMenuItem.Text = "Export Models";
             // 
-            // miOBJ
+            // exportSelectedModelsToolStripMenuItem
             // 
-            this.miOBJ.Name = "miOBJ";
-            this.miOBJ.Size = new System.Drawing.Size(354, 22);
-            this.miOBJ.Text = "Wavefront .OBJ";
+            this.exportSelectedModelsToolStripMenuItem.Name = "exportSelectedModelsToolStripMenuItem";
+            this.exportSelectedModelsToolStripMenuItem.Size = new System.Drawing.Size(197, 22);
+            this.exportSelectedModelsToolStripMenuItem.Text = "Export Selected Models";
+            this.exportSelectedModelsToolStripMenuItem.Click += new System.EventHandler(this.exportSelectedModels_Click);
             // 
-            // miOBJVC
+            // exportAllModelsToolStripMenuItem
             // 
-            this.miOBJVC.Name = "miOBJVC";
-            this.miOBJVC.Size = new System.Drawing.Size(354, 22);
-            this.miOBJVC.Text = "Wavefront .OBJ (Experimental Vertex Color)";
-            // 
-            // miOBJMerged
-            // 
-            this.miOBJMerged.Name = "miOBJMerged";
-            this.miOBJMerged.Size = new System.Drawing.Size(354, 22);
-            this.miOBJMerged.Text = "Wavefront .OBJ - Merged";
-            // 
-            // miOBJVCMerged
-            // 
-            this.miOBJVCMerged.Name = "miOBJVCMerged";
-            this.miOBJVCMerged.Size = new System.Drawing.Size(354, 22);
-            this.miOBJVCMerged.Text = "Wavefront .OBJ - Merged (Experimental Vertex Color)";
-            // 
-            // exportSelectedToolStripMenuItem
-            // 
-            this.exportSelectedToolStripMenuItem.DropDown = this.cmsModelExport;
-            this.exportSelectedToolStripMenuItem.Name = "exportSelectedToolStripMenuItem";
-            this.exportSelectedToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
-            this.exportSelectedToolStripMenuItem.Text = "Export Selected";
+            this.exportAllModelsToolStripMenuItem.Name = "exportAllModelsToolStripMenuItem";
+            this.exportAllModelsToolStripMenuItem.Size = new System.Drawing.Size(197, 22);
+            this.exportAllModelsToolStripMenuItem.Text = "Export All Models";
+            this.exportAllModelsToolStripMenuItem.Click += new System.EventHandler(this.exportAllModels_Click);
             // 
             // mainMenuStrip
             // 
@@ -987,7 +1000,7 @@ namespace PSXPrev.Forms
             // modelsToolStripMenuItem
             // 
             this.modelsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.exportSelectedToolStripMenuItem,
+            this.exportModelsToolStripMenuItem,
             this.resetTransformToolStripMenuItem,
             this.toolStripSeparator2,
             this.wireframeToolStripMenuItem,
@@ -995,7 +1008,7 @@ namespace PSXPrev.Forms
             this.showGizmosToolStripMenuItem,
             this.showBoundsToolStripMenuItem,
             this.enableLightToolStripMenuItem,
-            this.enableTransparencyToolStripMenuItem,
+            this.enableSemiTransparencyToolStripMenuItem,
             this.forceDoubleSidedToolStripMenuItem,
             this.autoAttachLimbsToolStripMenuItem,
             this.toolStripSeparator7,
@@ -1009,20 +1022,12 @@ namespace PSXPrev.Forms
             // 
             // resetTransformToolStripMenuItem
             // 
-            this.resetTransformToolStripMenuItem.DropDown = this.cmsResetTransform;
-            this.resetTransformToolStripMenuItem.Name = "resetTransformToolStripMenuItem";
-            this.resetTransformToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
-            this.resetTransformToolStripMenuItem.Text = "Reset Transform";
-            // 
-            // cmsResetTransform
-            // 
-            this.cmsResetTransform.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.resetTransformToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.resetWholeModelToolStripMenuItem,
             this.resetSelectedModelToolStripMenuItem});
-            this.cmsResetTransform.Name = "cmsResetTransform";
-            this.cmsResetTransform.OwnerItem = this.resetTransformToolStripMenuItem;
-            this.cmsResetTransform.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
-            this.cmsResetTransform.Size = new System.Drawing.Size(187, 48);
+            this.resetTransformToolStripMenuItem.Name = "resetTransformToolStripMenuItem";
+            this.resetTransformToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
+            this.resetTransformToolStripMenuItem.Text = "Reset Transform";
             // 
             // resetWholeModelToolStripMenuItem
             // 
@@ -1041,22 +1046,21 @@ namespace PSXPrev.Forms
             // toolStripSeparator2
             // 
             this.toolStripSeparator2.Name = "toolStripSeparator2";
-            this.toolStripSeparator2.Size = new System.Drawing.Size(186, 6);
+            this.toolStripSeparator2.Size = new System.Drawing.Size(209, 6);
             // 
             // wireframeToolStripMenuItem
             // 
             this.wireframeToolStripMenuItem.CheckOnClick = true;
             this.wireframeToolStripMenuItem.Name = "wireframeToolStripMenuItem";
-            this.wireframeToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.wireframeToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.wireframeToolStripMenuItem.Text = "Wireframe";
             this.wireframeToolStripMenuItem.CheckedChanged += new System.EventHandler(this.wireframeToolStripMenuItem_CheckedChanged);
-            this.wireframeToolStripMenuItem.Click += new System.EventHandler(this.wireframeToolStripMenuItem_Click);
             // 
             // verticesOnlyToolStripMenuItem
             // 
             this.verticesOnlyToolStripMenuItem.CheckOnClick = true;
             this.verticesOnlyToolStripMenuItem.Name = "verticesOnlyToolStripMenuItem";
-            this.verticesOnlyToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.verticesOnlyToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.verticesOnlyToolStripMenuItem.Text = "Vertices Only";
             this.verticesOnlyToolStripMenuItem.Click += new System.EventHandler(this.verticesOnlyToolStripMenuItem_Click);
             // 
@@ -1066,7 +1070,7 @@ namespace PSXPrev.Forms
             this.showGizmosToolStripMenuItem.CheckOnClick = true;
             this.showGizmosToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.showGizmosToolStripMenuItem.Name = "showGizmosToolStripMenuItem";
-            this.showGizmosToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.showGizmosToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.showGizmosToolStripMenuItem.Text = "Show Gizmos";
             this.showGizmosToolStripMenuItem.Click += new System.EventHandler(this.showGizmosToolStripMenuItem_Click);
             // 
@@ -1076,7 +1080,7 @@ namespace PSXPrev.Forms
             this.showBoundsToolStripMenuItem.CheckOnClick = true;
             this.showBoundsToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.showBoundsToolStripMenuItem.Name = "showBoundsToolStripMenuItem";
-            this.showBoundsToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.showBoundsToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.showBoundsToolStripMenuItem.Text = "Show Bounds";
             this.showBoundsToolStripMenuItem.Click += new System.EventHandler(this.showBoundsToolStripMenuItem_Click);
             // 
@@ -1086,25 +1090,25 @@ namespace PSXPrev.Forms
             this.enableLightToolStripMenuItem.CheckOnClick = true;
             this.enableLightToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.enableLightToolStripMenuItem.Name = "enableLightToolStripMenuItem";
-            this.enableLightToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.enableLightToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.enableLightToolStripMenuItem.Text = "Enable Light";
             this.enableLightToolStripMenuItem.Click += new System.EventHandler(this.enableLightToolStripMenuItem_Click);
             // 
-            // enableTransparencyToolStripMenuItem
+            // enableSemiTransparencyToolStripMenuItem
             // 
-            this.enableTransparencyToolStripMenuItem.Checked = true;
-            this.enableTransparencyToolStripMenuItem.CheckOnClick = true;
-            this.enableTransparencyToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.enableTransparencyToolStripMenuItem.Name = "enableTransparencyToolStripMenuItem";
-            this.enableTransparencyToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
-            this.enableTransparencyToolStripMenuItem.Text = "Enable Transparency";
-            this.enableTransparencyToolStripMenuItem.Click += new System.EventHandler(this.enableTransparencyToolStripMenuItem_Click);
+            this.enableSemiTransparencyToolStripMenuItem.Checked = true;
+            this.enableSemiTransparencyToolStripMenuItem.CheckOnClick = true;
+            this.enableSemiTransparencyToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.enableSemiTransparencyToolStripMenuItem.Name = "enableSemiTransparencyToolStripMenuItem";
+            this.enableSemiTransparencyToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
+            this.enableSemiTransparencyToolStripMenuItem.Text = "Enable Semi-Transparency";
+            this.enableSemiTransparencyToolStripMenuItem.Click += new System.EventHandler(this.enableTransparencyToolStripMenuItem_Click);
             // 
             // forceDoubleSidedToolStripMenuItem
             // 
             this.forceDoubleSidedToolStripMenuItem.CheckOnClick = true;
             this.forceDoubleSidedToolStripMenuItem.Name = "forceDoubleSidedToolStripMenuItem";
-            this.forceDoubleSidedToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.forceDoubleSidedToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.forceDoubleSidedToolStripMenuItem.Text = "Force Double-Sided";
             this.forceDoubleSidedToolStripMenuItem.Click += new System.EventHandler(this.forceDoubleSidedToolStripMenuItem_Click);
             // 
@@ -1112,48 +1116,49 @@ namespace PSXPrev.Forms
             // 
             this.autoAttachLimbsToolStripMenuItem.CheckOnClick = true;
             this.autoAttachLimbsToolStripMenuItem.Name = "autoAttachLimbsToolStripMenuItem";
-            this.autoAttachLimbsToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.autoAttachLimbsToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.autoAttachLimbsToolStripMenuItem.Text = "Auto Attach Limbs";
             this.autoAttachLimbsToolStripMenuItem.Click += new System.EventHandler(this.autoAttachLimbsToolStripMenuItem_Click);
             // 
             // toolStripSeparator7
             // 
             this.toolStripSeparator7.Name = "toolStripSeparator7";
-            this.toolStripSeparator7.Size = new System.Drawing.Size(186, 6);
+            this.toolStripSeparator7.Size = new System.Drawing.Size(209, 6);
             // 
             // setAmbientColorToolStripMenuItem
             // 
             this.setAmbientColorToolStripMenuItem.Name = "setAmbientColorToolStripMenuItem";
-            this.setAmbientColorToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.setAmbientColorToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.setAmbientColorToolStripMenuItem.Text = "Set Ambient Color";
             this.setAmbientColorToolStripMenuItem.Click += new System.EventHandler(this.setAmbientColorToolStripMenuItem_Click);
             // 
             // setBackgroundColorToolStripMenuItem
             // 
             this.setBackgroundColorToolStripMenuItem.Name = "setBackgroundColorToolStripMenuItem";
-            this.setBackgroundColorToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.setBackgroundColorToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.setBackgroundColorToolStripMenuItem.Text = "Set Background Color";
             this.setBackgroundColorToolStripMenuItem.Click += new System.EventHandler(this.setBackgroundColorToolStripMenuItem_Click);
             // 
             // toolStripSeparator8
             // 
             this.toolStripSeparator8.Name = "toolStripSeparator8";
-            this.toolStripSeparator8.Size = new System.Drawing.Size(186, 6);
+            this.toolStripSeparator8.Size = new System.Drawing.Size(209, 6);
             // 
             // lineRendererToolStripMenuItem
             // 
             this.lineRendererToolStripMenuItem.CheckOnClick = true;
             this.lineRendererToolStripMenuItem.Name = "lineRendererToolStripMenuItem";
-            this.lineRendererToolStripMenuItem.Size = new System.Drawing.Size(189, 22);
+            this.lineRendererToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.lineRendererToolStripMenuItem.Text = "Line Renderer";
             this.lineRendererToolStripMenuItem.CheckedChanged += new System.EventHandler(this.lineRendererToolStripMenuItem_CheckedChanged);
             // 
             // texturesToolStripMenuItem
             // 
             this.texturesToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.exportSelectedToolStripMenuItem1,
+            this.exportTexturesToolStripMenuItem,
             this.toolStripSeparator3,
             this.drawToVRAMToolStripMenuItem,
+            this.drawAllToVRAMToolStripMenuItem,
             this.findByPageToolStripMenuItem,
             this.clearSearchToolStripMenuItem,
             this.toolStripSeparator1,
@@ -1164,12 +1169,26 @@ namespace PSXPrev.Forms
             this.texturesToolStripMenuItem.Size = new System.Drawing.Size(62, 20);
             this.texturesToolStripMenuItem.Text = "Textures";
             // 
-            // exportSelectedToolStripMenuItem1
+            // exportTexturesToolStripMenuItem
             // 
-            this.exportSelectedToolStripMenuItem1.Name = "exportSelectedToolStripMenuItem1";
-            this.exportSelectedToolStripMenuItem1.Size = new System.Drawing.Size(176, 22);
-            this.exportSelectedToolStripMenuItem1.Text = "Export Selected";
-            this.exportSelectedToolStripMenuItem1.Click += new System.EventHandler(this.exportBitmapButton_Click);
+            this.exportTexturesToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.exportSelectedTexturesToolStripMenuItem,
+            this.exportAllTexturesToolStripMenuItem});
+            this.exportTexturesToolStripMenuItem.Name = "exportTexturesToolStripMenuItem";
+            this.exportTexturesToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.exportTexturesToolStripMenuItem.Text = "Export Textures";
+            // 
+            // exportSelectedTexturesToolStripMenuItem
+            // 
+            this.exportSelectedTexturesToolStripMenuItem.Name = "exportSelectedTexturesToolStripMenuItem";
+            this.exportSelectedTexturesToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
+            this.exportSelectedTexturesToolStripMenuItem.Text = "Export Selected Textures";
+            // 
+            // exportAllTexturesToolStripMenuItem
+            // 
+            this.exportAllTexturesToolStripMenuItem.Name = "exportAllTexturesToolStripMenuItem";
+            this.exportAllTexturesToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
+            this.exportAllTexturesToolStripMenuItem.Text = "Export All Textures";
             // 
             // toolStripSeparator3
             // 
@@ -1181,7 +1200,14 @@ namespace PSXPrev.Forms
             this.drawToVRAMToolStripMenuItem.Name = "drawToVRAMToolStripMenuItem";
             this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
             this.drawToVRAMToolStripMenuItem.Text = "Draw to VRAM";
-            this.drawToVRAMToolStripMenuItem.Click += new System.EventHandler(this.drawToVRAMButton_Click);
+            this.drawToVRAMToolStripMenuItem.Click += new System.EventHandler(this.drawSelectedToVRAM_Click);
+            // 
+            // drawAllToVRAMToolStripMenuItem
+            // 
+            this.drawAllToVRAMToolStripMenuItem.Name = "drawAllToVRAMToolStripMenuItem";
+            this.drawAllToVRAMToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.drawAllToVRAMToolStripMenuItem.Text = "Draw All to VRAM";
+            this.drawAllToVRAMToolStripMenuItem.Click += new System.EventHandler(this.drawAllToVRAM_Click);
             // 
             // findByPageToolStripMenuItem
             // 
@@ -1226,6 +1252,8 @@ namespace PSXPrev.Forms
             // vRAMToolStripMenuItem
             // 
             this.vRAMToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.exportVRAMPagesToolStripMenuItem,
+            this.toolStripSeparator9,
             this.clearPageToolStripMenuItem,
             this.clearAllPagesToolStripMenuItem,
             this.toolStripSeparator4,
@@ -1233,6 +1261,42 @@ namespace PSXPrev.Forms
             this.vRAMToolStripMenuItem.Name = "vRAMToolStripMenuItem";
             this.vRAMToolStripMenuItem.Size = new System.Drawing.Size(52, 20);
             this.vRAMToolStripMenuItem.Text = "VRAM";
+            // 
+            // exportVRAMPagesToolStripMenuItem
+            // 
+            this.exportVRAMPagesToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.exportSelectedVRAMPageToolStripMenuItem,
+            this.exportDrawnToVRAMPagesToolStripMenuItem,
+            this.exportAllVRAMPagesToolStripMenuItem});
+            this.exportVRAMPagesToolStripMenuItem.Name = "exportVRAMPagesToolStripMenuItem";
+            this.exportVRAMPagesToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.exportVRAMPagesToolStripMenuItem.Text = "Export Pages";
+            // 
+            // exportSelectedVRAMPageToolStripMenuItem
+            // 
+            this.exportSelectedVRAMPageToolStripMenuItem.Name = "exportSelectedVRAMPageToolStripMenuItem";
+            this.exportSelectedVRAMPageToolStripMenuItem.Size = new System.Drawing.Size(195, 22);
+            this.exportSelectedVRAMPageToolStripMenuItem.Text = "Export Selected Page";
+            this.exportSelectedVRAMPageToolStripMenuItem.Click += new System.EventHandler(this.exportSelectedVRAMPage_Click);
+            // 
+            // exportDrawnToVRAMPagesToolStripMenuItem
+            // 
+            this.exportDrawnToVRAMPagesToolStripMenuItem.Name = "exportDrawnToVRAMPagesToolStripMenuItem";
+            this.exportDrawnToVRAMPagesToolStripMenuItem.Size = new System.Drawing.Size(195, 22);
+            this.exportDrawnToVRAMPagesToolStripMenuItem.Text = "Export Drawn-to Pages";
+            this.exportDrawnToVRAMPagesToolStripMenuItem.Click += new System.EventHandler(this.exportDrawnToVRAMPages_Click);
+            // 
+            // exportAllVRAMPagesToolStripMenuItem
+            // 
+            this.exportAllVRAMPagesToolStripMenuItem.Name = "exportAllVRAMPagesToolStripMenuItem";
+            this.exportAllVRAMPagesToolStripMenuItem.Size = new System.Drawing.Size(195, 22);
+            this.exportAllVRAMPagesToolStripMenuItem.Text = "Export All Pages";
+            this.exportAllVRAMPagesToolStripMenuItem.Click += new System.EventHandler(this.exportAllVRAMPages_Click);
+            // 
+            // toolStripSeparator9
+            // 
+            this.toolStripSeparator9.Name = "toolStripSeparator9";
+            this.toolStripSeparator9.Size = new System.Drawing.Size(149, 6);
             // 
             // clearPageToolStripMenuItem
             // 
@@ -1289,6 +1353,11 @@ namespace PSXPrev.Forms
             this.autoSelectAnimationModelToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
             this.autoSelectAnimationModelToolStripMenuItem.Text = "Auto Select Model";
             this.autoSelectAnimationModelToolStripMenuItem.Click += new System.EventHandler(this.autoSelectAnimationModelToolStripMenuItem_Click);
+            // 
+            // toolStripMenuItem2
+            // 
+            this.toolStripMenuItem2.Name = "toolStripMenuItem2";
+            this.toolStripMenuItem2.Size = new System.Drawing.Size(181, 6);
             // 
             // showTMDBindingsToolStripMenuItem
             // 
@@ -1362,162 +1431,14 @@ namespace PSXPrev.Forms
             this.messageToolStripLabel.Text = "Waiting";
             this.messageToolStripLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // label1
-            // 
-            this.label1.AutoSize = true;
-            this.label1.Dock = System.Windows.Forms.DockStyle.Left;
-            this.label1.Location = new System.Drawing.Point(675, 0);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(76, 26);
-            this.label1.TabIndex = 14;
-            this.label1.Text = "Light Rotation:";
-            this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // gridSizeNumericUpDown
-            // 
-            this.gridSizeNumericUpDown.Location = new System.Drawing.Point(962, 3);
-            this.gridSizeNumericUpDown.Name = "gridSizeNumericUpDown";
-            this.gridSizeNumericUpDown.Size = new System.Drawing.Size(43, 20);
-            this.gridSizeNumericUpDown.TabIndex = 15;
-            this.gridSizeNumericUpDown.Value = new decimal(new int[] {
-            1,
-            0,
-            0,
-            0});
-            // 
-            // label2
-            // 
-            this.label2.AutoSize = true;
-            this.label2.Dock = System.Windows.Forms.DockStyle.Left;
-            this.label2.Location = new System.Drawing.Point(904, 0);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(52, 26);
-            this.label2.TabIndex = 16;
-            this.label2.Text = "Grid Size:";
-            this.label2.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lightPitchNumericUpDown
-            // 
-            this.lightPitchNumericUpDown.Location = new System.Drawing.Point(855, 3);
-            this.lightPitchNumericUpDown.Maximum = new decimal(new int[] {
-            360,
-            0,
-            0,
-            0});
-            this.lightPitchNumericUpDown.Name = "lightPitchNumericUpDown";
-            this.lightPitchNumericUpDown.Size = new System.Drawing.Size(43, 20);
-            this.lightPitchNumericUpDown.TabIndex = 17;
-            this.lightPitchNumericUpDown.Value = new decimal(new int[] {
-            135,
-            0,
-            0,
-            0});
-            this.lightPitchNumericUpDown.ValueChanged += new System.EventHandler(this.lightPitchNumericUpDown_ValueChanged);
-            // 
-            // lightYawNumericUpDown
-            // 
-            this.lightYawNumericUpDown.Location = new System.Drawing.Point(806, 3);
-            this.lightYawNumericUpDown.Maximum = new decimal(new int[] {
-            360,
-            0,
-            0,
-            0});
-            this.lightYawNumericUpDown.Name = "lightYawNumericUpDown";
-            this.lightYawNumericUpDown.Size = new System.Drawing.Size(43, 20);
-            this.lightYawNumericUpDown.TabIndex = 18;
-            this.lightYawNumericUpDown.Value = new decimal(new int[] {
-            135,
-            0,
-            0,
-            0});
-            this.lightYawNumericUpDown.ValueChanged += new System.EventHandler(this.lightYawNumericUpDown_ValueChanged);
-            // 
-            // lightRollNumericUpDown
-            // 
-            this.lightRollNumericUpDown.Location = new System.Drawing.Point(757, 3);
-            this.lightRollNumericUpDown.Maximum = new decimal(new int[] {
-            360,
-            0,
-            0,
-            0});
-            this.lightRollNumericUpDown.Name = "lightRollNumericUpDown";
-            this.lightRollNumericUpDown.Size = new System.Drawing.Size(43, 20);
-            this.lightRollNumericUpDown.TabIndex = 19;
-            this.lightRollNumericUpDown.ValueChanged += new System.EventHandler(this.lightRollNumericUpDown_ValueChanged);
-            // 
-            // lightIntensityNumericUpDown
-            // 
-            this.lightIntensityNumericUpDown.Location = new System.Drawing.Point(626, 3);
-            this.lightIntensityNumericUpDown.Maximum = new decimal(new int[] {
-            1000,
-            0,
-            0,
-            0});
-            this.lightIntensityNumericUpDown.Name = "lightIntensityNumericUpDown";
-            this.lightIntensityNumericUpDown.Size = new System.Drawing.Size(43, 20);
-            this.lightIntensityNumericUpDown.TabIndex = 19;
-            this.lightIntensityNumericUpDown.Value = new decimal(new int[] {
-            100,
-            0,
-            0,
-            0});
-            this.lightIntensityNumericUpDown.ValueChanged += new System.EventHandler(this.lightIntensityNumericUpDown_ValueChanged);
-            // 
-            // label5
-            // 
-            this.label5.AutoSize = true;
-            this.label5.Dock = System.Windows.Forms.DockStyle.Left;
-            this.label5.Location = new System.Drawing.Point(433, 0);
-            this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(57, 26);
-            this.label5.TabIndex = 20;
-            this.label5.Text = "Point Size:";
-            this.label5.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // label4
-            // 
-            this.label4.AutoSize = true;
-            this.label4.Dock = System.Windows.Forms.DockStyle.Left;
-            this.label4.Location = new System.Drawing.Point(545, 0);
-            this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(75, 26);
-            this.label4.TabIndex = 18;
-            this.label4.Text = "Light Intensity:";
-            this.label4.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // vertexSizeUpDown
-            // 
-            this.vertexSizeUpDown.Location = new System.Drawing.Point(496, 3);
-            this.vertexSizeUpDown.Maximum = new decimal(new int[] {
-            1000,
-            0,
-            0,
-            0});
-            this.vertexSizeUpDown.Name = "vertexSizeUpDown";
-            this.vertexSizeUpDown.Size = new System.Drawing.Size(43, 20);
-            this.vertexSizeUpDown.TabIndex = 21;
-            this.vertexSizeUpDown.Value = new decimal(new int[] {
-            1,
-            0,
-            0,
-            0});
-            this.vertexSizeUpDown.ValueChanged += new System.EventHandler(this.vertexSizeUpDown_ValueChanged);
-            // 
             // flowLayoutPanel2
             // 
             this.flowLayoutPanel2.AutoSize = true;
-            this.flowLayoutPanel2.Controls.Add(this.gridSizeNumericUpDown);
-            this.flowLayoutPanel2.Controls.Add(this.label2);
-            this.flowLayoutPanel2.Controls.Add(this.lightPitchNumericUpDown);
-            this.flowLayoutPanel2.Controls.Add(this.lightYawNumericUpDown);
-            this.flowLayoutPanel2.Controls.Add(this.lightRollNumericUpDown);
-            this.flowLayoutPanel2.Controls.Add(this.label1);
-            this.flowLayoutPanel2.Controls.Add(this.lightIntensityNumericUpDown);
-            this.flowLayoutPanel2.Controls.Add(this.label4);
-            this.flowLayoutPanel2.Controls.Add(this.vertexSizeUpDown);
-            this.flowLayoutPanel2.Controls.Add(this.label5);
-            this.flowLayoutPanel2.Controls.Add(this.cameraFOVUpDown);
-            this.flowLayoutPanel2.Controls.Add(this.label7);
+            this.flowLayoutPanel2.Controls.Add(this.flowLayoutPanel1);
+            this.flowLayoutPanel2.Controls.Add(this.flowLayoutPanel3);
+            this.flowLayoutPanel2.Controls.Add(this.flowLayoutPanel4);
+            this.flowLayoutPanel2.Controls.Add(this.flowLayoutPanel5);
+            this.flowLayoutPanel2.Controls.Add(this.flowLayoutPanel6);
             this.flowLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.flowLayoutPanel2.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
             this.flowLayoutPanel2.Location = new System.Drawing.Point(0, 623);
@@ -1526,14 +1447,223 @@ namespace PSXPrev.Forms
             this.flowLayoutPanel2.Size = new System.Drawing.Size(1008, 26);
             this.flowLayoutPanel2.TabIndex = 21;
             // 
-            // toolStripMenuItem2
+            // flowLayoutPanel1
             // 
-            this.toolStripMenuItem2.Name = "toolStripMenuItem2";
-            this.toolStripMenuItem2.Size = new System.Drawing.Size(181, 6);
+            this.flowLayoutPanel1.AutoSize = true;
+            this.flowLayoutPanel1.Controls.Add(this.label2);
+            this.flowLayoutPanel1.Controls.Add(this.gridSizeNumericUpDown);
+            this.flowLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.flowLayoutPanel1.Location = new System.Drawing.Point(898, 0);
+            this.flowLayoutPanel1.Margin = new System.Windows.Forms.Padding(0);
+            this.flowLayoutPanel1.Name = "flowLayoutPanel1";
+            this.flowLayoutPanel1.Size = new System.Drawing.Size(110, 26);
+            this.flowLayoutPanel1.TabIndex = 24;
+            // 
+            // label2
+            // 
+            this.label2.AutoSize = true;
+            this.label2.Dock = System.Windows.Forms.DockStyle.Left;
+            this.label2.Location = new System.Drawing.Point(3, 0);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(55, 26);
+            this.label2.TabIndex = 17;
+            this.label2.Text = "Grid Align:";
+            this.label2.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // gridSizeNumericUpDown
+            // 
+            this.gridSizeNumericUpDown.Location = new System.Drawing.Point(64, 3);
+            this.gridSizeNumericUpDown.Name = "gridSizeNumericUpDown";
+            this.gridSizeNumericUpDown.Size = new System.Drawing.Size(43, 20);
+            this.gridSizeNumericUpDown.TabIndex = 18;
+            this.gridSizeNumericUpDown.Value = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            // 
+            // flowLayoutPanel3
+            // 
+            this.flowLayoutPanel3.AutoSize = true;
+            this.flowLayoutPanel3.Controls.Add(this.label1);
+            this.flowLayoutPanel3.Controls.Add(this.lightRollNumericUpDown);
+            this.flowLayoutPanel3.Controls.Add(this.lightYawNumericUpDown);
+            this.flowLayoutPanel3.Controls.Add(this.lightPitchNumericUpDown);
+            this.flowLayoutPanel3.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.flowLayoutPanel3.Location = new System.Drawing.Point(669, 0);
+            this.flowLayoutPanel3.Margin = new System.Windows.Forms.Padding(0);
+            this.flowLayoutPanel3.Name = "flowLayoutPanel3";
+            this.flowLayoutPanel3.Size = new System.Drawing.Size(229, 26);
+            this.flowLayoutPanel3.TabIndex = 25;
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Dock = System.Windows.Forms.DockStyle.Left;
+            this.label1.Location = new System.Drawing.Point(3, 0);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(76, 26);
+            this.label1.TabIndex = 15;
+            this.label1.Text = "Light Rotation:";
+            this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lightRollNumericUpDown
+            // 
+            this.lightRollNumericUpDown.Location = new System.Drawing.Point(85, 3);
+            this.lightRollNumericUpDown.Maximum = new decimal(new int[] {
+            360,
+            0,
+            0,
+            0});
+            this.lightRollNumericUpDown.Name = "lightRollNumericUpDown";
+            this.lightRollNumericUpDown.Size = new System.Drawing.Size(43, 20);
+            this.lightRollNumericUpDown.TabIndex = 20;
+            this.lightRollNumericUpDown.ValueChanged += new System.EventHandler(this.lightRollNumericUpDown_ValueChanged);
+            // 
+            // lightYawNumericUpDown
+            // 
+            this.lightYawNumericUpDown.Location = new System.Drawing.Point(134, 3);
+            this.lightYawNumericUpDown.Maximum = new decimal(new int[] {
+            360,
+            0,
+            0,
+            0});
+            this.lightYawNumericUpDown.Name = "lightYawNumericUpDown";
+            this.lightYawNumericUpDown.Size = new System.Drawing.Size(43, 20);
+            this.lightYawNumericUpDown.TabIndex = 21;
+            this.lightYawNumericUpDown.Value = new decimal(new int[] {
+            135,
+            0,
+            0,
+            0});
+            this.lightYawNumericUpDown.ValueChanged += new System.EventHandler(this.lightYawNumericUpDown_ValueChanged);
+            // 
+            // lightPitchNumericUpDown
+            // 
+            this.lightPitchNumericUpDown.Location = new System.Drawing.Point(183, 3);
+            this.lightPitchNumericUpDown.Maximum = new decimal(new int[] {
+            360,
+            0,
+            0,
+            0});
+            this.lightPitchNumericUpDown.Name = "lightPitchNumericUpDown";
+            this.lightPitchNumericUpDown.Size = new System.Drawing.Size(43, 20);
+            this.lightPitchNumericUpDown.TabIndex = 22;
+            this.lightPitchNumericUpDown.Value = new decimal(new int[] {
+            135,
+            0,
+            0,
+            0});
+            this.lightPitchNumericUpDown.ValueChanged += new System.EventHandler(this.lightPitchNumericUpDown_ValueChanged);
+            // 
+            // flowLayoutPanel4
+            // 
+            this.flowLayoutPanel4.AutoSize = true;
+            this.flowLayoutPanel4.Controls.Add(this.label4);
+            this.flowLayoutPanel4.Controls.Add(this.lightIntensityNumericUpDown);
+            this.flowLayoutPanel4.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.flowLayoutPanel4.Location = new System.Drawing.Point(539, 0);
+            this.flowLayoutPanel4.Margin = new System.Windows.Forms.Padding(0);
+            this.flowLayoutPanel4.Name = "flowLayoutPanel4";
+            this.flowLayoutPanel4.Size = new System.Drawing.Size(130, 26);
+            this.flowLayoutPanel4.TabIndex = 26;
+            // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Dock = System.Windows.Forms.DockStyle.Left;
+            this.label4.Location = new System.Drawing.Point(3, 0);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(75, 26);
+            this.label4.TabIndex = 19;
+            this.label4.Text = "Light Intensity:";
+            this.label4.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lightIntensityNumericUpDown
+            // 
+            this.lightIntensityNumericUpDown.Location = new System.Drawing.Point(84, 3);
+            this.lightIntensityNumericUpDown.Maximum = new decimal(new int[] {
+            1000,
+            0,
+            0,
+            0});
+            this.lightIntensityNumericUpDown.Name = "lightIntensityNumericUpDown";
+            this.lightIntensityNumericUpDown.Size = new System.Drawing.Size(43, 20);
+            this.lightIntensityNumericUpDown.TabIndex = 20;
+            this.lightIntensityNumericUpDown.Value = new decimal(new int[] {
+            100,
+            0,
+            0,
+            0});
+            this.lightIntensityNumericUpDown.ValueChanged += new System.EventHandler(this.lightIntensityNumericUpDown_ValueChanged);
+            // 
+            // flowLayoutPanel5
+            // 
+            this.flowLayoutPanel5.AutoSize = true;
+            this.flowLayoutPanel5.Controls.Add(this.label5);
+            this.flowLayoutPanel5.Controls.Add(this.vertexSizeUpDown);
+            this.flowLayoutPanel5.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.flowLayoutPanel5.Location = new System.Drawing.Point(421, 0);
+            this.flowLayoutPanel5.Margin = new System.Windows.Forms.Padding(0);
+            this.flowLayoutPanel5.Name = "flowLayoutPanel5";
+            this.flowLayoutPanel5.Size = new System.Drawing.Size(118, 26);
+            this.flowLayoutPanel5.TabIndex = 27;
+            // 
+            // label5
+            // 
+            this.label5.AutoSize = true;
+            this.label5.Dock = System.Windows.Forms.DockStyle.Left;
+            this.label5.Location = new System.Drawing.Point(3, 0);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(63, 26);
+            this.label5.TabIndex = 21;
+            this.label5.Text = "Vertex Size:";
+            this.label5.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // vertexSizeUpDown
+            // 
+            this.vertexSizeUpDown.Location = new System.Drawing.Point(72, 3);
+            this.vertexSizeUpDown.Maximum = new decimal(new int[] {
+            1000,
+            0,
+            0,
+            0});
+            this.vertexSizeUpDown.Name = "vertexSizeUpDown";
+            this.vertexSizeUpDown.Size = new System.Drawing.Size(43, 20);
+            this.vertexSizeUpDown.TabIndex = 22;
+            this.vertexSizeUpDown.Value = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.vertexSizeUpDown.ValueChanged += new System.EventHandler(this.vertexSizeUpDown_ValueChanged);
+            // 
+            // flowLayoutPanel6
+            // 
+            this.flowLayoutPanel6.AutoSize = true;
+            this.flowLayoutPanel6.Controls.Add(this.label7);
+            this.flowLayoutPanel6.Controls.Add(this.cameraFOVUpDown);
+            this.flowLayoutPanel6.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.flowLayoutPanel6.Location = new System.Drawing.Point(335, 0);
+            this.flowLayoutPanel6.Margin = new System.Windows.Forms.Padding(0);
+            this.flowLayoutPanel6.Name = "flowLayoutPanel6";
+            this.flowLayoutPanel6.Size = new System.Drawing.Size(86, 26);
+            this.flowLayoutPanel6.TabIndex = 28;
+            // 
+            // label7
+            // 
+            this.label7.AutoSize = true;
+            this.label7.Dock = System.Windows.Forms.DockStyle.Left;
+            this.label7.Location = new System.Drawing.Point(3, 0);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(31, 26);
+            this.label7.TabIndex = 24;
+            this.label7.Text = "FOV:";
+            this.label7.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // cameraFOVUpDown
             // 
-            this.cameraFOVUpDown.Location = new System.Drawing.Point(384, 3);
+            this.cameraFOVUpDown.Location = new System.Drawing.Point(40, 3);
             this.cameraFOVUpDown.Maximum = new decimal(new int[] {
             160,
             0,
@@ -1546,7 +1676,7 @@ namespace PSXPrev.Forms
             0});
             this.cameraFOVUpDown.Name = "cameraFOVUpDown";
             this.cameraFOVUpDown.Size = new System.Drawing.Size(43, 20);
-            this.cameraFOVUpDown.TabIndex = 22;
+            this.cameraFOVUpDown.TabIndex = 25;
             this.cameraFOVUpDown.Value = new decimal(new int[] {
             60,
             0,
@@ -1554,16 +1684,77 @@ namespace PSXPrev.Forms
             0});
             this.cameraFOVUpDown.ValueChanged += new System.EventHandler(this.cameraFOVUpDown_ValueChanged);
             // 
-            // label7
+            // flowLayoutPanel8
             // 
-            this.label7.AutoSize = true;
-            this.label7.Dock = System.Windows.Forms.DockStyle.Left;
-            this.label7.Location = new System.Drawing.Point(347, 0);
-            this.label7.Name = "label7";
-            this.label7.Size = new System.Drawing.Size(31, 26);
-            this.label7.TabIndex = 23;
-            this.label7.Text = "FOV:";
-            this.label7.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.flowLayoutPanel8.AutoSize = true;
+            this.flowLayoutPanel8.Controls.Add(this.label8);
+            this.flowLayoutPanel8.Controls.Add(this.animationLoopModeComboBox);
+            this.flowLayoutPanel8.Location = new System.Drawing.Point(85, 0);
+            this.flowLayoutPanel8.Margin = new System.Windows.Forms.Padding(0);
+            this.flowLayoutPanel8.Name = "flowLayoutPanel8";
+            this.flowLayoutPanel8.Size = new System.Drawing.Size(182, 27);
+            this.flowLayoutPanel8.TabIndex = 26;
+            // 
+            // label8
+            // 
+            this.label8.AutoSize = true;
+            this.label8.Dock = System.Windows.Forms.DockStyle.Left;
+            this.label8.Location = new System.Drawing.Point(3, 0);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(60, 27);
+            this.label8.TabIndex = 23;
+            this.label8.Text = "Play Mode:";
+            this.label8.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // animationLoopModeComboBox
+            // 
+            this.animationLoopModeComboBox.FormattingEnabled = true;
+            this.animationLoopModeComboBox.Items.AddRange(new object[] {
+            "Once",
+            "Loop",
+            "Loop (Unsynced)",
+            "Mirror Once",
+            "Mirror Loop"});
+            this.animationLoopModeComboBox.Location = new System.Drawing.Point(69, 3);
+            this.animationLoopModeComboBox.Name = "animationLoopModeComboBox";
+            this.animationLoopModeComboBox.Size = new System.Drawing.Size(110, 21);
+            this.animationLoopModeComboBox.TabIndex = 24;
+            this.animationLoopModeComboBox.SelectedIndexChanged += new System.EventHandler(this.animationLoopModeComboBox_SelectedIndexChanged);
+            // 
+            // flowLayoutPanel9
+            // 
+            this.flowLayoutPanel9.AutoSize = true;
+            this.flowLayoutPanel9.Controls.Add(this.label9);
+            this.flowLayoutPanel9.Controls.Add(this.animationReverseCheckBox);
+            this.flowLayoutPanel9.Location = new System.Drawing.Point(267, 0);
+            this.flowLayoutPanel9.Margin = new System.Windows.Forms.Padding(0);
+            this.flowLayoutPanel9.Name = "flowLayoutPanel9";
+            this.flowLayoutPanel9.Size = new System.Drawing.Size(77, 22);
+            this.flowLayoutPanel9.TabIndex = 27;
+            // 
+            // label9
+            // 
+            this.label9.AutoSize = true;
+            this.label9.Dock = System.Windows.Forms.DockStyle.Left;
+            this.label9.Location = new System.Drawing.Point(3, 0);
+            this.label9.Name = "label9";
+            this.label9.Size = new System.Drawing.Size(50, 22);
+            this.label9.TabIndex = 26;
+            this.label9.Text = "Reverse:";
+            this.label9.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // animationReverseCheckBox
+            // 
+            this.animationReverseCheckBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left)));
+            this.animationReverseCheckBox.AutoSize = true;
+            this.animationReverseCheckBox.Location = new System.Drawing.Point(59, 5);
+            this.animationReverseCheckBox.Margin = new System.Windows.Forms.Padding(3, 5, 3, 3);
+            this.animationReverseCheckBox.Name = "animationReverseCheckBox";
+            this.animationReverseCheckBox.Size = new System.Drawing.Size(15, 14);
+            this.animationReverseCheckBox.TabIndex = 27;
+            this.animationReverseCheckBox.UseVisualStyleBackColor = true;
+            this.animationReverseCheckBox.CheckedChanged += new System.EventHandler(this.animationReverseCheckBox_CheckedChanged);
             // 
             // PreviewForm
             // 
@@ -1633,25 +1824,39 @@ namespace PSXPrev.Forms
             this.animationGroupBox.PerformLayout();
             this.tableLayoutPanel2.ResumeLayout(false);
             this.tableLayoutPanel2.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.animationSpeedNumericUpDown)).EndInit();
             this.tableLayoutPanel6.ResumeLayout(false);
             this.tableLayoutPanel6.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.animationFrameTrackBar)).EndInit();
-            this.cmsModelExport.ResumeLayout(false);
+            this.flowLayoutPanel7.ResumeLayout(false);
+            this.flowLayoutPanel7.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.animationSpeedNumericUpDown)).EndInit();
             this.mainMenuStrip.ResumeLayout(false);
             this.mainMenuStrip.PerformLayout();
-            this.cmsResetTransform.ResumeLayout(false);
             this.statusStrip1.ResumeLayout(false);
             this.statusStrip1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.gridSizeNumericUpDown)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.lightPitchNumericUpDown)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.lightYawNumericUpDown)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.lightRollNumericUpDown)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.lightIntensityNumericUpDown)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).EndInit();
             this.flowLayoutPanel2.ResumeLayout(false);
             this.flowLayoutPanel2.PerformLayout();
+            this.flowLayoutPanel1.ResumeLayout(false);
+            this.flowLayoutPanel1.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.gridSizeNumericUpDown)).EndInit();
+            this.flowLayoutPanel3.ResumeLayout(false);
+            this.flowLayoutPanel3.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.lightRollNumericUpDown)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.lightYawNumericUpDown)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.lightPitchNumericUpDown)).EndInit();
+            this.flowLayoutPanel4.ResumeLayout(false);
+            this.flowLayoutPanel4.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.lightIntensityNumericUpDown)).EndInit();
+            this.flowLayoutPanel5.ResumeLayout(false);
+            this.flowLayoutPanel5.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).EndInit();
+            this.flowLayoutPanel6.ResumeLayout(false);
+            this.flowLayoutPanel6.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.cameraFOVUpDown)).EndInit();
+            this.flowLayoutPanel8.ResumeLayout(false);
+            this.flowLayoutPanel8.PerformLayout();
+            this.flowLayoutPanel9.ResumeLayout(false);
+            this.flowLayoutPanel9.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -1662,7 +1867,7 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.TabControl menusTabControl;
         private System.Windows.Forms.TabPage entitiesTabPage;
         private System.Windows.Forms.TabPage bitmapsTabPage;
-        private System.Windows.Forms.Button exportEntityButton;
+        private System.Windows.Forms.Button exportSelectedModelsButton;
         private System.Windows.Forms.Button exportBitmapButton;
         private System.Windows.Forms.TreeView entitiesTreeView;
         private System.Windows.Forms.TabPage vramTabPage;
@@ -1673,15 +1878,11 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.PropertyGrid modelPropertyGrid;
         private System.Windows.Forms.PropertyGrid texturePropertyGrid;
         private System.Windows.Forms.Button btnClearPage;
-        private System.Windows.Forms.ContextMenuStrip cmsModelExport;
-        private System.Windows.Forms.ToolStripMenuItem miOBJ;
-        private System.Windows.Forms.ToolStripMenuItem miOBJVC;
         private System.Windows.Forms.MenuStrip mainMenuStrip;
         private System.Windows.Forms.ToolStripMenuItem modelsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem texturesToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem vRAMToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem exportSelectedToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem exportSelectedToolStripMenuItem1;
+        private System.Windows.Forms.ToolStripMenuItem exportModelsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem drawToVRAMToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem findByPageToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem clearPageToolStripMenuItem;
@@ -1696,23 +1897,15 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.Button animationPlayButtonx;
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel messageToolStripLabel;
-        private System.Windows.Forms.ToolStripMenuItem miOBJMerged;
-        private System.Windows.Forms.ToolStripMenuItem miOBJVCMerged;
         private System.Windows.Forms.ToolStripMenuItem showGizmosToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem showBoundsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem showUVToolStripMenuItem;
-        private System.Windows.Forms.Label label1;
         private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem helpToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem videoTutorialToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem autoAttachLimbsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem compatibilityListToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem exitToolStripMenuItem;
-        private System.Windows.Forms.NumericUpDown gridSizeNumericUpDown;
-        private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.NumericUpDown lightPitchNumericUpDown;
-        private System.Windows.Forms.NumericUpDown lightYawNumericUpDown;
-        private System.Windows.Forms.NumericUpDown lightRollNumericUpDown;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;
@@ -1724,15 +1917,10 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator7;
         private System.Windows.Forms.ToolStripMenuItem setAmbientColorToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem setBackgroundColorToolStripMenuItem;
-        private System.Windows.Forms.NumericUpDown lightIntensityNumericUpDown;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator8;
         private System.Windows.Forms.ToolStripMenuItem lineRendererToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem aboutToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem resetTransformToolStripMenuItem;
-        private System.Windows.Forms.ContextMenuStrip cmsResetTransform;
-        private System.Windows.Forms.ToolStripMenuItem resetWholeModelToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem resetSelectedModelToolStripMenuItem;
-        private System.Windows.Forms.Label label4;
         private System.Windows.Forms.GroupBox animationGroupBox;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel2;
         private System.Windows.Forms.SplitContainer splitContainer2;
@@ -1744,12 +1932,10 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel5;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel4;
         private System.Windows.Forms.Label label6;
-        private System.Windows.Forms.ToolStripMenuItem enableTransparencyToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem enableSemiTransparencyToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem forceDoubleSidedToolStripMenuItem;
         private System.Windows.Forms.Label texturesZoomLabel;
         private System.Windows.Forms.ToolStripMenuItem verticesOnlyToolStripMenuItem;
-        private System.Windows.Forms.Label label5;
-        private System.Windows.Forms.NumericUpDown vertexSizeUpDown;
         private System.Windows.Forms.ToolStripMenuItem pauseScanningToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
         private System.Windows.Forms.ToolStripMenuItem autoDrawModelTexturesToolStripMenuItem;
@@ -1764,7 +1950,6 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel3;
         private System.Windows.Forms.Button gotoPageButton;
         private System.Windows.Forms.TableLayoutPanel animationsTableLayoutPanel;
-        private System.Windows.Forms.NumericUpDown animationSpeedNumericUpDown;
         private System.Windows.Forms.TrackBar animationFrameTrackBar;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel6;
         private System.Windows.Forms.Label animationProgressLabel;
@@ -1773,7 +1958,43 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.ToolStripMenuItem showTMDBindingsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem viewOnGitHubToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem2;
-        private System.Windows.Forms.NumericUpDown cameraFOVUpDown;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
+        private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.NumericUpDown gridSizeNumericUpDown;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel3;
+        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.NumericUpDown lightRollNumericUpDown;
+        private System.Windows.Forms.NumericUpDown lightYawNumericUpDown;
+        private System.Windows.Forms.NumericUpDown lightPitchNumericUpDown;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel4;
+        private System.Windows.Forms.Label label4;
+        private System.Windows.Forms.NumericUpDown lightIntensityNumericUpDown;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel5;
+        private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.NumericUpDown vertexSizeUpDown;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel6;
         private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.NumericUpDown cameraFOVUpDown;
+        private System.Windows.Forms.ToolStripMenuItem exportSelectedModelsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem exportAllModelsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem resetWholeModelToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem resetSelectedModelToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator9;
+        private System.Windows.Forms.ToolStripMenuItem exportTexturesToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem exportSelectedTexturesToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem exportAllTexturesToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem exportVRAMPagesToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem exportSelectedVRAMPageToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem exportAllVRAMPagesToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem drawAllToVRAMToolStripMenuItem;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel7;
+        private System.Windows.Forms.NumericUpDown animationSpeedNumericUpDown;
+        private System.Windows.Forms.ToolStripMenuItem exportDrawnToVRAMPagesToolStripMenuItem;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel8;
+        private System.Windows.Forms.Label label8;
+        private System.Windows.Forms.ComboBox animationLoopModeComboBox;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel9;
+        private System.Windows.Forms.Label label9;
+        private System.Windows.Forms.CheckBox animationReverseCheckBox;
     }
 }

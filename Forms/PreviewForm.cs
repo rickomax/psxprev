@@ -86,6 +86,7 @@ namespace PSXPrev.Forms
         private bool _autoSelectAnimationModel;
         private bool _autoPlayAnimations;
         private bool _closing;
+        private bool _inDialog; // Prevent timers from performing updates while true
 
         public PreviewForm(Action<PreviewForm> refreshAction)
         {
@@ -373,8 +374,10 @@ namespace PSXPrev.Forms
             _openTkControl.Dock = DockStyle.Fill;
             _openTkControl.Parent = modelsSplitContainer.Panel2;
             _openTkControl.Margin = Padding.Empty;
+
             texturePanel.MouseWheel += TexturePanelOnMouseWheel;
             vramPanel.MouseWheel += VramPanelOnMouseWheel;
+
             UpdateLightDirection();
             ResizeToolStrip();
         }
@@ -450,6 +453,9 @@ namespace PSXPrev.Forms
         private void SetupScene()
         {
             _scene.Initialize(Width, Height);
+
+            animationLoopModeComboBox.SelectedIndex = (int)_scene.AnimationBatch.LoopMode;
+            animationReverseCheckBox.Checked = _scene.AnimationBatch.Reverse;
         }
 
         private void SetupColors()
@@ -546,7 +552,7 @@ namespace PSXPrev.Forms
         {
             // Don't animate if we're not in the animation tab.
             // todo: Or allow animations to play in other tabs, in-which case other checks for _inAnimationTab need to be removed.
-            if (_inAnimationTab)
+            if (!_inDialog && !IsDisposed && !_closing && _inAnimationTab)
             {
                 if (Playing && _scene.AnimationBatch.IsFinished)
                 {
@@ -570,10 +576,13 @@ namespace PSXPrev.Forms
 
         private void _redrawTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            Redraw();
+            if (!_inDialog && !IsDisposed && !_closing)
+            {
+                Redraw();
+            }
         }
 
-        private RootEntity[] GetCheckedEntities()
+        private RootEntity[] GetCheckedEntities(bool defaultToSelected = false)
         {
             var selectedEntities = new List<RootEntity>();
             for (var i = 0; i < entitiesTreeView.Nodes.Count; i++)
@@ -584,64 +593,239 @@ namespace PSXPrev.Forms
                     selectedEntities.Add(_rootEntities[i]);
                 }
             }
+            if (selectedEntities.Count == 0 && defaultToSelected)
+            {
+                var selectedRootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
+                if (selectedRootEntity != null)
+                {
+                    selectedEntities.Add(selectedRootEntity);
+                }
+            }
             return selectedEntities.Count == 0 ? null : selectedEntities.ToArray();
         }
 
-        private bool OutputFolderSelect(out string path)
+        private void PromptOutputFolder(Action<string> pathCallback)
         {
-            // Don't use FolderBrowserDialog because it has the usability of a brick.
-            using (var folderBrowserDialog = new Microsoft.WindowsAPICodePack.Dialogs.CommonOpenFileDialog())
-            {
-                folderBrowserDialog.IsFolderPicker = true;
-                folderBrowserDialog.Title = "Select the output folder";
-                // Parameter name used to avoid overload resolution with WPF Window, which we don't have a reference to.
-                if (folderBrowserDialog.ShowDialog(ownerWindowHandle: Handle) == Microsoft.WindowsAPICodePack.Dialogs.CommonFileDialogResult.Ok)
-                {
-                    path = folderBrowserDialog.FileName;
-                    return true;
-                }
-            }
-            path = null;
-            return false;
-
-            //var fbd = new FolderBrowserDialog { Description = "Select the output folder" };
-            //var result = fbd.ShowDialog(this) == DialogResult.OK;
-            //path = fbd.SelectedPath;
-            //return result;
-        }
-
-        private void exportEntityButton_Click(object sender, EventArgs e)
-        {
-            cmsModelExport.Show(exportEntityButton, exportEntityButton.Width, 0);
-        }
-
-        private void exportBitmapButton_Click(object sender, EventArgs e)
-        {
-            var selectedItems = texturesListView.SelectedItems;
-            if (selectedItems.Count == 0)
-            {
-                MessageBox.Show(this, "Select the textures to export first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-            // Create an array of selectedTextures now because we'll be
-            // calling BeginInvoke, where SelectedItems could change.
-            var selectedTextures = new Texture[selectedItems.Count];
-            for (var i = 0; i < selectedItems.Count; i++)
-            {
-                var tagInfo = (TexturesListViewTagInfo)selectedItems[i].Tag;
-                selectedTextures[i] = _textures[tagInfo.Index];
-            }
-
             // Use BeginInvoke so that dialog doesn't show up behind menu items...
             BeginInvoke((Action)(() =>
             {
-                if (OutputFolderSelect(out var path))
+                _inDialog = true;
+                try
                 {
-                    var exporter = new PNGExporter();
-                    exporter.Export(selectedTextures, path);
-                    MessageBox.Show(this, "Textures exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    // Don't use FolderBrowserDialog because it has the usability of a brick.
+                    using (var folderBrowserDialog = new Microsoft.WindowsAPICodePack.Dialogs.CommonOpenFileDialog())
+                    {
+                        folderBrowserDialog.IsFolderPicker = true;
+                        folderBrowserDialog.Title = "Select the output folder";
+                        // Parameter name used to avoid overload resolution with WPF Window, which we don't have a reference to.
+                        if (folderBrowserDialog.ShowDialog(ownerWindowHandle: Handle) == Microsoft.WindowsAPICodePack.Dialogs.CommonFileDialogResult.Ok)
+                        {
+                            pathCallback(folderBrowserDialog.FileName);
+                            return;
+                        }
+                    }
+                    pathCallback(null);
+
+                    //var fbd = new FolderBrowserDialog { Description = "Select the output folder" };
+                    //var result = fbd.ShowDialog(this) == DialogResult.OK;
+                    //path = fbd.SelectedPath;
+                    //return result;
+                }
+                finally
+                {
+                    _inDialog = false;
                 }
             }));
+        }
+
+        private bool PromptVRAMPage(string title, int? defaultPage, out int pageIndex)
+        {
+            _inDialog = true;
+            try
+            {
+                pageIndex = 0;
+                var defaultText = (defaultPage.HasValue && defaultPage.Value != -1) ? defaultPage.ToString() : null;
+                var pageStr = InputDialog.Show(this, $"Please type in the VRAM Page index (0-{VRAM.PageCount-1})", title, defaultText);
+                if (pageStr != null)
+                {
+                    if (int.TryParse(pageStr, out pageIndex) && pageIndex >= 0 && pageIndex < VRAM.PageCount)
+                    {
+                        return true; // OK (valid page)
+                    }
+                    MessageBox.Show(this, $"Please type in a valid VRAM Page index between 0 and {VRAM.PageCount-1}", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                return false; // Canceled / OK (invalid page)
+            }
+            finally
+            {
+                _inDialog = false;
+            }
+        }
+
+        private bool PromptColor(Color? defaultColor, out Color color)
+        {
+            _inDialog = true;
+            try
+            {
+                using (var colorDialog = new ColorDialog())
+                {
+                    colorDialog.FullOpen = true;
+                    if (defaultColor.HasValue)
+                    {
+                        colorDialog.Color = defaultColor.Value;
+                    }
+                    if (colorDialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        color = colorDialog.Color;
+                        return true;
+                    }
+                }
+                color = Color.Black;
+                return false;
+            }
+            finally
+            {
+                _inDialog = false;
+            }
+        }
+
+        private void PromptExportModels(bool all)
+        {
+            // Get all models, checked models, or selected model if nothing is checked.
+            var entities = all ? _rootEntities.ToArray() : GetCheckedEntities(true);
+
+            if (entities == null || entities.Length == 0)
+            {
+                var message = all ? "No models to export" : "No models checked or selected to export";
+                MessageBox.Show(this, message, "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            _inDialog = true;
+            try
+            {
+                if (ExportModelsForm.Show(this, entities))
+                {
+                    MessageBox.Show(this, $"{entities.Length} models exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            finally
+            {
+                _inDialog = false;
+            }
+        }
+
+        private void PromptExportTextures(bool all, bool vram, bool vramDrawnTo = false)
+        {
+            Texture[] textures;
+            if (vram)
+            {
+                if (all)
+                {
+                    var vramTextures = new List<Texture>();
+                    for (var i = 0; i < _vram.Count; i++)
+                    {
+                        if (!vramDrawnTo || _vram.IsPageUsed(i))
+                        {
+                            vramTextures.Add(_vram[i]);
+                        }
+                    }
+                    textures = vramTextures.ToArray();
+                }
+                else
+                {
+                    textures = _vramSelectedPage != -1 ? new[] { _vram[_vramSelectedPage] } : null;
+                }
+            }
+            else
+            {
+                if (all)
+                {
+                    textures = _textures.ToArray();
+                }
+                else
+                {
+                    var selectedItems = texturesListView.SelectedItems;
+                    textures = new Texture[selectedItems.Count];
+                    for (var i = 0; i < selectedItems.Count; i++)
+                    {
+                        var tagInfo = (TexturesListViewTagInfo)selectedItems[i].Tag;
+                        textures[i] = _textures[tagInfo.Index];
+                    }
+                }
+            }
+
+            if (textures == null || textures.Length == 0)
+            {
+                string message;
+                if (vram)
+                {
+                    message = all ? "No drawn-to VRAM pages to export" : "No VRAM page selected to export";
+                }
+                else
+                {
+                    message = all ? "No textures to export" : "No textures selected to export";
+                }
+                MessageBox.Show(this, message, "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            PromptOutputFolder(path =>
+            {
+                if (path != null)
+                {
+                    var pngExporter = new PNGExporter();
+                    if (vram)
+                    {
+                        // Always number exported VRAM pages by their page number, not export index.
+                        foreach (var texture in textures)
+                        {
+                            pngExporter.Export(texture, $"vram{texture.TexturePage}", path);
+                        }
+                        MessageBox.Show(this, $"{textures.Length} VRAM pages exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        pngExporter.Export(textures, path);
+                        MessageBox.Show(this, $"{textures.Length} textures exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                }
+            });
+        }
+
+        private void exportSelectedModels_Click(object sender, EventArgs e)
+        {
+            PromptExportModels(false);
+        }
+
+        private void exportAllModels_Click(object sender, EventArgs e)
+        {
+            PromptExportModels(true);
+        }
+
+        private void exportSelectedTextures_Click(object sender, EventArgs e)
+        {
+            PromptExportTextures(false, false);
+        }
+
+        private void exportAllTextures_Click(object sender, EventArgs e)
+        {
+            PromptExportTextures(true, false);
+        }
+
+        private void exportSelectedVRAMPage_Click(object sender, EventArgs e)
+        {
+            PromptExportTextures(false, true);
+        }
+
+        private void exportDrawnToVRAMPages_Click(object sender, EventArgs e)
+        {
+            PromptExportTextures(true, true, vramDrawnTo: true);
+        }
+
+        private void exportAllVRAMPages_Click(object sender, EventArgs e)
+        {
+            PromptExportTextures(true, true);
         }
 
         private void SelectEntity(EntityBase entity, bool focus = false)
@@ -1003,7 +1187,7 @@ namespace PSXPrev.Forms
             return _textures[textureIndex];
         }
 
-        private void drawToVRAMButton_Click(object sender, EventArgs e)
+        private void drawSelectedToVRAM_Click(object sender, EventArgs e)
         {
             var selectedItems = texturesListView.SelectedItems;
             if (selectedItems.Count == 0)
@@ -1019,6 +1203,11 @@ namespace PSXPrev.Forms
             }
             _vram.UpdateAllPages();
             UpdateVRAMComboBoxPageItems();
+        }
+
+        private void drawAllToVRAM_Click(object sender, EventArgs e)
+        {
+            DrawAllTexturesToVRAM();
         }
 
         private void UpdateVRAMComboBoxPageItems()
@@ -1126,63 +1315,6 @@ namespace PSXPrev.Forms
             UpdateVRAMComboBoxPageItems();
         }
 
-        private void cmsModelExport_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
-        {
-            var checkedEntities = GetCheckedEntities();
-            // Uncomment this line to test exporting all loaded models (so we don't need to check them).
-            //checkedEntities = _rootEntities.ToArray();
-            if (checkedEntities == null)
-            {
-                MessageBox.Show(this, "Check the models to export first");
-                return;
-            }
-
-            // Use BeginInvoke so that dialog doesn't show up behind menu items...
-            BeginInvoke((Action)(() =>
-            {
-                if (OutputFolderSelect(out var path))
-                {
-                    var objExporter = new OBJExporter();
-
-                    // Set to true to debug the PLYExporter by writing to the `ply/` subdirectory.
-                    const bool PLY_DEBUG = false;
-                    PLYExporter plyExporter = null;
-                    string plyPath = null;
-                    if (PLY_DEBUG)
-                    {
-                        plyExporter = new PLYExporter();
-                        plyPath = Path.Combine(path, "ply");
-                        if (!Directory.Exists(plyPath))
-                        {
-                            Directory.CreateDirectory(plyPath);
-                        }
-                    }
-
-                    if (e.ClickedItem == miOBJ)
-                    {
-                        objExporter.Export(checkedEntities, path, joinEntities: false, experimentalVertexColor: false);
-                        if (PLY_DEBUG) plyExporter.Export(checkedEntities, plyPath, joinEntities: false);
-                    }
-                    else if (e.ClickedItem == miOBJVC)
-                    {
-                        objExporter.Export(checkedEntities, path, joinEntities: false, experimentalVertexColor: true);
-                        if (PLY_DEBUG) plyExporter.Export(checkedEntities, plyPath, joinEntities: false);
-                    }
-                    else if (e.ClickedItem == miOBJMerged)
-                    {
-                        objExporter.Export(checkedEntities, path, joinEntities: true, experimentalVertexColor: false);
-                        if (PLY_DEBUG) plyExporter.Export(checkedEntities, plyPath, joinEntities: true);
-                    }
-                    else if (e.ClickedItem == miOBJVCMerged)
-                    {
-                        objExporter.Export(checkedEntities, path, joinEntities: true, experimentalVertexColor: true);
-                        if (PLY_DEBUG) plyExporter.Export(checkedEntities, plyPath, joinEntities: true);
-                    }
-                    MessageBox.Show(this, "Models exported");
-                }
-            }));
-        }
-
         private static int CompareTexturesListViewItems(ImageListViewItem a, ImageListViewItem b)
         {
             var tagInfoA = (TexturesListViewTagInfo)a.Tag;
@@ -1190,25 +1322,9 @@ namespace PSXPrev.Forms
             return tagInfoA.Index.CompareTo(tagInfoB.Index);
         }
 
-        private bool AskForVRAMPage(string title, int? defaultPage, out int pageIndex)
-        {
-            pageIndex = 0;
-            var defaultText = (defaultPage.HasValue && defaultPage.Value != -1) ? defaultPage.ToString() : null;
-            var pageStr = InputDialog.Show(this, $"Please type in the VRAM Page index (0-{VRAM.PageCount-1})", title, defaultText);
-            if (pageStr != null)
-            {
-                if (int.TryParse(pageStr, out pageIndex) && pageIndex >= 0 && pageIndex < VRAM.PageCount)
-                {
-                    return true; // OK (valid page)
-                }
-                MessageBox.Show(this, $"Please type in a valid VRAM Page index between 0 and {VRAM.PageCount-1}", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-            return false; // Canceled / OK (invalid page)
-        }
-
         private void findByPageToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (AskForVRAMPage("Find by Page", null, out var pageIndex))
+            if (PromptVRAMPage("Find by Page", null, out var pageIndex))
             {
                 var found = 0;
                 foreach (var item in texturesListView.Items)
@@ -1376,7 +1492,7 @@ namespace PSXPrev.Forms
 
         private void SetBackgroundColor(Color color)
         {
-            _scene.ClearColor = new Common.Color(color.R / 255f, color.G / 255f, color.B / 255f);
+            _scene.ClearColor = color;
             if (_backgroundColorBitmap == null)
             {
                 _backgroundColorBitmap = new Bitmap(16, 16);
@@ -1686,48 +1802,31 @@ namespace PSXPrev.Forms
 
         private void setMaskColorToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using (var colorDialog = new ColorDialog())
+            if (PromptColor(_scene.MaskColor, out var color))
             {
-                if (colorDialog.ShowDialog(this) == DialogResult.OK)
-                {
-                    SetMaskColor(colorDialog.Color);
-                }
+                SetMaskColor(color);
             }
         }
 
         private void setAmbientColorToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using (var colorDialog = new ColorDialog())
+            if (PromptColor(_scene.AmbientColor, out var color))
             {
-                if (colorDialog.ShowDialog(this) == DialogResult.OK)
-                {
-                    SetAmbientColor(colorDialog.Color);
-                }
+                SetAmbientColor(color);
             }
         }
 
         private void setBackgroundColorToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using (var colorDialog = new ColorDialog())
+            if (PromptColor(_scene.ClearColor, out var color))
             {
-                if (colorDialog.ShowDialog(this) == DialogResult.OK)
-                {
-                    SetBackgroundColor(colorDialog.Color);
-                }
+                SetBackgroundColor(color);
             }
         }
 
         private void lightIntensityNumericUpDown_ValueChanged(object sender, EventArgs e)
         {
             _scene.LightIntensity = (float)lightIntensityNumericUpDown.Value / 100f;
-        }
-
-        private void vibRibbonWireframeToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-        }
-
-        private void wireframeToolStripMenuItem_Click(object sender, EventArgs e)
-        {
         }
 
         private void lineRendererToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
@@ -1790,7 +1889,7 @@ namespace PSXPrev.Forms
 
         private void enableTransparencyToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            _scene.SemiTransparencyEnabled = enableTransparencyToolStripMenuItem.Checked;
+            _scene.SemiTransparencyEnabled = enableSemiTransparencyToolStripMenuItem.Checked;
             Redraw();
         }
 
@@ -1943,7 +2042,7 @@ namespace PSXPrev.Forms
 
         private void gotoPageButton_Click(object sender, EventArgs e)
         {
-            if (AskForVRAMPage("Go to VRAM Page", _vramSelectedPage, out var pageIndex))
+            if (PromptVRAMPage("Go to VRAM Page", _vramSelectedPage, out var pageIndex))
             {
                 _vramSelectedPage = pageIndex;
                 // We can't assign VRAM image because it would include the semi-transparency zone.
@@ -1975,6 +2074,20 @@ namespace PSXPrev.Forms
                 MessageBox.Show(this, "Please select an Animation first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             TMDBindingsForm.ShowTool(this, _curAnimation);
+        }
+
+        private void animationLoopModeComboBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            var index = animationLoopModeComboBox.SelectedIndex;
+            if (index > -1)
+            {
+                _scene.AnimationBatch.LoopMode = (AnimationLoopMode)index;
+            }
+        }
+
+        private void animationReverseCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.AnimationBatch.Reverse = animationReverseCheckBox.Checked;
         }
     }
 }
