@@ -904,9 +904,7 @@ namespace PSXPrev.Forms
             var mouseMiddle = e.Button == MouseButtons.Middle;
             var mouseRight = e.Button == MouseButtons.Right;
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
-            var controlWidth = _openTkControl.Size.Width;
-            var controlHeight = _openTkControl.Size.Height;
-            _scene.UpdatePicking(e.Location.X, e.Location.Y, controlWidth, controlHeight);
+            _scene.UpdatePicking(e.Location.X, e.Location.Y);
             var hoveredGizmo = _scene.GetGizmoUnderPosition(selectedEntityBase);
             var selectedGizmo = _selectedGizmo;
             switch (_selectedGizmo)
@@ -918,18 +916,10 @@ namespace PSXPrev.Forms
                         if (hoveredGizmo == Scene.GizmoId.None)
                         {
                             var checkedEntities = GetCheckedEntities();
-                            RootEntity rootEntity = null;
-                            if (_selectedRootEntity != null)
-                            {
-                                rootEntity = _selectedRootEntity;
-                            }
-                            else if (_selectedModelEntity != null)
-                            {
-                                rootEntity = _selectedModelEntity.GetRootEntity();
-                            }
+                            var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
                             if (IsTriangleSelectMode())
                             {
-                                var newSelectedTriangle = _scene.GetTriangleUnderMouse(checkedEntities, rootEntity, e.Location.X, e.Location.Y, controlWidth, controlHeight);
+                                var newSelectedTriangle = _scene.GetTriangleUnderMouse(checkedEntities, rootEntity, e.Location.X, e.Location.Y);
                                 if (newSelectedTriangle != null)
                                 {
                                     SelectTriangle(newSelectedTriangle);
@@ -941,7 +931,7 @@ namespace PSXPrev.Forms
                             }
                             else
                             {
-                                var newSelectedEntity = _scene.GetEntityUnderMouse(checkedEntities, rootEntity, e.Location.X, e.Location.Y, controlWidth, controlHeight);
+                                var newSelectedEntity = _scene.GetEntityUnderMouse(checkedEntities, rootEntity, e.Location.X, e.Location.Y);
                                 if (newSelectedEntity != null)
                                 {
                                     SelectEntity(newSelectedEntity, false);
@@ -1523,6 +1513,8 @@ namespace PSXPrev.Forms
                 // Update selected entity to invalidate the animation changes to the model.
                 UpdateSelectedEntity();
             }
+            // Force-hide all visuals when in animation tab.
+            _scene.ShowVisuals = menusTabControl.SelectedTab.TabIndex != 3;
 
             switch (menusTabControl.SelectedTab.TabIndex)
             {
@@ -2004,6 +1996,91 @@ namespace PSXPrev.Forms
                     case Keys.ControlKey:
                         _controlKeyDown = state;
                         break;
+                    case Keys.Enter when state:
+                        // Take focus away from numeric up/downs,
+                        // and give it the primary control of this tab.
+
+                        // Find the control with focus, but check the type to make sure we don't
+                        // go farther into the nested controls than what's publicly exposed.
+                        var focusedControl = ActiveControl;
+                        var focusedContainer = focusedControl as IContainerControl;
+                        while (focusedContainer != null && !(focusedControl is NumericUpDown))
+                        {
+                            focusedControl = focusedContainer.ActiveControl;
+                            focusedContainer = focusedControl as IContainerControl;
+                        }
+                        if (!(focusedControl is NumericUpDown))
+                        {
+                            break;
+                        }
+
+                        switch (menusTabControl.SelectedTab.TabIndex)
+                        {
+                            case 0: // Models
+                            case 3: // Animations
+                                _openTkControl.Focus();
+                                break;
+                            case 1: // Textures
+                                texturePreviewPictureBox.Focus();
+                                break;
+                            case 2: // VRAM
+                                vramPagePictureBox.Focus();
+                                break;
+                        }
+                        break;
+
+                        // Debugging keys for testing picking rays.
+#if true
+                    case Keys.D when state: // Ctrl+D: Toggle debug visuals)
+                        if (_openTkControl.Focused && _controlKeyDown)
+                        {
+                            _scene.ShowDebugVisuals = !_scene.ShowDebugVisuals;
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugVisuals: {_scene.ShowDebugVisuals}");
+                            e.Handled = true;
+                        }
+                        break;
+                    case Keys.R when state:
+                        if (_openTkControl.Focused && _scene.ShowDebugVisuals)
+                        {
+                            if (_controlKeyDown) // Ctrl+R (Toggle debug picking ray)
+                            {
+                                _scene.ShowDebugPickingRay = !_scene.ShowDebugPickingRay;
+                                Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugPickingRay: {_scene.ShowDebugPickingRay}");
+                                e.Handled = true;
+                            }
+                            else if (_scene.ShowDebugPickingRay) // R (Set debug picking ray)
+                            {
+                                _scene.SetDebugPickingRay();
+                                e.Handled = true;
+                            }
+                        }
+                        break;
+                    case Keys.I when state:
+                        if (_openTkControl.Focused && _scene.ShowDebugVisuals)
+                        {
+                            if (_controlKeyDown) // Ctrl+I (Toggle debug intersections)
+                            {
+                                _scene.ShowDebugIntersections = !_scene.ShowDebugIntersections;
+                                Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugIntersections: {_scene.ShowDebugIntersections}");
+                                e.Handled = true;
+                            }
+                            else if (_scene.ShowDebugIntersections) // Hold I/Hold Shift+I (Update debug intersections)
+                            {
+                                var checkedEntities = GetCheckedEntities();
+                                var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
+                                if (IsTriangleSelectMode())
+                                {
+                                    _scene.GetTriangleUnderMouse(checkedEntities, rootEntity, (int)_lastMouseX, (int)_lastMouseY);
+                                }
+                                else
+                                {
+                                    _scene.GetEntityUnderMouse(checkedEntities, rootEntity, (int)_lastMouseX, (int)_lastMouseY);
+                                }
+                                e.Handled = true;
+                            }
+                        }
+                        break;
+#endif
 
                         // Debugging keys for testing AnimationBatch settings while they still don't have UI controls.
 #if false

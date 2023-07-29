@@ -184,10 +184,7 @@ namespace PSXPrev.Common.Animator
             // todo: Is this correct for handling reseting the mesh batch?
             // What if the animation doesn't match the object?
             var objectCount = animation == null ? 0 : (animation.ObjectCount + 1);
-            _scene.MeshBatch.Reset(objectCount);
-            _scene.BoundsBatch.Reset();
-            _scene.TriangleOutlineBatch.Reset();
-            _scene.GizmosMeshBatch.Reset(0);
+            _scene.ResetBatches(objectCount);
             if (_animation != animation)
             {
                 _animation = animation;
