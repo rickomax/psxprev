@@ -12,28 +12,17 @@ namespace PSXPrev.Common.Exporters
     {
         private readonly Dictionary<Tuple<uint, Vector4>, TiledTextureInfo> _groupedModels = new Dictionary<Tuple<uint, Vector4>, TiledTextureInfo>();
         private readonly Dictionary<RootEntity, List<ModelEntity>> _rootEntityModels = new Dictionary<RootEntity, List<ModelEntity>>();
-        private readonly bool _tiledTextures;
-        private readonly bool _singleTexture; // Should all texture pages/tiled textures be merged into one bitmap?
-        private SingleTextureInfo _currentSingleInfo;
+        private readonly Texture[] _copiedVRAMPages = new Texture[VRAM.PageCount];
+        private readonly ExportModelOptions _options;
+        private SingleTextureInfo _singleInfo;
 
-        public ModelPreparerExporter(bool tiledTextures = true, bool singleTexture = false)
+        private bool CanPrepareAll => !_options.ExportTextures || _options.ShareTextures;
+
+        public ModelPreparerExporter(ExportModelOptions options)
         {
-            _tiledTextures = tiledTextures;
-            _singleTexture = singleTexture;
+            _options = options;
         }
 
-
-        public void AddRootEntity(RootEntity rootEntity)
-        {
-            // todo: Maybe make this optional later. But for now we should
-            // fix connections even if we haven't viewed the model yet.
-            rootEntity.FixConnections();
-
-            foreach (ModelEntity model in rootEntity.ChildEntities)
-            {
-                SeparateModel(rootEntity, model);
-            }
-        }
 
         public List<ModelEntity> GetModels(RootEntity rootEntity)
         {
@@ -41,49 +30,67 @@ namespace PSXPrev.Common.Exporters
         }
 
         // Call this after AddRootEntity has been called for all root entities that plan to be exported.
-        public void PrepareAll()
+        public void PrepareAll(params RootEntity[] rootEntities)
         {
-            foreach (var tiledInfo in _groupedModels.Values)
-            {
-                if (tiledInfo.IsTiled)
-                {
-                    PrepareTiledTexture(tiledInfo); // Only need to prepare tiled textures
-                }
-            }
+            Prepare(rootEntities, false);
         }
 
         // Call this when preparing to export the current set of root entities.
         // NOTE: This assumes that PrepareCurrent will NEVER be called with the same RootEntity twice!
         public void PrepareCurrent(params RootEntity[] rootEntities)
         {
-            if (_currentSingleInfo != null)
+            CleanupCurrent();
+
+            Prepare(rootEntities, true);
+        }
+
+        private void Prepare(RootEntity[] rootEntities, bool current)
+        {
+            // Add all entities if all entities are processed together.
+            // Or add current entities if we need to separate processing.
+            if (CanPrepareAll != current)
             {
-                // Cleanup previous singleInfo
-                _currentSingleInfo.Dispose();
-                _currentSingleInfo = null;
-            }
-            if (_singleTexture)
-            {
-                // Add models and textures to singleInfo
-                _currentSingleInfo = new SingleTextureInfo();
-                var addedTextures = new HashSet<Texture>();
+                // Process root entities now.
                 foreach (var rootEntity in rootEntities)
                 {
-                    var models = GetModels(rootEntity);
-                    foreach (var model in models)
-                    {
-                        if (model.Texture != null && model.IsTextured && addedTextures.Add(model.Texture))
-                        {
-                            _currentSingleInfo.OriginalTextures.Add(model.Texture);
-                        }
-                    }
-                    _currentSingleInfo.Models.AddRange(models);
+                    AddRootEntity(rootEntity);
                 }
 
-                PrepareSingleTexture(_currentSingleInfo);
+                PrepareTiledTextures();
+
+                PrepareSingleTexture(rootEntities);
             }
         }
 
+
+        private void RedrawEntityTextures(RootEntity rootEntity)
+        {
+            if (_options.RedrawTextures)
+            {
+                foreach (var texture in rootEntity.OwnedTextures)
+                {
+                    var vramTexture = _copiedVRAMPages[texture.TexturePage];
+                    if (vramTexture != null)
+                    {
+                        VRAM.DrawTexture(vramTexture, texture);
+                    }
+                }
+            }
+        }
+
+        private void PrepareTiledTextures()
+        {
+            if (_options.TiledTextures)
+            {
+                foreach (var tiledInfo in _groupedModels.Values)
+                {
+                    if (tiledInfo.IsTiled)
+                    {
+                        PrepareTiledTexture(tiledInfo); // Only need to prepare tiled textures
+                    }
+                }
+            }
+        }
 
         private void PrepareTiledTexture(TiledTextureInfo tiledInfo)
         {
@@ -131,44 +138,101 @@ namespace PSXPrev.Common.Exporters
             }
         }
 
-        private void PrepareSingleTexture(SingleTextureInfo singleInfo)
+        private void PrepareSingleTexture(RootEntity[] rootEntities)
         {
-            // Compute packing and create a new single texture that contains all other textures.
-            singleInfo.SetupSingleTexture(true, true, true);
-
-            // Assign new single texture to models.
-            foreach (var model in singleInfo.Models)
+            if (_options.SingleTexture)
             {
-                if (model.Texture != null && model.IsTextured)
+                // Add models and textures to singleInfo
+                _singleInfo = new SingleTextureInfo();
+                var addedTextures = new HashSet<Texture>();
+                foreach (var rootEntity in rootEntities)
                 {
-                    var uvConverter = singleInfo.GetUVConverter(model.Texture);
-                    model.Texture = singleInfo.SingleTexture;
-
-                    // Convert triangle UVs to new single texture UVs (we're no longer 256x256).
-                    foreach (var triangle in model.Triangles)
+                    var models = GetModels(rootEntity);
+                    foreach (var model in models)
                     {
-                        var origUv = triangle.Uv;
-                        // Create a new array because we don't own triangle.Uv's array.
-                        var uvs = new Vector2[3];
-                        for (var j = 0; j < 3; j++)
+                        if (model.Texture != null && model.IsTextured && addedTextures.Add(model.Texture))
                         {
-                            uvs[j] = uvConverter.Convert(origUv[j]);
+                            _singleInfo.OriginalTextures.Add(model.Texture);
                         }
-                        triangle.Uv = uvs;
-                        triangle.TiledUv = null; // We're not tiled anymore.
+                    }
+                    _singleInfo.Models.AddRange(models);
+                }
+
+                // Compute packing and create a new single texture that contains all other textures.
+                _singleInfo.SetupSingleTexture(true, true, true);
+
+                // Assign new single texture to models.
+                foreach (var model in _singleInfo.Models)
+                {
+                    if (model.Texture != null && model.IsTextured)
+                    {
+                        var uvConverter = _singleInfo.GetUVConverter(model.Texture);
+                        model.Texture = _singleInfo.SingleTexture;
+
+                        // Convert triangle UVs to new single texture UVs (we're no longer 256x256).
+                        foreach (var triangle in model.Triangles)
+                        {
+                            var origUv = triangle.Uv;
+                            // Create a new array because we don't own triangle.Uv's array.
+                            var uvs = new Vector2[3];
+                            for (var j = 0; j < 3; j++)
+                            {
+                                uvs[j] = uvConverter.Convert(origUv[j]);
+                            }
+                            triangle.Uv = uvs;
+                            triangle.TiledUv = null; // We're not tiled anymore.
+                        }
                     }
                 }
             }
         }
 
+        private bool ModelNeedsCopy(ModelEntity model)
+        {
+            // todo: Currently we just attach limbs by modifying the real models.
+            /*if (_options.AttachLimbs)
+            {
+                return true; // Model vertices need to be changed
+            }*/
+            if (model.Texture != null && model.IsTextured)
+            {
+                if (_options.SingleTexture || _options.RedrawTextures || (_options.TiledTextures && model.NeedsTiled))
+                {
+                    return true; // Model texture needs to be changed
+                }
+            }
+            return false;
+        }
+
         private void SeparateModel(RootEntity rootEntity, ModelEntity model)
         {
-            if (!_singleTexture && (!_tiledTextures || model.Texture == null || !model.IsTextured || !model.NeedsTiled))
+            var modelNeedsCopy = ModelNeedsCopy(model);
+
+            // Create a copy of the VRAM page so that we can redraw textures to it.
+            var texture = model.Texture;
+            if (modelNeedsCopy && _options.RedrawTextures && texture != null && model.IsTextured)
+            {
+                var texturePage = texture.TexturePage;
+                if (texture.IsVRAMPage)
+                {
+                    var vramTexture = _copiedVRAMPages[texturePage];
+                    if (_copiedVRAMPages[texturePage] == null)
+                    {
+                        // A copy doesn't exist yet, create one.
+                        vramTexture = new Texture(texture);
+                        vramTexture.TextureName = $"{texture.TextureName ?? nameof(Texture)} Copy";
+                        _copiedVRAMPages[texturePage] = vramTexture;
+                    }
+                    texture = vramTexture;
+                }
+            }
+
+            if (!modelNeedsCopy)
             {
                 // No changes to the model.
                 AddModel(rootEntity, model, Vector4.Zero);
             }
-            else if (_singleTexture && !_tiledTextures)
+            else if (!_options.TiledTextures)
             {
                 // Create copies for every model with copies of each triangle.
                 var triangles = model.Triangles;
@@ -177,7 +241,10 @@ namespace PSXPrev.Common.Exporters
                 {
                     newTriangles[i] = new Triangle(triangles[i]);
                 }
-                var newModel = new ModelEntity(model, newTriangles);
+                var newModel = new ModelEntity(model, newTriangles)
+                {
+                    Texture = texture,
+                };
                 AddModel(rootEntity, newModel, Vector4.Zero);
             }
             else
@@ -187,8 +254,8 @@ namespace PSXPrev.Common.Exporters
 
                 foreach (var triangle in model.Triangles)
                 {
-                    var needsTiled = _tiledTextures && triangle.NeedsTiled;
-                    var needsCopy = _singleTexture || needsTiled;
+                    var needsTiled = _options.TiledTextures && triangle.NeedsTiled;
+                    var triangleNeedsCopy = true;// _options.SingleTexture || needsTiled;
                     var tiledArea = needsTiled ? triangle.TiledArea.Value : Vector4.Zero;
                     if (!groupedTriangles.TryGetValue(tiledArea, out var triangles))
                     {
@@ -196,28 +263,50 @@ namespace PSXPrev.Common.Exporters
                         groupedTriangles.Add(tiledArea, triangles);
                     }
                     // We only need to create a copy for tiled triangles, since we'll be modifying those.
-                    triangles.Add(needsCopy ? new Triangle(triangle) : triangle);
+                    triangles.Add(triangleNeedsCopy ? new Triangle(triangle) : triangle);
                 }
 
                 foreach (var kvp in groupedTriangles)
                 {
                     var tiledArea = kvp.Key;
                     var triangles = kvp.Value;
-                    var newModel = new ModelEntity(model, triangles.ToArray());
+                    var newModel = new ModelEntity(model, triangles.ToArray())
+                    {
+                        Texture = texture,
+                    };
                     AddModel(rootEntity, newModel, tiledArea);
                 }
             }
         }
 
+        private void AddRootEntity(RootEntity rootEntity)
+        {
+            // todo: Maybe change this so models are copied before fixing connections?
+            if (_options.AttachLimbs)
+            {
+                rootEntity.FixConnections();
+            }
+
+            foreach (ModelEntity model in rootEntity.ChildEntities)
+            {
+                SeparateModel(rootEntity, model);
+            }
+
+            RedrawEntityTextures(rootEntity);
+        }
+
         private void AddModel(RootEntity rootEntity, ModelEntity model, Vector4 tiledArea)
         {
-            var tuple = new Tuple<uint, Vector4>(model.TexturePage, tiledArea);
-            if (!_groupedModels.TryGetValue(tuple, out var tiledInfo))
+            if (model.Texture != null && model.IsTextured)
             {
-                tiledInfo = new TiledTextureInfo(model.Texture, tiledArea);
-                _groupedModels.Add(tuple, tiledInfo);
+                var tuple = new Tuple<uint, Vector4>(model.TexturePage, tiledArea);
+                if (!_groupedModels.TryGetValue(tuple, out var tiledInfo))
+                {
+                    tiledInfo = new TiledTextureInfo(model.Texture, tiledArea);
+                    _groupedModels.Add(tuple, tiledInfo);
+                }
+                tiledInfo.Models.Add(model);
             }
-            tiledInfo.Models.Add(model);
 
             if (!_rootEntityModels.TryGetValue(rootEntity, out var childModels))
             {
@@ -227,12 +316,25 @@ namespace PSXPrev.Common.Exporters
             childModels.Add(model);
         }
 
+        private void CleanupCurrent()
+        {
+            if (!CanPrepareAll)
+            {
+                Dispose(); // Dispose does everything we need and nothing more
+            }
+        }
+
         public void Dispose()
         {
-            if (_currentSingleInfo != null)
+            for (var i = 0; i < _copiedVRAMPages.Length; i++)
             {
-                _currentSingleInfo.Dispose();
-                _currentSingleInfo = null;
+                _copiedVRAMPages[i]?.Dispose();
+                _copiedVRAMPages[i] = null;
+            }
+            if (_singleInfo != null)
+            {
+                _singleInfo.Dispose();
+                _singleInfo = null;
             }
             foreach (var tiledInfo in _groupedModels.Values)
             {

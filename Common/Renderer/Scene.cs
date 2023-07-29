@@ -125,13 +125,13 @@ namespace PSXPrev.Common.Renderer
         private float _currentHeight = 1f;
         private float _cameraDistanceScalar = 1f; // Applied when using _viewMatrix(Origin) to correct distance
 
-        private Color _clearColor;
-        public Color ClearColor
+        private System.Drawing.Color _clearColor;
+        public System.Drawing.Color ClearColor
         {
             get => _clearColor;
             set
             {
-                GL.ClearColor(value.R, value.G, value.B, 0.0f);
+                GL.ClearColor(value.R / 255f, value.G / 255f, value.B / 255f, 0.0f);
                 _clearColor = value;
             }
         }

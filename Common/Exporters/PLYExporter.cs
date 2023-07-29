@@ -14,26 +14,28 @@ namespace PSXPrev.Common.Exporters
         private bool _untexturedMaterialExported;
         private ModelPreparerExporter _modelPreparer;
         private string _selectedPath;
-        private bool _exportTextures;
+        private string _baseName;
+        private string _baseTextureName;
+        private ExportModelOptions _options;
 
-        public void Export(RootEntity[] entities, string selectedPath, bool joinEntities = false, bool exportTextures = true)
+        public void Export(RootEntity[] entities, string selectedPath, ExportModelOptions options = null)
         {
+            _options = options?.Clone() ?? new ExportModelOptions();
+            // Force any required options for this format here, before calling Validate.
+            _options.SingleTexture = true; // PLY only supports one texture file
+            _options.Validate();
+
             // todo: Different material IDs aren't handled for different root entities.
             _pngExporter = new PNGExporter();
             _materialsDictionary = new Dictionary<Texture, int>();
             _untexturedMaterialExported = false;
-            _modelPreparer = new ModelPreparerExporter(tiledTextures: exportTextures, singleTexture: exportTextures);
+            _modelPreparer = new ModelPreparerExporter(_options);
             _selectedPath = selectedPath;
-            _exportTextures = exportTextures;
 
             // Prepare the shared state for all models being exported (mainly setting up tiled textures).
-            foreach (var entity in entities)
-            {
-                _modelPreparer.AddRootEntity(entity);
-            }
-            _modelPreparer.PrepareAll();
+            _modelPreparer.PrepareAll(entities);
 
-            if (!joinEntities)
+            if (!_options.MergeEntities)
             {
                 for (var i = 0; i < entities.Length; i++)
                 {
@@ -55,7 +57,14 @@ namespace PSXPrev.Common.Exporters
 
         private void ExportEntities(int index, params RootEntity[] entities)
         {
-            _writer = new StreamWriter($"{_selectedPath}/ply{index}.ply");
+            if (!_options.ShareTextures)
+            {
+                _materialsDictionary.Clear();
+            }
+
+            _baseName = $"ply{index}";
+            _baseTextureName = (_options.ShareTextures ? "plyshared" : _baseName); //+ "_";
+            _writer = new StreamWriter($"{_selectedPath}/{_baseName}.ply");
 
             // Prepare the state for the current model being exported.
             _modelPreparer.PrepareCurrent(entities);
@@ -73,16 +82,17 @@ namespace PSXPrev.Common.Exporters
                     faceCount += model.Triangles.Length;
 
                     // Export material if we haven't already
-                    if (_exportTextures && model.Texture != null && model.IsTextured)
+                    if (_options.ExportTextures && model.Texture != null && model.IsTextured)
                     {
+                        singleTexture = model.Texture;
+
                         if (!_materialsDictionary.TryGetValue(model.Texture, out var materialIndex))
                         {
                             // Using singleTexture, materialIndex is always 0.
                             materialIndex = 0;// _materialsDictionary.Count + 1; // 1-indexed because 0 is untextured
                             _materialsDictionary.Add(model.Texture, materialIndex);
 
-                            singleTexture = model.Texture;
-                            //_pngExporter.Export(model.Texture, materialIndex, _selectedPath);
+                            //_pngExporter.Export(model.Texture, _baseTextureName + materialIndex, _selectedPath);
                         }
                         // For each later model we write, there may be more materials defined that are unused.
                         materialCount = Math.Max(materialCount, materialIndex + 1);
@@ -91,12 +101,12 @@ namespace PSXPrev.Common.Exporters
             }
 
             // Export untextured material
-            if (_exportTextures && !_untexturedMaterialExported)
+            if (_options.ExportTextures && !_untexturedMaterialExported)
             {
                 // We always need to export the untextured material, because we're 1-indexing other materials.
                 _untexturedMaterialExported = true;
                 // It's pointless to export an empty material, if the importer isn't going to use it.
-                //_pngExporter.ExportEmpty(System.Drawing.Color.White, 0, _selectedPath);
+                //_pngExporter.ExportEmpty(System.Drawing.Color.White, _baseTextureName + 0, _selectedPath);
             }
 
             // Write header
@@ -105,11 +115,11 @@ namespace PSXPrev.Common.Exporters
 
             // Export single texture material
             // Note: Some formats allow defining ONE texture file, like so.
-            if (_exportTextures && singleTexture != null)
+            if (_options.ExportTextures && singleTexture != null)
             {
-                _pngExporter.Export(singleTexture, index, _selectedPath);
+                _pngExporter.Export(singleTexture, _baseTextureName, _selectedPath);
 
-                _writer.WriteLine("comment TextureFile {0}.png", index);
+                _writer.WriteLine("comment TextureFile {0}.png", _baseTextureName);
             }
 
             // Write header vertex structure
@@ -152,7 +162,7 @@ namespace PSXPrev.Common.Exporters
                 foreach (var model in _modelPreparer.GetModels(entity))
                 {
                     var materialIndex = 0; // Untextured
-                    if (_exportTextures && model.Texture != null && model.IsTextured)
+                    if (_options.ExportTextures && model.Texture != null && model.IsTextured)
                     {
                         materialIndex = _materialsDictionary[model.Texture];
                     }

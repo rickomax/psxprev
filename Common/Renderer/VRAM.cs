@@ -145,13 +145,29 @@ namespace PSXPrev.Common.Renderer
         public void DrawTexture(Texture texture, bool suppressUpdate = false)
         {
             var index = texture.TexturePage;
+            DrawTexture(_vramPages[index], texture);
+
+            _usedPages[index] = true;
+            if (suppressUpdate)
+            {
+                _modifiedPages[index] = true;
+            }
+            else
+            {
+                UpdatePage(index, true);
+            }
+        }
+
+
+        public static void DrawTexture(Texture vramTexture, Texture texture)
+        {
             var textureX = texture.X;
             var textureY = texture.Y;
             var textureWidth = texture.Width;
             var textureHeight = texture.Height;
             var textureBitmap = texture.Bitmap;
             var textureSemiTransparentMap = texture.SemiTransparentMap;
-            using (var graphics = Graphics.FromImage(_vramPages[index].Bitmap))
+            using (var graphics = Graphics.FromImage(vramTexture.Bitmap))
             {
                 // Use SourceCopy to overwrite image alpha with alpha stored in textures.
                 graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
@@ -177,18 +193,7 @@ namespace PSXPrev.Common.Renderer
                 }
                 graphics.ResetClip();
             }
-
-            _usedPages[index] = true;
-            if (suppressUpdate)
-            {
-                _modifiedPages[index] = true;
-            }
-            else
-            {
-                UpdatePage(index, true);
-            }
         }
-
 
         // Returns a bitmap of the VRAM texture page without the semi-transparency section.
         // Must dispose of Bitmap after use.

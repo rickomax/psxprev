@@ -12,26 +12,25 @@ namespace PSXPrev.Common.Exporters
         private MTLExporter.MaterialDictionary _mtlDictionary;
         private ModelPreparerExporter _modelPreparer;
         private string _selectedPath;
-        private bool _experimentalVertexColor;
-        private bool _exportTextures;
+        private string _baseName;
+        private string _baseTextureName;
+        private ExportModelOptions _options;
 
-        public void Export(RootEntity[] entities, string selectedPath, bool joinEntities = false, bool experimentalVertexColor = false, bool exportTextures = true)
+        public void Export(RootEntity[] entities, string selectedPath, ExportModelOptions options = null)
         {
+            _options = options?.Clone() ?? new ExportModelOptions();
+            // Force any required options for this format here, before calling Validate.
+            _options.Validate();
+
             _pngExporter = new PNGExporter();
             _mtlDictionary = new MTLExporter.MaterialDictionary();
-            _modelPreparer = new ModelPreparerExporter(tiledTextures: true, singleTexture: false);
+            _modelPreparer = new ModelPreparerExporter(_options);
             _selectedPath = selectedPath;
-            _experimentalVertexColor = experimentalVertexColor;
-            _exportTextures = exportTextures;
 
             // Prepare the shared state for all models being exported (mainly setting up tiled textures).
-            foreach (var entity in entities)
-            {
-                _modelPreparer.AddRootEntity(entity);
-            }
-            _modelPreparer.PrepareAll();
+            _modelPreparer.PrepareAll(entities);
 
-            if (!joinEntities)
+            if (!_options.MergeEntities)
             {
                 for (var i = 0; i < entities.Length; i++)
                 {
@@ -56,8 +55,14 @@ namespace PSXPrev.Common.Exporters
             // Re-use the dictionary of materials so that we only export them once,
             // and so that different textures aren't assigned the same ID.
             // We're using a separate mtl file for each model so that unused materials aren't added.
-            _mtlExporter = new MTLExporter(_selectedPath, index, _mtlDictionary);
-            _writer = new StreamWriter($"{_selectedPath}/obj{index}.obj");
+            if (!_options.ShareTextures)
+            {
+                _mtlDictionary.Clear();
+            }
+            _baseName = $"obj{index}";
+            _baseTextureName = (_options.ShareTextures ? "objshared" : _baseName) + "_";
+            _mtlExporter = new MTLExporter(_selectedPath, _baseName, _baseTextureName, _mtlDictionary);
+            _writer = new StreamWriter($"{_selectedPath}/{_baseName}.obj");
 
             // Prepare the state for the current model being exported.
             _modelPreparer.PrepareCurrent(entities);
@@ -96,11 +101,11 @@ namespace PSXPrev.Common.Exporters
         private void WriteModel(ModelEntity model)
         {
             // Export material if we haven't already
-            if (_exportTextures && model.Texture != null && model.IsTextured)
+            if (_options.ExportTextures && model.Texture != null && model.IsTextured)
             {
                 if (_mtlExporter.AddMaterial(model.Texture, out var materialId))
                 {
-                    _pngExporter.Export(model.Texture, materialId, _selectedPath);
+                    _pngExporter.Export(model.Texture, _baseTextureName + materialId, _selectedPath);
                 }
             }
 
@@ -136,7 +141,7 @@ namespace PSXPrev.Common.Exporters
         private void WriteVertexPosition(Vector3 vertex, Color color)
         {
             var vertexColor = string.Empty;
-            if (_experimentalVertexColor)
+            if (_options.ExperimentalOBJVertexColor)
             {
                 vertexColor = string.Format(" {0} {1} {2}", F(color.R), F(color.G), F(color.B));
             }
@@ -155,7 +160,7 @@ namespace PSXPrev.Common.Exporters
 
         private void WriteGroup(int groupIndex, ref int baseIndex, ModelEntity model)
         {
-            var materialName = _mtlExporter.GetMaterialName(_exportTextures ? model.Texture : null);
+            var materialName = _mtlExporter.GetMaterialName(_options.ExportTextures ? model.Texture : null);
 
             // Write group header
             _writer.WriteLine("g group{0}", groupIndex);

@@ -46,9 +46,14 @@ namespace PSXPrev.Common.Exporters
 
         public void Export(Texture[] textures, string selectedPath)
         {
+            Export(textures, string.Empty, selectedPath);
+        }
+
+        public void Export(Texture[] textures, string baseTextureName, string selectedPath)
+        {
             for (var i = 0; i < textures.Length; i++)
             {
-                Export(textures[i], i, selectedPath);
+                Export(textures[i], baseTextureName + i, selectedPath);
             }
         }
 

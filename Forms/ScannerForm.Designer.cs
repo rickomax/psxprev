@@ -110,6 +110,8 @@
             // 
             // fileNameTextBox
             // 
+            this.fileNameTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.fileNameTextBox.Location = new System.Drawing.Point(12, 19);
             this.fileNameTextBox.Name = "fileNameTextBox";
             this.fileNameTextBox.Size = new System.Drawing.Size(360, 20);
@@ -367,6 +369,7 @@
             // 
             // scanButton
             // 
+            this.scanButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.scanButton.Enabled = false;
             this.scanButton.Location = new System.Drawing.Point(297, 326);
             this.scanButton.Name = "scanButton";
