@@ -50,6 +50,7 @@
             this.optionMergeModelsCheckBox = new System.Windows.Forms.CheckBox();
             this.exportButton = new System.Windows.Forms.Button();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
+            this.formatGLTF2RadioButton = new System.Windows.Forms.RadioButton();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox3.SuspendLayout();
@@ -100,6 +101,7 @@
             // 
             // groupBox2
             // 
+            this.groupBox2.Controls.Add(this.formatGLTF2RadioButton);
             this.groupBox2.Controls.Add(this.formatPLYRadioButton);
             this.groupBox2.Controls.Add(this.formatOBJRadioButton);
             this.groupBox2.Dock = System.Windows.Forms.DockStyle.Top;
@@ -286,6 +288,18 @@
             this.toolTip.InitialDelay = 500;
             this.toolTip.ReshowDelay = 100;
             // 
+            // formatGLTF2RadioButton
+            // 
+            this.formatGLTF2RadioButton.AutoSize = true;
+            this.formatGLTF2RadioButton.Location = new System.Drawing.Point(216, 19);
+            this.formatGLTF2RadioButton.Name = "formatGLTF2RadioButton";
+            this.formatGLTF2RadioButton.Size = new System.Drawing.Size(94, 17);
+            this.formatGLTF2RadioButton.TabIndex = 4;
+            this.formatGLTF2RadioButton.Tag = "glTF2";
+            this.formatGLTF2RadioButton.Text = "Khronos glTF2";
+            this.formatGLTF2RadioButton.UseVisualStyleBackColor = true;
+            this.formatGLTF2RadioButton.CheckedChanged += new System.EventHandler(this.formatRadioButtons_CheckedChanged);
+            // 
             // ExportModelsForm
             // 
             this.AcceptButton = this.exportButton;
@@ -340,5 +354,6 @@
         private System.Windows.Forms.CheckBox optionShareTexturesCheckBox;
         private System.Windows.Forms.CheckBox optionTiledTexturesCheckBox;
         private System.Windows.Forms.ToolTip toolTip;
+        private System.Windows.Forms.RadioButton formatGLTF2RadioButton;
     }
 }

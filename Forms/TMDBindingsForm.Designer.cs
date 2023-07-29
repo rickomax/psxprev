@@ -30,14 +30,14 @@
         {
             this.bindingPropertyGrid = new System.Windows.Forms.PropertyGrid();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
+            this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.loadBindingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.saveBindingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.editToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.copyBindingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.pasteBindingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.label1 = new System.Windows.Forms.Label();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
-            this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.loadBindingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.saveBindingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
@@ -52,6 +52,7 @@
             this.bindingPropertyGrid.Name = "bindingPropertyGrid";
             this.bindingPropertyGrid.Size = new System.Drawing.Size(274, 351);
             this.bindingPropertyGrid.TabIndex = 0;
+            this.bindingPropertyGrid.ToolbarVisible = false;
             // 
             // menuStrip1
             // 
@@ -63,6 +64,29 @@
             this.menuStrip1.Size = new System.Drawing.Size(274, 24);
             this.menuStrip1.TabIndex = 1;
             this.menuStrip1.Text = "menuStrip1";
+            // 
+            // fileToolStripMenuItem
+            // 
+            this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.loadBindingsToolStripMenuItem,
+            this.saveBindingsToolStripMenuItem});
+            this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
+            this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
+            this.fileToolStripMenuItem.Text = "File";
+            // 
+            // loadBindingsToolStripMenuItem
+            // 
+            this.loadBindingsToolStripMenuItem.Enabled = false;
+            this.loadBindingsToolStripMenuItem.Name = "loadBindingsToolStripMenuItem";
+            this.loadBindingsToolStripMenuItem.Size = new System.Drawing.Size(149, 22);
+            this.loadBindingsToolStripMenuItem.Text = "Load Bindings";
+            // 
+            // saveBindingsToolStripMenuItem
+            // 
+            this.saveBindingsToolStripMenuItem.Enabled = false;
+            this.saveBindingsToolStripMenuItem.Name = "saveBindingsToolStripMenuItem";
+            this.saveBindingsToolStripMenuItem.Size = new System.Drawing.Size(149, 22);
+            this.saveBindingsToolStripMenuItem.Text = "Save Bindings";
             // 
             // editToolStripMenuItem
             // 
@@ -76,14 +100,14 @@
             // copyBindingsToolStripMenuItem
             // 
             this.copyBindingsToolStripMenuItem.Name = "copyBindingsToolStripMenuItem";
-            this.copyBindingsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.copyBindingsToolStripMenuItem.Size = new System.Drawing.Size(151, 22);
             this.copyBindingsToolStripMenuItem.Text = "Copy Bindings";
             this.copyBindingsToolStripMenuItem.Click += new System.EventHandler(this.copyBindingsToolStripMenuItem_Click);
             // 
             // pasteBindingsToolStripMenuItem
             // 
             this.pasteBindingsToolStripMenuItem.Name = "pasteBindingsToolStripMenuItem";
-            this.pasteBindingsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.pasteBindingsToolStripMenuItem.Size = new System.Drawing.Size(151, 22);
             this.pasteBindingsToolStripMenuItem.Text = "Paste Bindings";
             this.pasteBindingsToolStripMenuItem.Click += new System.EventHandler(this.pasteBindingsToolStripMenuItem_Click);
             // 
@@ -115,29 +139,6 @@
             this.splitContainer1.Size = new System.Drawing.Size(274, 426);
             this.splitContainer1.SplitterDistance = 351;
             this.splitContainer1.TabIndex = 3;
-            // 
-            // fileToolStripMenuItem
-            // 
-            this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.loadBindingsToolStripMenuItem,
-            this.saveBindingsToolStripMenuItem});
-            this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
-            this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
-            this.fileToolStripMenuItem.Text = "File";
-            // 
-            // loadBindingsToolStripMenuItem
-            // 
-            this.loadBindingsToolStripMenuItem.Enabled = false;
-            this.loadBindingsToolStripMenuItem.Name = "loadBindingsToolStripMenuItem";
-            this.loadBindingsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.loadBindingsToolStripMenuItem.Text = "Load Bindings";
-            // 
-            // saveBindingsToolStripMenuItem
-            // 
-            this.saveBindingsToolStripMenuItem.Enabled = false;
-            this.saveBindingsToolStripMenuItem.Name = "saveBindingsToolStripMenuItem";
-            this.saveBindingsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.saveBindingsToolStripMenuItem.Text = "Save Bindings";
             // 
             // TMDBindingsForm
             // 

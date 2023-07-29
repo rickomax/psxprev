@@ -77,6 +77,12 @@ namespace PSXPrev.Forms
             this.animationProgressLabel = new System.Windows.Forms.Label();
             this.flowLayoutPanel7 = new System.Windows.Forms.FlowLayoutPanel();
             this.animationSpeedNumericUpDown = new System.Windows.Forms.NumericUpDown();
+            this.flowLayoutPanel8 = new System.Windows.Forms.FlowLayoutPanel();
+            this.label8 = new System.Windows.Forms.Label();
+            this.animationLoopModeComboBox = new System.Windows.Forms.ComboBox();
+            this.flowLayoutPanel9 = new System.Windows.Forms.FlowLayoutPanel();
+            this.label9 = new System.Windows.Forms.Label();
+            this.animationReverseCheckBox = new System.Windows.Forms.CheckBox();
             this.animationPlayButtonx = new System.Windows.Forms.Button();
             this.exportModelsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.exportSelectedModelsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -159,12 +165,6 @@ namespace PSXPrev.Forms
             this.flowLayoutPanel6 = new System.Windows.Forms.FlowLayoutPanel();
             this.label7 = new System.Windows.Forms.Label();
             this.cameraFOVUpDown = new System.Windows.Forms.NumericUpDown();
-            this.flowLayoutPanel8 = new System.Windows.Forms.FlowLayoutPanel();
-            this.label8 = new System.Windows.Forms.Label();
-            this.animationLoopModeComboBox = new System.Windows.Forms.ComboBox();
-            this.flowLayoutPanel9 = new System.Windows.Forms.FlowLayoutPanel();
-            this.label9 = new System.Windows.Forms.Label();
-            this.animationReverseCheckBox = new System.Windows.Forms.CheckBox();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -215,6 +215,8 @@ namespace PSXPrev.Forms
             ((System.ComponentModel.ISupportInitialize)(this.animationFrameTrackBar)).BeginInit();
             this.flowLayoutPanel7.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.animationSpeedNumericUpDown)).BeginInit();
+            this.flowLayoutPanel8.SuspendLayout();
+            this.flowLayoutPanel9.SuspendLayout();
             this.mainMenuStrip.SuspendLayout();
             this.statusStrip1.SuspendLayout();
             this.flowLayoutPanel2.SuspendLayout();
@@ -230,8 +232,6 @@ namespace PSXPrev.Forms
             ((System.ComponentModel.ISupportInitialize)(this.vertexSizeUpDown)).BeginInit();
             this.flowLayoutPanel6.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.cameraFOVUpDown)).BeginInit();
-            this.flowLayoutPanel8.SuspendLayout();
-            this.flowLayoutPanel9.SuspendLayout();
             this.SuspendLayout();
             // 
             // entitiesTabPage
@@ -907,6 +907,78 @@ namespace PSXPrev.Forms
             65536});
             this.animationSpeedNumericUpDown.ValueChanged += new System.EventHandler(this.animationSpeedNumericUpDown_ValueChanged);
             // 
+            // flowLayoutPanel8
+            // 
+            this.flowLayoutPanel8.AutoSize = true;
+            this.flowLayoutPanel8.Controls.Add(this.label8);
+            this.flowLayoutPanel8.Controls.Add(this.animationLoopModeComboBox);
+            this.flowLayoutPanel8.Location = new System.Drawing.Point(85, 0);
+            this.flowLayoutPanel8.Margin = new System.Windows.Forms.Padding(0);
+            this.flowLayoutPanel8.Name = "flowLayoutPanel8";
+            this.flowLayoutPanel8.Size = new System.Drawing.Size(182, 27);
+            this.flowLayoutPanel8.TabIndex = 26;
+            // 
+            // label8
+            // 
+            this.label8.AutoSize = true;
+            this.label8.Dock = System.Windows.Forms.DockStyle.Left;
+            this.label8.Location = new System.Drawing.Point(3, 0);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(60, 27);
+            this.label8.TabIndex = 23;
+            this.label8.Text = "Play Mode:";
+            this.label8.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // animationLoopModeComboBox
+            // 
+            this.animationLoopModeComboBox.FormattingEnabled = true;
+            this.animationLoopModeComboBox.Items.AddRange(new object[] {
+            "Once",
+            "Loop",
+            "Loop (Unsynced)",
+            "Mirror Once",
+            "Mirror Loop"});
+            this.animationLoopModeComboBox.Location = new System.Drawing.Point(69, 3);
+            this.animationLoopModeComboBox.Name = "animationLoopModeComboBox";
+            this.animationLoopModeComboBox.Size = new System.Drawing.Size(110, 21);
+            this.animationLoopModeComboBox.TabIndex = 24;
+            this.animationLoopModeComboBox.SelectedIndexChanged += new System.EventHandler(this.animationLoopModeComboBox_SelectedIndexChanged);
+            // 
+            // flowLayoutPanel9
+            // 
+            this.flowLayoutPanel9.AutoSize = true;
+            this.flowLayoutPanel9.Controls.Add(this.label9);
+            this.flowLayoutPanel9.Controls.Add(this.animationReverseCheckBox);
+            this.flowLayoutPanel9.Location = new System.Drawing.Point(267, 0);
+            this.flowLayoutPanel9.Margin = new System.Windows.Forms.Padding(0);
+            this.flowLayoutPanel9.Name = "flowLayoutPanel9";
+            this.flowLayoutPanel9.Size = new System.Drawing.Size(77, 22);
+            this.flowLayoutPanel9.TabIndex = 27;
+            // 
+            // label9
+            // 
+            this.label9.AutoSize = true;
+            this.label9.Dock = System.Windows.Forms.DockStyle.Left;
+            this.label9.Location = new System.Drawing.Point(3, 0);
+            this.label9.Name = "label9";
+            this.label9.Size = new System.Drawing.Size(50, 22);
+            this.label9.TabIndex = 26;
+            this.label9.Text = "Reverse:";
+            this.label9.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // animationReverseCheckBox
+            // 
+            this.animationReverseCheckBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left)));
+            this.animationReverseCheckBox.AutoSize = true;
+            this.animationReverseCheckBox.Location = new System.Drawing.Point(59, 5);
+            this.animationReverseCheckBox.Margin = new System.Windows.Forms.Padding(3, 5, 3, 3);
+            this.animationReverseCheckBox.Name = "animationReverseCheckBox";
+            this.animationReverseCheckBox.Size = new System.Drawing.Size(15, 14);
+            this.animationReverseCheckBox.TabIndex = 27;
+            this.animationReverseCheckBox.UseVisualStyleBackColor = true;
+            this.animationReverseCheckBox.CheckedChanged += new System.EventHandler(this.animationReverseCheckBox_CheckedChanged);
+            // 
             // animationPlayButtonx
             // 
             this.animationPlayButtonx.Dock = System.Windows.Forms.DockStyle.Bottom;
@@ -1175,7 +1247,7 @@ namespace PSXPrev.Forms
             this.exportSelectedTexturesToolStripMenuItem,
             this.exportAllTexturesToolStripMenuItem});
             this.exportTexturesToolStripMenuItem.Name = "exportTexturesToolStripMenuItem";
-            this.exportTexturesToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.exportTexturesToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.exportTexturesToolStripMenuItem.Text = "Export Textures";
             // 
             // exportSelectedTexturesToolStripMenuItem
@@ -1183,6 +1255,7 @@ namespace PSXPrev.Forms
             this.exportSelectedTexturesToolStripMenuItem.Name = "exportSelectedTexturesToolStripMenuItem";
             this.exportSelectedTexturesToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
             this.exportSelectedTexturesToolStripMenuItem.Text = "Export Selected Textures";
+            this.exportSelectedTexturesToolStripMenuItem.Click += new System.EventHandler(this.exportSelectedTexturesToolStripMenuItem_Click);
             // 
             // exportAllTexturesToolStripMenuItem
             // 
@@ -1193,59 +1266,59 @@ namespace PSXPrev.Forms
             // toolStripSeparator3
             // 
             this.toolStripSeparator3.Name = "toolStripSeparator3";
-            this.toolStripSeparator3.Size = new System.Drawing.Size(173, 6);
+            this.toolStripSeparator3.Size = new System.Drawing.Size(177, 6);
             // 
             // drawToVRAMToolStripMenuItem
             // 
             this.drawToVRAMToolStripMenuItem.Name = "drawToVRAMToolStripMenuItem";
-            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.drawToVRAMToolStripMenuItem.Text = "Draw to VRAM";
             this.drawToVRAMToolStripMenuItem.Click += new System.EventHandler(this.drawSelectedToVRAM_Click);
             // 
             // drawAllToVRAMToolStripMenuItem
             // 
             this.drawAllToVRAMToolStripMenuItem.Name = "drawAllToVRAMToolStripMenuItem";
-            this.drawAllToVRAMToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.drawAllToVRAMToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.drawAllToVRAMToolStripMenuItem.Text = "Draw All to VRAM";
             this.drawAllToVRAMToolStripMenuItem.Click += new System.EventHandler(this.drawAllToVRAM_Click);
             // 
             // findByPageToolStripMenuItem
             // 
             this.findByPageToolStripMenuItem.Name = "findByPageToolStripMenuItem";
-            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.findByPageToolStripMenuItem.Text = "Find by Page";
             this.findByPageToolStripMenuItem.Click += new System.EventHandler(this.findByPageToolStripMenuItem_Click);
             // 
             // clearSearchToolStripMenuItem
             // 
             this.clearSearchToolStripMenuItem.Name = "clearSearchToolStripMenuItem";
-            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.clearSearchToolStripMenuItem.Text = "Clear Results";
             this.clearSearchToolStripMenuItem.Click += new System.EventHandler(this.clearSearchToolStripMenuItem_Click);
             // 
             // toolStripSeparator1
             // 
             this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(173, 6);
+            this.toolStripSeparator1.Size = new System.Drawing.Size(177, 6);
             // 
             // autoDrawModelTexturesToolStripMenuItem
             // 
             this.autoDrawModelTexturesToolStripMenuItem.CheckOnClick = true;
             this.autoDrawModelTexturesToolStripMenuItem.Name = "autoDrawModelTexturesToolStripMenuItem";
-            this.autoDrawModelTexturesToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.autoDrawModelTexturesToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.autoDrawModelTexturesToolStripMenuItem.Text = "Auto Draw Textures";
             this.autoDrawModelTexturesToolStripMenuItem.Click += new System.EventHandler(this.autoDrawModelTexturesToolStripMenuItem_Click);
             // 
             // toolStripSeparator6
             // 
             this.toolStripSeparator6.Name = "toolStripSeparator6";
-            this.toolStripSeparator6.Size = new System.Drawing.Size(173, 6);
+            this.toolStripSeparator6.Size = new System.Drawing.Size(177, 6);
             // 
             // setMaskColorToolStripMenuItem
             // 
             this.setMaskColorToolStripMenuItem.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.setMaskColorToolStripMenuItem.Name = "setMaskColorToolStripMenuItem";
-            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.setMaskColorToolStripMenuItem.Text = "Set Mask Color";
             this.setMaskColorToolStripMenuItem.Click += new System.EventHandler(this.setMaskColorToolStripMenuItem_Click);
             // 
@@ -1684,78 +1757,6 @@ namespace PSXPrev.Forms
             0});
             this.cameraFOVUpDown.ValueChanged += new System.EventHandler(this.cameraFOVUpDown_ValueChanged);
             // 
-            // flowLayoutPanel8
-            // 
-            this.flowLayoutPanel8.AutoSize = true;
-            this.flowLayoutPanel8.Controls.Add(this.label8);
-            this.flowLayoutPanel8.Controls.Add(this.animationLoopModeComboBox);
-            this.flowLayoutPanel8.Location = new System.Drawing.Point(85, 0);
-            this.flowLayoutPanel8.Margin = new System.Windows.Forms.Padding(0);
-            this.flowLayoutPanel8.Name = "flowLayoutPanel8";
-            this.flowLayoutPanel8.Size = new System.Drawing.Size(182, 27);
-            this.flowLayoutPanel8.TabIndex = 26;
-            // 
-            // label8
-            // 
-            this.label8.AutoSize = true;
-            this.label8.Dock = System.Windows.Forms.DockStyle.Left;
-            this.label8.Location = new System.Drawing.Point(3, 0);
-            this.label8.Name = "label8";
-            this.label8.Size = new System.Drawing.Size(60, 27);
-            this.label8.TabIndex = 23;
-            this.label8.Text = "Play Mode:";
-            this.label8.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // animationLoopModeComboBox
-            // 
-            this.animationLoopModeComboBox.FormattingEnabled = true;
-            this.animationLoopModeComboBox.Items.AddRange(new object[] {
-            "Once",
-            "Loop",
-            "Loop (Unsynced)",
-            "Mirror Once",
-            "Mirror Loop"});
-            this.animationLoopModeComboBox.Location = new System.Drawing.Point(69, 3);
-            this.animationLoopModeComboBox.Name = "animationLoopModeComboBox";
-            this.animationLoopModeComboBox.Size = new System.Drawing.Size(110, 21);
-            this.animationLoopModeComboBox.TabIndex = 24;
-            this.animationLoopModeComboBox.SelectedIndexChanged += new System.EventHandler(this.animationLoopModeComboBox_SelectedIndexChanged);
-            // 
-            // flowLayoutPanel9
-            // 
-            this.flowLayoutPanel9.AutoSize = true;
-            this.flowLayoutPanel9.Controls.Add(this.label9);
-            this.flowLayoutPanel9.Controls.Add(this.animationReverseCheckBox);
-            this.flowLayoutPanel9.Location = new System.Drawing.Point(267, 0);
-            this.flowLayoutPanel9.Margin = new System.Windows.Forms.Padding(0);
-            this.flowLayoutPanel9.Name = "flowLayoutPanel9";
-            this.flowLayoutPanel9.Size = new System.Drawing.Size(77, 22);
-            this.flowLayoutPanel9.TabIndex = 27;
-            // 
-            // label9
-            // 
-            this.label9.AutoSize = true;
-            this.label9.Dock = System.Windows.Forms.DockStyle.Left;
-            this.label9.Location = new System.Drawing.Point(3, 0);
-            this.label9.Name = "label9";
-            this.label9.Size = new System.Drawing.Size(50, 22);
-            this.label9.TabIndex = 26;
-            this.label9.Text = "Reverse:";
-            this.label9.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // animationReverseCheckBox
-            // 
-            this.animationReverseCheckBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left)));
-            this.animationReverseCheckBox.AutoSize = true;
-            this.animationReverseCheckBox.Location = new System.Drawing.Point(59, 5);
-            this.animationReverseCheckBox.Margin = new System.Windows.Forms.Padding(3, 5, 3, 3);
-            this.animationReverseCheckBox.Name = "animationReverseCheckBox";
-            this.animationReverseCheckBox.Size = new System.Drawing.Size(15, 14);
-            this.animationReverseCheckBox.TabIndex = 27;
-            this.animationReverseCheckBox.UseVisualStyleBackColor = true;
-            this.animationReverseCheckBox.CheckedChanged += new System.EventHandler(this.animationReverseCheckBox_CheckedChanged);
-            // 
             // PreviewForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -1830,6 +1831,10 @@ namespace PSXPrev.Forms
             this.flowLayoutPanel7.ResumeLayout(false);
             this.flowLayoutPanel7.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.animationSpeedNumericUpDown)).EndInit();
+            this.flowLayoutPanel8.ResumeLayout(false);
+            this.flowLayoutPanel8.PerformLayout();
+            this.flowLayoutPanel9.ResumeLayout(false);
+            this.flowLayoutPanel9.PerformLayout();
             this.mainMenuStrip.ResumeLayout(false);
             this.mainMenuStrip.PerformLayout();
             this.statusStrip1.ResumeLayout(false);
@@ -1853,10 +1858,6 @@ namespace PSXPrev.Forms
             this.flowLayoutPanel6.ResumeLayout(false);
             this.flowLayoutPanel6.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.cameraFOVUpDown)).EndInit();
-            this.flowLayoutPanel8.ResumeLayout(false);
-            this.flowLayoutPanel8.PerformLayout();
-            this.flowLayoutPanel9.ResumeLayout(false);
-            this.flowLayoutPanel9.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 

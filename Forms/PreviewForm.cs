@@ -2089,5 +2089,10 @@ namespace PSXPrev.Forms
         {
             _scene.AnimationBatch.Reverse = animationReverseCheckBox.Checked;
         }
+
+        private void exportSelectedTexturesToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }

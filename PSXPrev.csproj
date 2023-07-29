@@ -78,6 +78,7 @@
     <Compile Include="Common\Exporters\collada_schema_1_4.cs" />
     <Compile Include="Common\Exporters\DAEExporter.cs" />
     <Compile Include="Common\Exporters\ExportModelOptions.cs" />
+    <Compile Include="Common\Exporters\glTF2Exporter.cs" />
     <Compile Include="Common\Exporters\ModelPreparerExporter.cs" />
     <Compile Include="Common\Exporters\MTLExporter.cs" />
     <Compile Include="Common\Exporters\OBJExporter.cs" />

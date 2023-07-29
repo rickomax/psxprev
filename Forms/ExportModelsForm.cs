@@ -177,6 +177,10 @@ namespace PSXPrev.Forms
                     var plyExporter = new PLYExporter();
                     plyExporter.Export(Entities, selectedPath, options);
                     break;
+                case "glTF2":
+                    var glTF2Exporter = new glTF2Exporter();
+                    glTF2Exporter.Export(Entities, selectedPath, options);
+                    break;
             }
 
             SaveOptions(options);

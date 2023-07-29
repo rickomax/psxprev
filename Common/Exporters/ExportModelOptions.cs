@@ -11,6 +11,8 @@
         public bool RedrawTextures { get; set; } // Redraw textures owned by models to VRAM pages before export (HMD)
         public bool SingleTexture { get; set; } // Combine all textures into a single image
 
+        public bool ExportTickedAnimations { get; set; }
+
         public bool ExperimentalOBJVertexColor { get; set; } = true;
 
         public void Validate()
