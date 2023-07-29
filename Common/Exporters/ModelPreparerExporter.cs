@@ -150,16 +150,19 @@ namespace PSXPrev.Common.Exporters
                     var models = GetModels(rootEntity);
                     foreach (var model in models)
                     {
-                        if (model.Texture != null && model.IsTextured && addedTextures.Add(model.Texture))
+                        if (model.Texture != null && model.IsTextured)
                         {
-                            _singleInfo.OriginalTextures.Add(model.Texture);
+                            if (addedTextures.Add(model.Texture))
+                            {
+                                _singleInfo.OriginalTextures.Add(model.Texture);
+                            }
+                            _singleInfo.Models.Add(model);
                         }
                     }
-                    _singleInfo.Models.AddRange(models);
                 }
 
                 // Compute packing and create a new single texture that contains all other textures.
-                _singleInfo.SetupSingleTexture(true, true, true);
+                _singleInfo.SetupSingleTexture(powerOfTwo: true, sort: true, pack: true, alwaysCreateTexture: false);
 
                 // Assign new single texture to models.
                 foreach (var model in _singleInfo.Models)
@@ -381,8 +384,12 @@ namespace PSXPrev.Common.Exporters
                 return _packedTextureInfos[oldTexture];
             }
 
-            public void SetupSingleTexture(bool powerOfTwo, bool sort, bool pack)
+            public void SetupSingleTexture(bool powerOfTwo, bool sort, bool pack, bool alwaysCreateTexture = false)
             {
+                if (!alwaysCreateTexture && OriginalTextures.Count == 0 && Models.Count == 0)
+                {
+                    return; // No textures or textured models. We don't need to create a texture.
+                }
                 // Sort textures.
                 if (sort || pack) // Sorting is required when packing using greedy method
                 {
@@ -430,7 +437,7 @@ namespace PSXPrev.Common.Exporters
                 // Find a column/row count with the smallest max dimension (closest to a square).
                 // todo: This calculation can be simplified/optimized by a lot, but it works for now...
                 var total = _packedTextures.Count;
-                _countX = total;
+                _countX = Math.Max(1, total);
                 _countY = 1;
                 var w = 1;
                 while (w <= total)
