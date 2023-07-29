@@ -105,16 +105,21 @@ namespace PSXPrev.Common
 
         public static Vector3 UnProject(this Vector3 position, Matrix4 projection, Matrix4 view, float width, float height)
         {
+            // OpenTK version:
+            //var viewProjInv = Matrix4.Invert(view * projection);
+            //position.Y = height - position.Y;
+            //return Vector3.Unproject(position, 0f, 0f, width, height, 0f, 1f, viewProjInv);
+
             Vector4 vec;
             vec.X = 2.0f * position.X / width - 1;
-            vec.Y = -(2.0f * position.Y / height - 1);
-            vec.Z = position.Z;
+            vec.Y = 2.0f * (height - position.Y) / height - 1;
+            vec.Z = 2.0f * position.Z - 1; // 2.0f * position.Z / depth - 1; // Where depth=1
             vec.W = 1.0f;
             var viewInv = Matrix4.Invert(view);
             var projInv = Matrix4.Invert(projection);
             Vector4.Transform(ref vec, ref projInv, out vec);
             Vector4.Transform(ref vec, ref viewInv, out vec);
-            if (Math.Abs(vec.W) > 0.000001f)
+            if (Math.Abs(vec.W) > 0.0000000001f) //0.000001f)
             {
                 vec.X /= vec.W;
                 vec.Y /= vec.W;
@@ -180,7 +185,7 @@ namespace PSXPrev.Common
             var diff = rayOrigin - vertex0;
             var prod1 = Vector3.Dot(diff, planeNormal);
             var prod2 = Vector3.Dot(rayDirection, planeNormal);
-            if (Math.Abs(prod2) <= 0.000001f)
+            if (Math.Abs(prod2) <= 0.0000000001f) //0.000001f)
             {
                 return -1f; // Ray and plane are parallel.
             }
