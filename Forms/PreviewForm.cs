@@ -604,6 +604,27 @@ namespace PSXPrev.Forms
             return selectedEntities.Count == 0 ? null : selectedEntities.ToArray();
         }
 
+        private Animation[] GetCheckedAnimations(bool defaultToSelected = false)
+        {
+            var selectedAnimations = new List<Animation>();
+            for (var i = 0; i < animationsTreeView.Nodes.Count; i++)
+            {
+                var node = animationsTreeView.Nodes[i];
+                if (node.Checked && node.Tag is Animation animation)
+                {
+                    selectedAnimations.Add(animation);
+                }
+            }
+            if (selectedAnimations.Count == 0 && defaultToSelected)
+            {
+                if (_curAnimation != null)
+                {
+                    selectedAnimations.Add(_curAnimation);
+                }
+            }
+            return selectedAnimations.Count == 0 ? null : selectedAnimations.ToArray();
+        }
+
         private void PromptOutputFolder(Action<string> pathCallback)
         {
             // Use BeginInvoke so that dialog doesn't show up behind menu items...
@@ -701,10 +722,12 @@ namespace PSXPrev.Forms
                 return;
             }
 
+            var animations = GetCheckedAnimations(true);
+
             _inDialog = true;
             try
             {
-                if (ExportModelsForm.Show(this, entities))
+                if (ExportModelsForm.Show(this, entities, animations, _scene.AnimationBatch))
                 {
                     MessageBox.Show(this, $"{entities.Length} models exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }

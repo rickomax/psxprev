@@ -35,6 +35,7 @@
             this.selectFolderButton = new System.Windows.Forms.Button();
             this.fileNameTextBox = new System.Windows.Forms.TextBox();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
+            this.formatGLTF2RadioButton = new System.Windows.Forms.RadioButton();
             this.formatPLYRadioButton = new System.Windows.Forms.RadioButton();
             this.formatOBJRadioButton = new System.Windows.Forms.RadioButton();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
@@ -50,11 +51,17 @@
             this.optionMergeModelsCheckBox = new System.Windows.Forms.CheckBox();
             this.exportButton = new System.Windows.Forms.Button();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
-            this.formatGLTF2RadioButton = new System.Windows.Forms.RadioButton();
+            this.groupBox5 = new System.Windows.Forms.GroupBox();
+            this.label1 = new System.Windows.Forms.Label();
+            this.checkedAnimationsListBox = new System.Windows.Forms.ListBox();
+            this.animationsOnRadioButton = new System.Windows.Forms.RadioButton();
+            this.animationsOffRadioButton = new System.Windows.Forms.RadioButton();
+            this.label2 = new System.Windows.Forms.Label();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox3.SuspendLayout();
             this.groupBox4.SuspendLayout();
+            this.groupBox5.SuspendLayout();
             this.SuspendLayout();
             // 
             // groupBox1
@@ -111,6 +118,18 @@
             this.groupBox2.TabIndex = 3;
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Format";
+            // 
+            // formatGLTF2RadioButton
+            // 
+            this.formatGLTF2RadioButton.AutoSize = true;
+            this.formatGLTF2RadioButton.Location = new System.Drawing.Point(216, 19);
+            this.formatGLTF2RadioButton.Name = "formatGLTF2RadioButton";
+            this.formatGLTF2RadioButton.Size = new System.Drawing.Size(97, 17);
+            this.formatGLTF2RadioButton.TabIndex = 4;
+            this.formatGLTF2RadioButton.Tag = "glTF2";
+            this.formatGLTF2RadioButton.Text = "Khronos .glTF2";
+            this.formatGLTF2RadioButton.UseVisualStyleBackColor = true;
+            this.formatGLTF2RadioButton.CheckedChanged += new System.EventHandler(this.formatRadioButtons_CheckedChanged);
             // 
             // formatPLYRadioButton
             // 
@@ -275,7 +294,7 @@
             this.exportButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.exportButton.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.exportButton.Enabled = false;
-            this.exportButton.Location = new System.Drawing.Point(307, 256);
+            this.exportButton.Location = new System.Drawing.Point(307, 443);
             this.exportButton.Name = "exportButton";
             this.exportButton.Size = new System.Drawing.Size(75, 23);
             this.exportButton.TabIndex = 6;
@@ -288,24 +307,78 @@
             this.toolTip.InitialDelay = 500;
             this.toolTip.ReshowDelay = 100;
             // 
-            // formatGLTF2RadioButton
+            // groupBox5
             // 
-            this.formatGLTF2RadioButton.AutoSize = true;
-            this.formatGLTF2RadioButton.Location = new System.Drawing.Point(216, 19);
-            this.formatGLTF2RadioButton.Name = "formatGLTF2RadioButton";
-            this.formatGLTF2RadioButton.Size = new System.Drawing.Size(94, 17);
-            this.formatGLTF2RadioButton.TabIndex = 4;
-            this.formatGLTF2RadioButton.Tag = "glTF2";
-            this.formatGLTF2RadioButton.Text = "Khronos glTF2";
-            this.formatGLTF2RadioButton.UseVisualStyleBackColor = true;
-            this.formatGLTF2RadioButton.CheckedChanged += new System.EventHandler(this.formatRadioButtons_CheckedChanged);
+            this.groupBox5.Controls.Add(this.label2);
+            this.groupBox5.Controls.Add(this.label1);
+            this.groupBox5.Controls.Add(this.checkedAnimationsListBox);
+            this.groupBox5.Controls.Add(this.animationsOnRadioButton);
+            this.groupBox5.Controls.Add(this.animationsOffRadioButton);
+            this.groupBox5.Dock = System.Windows.Forms.DockStyle.Top;
+            this.groupBox5.Location = new System.Drawing.Point(0, 250);
+            this.groupBox5.Name = "groupBox5";
+            this.groupBox5.Size = new System.Drawing.Size(394, 186);
+            this.groupBox5.TabIndex = 7;
+            this.groupBox5.TabStop = false;
+            this.groupBox5.Text = "Animations";
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Location = new System.Drawing.Point(13, 56);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(217, 13);
+            this.label1.TabIndex = 8;
+            this.label1.Text = "Checked Animations (Under Animations tab):";
+            // 
+            // checkedAnimationsListBox
+            // 
+            this.checkedAnimationsListBox.FormattingEnabled = true;
+            this.checkedAnimationsListBox.Location = new System.Drawing.Point(12, 74);
+            this.checkedAnimationsListBox.Name = "checkedAnimationsListBox";
+            this.checkedAnimationsListBox.Size = new System.Drawing.Size(370, 69);
+            this.checkedAnimationsListBox.TabIndex = 7;
+            // 
+            // animationsOnRadioButton
+            // 
+            this.animationsOnRadioButton.AutoSize = true;
+            this.animationsOnRadioButton.Enabled = false;
+            this.animationsOnRadioButton.Location = new System.Drawing.Point(101, 19);
+            this.animationsOnRadioButton.Name = "animationsOnRadioButton";
+            this.animationsOnRadioButton.Size = new System.Drawing.Size(101, 17);
+            this.animationsOnRadioButton.TabIndex = 6;
+            this.animationsOnRadioButton.Text = "Export Checked";
+            this.animationsOnRadioButton.UseVisualStyleBackColor = true;
+            // 
+            // animationsOffRadioButton
+            // 
+            this.animationsOffRadioButton.AutoSize = true;
+            this.animationsOffRadioButton.Checked = true;
+            this.animationsOffRadioButton.Enabled = false;
+            this.animationsOffRadioButton.Location = new System.Drawing.Point(12, 19);
+            this.animationsOffRadioButton.Name = "animationsOffRadioButton";
+            this.animationsOffRadioButton.Size = new System.Drawing.Size(83, 17);
+            this.animationsOffRadioButton.TabIndex = 5;
+            this.animationsOffRadioButton.TabStop = true;
+            this.animationsOffRadioButton.Text = "Don\'t Export";
+            this.animationsOffRadioButton.UseVisualStyleBackColor = true;
+            // 
+            // label2
+            // 
+            this.label2.Location = new System.Drawing.Point(12, 149);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(366, 30);
+            this.label2.TabIndex = 9;
+            this.label2.Text = "Before exporting Animations, please make sure the animations you have checked are" +
+    " playable";
             // 
             // ExportModelsForm
             // 
             this.AcceptButton = this.exportButton;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(394, 286);
+            this.ClientSize = new System.Drawing.Size(394, 473);
+            this.Controls.Add(this.groupBox5);
             this.Controls.Add(this.exportButton);
             this.Controls.Add(this.groupBox4);
             this.Controls.Add(this.groupBox3);
@@ -328,6 +401,8 @@
             this.groupBox3.PerformLayout();
             this.groupBox4.ResumeLayout(false);
             this.groupBox4.PerformLayout();
+            this.groupBox5.ResumeLayout(false);
+            this.groupBox5.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -355,5 +430,11 @@
         private System.Windows.Forms.CheckBox optionTiledTexturesCheckBox;
         private System.Windows.Forms.ToolTip toolTip;
         private System.Windows.Forms.RadioButton formatGLTF2RadioButton;
+        private System.Windows.Forms.GroupBox groupBox5;
+        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.ListBox checkedAnimationsListBox;
+        private System.Windows.Forms.RadioButton animationsOnRadioButton;
+        private System.Windows.Forms.RadioButton animationsOffRadioButton;
+        private System.Windows.Forms.Label label2;
     }
 }

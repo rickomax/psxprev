@@ -2,8 +2,10 @@
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using Collada141;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using PSXPrev.Common;
+using PSXPrev.Common.Animator;
 using PSXPrev.Common.Exporters;
 
 namespace PSXPrev.Forms
@@ -26,6 +28,17 @@ namespace PSXPrev.Forms
                 exportingModelsLabel.Text = $"Exporting {_entities.Length} Models";
             }
         }
+
+        private Animation[] _animations;
+        public Animation[] Animations
+        {
+            get => _animations;
+            set
+            {
+                _animations = value;
+            }
+        }
+        public AnimationBatch AnimationBatch { get; private set; }
 
         public ExportModelsForm()
         {
@@ -130,6 +143,11 @@ namespace PSXPrev.Forms
                 texturesIndividualRadioButton.Enabled = !formatPLYRadioButton.Checked;
 
                 optionExperimentalVertexColorCheckBox.Enabled = formatOBJRadioButton.Checked;
+
+                animationsOnRadioButton.Checked = false;
+                animationsOffRadioButton.Checked = true;
+
+                animationsOffRadioButton.Enabled = animationsOnRadioButton.Enabled = _format == "glTF2";
             }
         }
 
@@ -165,6 +183,8 @@ namespace PSXPrev.Forms
                 SingleTexture = texturesSingleRadioButton.Checked,
 
                 ExperimentalOBJVertexColor = optionExperimentalVertexColorCheckBox.Checked,
+
+                ExportAnimations = animationsOnRadioButton.Checked
             };
 
             switch (_format)
@@ -179,7 +199,7 @@ namespace PSXPrev.Forms
                     break;
                 case "glTF2":
                     var glTF2Exporter = new glTF2Exporter();
-                    glTF2Exporter.Export(Entities, selectedPath, options);
+                    glTF2Exporter.Export(Entities, Animations, AnimationBatch, selectedPath, options);
                     break;
             }
 
@@ -187,11 +207,25 @@ namespace PSXPrev.Forms
         }
 
 
-        public static bool Show(IWin32Window owner, RootEntity[] entities)
+        public static bool Show(IWin32Window owner, RootEntity[] entities, Animation[] animations = null, AnimationBatch animationBatch = null)
         {
             using (var form = new ExportModelsForm())
             {
                 form.Entities = entities;
+                form.Animations = animations;
+                form.AnimationBatch = animationBatch;
+                form.checkedAnimationsListBox.Items.Clear();
+                if (animations != null && animations.Length > 0)
+                {
+                    foreach (var animation in animations)
+                    {
+                        form.checkedAnimationsListBox.Items.Add(animation.AnimationName);
+                    }
+                }
+                else
+                {
+                    form.checkedAnimationsListBox.Items.Add("Please select or check an Animation under the Animations tab");
+                }
                 return form.ShowDialog(owner) == DialogResult.OK;
             }
         }

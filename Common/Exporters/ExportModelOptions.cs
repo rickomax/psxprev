@@ -15,6 +15,8 @@
 
         public bool ExperimentalOBJVertexColor { get; set; } = true;
 
+        public bool ExportAnimations { get; set; }
+
         public void Validate()
         {
             if (!ExportTextures)
