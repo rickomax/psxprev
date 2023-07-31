@@ -163,7 +163,6 @@ namespace PSXPrev.Common
         [Browsable(false)]
         public Matrix4 TempMatrix { get; set; } = Matrix4.Identity;
 
-
         // todo: fill these in the HMD parsing process
         [Browsable(false)]
         public Matrix4 TempLocalMatrix { get; set; } = Matrix4.Identity;

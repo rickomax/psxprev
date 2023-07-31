@@ -318,7 +318,7 @@ namespace PSXPrev.Common.Exporters
                     _writer.WriteLine($" \"mesh\": {i},");
                     _writer.WriteLine($" \"name\": \"{model.EntityName}\",");
                     _writer.WriteLine(" \"translation\": [");
-                    WriteVector3(model.Translation, false);
+                    WriteVector3(model.Translation, true);
                     _writer.WriteLine(" ],");
                     _writer.WriteLine(" \"scale\": [");
                     WriteVector3(model.Scale, false);
@@ -429,9 +429,9 @@ namespace PSXPrev.Common.Exporters
                 animationBatch.Time = t;
                 if (animationBatch.SetupAnimationFrame(entities, null, model))
                 {
-                    var matrix = model.TempMatrix;
+                    var matrix = model.TempMatrix * model.TempLocalMatrix;
                     var translation = matrix.ExtractTranslation();
-                    WriteBinaryVector3(translation, false);
+                    WriteBinaryVector3(translation, true);
                 }
             }
             _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
@@ -450,9 +450,9 @@ namespace PSXPrev.Common.Exporters
                 animationBatch.Time = t;
                 if (animationBatch.SetupAnimationFrame(entities, null, model))
                 {
-                    var matrix = model.TempMatrix;
+                    var matrix = model.TempMatrix * model.TempLocalMatrix;
                     var rotation = matrix.ExtractRotation();
-                    WriteBinaryQuaternion(rotation);
+                    WriteBinaryQuaternion(rotation, true);
                 }
             }
             _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
@@ -471,7 +471,7 @@ namespace PSXPrev.Common.Exporters
                 animationBatch.Time = t;
                 if (animationBatch.SetupAnimationFrame(entities, null, model))
                 {
-                    var matrix = model.TempMatrix;
+                    var matrix = model.TempMatrix * model.TempLocalMatrix;
                     var scale = matrix.ExtractScale();
                     WriteBinaryVector3(scale, false);
                 }
@@ -493,7 +493,7 @@ namespace PSXPrev.Common.Exporters
             {
                 for (var j = 2; j >= 0; j--)
                 {
-                    WriteBinaryVector3(triangle.Vertices[j], false);
+                    WriteBinaryVector3(triangle.Vertices[j], true);
                 }
             }
             _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
@@ -527,7 +527,7 @@ namespace PSXPrev.Common.Exporters
             {
                 for (var j = 2; j >= 0; j--)
                 {
-                    WriteBinaryVector3(triangle.Normals[j], false);
+                    WriteBinaryVector3(triangle.Normals[j], true);
                 }
             }
             _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
@@ -567,7 +567,7 @@ namespace PSXPrev.Common.Exporters
                 _writer.WriteLine($"  {F(vector.Z)}");
             }
         }
-
+        
         private void WriteBinaryColor(Color color)
         {
             _binaryWriter.Write(color.R);
@@ -595,11 +595,19 @@ namespace PSXPrev.Common.Exporters
             }
         }
 
-        private void WriteBinaryQuaternion(Quaternion quaternion)
+        private void WriteBinaryQuaternion(Quaternion quaternion, bool fixHandiness = false)
         {
             _binaryWriter.Write(quaternion.X);
-            _binaryWriter.Write(quaternion.Y);
-            _binaryWriter.Write(quaternion.Z);
+            if (fixHandiness)
+            {
+                _binaryWriter.Write(-quaternion.Y);
+                _binaryWriter.Write(-quaternion.Z);
+            }
+            else
+            {
+                _binaryWriter.Write(quaternion.Y);
+                _binaryWriter.Write(quaternion.Z);
+            }
             _binaryWriter.Write(quaternion.W);
         }
 
