@@ -234,8 +234,8 @@ namespace PSXPrev.Common.Exporters
                             var totalTime = animation.FrameCount / animation.FPS;
                             var timeStep = 1f / animation.FPS;
                             var stepCount = (int)Math.Ceiling(totalTime / timeStep);
-                            var timeMin = new float[] { 0f };
-                            var timeMax = new float[] { totalTime };
+                            var timeMin = new [] { 0f };
+                            var timeMax = new [] { totalTime };
                             WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, stepCount, "SCALAR", false, timeMin, timeMax); // Frame times
                             for (var j = 0; j < models.Count; j++)
                             {
