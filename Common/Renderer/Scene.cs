@@ -24,6 +24,10 @@ namespace PSXPrev.Common.Renderer
 
         private const float TriangleOutlineThickness = 2f;
 
+        private static readonly Color LightRotationRayColor = Color.Yellow;
+        private const float LightRotationRayDelayTime = 2.5f;
+        private const float LightRotationRayFadeTime = 0.5f;
+
         private const float DebugPickingRayLineThickness = 3f;
         private const float DebugPickingRayOriginSize = 0.03f;
         private static readonly Color DebugPickingRayColor = Color.Magenta;
@@ -67,62 +71,65 @@ namespace PSXPrev.Common.Renderer
 
 
         public static int AttributeIndexPosition = 0;
-        public static int AttributeIndexColour = 1;
+        public static int AttributeIndexColor = 1;
         public static int AttributeIndexNormal = 2;
         public static int AttributeIndexUv = 3;
         public static int AttributeIndexTiledArea = 4;
         public static int AttributeIndexTexture = 5;
 
-        public static int UniformIndexMVP;
-        public static int UniformIndexLightDirection;
+        public static int UniformModelMatrix;
+        public static int UniformMVPMatrix;
+        public static int UniformLightDirection;
         public static int UniformMaskColor;
         public static int UniformAmbientColor;
-        public static int UniformRenderMode;
+        public static int UniformSolidColor;
+        public static int UniformLightMode;
+        public static int UniformColorMode;
         public static int UniformTextureMode;
-        public static int UniformSemiTransparentMode;
+        public static int UniformSemiTransparentPass;
         public static int UniformLightIntensity;
 
         public const string AttributeNamePosition = "in_Position";
-        public const string AttributeNameColour = "in_Color";
+        public const string AttributeNameColor = "in_Color";
         public const string AttributeNameNormal = "in_Normal";
         public const string AttributeNameUv = "in_Uv";
         public const string AttributeNameTiledArea = "in_TiledArea";
         public const string AttributeNameTexture = "mainTex";
 
-        public const string UniformNameMVP = "mvpMatrix";
+        public const string UniformNameModel = "modelMatrix";
+        public const string UniformNameMVPMatrix = "mvpMatrix";
         public const string UniformNameLightDirection = "lightDirection";
         public const string UniformMaskColorName = "maskColor";
         public const string UniformAmbientColorName = "ambientColor";
-        public const string UniformRenderModeName = "renderMode";
+        public const string UniformSolidColorName = "solidColor";
+        public const string UniformLightModeName = "lightMode";
+        public const string UniformColorModeName = "colorMode";
         public const string UniformTextureModeName = "textureMode";
-        public const string UniformSemiTransparentModeName = "semiTransparentMode";
+        public const string UniformSemiTransparentPassName = "semiTransparentPass";
         public const string UniformLightIntensityName = "lightIntensity";
-
-        public enum GizmoId
-        {
-            None,
-            XMover,
-            YMover,
-            ZMover
-        }
 
         public bool Initialized { get; private set; }
 
         public MeshBatch MeshBatch { get; private set; }
         public MeshBatch GizmosMeshBatch { get; private set; }
-        public LineBatch BoundsBatch { get; private set; }
-        public LineBatch TriangleOutlineBatch { get; private set; }
-        public LineBatch DebugIntersectionBatch { get; private set; }
-        public MeshBatch DebugPickingRayOriginBatch { get; private set; }
-        public LineBatch DebugPickingRayLineBatch { get; private set; }
+        public MeshBatch BoundsBatch { get; private set; }
+        public MeshBatch TriangleOutlineBatch { get; private set; }
+        public MeshBatch LightRotationRayBatch { get; private set; }
+        public MeshBatch DebugPickingRayBatch { get; private set; }
+        public MeshBatch DebugIntersectionsBatch { get; private set; }
         public AnimationBatch AnimationBatch { get; private set; }
         public TextureBinder TextureBinder { get; private set; }
 
-        private Vector4 _transformedLight;
+        public event EventHandler CameraChanged;
+        public event EventHandler LightChanged;
+        public event EventHandler TimeChanged;
+
+        private Vector3 _transformedLight = -Vector3.UnitZ;
         private Matrix4 _projectionMatrix;
         private Matrix4 _viewMatrix; // Final view matrix.
         private Matrix4 _viewOriginMatrix; // View matrix without target translation.
         private Vector3 _viewTarget; // Center of view that camera rotates around.
+        private BoundingBox _viewTargetBounds = new BoundingBox();
         private bool _viewMatrixValid;
         private int _shaderProgram;
         private Vector3 _rayOrigin;
@@ -134,12 +141,20 @@ namespace PSXPrev.Common.Renderer
         private int _lastPickedEntityIndex;
         private int _lastPickedTriangleIndex;
         private float _cameraDistanceScalar = 1f; // Applied when using _viewMatrix(Origin) to correct distance
+        private double _timeDelta;
+        private double _time;
+        private bool _lightRayVisible;
+        private double _lightRayTimer;
 
         // Last-stored picking ray for debug visuals
-        private bool _debugRayValid;
-        private Vector3 _debugRayOrigin; 
-        private Vector3 _debugRayDirection;
+        private bool _debugRayVisible;
+        private Vector3 _debugRayOrigin;
         private Quaternion _debugRayRotation;
+
+        private bool _gizmoVisible;
+        private EntityBase _gizmoEntity;
+        private GizmoId _selectedGizmo;
+        private GizmoId _hoveredGizmo;
 
         private System.Drawing.Color _clearColor;
         public System.Drawing.Color ClearColor
@@ -152,36 +167,39 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
+        public System.Drawing.Color MaskColor { get; set; }
+        public System.Drawing.Color DiffuseColor { get; set; }
+        public System.Drawing.Color AmbientColor { get; set; }
+
         public bool AutoAttach { get; set; }
 
         public bool Wireframe { get; set; }
+        public bool VerticesOnly { get; set; }
+        public float WireframeSize { get; set; } = 1f;
+        public float VertexSize { get; set; } = 1f;
 
         public bool VibRibbonWireframe { get; set; }
 
         public bool ShowGizmos { get; set; } = true;
-
         public bool ShowBounds { get; set; } = true;
-
+        public bool ShowLightRotationRay { get; set; } = true;
         public bool ShowDebugIntersections { get; set; } = true;
-
         public bool ShowDebugPickingRay { get; set; } = true;
-
         public bool ShowDebugVisuals { get; set; } // 3D debug information like picking ray lines
+        public bool ShowVisuals { get; set; } = true; // Enables the use of ShowGizmos, ShowBounds, ShowDebugVisuals, etc.
 
-        public bool ShowVisuals { get; set; } = true; // Enables the use of ShowGizmos, ShowBounds, and ShowDebugVisuals
-
-        public bool VerticesOnly { get; set; }
-
+        public bool AmbientEnabled { get; set; } = true;
+        public bool LightEnabled { get; set; } = true;
+        public bool TextureEnabled { get; set; } = true;
         public bool SemiTransparencyEnabled { get; set; } = true;
-
         public bool ForceDoubleSided { get; set; }
 
-        public float ViewportWidth { get; private set; } = 1f;
+        public float LightIntensity { get; set; } = 1f;
 
+        public float ViewportWidth { get; private set; } = 1f;
         public float ViewportHeight { get; private set; } = 1f;
 
         public float CameraDistanceIncrement => CameraDistanceToTarget * CameraDistanceIncrementFactor;
-
         public float CameraPanIncrement => CameraDistanceToTarget * CameraPanIncrementFactor;
 
         private float _cameraFOV = 60f;
@@ -190,10 +208,11 @@ namespace PSXPrev.Common.Renderer
             get => _cameraFOV;
             set
             {
-                _cameraFOV = Math.Max(CameraMinFOV, Math.Min(CameraMaxFOV, value));
+                _cameraFOV = MathHelper.Clamp(value, CameraMinFOV, CameraMaxFOV);
                 _cameraDistanceScalar = (float)(Math.Tan(CameraFOVRads / 2d) * 2d / CameraBaseDistanceScalar);
                 SetupMatrices();
                 UpdateViewMatrix(); // Update view matrix because it relies on FOV to preserve distance
+                CameraChanged?.Invoke(this, EventArgs.Empty);
             }
         }
         private float CameraFOVRads => CameraFOV * GeomMath.Deg2Rad;
@@ -202,26 +221,67 @@ namespace PSXPrev.Common.Renderer
         public float CameraDistance
         {
             get => _cameraDistance;
-            set => _cameraDistance = Math.Max(CameraMinDistance, value);
+            set
+            {
+                _cameraDistance = Math.Max(CameraMinDistance, value);
+                UpdateViewMatrix();
+                CameraChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
 
         private float _cameraYaw;
         public float CameraYaw
         {
             get => _cameraYaw;
-            set => _cameraYaw = GeomMath.PositiveModulus(value, (float)(Math.PI * 2));
+            set => CameraPitchYaw = new Vector2(_cameraPitch, value);
         }
-
         private float _cameraPitch;
         public float CameraPitch
         {
             get => _cameraPitch;
-            set => _cameraPitch = Math.Max(-CameraMaxPitch, Math.Min(CameraMaxPitch, value));
+            set => CameraPitchYaw = new Vector2(value, _cameraYaw);
+        }
+        public Vector2 CameraPitchYaw
+        {
+            get => new Vector2(_cameraPitch, _cameraYaw);
+            set
+            {
+                if (CameraPitchYaw != value)
+                {
+                    _cameraPitch = MathHelper.Clamp(value.X, -CameraMaxPitch, CameraMaxPitch);
+                    _cameraYaw = GeomMath.PositiveModulus(value.Y, (float)(Math.PI * 2));
+                    UpdateViewMatrix();
+                    CameraChanged?.Invoke(this, EventArgs.Empty);
+                }
+            }
         }
 
-        public float CameraX { get; set; }
-
-        public float CameraY { get; set; }
+        private float _cameraX;
+        public float CameraX
+        {
+            get => _cameraX;
+            set => CameraPosition = new Vector2(value, _cameraY);
+        }
+        private float _cameraY;
+        public float CameraY
+        {
+            get => _cameraY;
+            set => CameraPosition = new Vector2(_cameraX, value);
+        }
+        public Vector2 CameraPosition
+        {
+            get => new Vector2(_cameraX, _cameraY);
+            set
+            {
+                if (CameraPosition != value)
+                {
+                    _cameraX = value.X;
+                    _cameraY = value.Y;
+                    UpdateViewMatrix();
+                    CameraChanged?.Invoke(this, EventArgs.Empty);
+                }
+            }
+        }
 
         public Quaternion CameraRotation => _viewOriginMatrix.Inverted().ExtractRotation();
 
@@ -229,31 +289,31 @@ namespace PSXPrev.Common.Renderer
 
         public float CameraDistanceToTarget => -_viewOriginMatrix.ExtractTranslation().Z * _cameraDistanceScalar;
 
-        private Vector3 _lightRotation;
-
-        public Vector3 LightRotation
+        private float _lightYaw;
+        public float LightYaw
         {
-            get => _lightRotation;
+            get => _lightYaw;
+            set => LightPitchYaw = new Vector2(_lightPitch, value);
+        }
+        private float _lightPitch;
+        public float LightPitch
+        {
+            get => _lightPitch;
+            set => LightPitchYaw = new Vector2(value, _lightYaw);
+        }
+        public Vector2 LightPitchYaw
+        {
+            get => new Vector2(_lightPitch, _lightYaw);
             set
             {
-                _lightRotation = value;
-                UpdateLightRotation();
+                if (LightPitchYaw != value)
+                {
+                    _lightPitch = GeomMath.PositiveModulus(value.X, (float)(Math.PI * 2));
+                    _lightYaw   = GeomMath.PositiveModulus(value.Y, (float)(Math.PI * 2));
+                    UpdateLightRotation();
+                    LightChanged?.Invoke(this, EventArgs.Empty);
+                }
             }
-        }
-
-        public System.Drawing.Color MaskColor { get; set; }
-
-        public System.Drawing.Color DiffuseColor { get; set; }
-        public System.Drawing.Color AmbientColor { get; set; }
-
-        public bool LightEnabled { get; set; } = true;
-
-        public float LightIntensity { get; set; } = 1f;
-
-        public decimal VertexSize
-        {
-            get => (decimal)GL.GetFloat(GetPName.PointSize);
-            set => GL.PointSize((float)value);
         }
 
         public void Initialize(float width, float height)
@@ -276,19 +336,61 @@ namespace PSXPrev.Common.Renderer
             ViewportHeight = height;
             GL.Viewport(0, 0, (int)width, (int)height);
             SetupMatrices();
+            CameraChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void SetupInternals()
         {
-            MeshBatch = new MeshBatch(this);
-            GizmosMeshBatch = new MeshBatch(this);
-            BoundsBatch = new LineBatch();
-            TriangleOutlineBatch = new LineBatch();
-            DebugIntersectionBatch = new LineBatch();
-            DebugPickingRayOriginBatch = new MeshBatch(this);
-            DebugPickingRayLineBatch = new LineBatch();
-            AnimationBatch = new AnimationBatch(this);
             TextureBinder = new TextureBinder();
+            MeshBatch = new MeshBatch(this)
+            {
+                TextureBinder = TextureBinder,
+            };
+            GizmosMeshBatch = new MeshBatch(this);
+            BoundsBatch = new MeshBatch(this);
+            TriangleOutlineBatch = new MeshBatch(this);
+            LightRotationRayBatch = new MeshBatch(this)
+            {
+                AmbientEnabled = true,
+                LightEnabled = true,
+            };
+            DebugPickingRayBatch = new MeshBatch(this)
+            {
+                AmbientEnabled = true,
+                LightEnabled = true,
+            };
+            DebugIntersectionsBatch = new MeshBatch(this);
+            AnimationBatch = new AnimationBatch(this);
+
+            TimeChanged += (sender, args) => {
+                if (Initialized)
+                {
+                    if (ShowVisuals && ShowLightRotationRay && _lightRayVisible)
+                    {
+                        _lightRayTimer += _timeDelta;
+                        UpdateLightRotationRay();
+                    }
+                }
+            };
+            LightChanged += (sender, args) => {
+                if (Initialized)
+                {
+                    if (ShowVisuals && ShowLightRotationRay)
+                    {
+                        _lightRayTimer = 0;
+                        _lightRayVisible = true;
+                        UpdateLightRotationRay();
+                    }
+                }
+            };
+            CameraChanged += (sender, args) => {
+                if (Initialized)
+                {
+                    UpdateLightRotationRay();
+                    UpdateDebugPickingRay();
+                    UpdateGizmos(_gizmoEntity, _hoveredGizmo, _selectedGizmo);
+                }
+            };
         }
 
         private void SetupGL()
@@ -315,7 +417,7 @@ namespace PSXPrev.Common.Renderer
             {
                 {AttributeIndexPosition, AttributeNamePosition},
                 {AttributeIndexNormal, AttributeNameNormal},
-                {AttributeIndexColour, AttributeNameColour},
+                {AttributeIndexColor, AttributeNameColor},
                 {AttributeIndexUv, AttributeNameUv},
                 {AttributeIndexTiledArea, AttributeNameTiledArea},
                 {AttributeIndexTexture, AttributeNameTexture}
@@ -329,13 +431,16 @@ namespace PSXPrev.Common.Renderer
             {
                 throw new Exception(GetInfoLog());
             }
-            UniformIndexMVP = GL.GetUniformLocation(_shaderProgram, UniformNameMVP);
-            UniformIndexLightDirection = GL.GetUniformLocation(_shaderProgram, UniformNameLightDirection);
+            UniformModelMatrix = GL.GetUniformLocation(_shaderProgram, UniformNameModel);
+            UniformMVPMatrix = GL.GetUniformLocation(_shaderProgram, UniformNameMVPMatrix);
+            UniformLightDirection = GL.GetUniformLocation(_shaderProgram, UniformNameLightDirection);
             UniformMaskColor = GL.GetUniformLocation(_shaderProgram, UniformMaskColorName);
             UniformAmbientColor = GL.GetUniformLocation(_shaderProgram, UniformAmbientColorName);
-            UniformRenderMode = GL.GetUniformLocation(_shaderProgram, UniformRenderModeName);
+            UniformSolidColor = GL.GetUniformLocation(_shaderProgram, UniformSolidColorName);
+            UniformLightMode = GL.GetUniformLocation(_shaderProgram, UniformLightModeName);
+            UniformColorMode = GL.GetUniformLocation(_shaderProgram, UniformColorModeName);
             UniformTextureMode = GL.GetUniformLocation(_shaderProgram, UniformTextureModeName);
-            UniformSemiTransparentMode = GL.GetUniformLocation(_shaderProgram, UniformSemiTransparentModeName);
+            UniformSemiTransparentPass = GL.GetUniformLocation(_shaderProgram, UniformSemiTransparentPassName);
             UniformLightIntensity = GL.GetUniformLocation(_shaderProgram, UniformLightIntensityName);
         }
 
@@ -370,10 +475,12 @@ namespace PSXPrev.Common.Renderer
 
         private void UpdateLightRotation()
         {
-            _transformedLight = GeomMath.CreateRotation(_lightRotation) * Vector4.One;
+            var rotation = Matrix4.CreateRotationX(_lightPitch) * Matrix4.CreateRotationY(_lightYaw);
+
+            _transformedLight = Vector3.TransformVector(new Vector3(0f, 0f, -1f), rotation);
         }
 
-        public void UpdateViewMatrix()
+        private void UpdateViewMatrix()
         {
             // The target (_viewTarget) is the origin of the view that the camera rotates around.
             // CameraY represents the vertical distance of the camera from the origin (rotated by the pitch).
@@ -381,7 +488,7 @@ namespace PSXPrev.Common.Renderer
             // The camera always rotates around the origin.
             // The camera cannot move forwards or back, it can only zoom in and out.
             var targetTranslation = Matrix4.CreateTranslation(-_viewTarget);
-            var cameraTranslation = Matrix4.CreateTranslation(CameraX, -CameraY, 0f);
+            var cameraTranslation = Matrix4.CreateTranslation(_cameraX, -_cameraY, 0f);
             var rotation = Matrix4.CreateRotationY(_cameraYaw) * Matrix4.CreateRotationX(_cameraPitch);
             var distance = -_cameraDistance / _cameraDistanceScalar;
             var eye = (rotation * new Vector4(0f, 0f, distance, 1f)).Xyz;
@@ -404,57 +511,75 @@ namespace PSXPrev.Common.Renderer
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
             GL.UseProgram(_shaderProgram);
 
-            GL.Uniform3(UniformIndexLightDirection, _transformedLight.X, _transformedLight.Y, _transformedLight.Z);
+            GL.Uniform3(UniformLightDirection, _transformedLight);
             GL.Uniform3(UniformMaskColor, MaskColor.R / 255f, MaskColor.G / 255f, MaskColor.B / 255f);
             GL.Uniform3(UniformAmbientColor, AmbientColor.R / 255f, AmbientColor.G / 255f, AmbientColor.B / 255f);
             GL.Uniform1(UniformLightIntensity, LightIntensity);
-            GL.Uniform1(UniformRenderMode, LightEnabled ? 0 : 1);
-            GL.Uniform1(UniformTextureMode, 0);
-            GL.Uniform1(UniformSemiTransparentMode, 0);
 
-            MeshBatch.Draw(_viewMatrix, _projectionMatrix, TextureBinder, Wireframe, true, VerticesOnly);
 
-            // todo: we're drawing with the same depth buffer after semi-transparency,
-            // so new surfaces will not render behind semi-transparent surfaces.
-            GL.Uniform1(UniformRenderMode, 2);
-            if (ShowVisuals && ShowBounds)
+            // The main model mesh batch uses the scene's settings.
+            MeshBatch.Wireframe = Wireframe;
+            MeshBatch.VerticesOnly = VerticesOnly;
+            MeshBatch.WireframeSize = WireframeSize;
+            MeshBatch.VertexSize = VertexSize;
+            MeshBatch.AmbientEnabled = AmbientEnabled;
+            MeshBatch.LightEnabled = LightEnabled;
+            MeshBatch.TextureEnabled = TextureEnabled;
+            MeshBatch.SemiTransparencyEnabled = SemiTransparencyEnabled;
+            MeshBatch.ForceDoubleSided = ForceDoubleSided;
+            MeshBatch.SolidColor = null;
+
+            foreach (var pass in MeshBatch.GetPasses())
             {
-                BoundsBatch.SetupAndDraw(_viewMatrix, _projectionMatrix);
+                MeshBatch.DrawPass(pass, _viewMatrix, _projectionMatrix);
+
+                // If we want to do something like a grey wireframe overlay on top of the mesh:
+                // (MeshBatch settings would need to be moved inside the pass loop)
+                /*MeshBatch.Wireframe = true;
+                MeshBatch.SolidColor = Color.Grey;
+                MeshBatch.AmbientEnabled = false;
+                MeshBatch.LightEnabled = false;
+                MeshBatch.TextureEnabled = false;
+                MeshBatch.SemiTransparencyEnabled = false;
+                MeshBatch.WireframeLineWidth = 1.5f;
+
+                MeshBatch.DrawPass(pass, _viewMatrix, _projectionMatrix);*/
+
+                // Preserve depth buffer for these batches.
+
+                if (ShowVisuals && ShowBounds)
+                {
+                    BoundsBatch.DrawPass(pass, _viewMatrix, _projectionMatrix);
+                }
+
+                if (ShowVisuals && ShowLightRotationRay && _lightRayVisible)
+                {
+                    LightRotationRayBatch.DrawPass(pass, _viewMatrix, _projectionMatrix);
+                }
+
+                if (ShowVisuals && ShowDebugVisuals && ShowDebugPickingRay && _debugRayVisible)
+                {
+                    DebugPickingRayBatch.DrawPass(pass, _viewMatrix, _projectionMatrix);
+                }
             }
 
-            // Preserve depth buffer so that it's clear where the ray is intersecting the model.
-            if (ShowVisuals && ShowDebugVisuals && ShowDebugPickingRay && _debugRayValid)
-            {
-                // Use standard render mode for transparency, but disable lighting.
-                var LightEnabledOld = LightEnabled;
-                LightEnabled = false;
-
-                DebugPickingRayLineBatch.SetupAndDraw(_viewMatrix, _projectionMatrix, DebugPickingRayLineThickness);
-                // Use standard to allow for semi-transparency.
-                DebugPickingRayOriginBatch.Draw(_viewMatrix, _projectionMatrix, standard: true);
-
-                LightEnabled = LightEnabledOld;
-            }
-
-            // DebugPickingRayOriginBatch.Draw resets UniformRenderMode, so change it back.
-            GL.Uniform1(UniformRenderMode, 2);
             GL.Clear(ClearBufferMask.DepthBufferBit);
             if (ShowVisuals && ShowDebugVisuals && ShowDebugIntersections)
             {
-                DebugIntersectionBatch.SetupAndDraw(_viewMatrix, _projectionMatrix, DebugIntersectionLineThickness);
+                DebugIntersectionsBatch.Draw(_viewMatrix, _projectionMatrix);
             }
 
             GL.Clear(ClearBufferMask.DepthBufferBit);
             // todo: Should ShowBounds really determine if the selected triangle is highlighted?
             if (ShowVisuals && ShowBounds)
             {
-                TriangleOutlineBatch.SetupAndDraw(_viewMatrix, _projectionMatrix, TriangleOutlineThickness);
+                TriangleOutlineBatch.Draw(_viewMatrix, _projectionMatrix);
             }
 
             GL.Clear(ClearBufferMask.DepthBufferBit);
-            if (ShowVisuals && ShowGizmos)
+            if (ShowVisuals && ShowGizmos && _gizmoVisible)
             {
-                GizmosMeshBatch.Draw(_viewMatrix, _projectionMatrix, standard: false);
+                GizmosMeshBatch.Draw(_viewMatrix, _projectionMatrix);
             }
 
             GL.Disable(EnableCap.DepthTest);
@@ -462,44 +587,62 @@ namespace PSXPrev.Common.Renderer
             GL.UseProgram(0);
         }
 
-        public void ResetBatches(int meshCount)
+        public void ResetModelBatches(int meshCount)
         {
             MeshBatch.Reset(meshCount);
-            GizmosMeshBatch.Reset(0);
-            BoundsBatch.Reset();
-            TriangleOutlineBatch.Reset();
-            DebugIntersectionBatch.Reset();
-            DebugPickingRayLineBatch.Reset();
-            DebugPickingRayOriginBatch.Reset(1);
         }
 
-        public void UpdateGizmos(EntityBase selectedEntityBase, GizmoId hoveredGizmo, GizmoId selectedGizmo, bool updateMeshData)
+        public void AddTime(double seconds)
         {
+            _time += seconds;
+            _timeDelta = seconds;
+            if (seconds != 0)
+            {
+                TimeChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public void UpdateGizmos(EntityBase selectedEntityBase, GizmoId hoveredGizmo, GizmoId selectedGizmo)
+        {
+            _gizmoEntity = selectedEntityBase;
+            _hoveredGizmo = hoveredGizmo;
+            _selectedGizmo = selectedGizmo;
+            if (selectedEntityBase == null)
+            {
+                _gizmoVisible = false;
+                return;
+            }
+            _gizmoVisible = true;
+
+            // Force-prepare the batch the first time.
+            var updateMeshData = !GizmosMeshBatch.IsValid;
+
+            GizmosMeshBatch.ResetMeshIndex();
             if (updateMeshData)
             {
                 GizmosMeshBatch.Reset(3);
-            }
-            if (selectedEntityBase == null)
-            {
-                return;
             }
             var center = selectedEntityBase.Bounds3D.Center;
             var matrix = Matrix4.CreateTranslation(center);
             var scaleMatrix = GetGizmoScaleMatrix(center);
             var finalMatrix = scaleMatrix * matrix;
 
-            var i = 0;
-            for (var gizmo = GizmoId.XMover; gizmo <= GizmoId.ZMover; gizmo++, i++)
+            for (var gizmo = GizmoId.XMover; gizmo <= GizmoId.ZMover; gizmo++)
             {
                 var gizmoInfo = GizmoInfos[gizmo];
                 var selected = hoveredGizmo == gizmo || selectedGizmo == gizmo;
                 var color = selected ? SelectedGizmoColor : gizmoInfo.Color;
-                GizmosMeshBatch.BindCube(finalMatrix, color, gizmoInfo.Center, gizmoInfo.Size, i, null, updateMeshData);
+                var triangleBuilder = new TriangleMeshBuilder
+                {
+                    RenderFlags = RenderFlags.Unlit | RenderFlags.NoAmbient,
+                    SolidColor = color,
+                };
+                if (updateMeshData)
+                {
+                    triangleBuilder.AddCube(gizmoInfo.Center, gizmoInfo.Size);
+                }
+                GizmosMeshBatch.BindTriangleMesh(triangleBuilder, finalMatrix, updateMeshData);
             }
-
-            // todo: There's probably a better place to put this, but we know
-            // gizmos will be updated when necessary to preserve constant screen size.
-            UpdateDebugPickingRay(updateMeshData);
         }
 
 
@@ -507,47 +650,107 @@ namespace PSXPrev.Common.Renderer
         {
             if (show && !_rayDirection.IsZero())
             {
-                _debugRayValid = true;
+                _debugRayVisible = true;
                 _debugRayOrigin = _rayOrigin;
-                _debugRayDirection = _rayDirection;
-                _debugRayRotation = Matrix4.LookAt(_rayOrigin, _rayTarget, new Vector3(0f, -1f, 0f)).Inverted().ExtractRotation();
+                _debugRayRotation = Matrix4.LookAt(_rayTarget, _rayOrigin, new Vector3(0f, -1f, 0f)).Inverted().ExtractRotation();
 
-                UpdateDebugPickingRay(true);
+                UpdateDebugPickingRay();
             }
             else
             {
-                _debugRayValid = false;
-
-                DebugPickingRayLineBatch.Reset();
-                DebugPickingRayOriginBatch.Reset(1);
+                _debugRayVisible = false;
             }
         }
 
-        private void UpdateDebugPickingRay(bool updateMeshData)
+        private void UpdateDebugPickingRay()
         {
-            if (!_debugRayValid)
+            if (_debugRayVisible)
+            {
+                BindRay(DebugPickingRayBatch, _debugRayOrigin, _debugRayRotation, DebugPickingRayColor);
+            }
+        }
+
+        private void UpdateLightRotationRay()
+        {
+            var blend = 1f;
+            if (_lightRayVisible && _lightRayTimer >= LightRotationRayDelayTime)
+            {
+                var fadeTime = _lightRayTimer - LightRotationRayDelayTime;
+                if (fadeTime >= LightRotationRayFadeTime)
+                {
+                    _lightRayVisible = false;
+                }
+                else
+                {
+                    blend = 1f - (float)(fadeTime / LightRotationRayFadeTime);
+                }
+            }
+
+            if (!_lightRayVisible)
             {
                 return;
             }
-            DebugPickingRayLineBatch.Reset();
+
+            var rotationMatrix = Matrix4.CreateRotationX(_lightPitch) * Matrix4.CreateRotationY(_lightYaw);
+            var distance = DistanceToFitBounds(_viewTargetBounds) / _cameraDistanceScalar;
+            var origin = _viewTarget + _transformedLight * distance * 0.5f;
+            var rotation = rotationMatrix.ExtractRotation();
+
+            BindRay(LightRotationRayBatch, origin, rotation, LightRotationRayColor, blend);
+        }
+
+        private void BindRay(MeshBatch rayBatch, Vector3 rayOrigin, Quaternion rayRotation, Color color, float blend = 1f)
+        {
+            // Force-prepare the batch the first time.
+            var updateMeshData = !rayBatch.IsValid;
+
+            rayBatch.ResetMeshIndex();
             if (updateMeshData)
             {
-                DebugPickingRayOriginBatch.Reset(1);
+                rayBatch.Reset(3);
             }
 
-            var farClip = CameraFarClip / _cameraDistanceScalar;
-            var rayEnd = _debugRayOrigin + _debugRayDirection * farClip;
-            DebugPickingRayLineBatch.AddLine(_debugRayOrigin, rayEnd, DebugPickingRayColor);
-            
-            var matrix = Matrix4.CreateTranslation(_debugRayOrigin);
-            var scaleMatrix = GetGizmoScaleMatrix(_debugRayOrigin);
-            var rotationMatrix = Matrix4.CreateFromQuaternion(_debugRayRotation);
-            var finalMatrix = rotationMatrix * scaleMatrix * matrix;
+            var lineBuilder = new LineMeshBuilder
+            {
+                RenderFlags = RenderFlags.Unlit | RenderFlags.NoAmbient | RenderFlags.SemiTransparent,
+                MixtureRate = MixtureRate.Alpha,
+                Alpha = 1f * blend,
+                Thickness = 3f,
+            };
+            var originOutlineBuilder = new LineMeshBuilder
+            {
+                RenderFlags = RenderFlags.Unlit | RenderFlags.NoAmbient | RenderFlags.SemiTransparent,
+                MixtureRate = MixtureRate.Alpha,
+                Alpha = 1f * blend,
+                Thickness = 1f,
+            };
+            var originBuilder = new TriangleMeshBuilder
+            {
+                RenderFlags = RenderFlags.SemiTransparent,
+                MixtureRate = MixtureRate.Alpha,
+                Alpha = 0.5f * blend,
+            };
 
-            var size = new Vector3(DebugPickingRayOriginSize);
-            var renderFlags = RenderFlags.SemiTransparent;
-            var mixtureRate = MixtureRate.Back50_Poly50;
-            DebugPickingRayOriginBatch.BindCube(finalMatrix, DebugPickingRayColor, Vector3.Zero, size, 0, null, updateMeshData, renderFlags, mixtureRate);
+            if (updateMeshData)
+            {
+                var farClip = CameraFarClip;
+                lineBuilder.AddLine(Vector3.Zero, new Vector3(0f, 0f, farClip), color);
+
+                var size = new Vector3(DebugPickingRayOriginSize);
+                originOutlineBuilder.AddCube(Vector3.Zero, size, color);
+                originBuilder.AddCube(Vector3.Zero, size, color);
+            }
+
+            var matrix = Matrix4.CreateTranslation(rayOrigin);
+            var rotationMatrix = Matrix4.CreateFromQuaternion(rayRotation);
+            var lineScaleMatrix = Matrix4.CreateScale(1f, 1f, (1f / _cameraDistanceScalar));
+            var originScaleMatrix = GetGizmoScaleMatrix(rayOrigin);
+            var lineMatrix = lineScaleMatrix * rotationMatrix * matrix;
+            var originMatrix = originScaleMatrix * rotationMatrix * matrix;
+
+            rayBatch.BindLineMesh(lineBuilder, lineMatrix, updateMeshData);
+            rayBatch.BindLineMesh(originOutlineBuilder, originMatrix, updateMeshData);
+            rayBatch.BindTriangleMesh(originBuilder, originMatrix, updateMeshData);
         }
 
         public EntityBase GetEntityUnderMouse(RootEntity[] checkedEntities, RootEntity selectedRootEntity, int x, int y, bool selectRoot = false)
@@ -597,11 +800,18 @@ namespace PSXPrev.Common.Renderer
             _lastPickedEntities = pickedEntities;
             if (ShowDebugVisuals && ShowDebugIntersections)
             {
-                DebugIntersectionBatch.Reset();
+                DebugIntersectionsBatch.Reset(1);
+                var lineBuilder = new LineMeshBuilder
+                {
+                    RenderFlags = RenderFlags.Unlit | RenderFlags.NoAmbient,
+                    Thickness = DebugIntersectionLineThickness,
+                    SolidColor = DebugIntersectionsColor,
+                };
                 foreach (var picked in pickedEntities)
                 {
-                    DebugIntersectionBatch.SetupEntityBounds(picked, DebugIntersectionsColor);
+                    lineBuilder.AddEntityBounds(picked);
                 }
+                DebugIntersectionsBatch.BindLineMesh(lineBuilder, null, true);
             }
             return pickedEntity;
         }
@@ -653,11 +863,18 @@ namespace PSXPrev.Common.Renderer
             _lastPickedTriangles = pickedTriangles;
             if (ShowDebugVisuals && ShowDebugIntersections)
             {
-                DebugIntersectionBatch.Reset();
+                DebugIntersectionsBatch.Reset(1);
+                var lineBuilder = new LineMeshBuilder
+                {
+                    RenderFlags = RenderFlags.Unlit | RenderFlags.NoAmbient,
+                    Thickness = DebugIntersectionLineThickness,
+                    SolidColor = DebugIntersectionsColor,
+                };
                 foreach (var picked in pickedTriangles)
                 {
-                    DebugIntersectionBatch.SetupTriangleOutline(picked.Item2, picked.Item1.WorldMatrix, DebugIntersectionsColor);
+                    lineBuilder.AddTriangleOutline(picked.Item1.WorldMatrix, picked.Item2);
                 }
+                DebugIntersectionsBatch.BindLineMesh(lineBuilder, null, true);
             }
             return pickedTriangle;
         }
@@ -718,11 +935,14 @@ namespace PSXPrev.Common.Renderer
         {
             _cameraYaw = 0f;
             _cameraPitch = 0f;
-            CameraX = 0f;
-            CameraY = 0f;
+            _cameraX = 0f;
+            _cameraY = 0f;
             // Target the center of the bounding box, so that models that aren't close to the origin are easy to view.
             _viewTarget = bounds.Center;
-            DistanceToFitBounds(bounds);
+            _viewTargetBounds = new BoundingBox(bounds);
+            CameraDistance = DistanceToFitBounds(bounds);
+            UpdateViewMatrix();
+            CameraChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void UpdateTexture(Bitmap textureBitmap, int texturePage)
@@ -730,14 +950,12 @@ namespace PSXPrev.Common.Renderer
             TextureBinder.UpdateTexture(textureBitmap, texturePage);
         }
 
-        private void DistanceToFitBounds(BoundingBox bounds)
+        private float DistanceToFitBounds(BoundingBox bounds)
         {
             var radius = bounds.MagnitudeFromPosition(_viewTarget);
             // Legacy FOV logic: camera distance is already divided by
             // FOV distance scalar, but we want 60 FOV as the baseline.
-            var distance = radius / (float)Math.Sin(60f * GeomMath.Deg2Rad / 2f) + 0.1f;
-            CameraDistance = distance;
-            UpdateViewMatrix();
+            return (radius / (float)Math.Sin(60f * GeomMath.Deg2Rad / 2f)) + 0.1f;
         }
 
         public GizmoId GetGizmoUnderPosition(EntityBase selectedEntityBase)

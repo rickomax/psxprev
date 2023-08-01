@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using OpenTK;
-using PSXPrev.Common.Animator;
 
 namespace PSXPrev.Common.Parsers
 {
@@ -579,10 +578,10 @@ namespace PSXPrev.Common.Parsers
             var triangle = new Triangle
             {
                 Vertices = new[] { vertex0, vertex1, vertex2 },
-                Normals = new[] { Vector3.Zero, Vector3.Zero, Vector3.Zero },
+                Normals = Triangle.EmptyNormals,
                 Colors = new[] { color0, color1, color2 },
                 Uv = new[] { uv0, uv1, uv2 },
-                AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
+                AttachableIndices = Triangle.EmptyAttachableIndices,
             };
 
             return triangle;

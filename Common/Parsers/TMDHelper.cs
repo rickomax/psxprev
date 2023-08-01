@@ -517,7 +517,7 @@ namespace PSXPrev.Common.Parsers
                     OriginalNormalIndices = new[] { normalIndex0, normalIndex1, normalIndex2 },
                     Colors = new[] { new Color(r0, g0, b0), new Color(r1, g1, b1), new Color(r2, g2, b2) },
                     Uv = new[] { new Vector2(u0, v0), new Vector2(u1, v1), new Vector2(u2, v2) },
-                    AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
+                    AttachableIndices = Triangle.EmptyAttachableIndices,
                 };
                 if (isTiled)
                 {
@@ -573,7 +573,7 @@ namespace PSXPrev.Common.Parsers
                         OriginalNormalIndices = new[] { normalIndex1, normalIndex3, normalIndex2 },
                         Colors = new[] { new Color(r1, g1, b1), new Color(r3, g3, b3), new Color(r2, g2, b2) },
                         Uv = new[] { new Vector2(u1, v1), new Vector2(u3, v3), new Vector2(u2, v2) },
-                        AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
+                        AttachableIndices = Triangle.EmptyAttachableIndices,
                     };
                     if (isTiled)
                     {

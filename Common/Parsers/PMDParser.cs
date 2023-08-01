@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using OpenTK;
-using PSXPrev.Common.Animator;
 
 namespace PSXPrev.Common.Parsers
 {
@@ -787,7 +786,7 @@ namespace PSXPrev.Common.Parsers
                 Normals = new[] { normal0, normal1, normal2 },
                 Colors = new[] { color0, color1, color2 },
                 Uv = new[] { uv0, uv1, uv2 },
-                AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
+                AttachableIndices = Triangle.EmptyAttachableIndices,
             };
 
             return triangle;

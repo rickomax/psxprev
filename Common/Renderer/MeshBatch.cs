@@ -1,26 +1,70 @@
 using System;
+using System.Collections.Generic;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 
 namespace PSXPrev.Common.Renderer
 {
-    public class MeshBatch
+    public enum RenderPass
+    {
+        Pass1Opaque,
+        Pass2SemiTransparentOpaquePixels,
+        Pass3SemiTransparent,
+    }
+
+    public class MeshBatch : IDisposable
     {
         private const float DiscardValue = 100000000f;
+
+        private static readonly RenderPass[] _passes =
+        {
+            RenderPass.Pass1Opaque,
+            RenderPass.Pass2SemiTransparentOpaquePixels,
+            RenderPass.Pass3SemiTransparent,
+        };
+
 
         private readonly Scene _scene;
         private uint[] _ids;
         private Mesh[] _meshes;
-        private int _modelIndex;
 
-        private bool IsValid { get; set; }
+        public bool IsValid { get; private set; }
+        public int MeshCount { get; private set; } // Used in-case we have a smaller count than the array sizes
+        //public int MeshCount => _meshes?.Length ?? 0;
+        public int MeshIndex { get; set; } // Manually set this index to handle which mesh to bind
+
+        public TextureBinder TextureBinder { get; set; }
+        public bool Wireframe { get; set; }
+        public bool VerticesOnly { get; set; }
+        public float WireframeSize { get; set; } = 1f;
+        public float VertexSize { get; set; } = 1f;
+        public bool AmbientEnabled { get; set; }
+        public bool LightEnabled { get; set; }
+        public bool TextureEnabled { get; set; }
+        public bool SemiTransparencyEnabled { get; set; } = true;
+        public bool ForceDoubleSided { get; set; }
+        public Color SolidColor { get; set; }
 
         public MeshBatch(Scene scene)
         {
             _scene = scene;
         }
 
-        public void SetupMultipleEntityBatch(RootEntity[] checkedEntities = null, ModelEntity selectedModelEntity = null, RootEntity selectedRootEntity = null, TextureBinder textureBinder = null, bool updateMeshData = true, bool focus = false, bool hasAnimation = false)
+        public void Dispose()
+        {
+            if (IsValid)
+            {
+                IsValid = false;
+                GL.DeleteVertexArrays(MeshCount, _ids);
+                _meshes = null;
+                _ids = null;
+                MeshCount = 0;
+                MeshIndex = 0;
+            }
+        }
+
+
+        public void SetupMultipleEntityBatch(RootEntity[] checkedEntities = null, ModelEntity selectedModelEntity = null, RootEntity selectedRootEntity = null, bool updateMeshData = true, bool focus = false, bool hasAnimation = false)
         {
             if (selectedModelEntity == null && selectedRootEntity == null)
             {
@@ -61,7 +105,7 @@ namespace PSXPrev.Common.Renderer
                 }
             }
             //reset
-            ResetModelIndex();
+            ResetMeshIndex();
             if (updateMeshData)
             {
                 Reset(modelCount);
@@ -79,7 +123,7 @@ namespace PSXPrev.Common.Renderer
                     }
                     foreach (ModelEntity modelEntity in entity.ChildEntities)
                     {
-                        BindMesh(modelEntity, modelEntity.TempWorldMatrix, textureBinder, updateMeshData, modelEntity.InitialVertices, modelEntity.InitialNormals, modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
+                        BindModelMesh(modelEntity, modelEntity.TempWorldMatrix, updateMeshData, modelEntity.InitialVertices, modelEntity.InitialNormals, modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
                     }
                 }
             }
@@ -91,7 +135,7 @@ namespace PSXPrev.Common.Renderer
             {
                 foreach (ModelEntity modelEntity in selectedRootEntity.ChildEntities)
                 {
-                    BindMesh(modelEntity, selectedRootEntity.TempMatrix * modelEntity.TempWorldMatrix, textureBinder, updateMeshData, modelEntity.InitialVertices, modelEntity.InitialNormals, modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
+                    BindModelMesh(modelEntity, selectedRootEntity.TempMatrix * modelEntity.TempWorldMatrix, updateMeshData, modelEntity.InitialVertices, modelEntity.InitialNormals, modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
                 }
             }
             //}
@@ -102,112 +146,68 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        public void BindModelBatch(ModelEntity modelEntity, Matrix4 matrix, TextureBinder textureBinder = null, Vector3[] initialVertices = null, Vector3[] initialNormals = null, Vector3[] finalVertices = null, Vector3[] finalNormals = null, float? interpolator = null)
+        public void BindModelBatch(ModelEntity modelEntity, Matrix4 matrix, Vector3[] initialVertices = null, Vector3[] initialNormals = null, Vector3[] finalVertices = null, Vector3[] finalNormals = null, float? interpolator = null)
         {
-            BindMesh(modelEntity, matrix, textureBinder, finalVertices != null || finalNormals != null, initialVertices, initialNormals, finalVertices, finalNormals, interpolator);
+            BindModelMesh(modelEntity, matrix, finalVertices != null || finalNormals != null, initialVertices, initialNormals, finalVertices, finalNormals, interpolator);
         }
 
-        public void BindCube(Matrix4 matrix, Color color, Vector3 center, Vector3 size, int index, TextureBinder textureBinder = null, bool updateMeshData = true, RenderFlags renderFlags = RenderFlags.DoubleSided, MixtureRate mixtureRate = MixtureRate.None)
+
+        public void BindEntityBounds(EntityBase entity, Color color = null, float thickness = 1f, bool updateMeshData = true)
         {
-            var mesh = GetMesh(index);
-            if (mesh == null)
+            if (entity == null)
             {
                 return;
             }
-            mesh.RenderFlags = renderFlags;
-            mesh.MixtureRate = mixtureRate;
+            var lineBuilder = new LineMeshBuilder
+            {
+                Thickness = thickness,
+                SolidColor = color ?? Color.White,
+            };
             if (updateMeshData)
             {
-                const int numTriangles = 12;
-                const int numElements = numTriangles * 3;
-                var baseIndex = 0;
-                var positionList = new float[numElements * 3]; // Vector3
-                var colorList    = new float[numElements * 3]; // Vector3 (Color)
-                var vertices = new[]
-                {
-                center.X-size.X, center.Y-size.Y, center.Z-size.Z,
-                center.X-size.X, center.Y-size.Y, center.Z+size.Z,
-                center.X+size.X, center.Y-size.Y, center.Z+size.Z ,
-                center.X-size.X, center.Y-size.Y, center.Z-size.Z,
-                center.X+size.X, center.Y-size.Y, center.Z+size.Z ,
-                center.X+size.X, center.Y-size.Y, center.Z-size.Z,
-                center.X-size.X, center.Y+size.Y, center.Z-size.Z,
-                center.X+size.X, center.Y+size.Y, center.Z-size.Z ,
-                center.X+size.X, center.Y+size.Y, center.Z+size.Z,
-                center.X-size.X, center.Y+size.Y, center.Z-size.Z,
-                center.X+size.X, center.Y+size.Y, center.Z+size.Z,
-                center.X-size.X, center.Y+size.Y, center.Z+size.Z ,
-                center.X+size.X, center.Y-size.Y, center.Z+size.Z ,
-                center.X-size.X, center.Y-size.Y, center.Z+size.Z,
-                center.X-size.X, center.Y+size.Y, center.Z+size.Z ,
-                center.X+size.X, center.Y-size.Y, center.Z+size.Z ,
-                center.X-size.X, center.Y+size.Y, center.Z+size.Z ,
-                center.X+size.X, center.Y+size.Y, center.Z+size.Z,
-                center.X-size.X, center.Y-size.Y, center.Z-size.Z,
-                center.X+size.X, center.Y-size.Y, center.Z-size.Z,
-                center.X+size.X, center.Y+size.Y, center.Z-size.Z ,
-                center.X-size.X, center.Y-size.Y, center.Z-size.Z,
-                center.X+size.X, center.Y+size.Y, center.Z-size.Z ,
-                center.X-size.X, center.Y+size.Y, center.Z-size.Z,
-                center.X+size.X, center.Y-size.Y, center.Z-size.Z,
-                center.X+size.X, center.Y-size.Y, center.Z+size.Z ,
-                center.X+size.X, center.Y+size.Y, center.Z+size.Z,
-                center.X+size.X, center.Y-size.Y, center.Z-size.Z,
-                center.X+size.X, center.Y+size.Y, center.Z+size.Z,
-                center.X+size.X, center.Y+size.Y, center.Z-size.Z ,
-                center.X-size.X, center.Y-size.Y, center.Z+size.Z,
-                center.X-size.X, center.Y-size.Y, center.Z-size.Z,
-                center.X-size.X, center.Y+size.Y, center.Z-size.Z,
-                center.X-size.X, center.Y-size.Y, center.Z+size.Z,
-                center.X-size.X, center.Y+size.Y, center.Z-size.Z,
-                center.X-size.X, center.Y+size.Y, center.Z+size.Z
-            };
-                for (var t = 0; t < numTriangles; t++)
-                {
-                    for (var i = 0; i < 3; i++)
-                    {
-                        var index3d = baseIndex * 3;
-                        baseIndex++;
-
-                        positionList[index3d + 0] = vertices[index3d + 0];
-                        positionList[index3d + 1] = vertices[index3d + 1];
-                        positionList[index3d + 2] = vertices[index3d + 2];
-
-                        // Normals are all 0f (passing null will default to a zeroed list).
-
-                        colorList[index3d + 0] = color.R;
-                        colorList[index3d + 1] = color.G;
-                        colorList[index3d + 2] = color.B;
-
-                        // UVs are all 0f (passing null will default to a zeroed list).
-                    }
-                }
-                mesh.SetData(numElements, positionList, null, colorList, null);
+                lineBuilder.AddEntityBounds(entity);
             }
-            mesh.WorldMatrix = matrix;
-            if (textureBinder != null)
-            {
-                mesh.Texture = textureBinder.GetTexture(0);
-            }
+            BindLineMesh(lineBuilder, null, updateMeshData);
         }
 
-        private void BindMesh(ModelEntity modelEntity, Matrix4? matrix = null, TextureBinder textureBinder = null, bool updateMeshData = true, Vector3[] initialVertices = null, Vector3[] initialNormals = null, Vector3[] finalVertices = null, Vector3[] finalNormals = null, float? interpolator = null)
+        public void BindTriangleOutline(Matrix4 matrix, Triangle triangle, Color color = null, float thickness = 2f, bool updateMeshData = true)
+        {
+            if (triangle == null)
+            {
+                return;
+            }
+            var lineBuilder = new LineMeshBuilder
+            {
+                Thickness = thickness,
+                SolidColor = color ?? Color.White,
+            };
+            if (updateMeshData)
+            {
+                lineBuilder.AddTriangleOutline(triangle);
+            }
+            BindLineMesh(lineBuilder, matrix, updateMeshData);
+        }
+
+
+        private void BindModelMesh(ModelEntity modelEntity, Matrix4? matrix = null, bool updateMeshData = true, Vector3[] initialVertices = null, Vector3[] initialNormals = null, Vector3[] finalVertices = null, Vector3[] finalNormals = null, float? interpolator = null)
         {
             if (!modelEntity.Visible)
             {
                 return;
             }
-            var mesh = GetMesh(_modelIndex++);
+            var mesh = GetMesh(MeshIndex++);
             if (mesh == null)
             {
                 return;
             }
+
             // Copy render info.
             mesh.RenderFlags = modelEntity.RenderFlags;
             mesh.MixtureRate = modelEntity.MixtureRate;
 
             //var rootEntity = modelEntity.ParentEntity as RootEntity; //todo
             mesh.WorldMatrix = matrix ?? modelEntity.WorldMatrix;
+
             if (updateMeshData)
             {
                 var numTriangles = modelEntity.Triangles.Length;
@@ -237,7 +237,7 @@ namespace PSXPrev.Common.Renderer
                         if (triangle.AttachedIndices != null)
                         {
                             var attachedIndex = triangle.AttachedIndices[i];
-                            if (attachedIndex != uint.MaxValue)
+                            if (attachedIndex != Triangle.NoAttachment)
                             {
                                 if (!_scene.AutoAttach)
                                 {
@@ -340,11 +340,12 @@ namespace PSXPrev.Common.Renderer
                         lastTiledArea = tiledArea;
                     }
                 }
-                mesh.SetData(numElements, positionList, normalList, colorList, uvList, tiledAreaList);
+                mesh.SetData(MeshDataType.Triangle, numElements, positionList, normalList, colorList, uvList, tiledAreaList);
             }
-            if (textureBinder != null && modelEntity.Texture != null && modelEntity.IsTextured)
+
+            if (TextureBinder != null && modelEntity.Texture != null && modelEntity.IsTextured)
             {
-                mesh.Texture = textureBinder.GetTexture((int)modelEntity.TexturePage);
+                mesh.Texture = TextureBinder.GetTexture((int)modelEntity.TexturePage);
             }
             else
             {
@@ -352,31 +353,207 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        public void Reset(int nMeshes)
+        private void CopyRenderInfo(Mesh mesh, MeshRenderInfo renderInfo, Matrix4? matrix = null)
+        {
+            mesh.TexturePage = renderInfo.TexturePage; // Debug information only
+
+            mesh.RenderFlags = renderInfo.RenderFlags;
+            mesh.MixtureRate = renderInfo.MixtureRate;
+            mesh.Alpha = renderInfo.Alpha;
+            mesh.Thickness = renderInfo.Thickness;
+            mesh.SolidColor = renderInfo.SolidColor;
+            mesh.Visible = renderInfo.Visible;
+            mesh.WorldMatrix = matrix ?? Matrix4.Identity;
+
+            if (TextureBinder != null && renderInfo.RenderFlags.HasFlag(RenderFlags.Textured))
+            {
+                mesh.Texture = TextureBinder.GetTexture((int)renderInfo.TexturePage);
+            }
+            else
+            {
+                mesh.Texture = 0;
+            }
+        }
+
+        public void BindRenderInfo(MeshRenderInfo renderInfo, Matrix4? matrix = null)
+        {
+            var mesh = GetMesh(MeshIndex++);
+            if (mesh == null)
+            {
+                return;
+            }
+
+            CopyRenderInfo(mesh, renderInfo, matrix);
+        }
+
+        public void BindTriangleMesh(TriangleMeshBuilder triangleBuilder, Matrix4? matrix = null, bool updateMeshData = true)
+        {
+            var mesh = GetMesh(MeshIndex++);
+            if (mesh == null)
+            {
+                return;
+            }
+
+            CopyRenderInfo(mesh, triangleBuilder, matrix);
+
+            if (updateMeshData)
+            {
+                var triangles = triangleBuilder.Triangles;
+                var numTriangles = triangles.Count;
+                var numElements = numTriangles * 3;
+                var baseIndex = 0;
+                var positionList  = new float[numElements * 3]; // Vector3
+                var normalList    = new float[numElements * 3]; // Vector3
+                var colorList     = new float[numElements * 3]; // Vector3 (Color)
+                var uvList        = new float[numElements * 2]; // Vector2
+                var tiledAreaList = new float[numElements * 4]; // Vector4
+                for (var t = 0; t < numTriangles; t++)
+                {
+                    var triangle = triangles[t];
+                    for (var i = 0; i < 3; i++)
+                    {
+                        var index2d = baseIndex * 2;
+                        var index3d = baseIndex * 3;
+                        var index4d = baseIndex * 4;
+                        baseIndex++;
+
+                        var vertex = triangle.Vertices[i];
+                        positionList[index3d + 0] = vertex.X;
+                        positionList[index3d + 1] = vertex.Y;
+                        positionList[index3d + 2] = vertex.Z;
+
+                        var normal = triangle.Normals[i];
+                        normalList[index3d + 0] = normal.X;
+                        normalList[index3d + 1] = normal.Y;
+                        normalList[index3d + 2] = normal.Z;
+
+                        var color = triangle.Colors[i];
+                        colorList[index3d + 0] = color.R;
+                        colorList[index3d + 1] = color.G;
+                        colorList[index3d + 2] = color.B;
+
+                        var uv = triangle.TiledUv?.BaseUv[i] ?? triangle.Uv[i];
+                        uvList[index2d + 0] = uv.X;
+                        uvList[index2d + 1] = uv.Y;
+
+                        var tiledArea = triangle.TiledUv?.Area ?? Vector4.Zero;
+                        tiledAreaList[index4d + 0] = tiledArea.X; // U offset
+                        tiledAreaList[index4d + 1] = tiledArea.Y; // V offset
+                        tiledAreaList[index4d + 2] = tiledArea.Z; // U wrap
+                        tiledAreaList[index4d + 3] = tiledArea.W; // V wrap
+                    }
+                }
+                mesh.SetData(MeshDataType.Triangle, numElements, positionList, normalList, colorList, uvList, tiledAreaList);
+            }
+        }
+
+        public void BindLineMesh(LineMeshBuilder lineBuilder, Matrix4? matrix = null, bool updateMeshData = true)
+        {
+            var mesh = GetMesh(MeshIndex++);
+            if (mesh == null)
+            {
+                return;
+            }
+
+            CopyRenderInfo(mesh, lineBuilder, matrix);
+            mesh.RenderFlags |= RenderFlags.Unlit | RenderFlags.DoubleSided; // Enforced flags
+
+            if (updateMeshData)
+            {
+                var lines = lineBuilder.Lines;
+                var numLines = lines.Count;
+                var numElements = numLines * 2;
+                var baseIndex = 0;
+                var positionList = new float[numElements * 3]; // Vector3
+                var colorList    = new float[numElements * 3]; // Vector3 (Color)
+                for (var l = 0; l < numLines; l++)
+                {
+                    var line = lines[l];
+                    for (var i = 0; i < 2; i++)
+                    {
+                        var index3d = baseIndex * 3;
+                        baseIndex++;
+
+                        var vertex = line.Vertices[i];// i == 0 ? line.P1 : line.P2;
+                        positionList[index3d + 0] = vertex.X;
+                        positionList[index3d + 1] = vertex.Y;
+                        positionList[index3d + 2] = vertex.Z;
+
+                        // Normals are all 0f (passing null will default to a zeroed list).
+
+                        var color = line.Colors[i];// i == 0 ? line.Color1 : line.Color2;
+                        colorList[index3d + 0] = color.R;
+                        colorList[index3d + 1] = color.G;
+                        colorList[index3d + 2] = color.B;
+
+                        // UVs are all 0f (passing null will default to a zeroed list).
+                    }
+                }
+                mesh.SetData(MeshDataType.Line, numElements, positionList, null, colorList, null);
+            }
+        }
+
+
+        public void Reset(int meshCount)
         {
             IsValid = true;
+            // Dispose of old meshes.
             if (_meshes != null)
             {
                 foreach (var mesh in _meshes)
                 {
-                    mesh?.Delete();
+                    mesh?.Dispose();
                 }
             }
-            _meshes = new Mesh[nMeshes];
-            if (_ids != null) GL.DeleteVertexArrays(_ids.Length, _ids);
-            _ids = new uint[nMeshes];
-            ResetModelIndex();
-            GL.GenVertexArrays(nMeshes, _ids);
+            // Create a new meshes array, or reset the existing one to all null if the lengths match.
+            // todo: Should we bother resizing to a smaller array size?...
+            // Maybe only if the size is drastically smaller...
+            if (_meshes == null || _meshes.Length != meshCount)
+            {
+                _meshes = new Mesh[meshCount];
+            }
+            else
+            {
+                for (var i = 0; i < _meshes.Length; i++)
+                {
+                    _meshes[i] = null;
+                }
+            }
+            // Create and setup a new mesh IDs array if the existing one's length doesn't match.
+            if (_ids == null || _ids.Length != meshCount)
+            {
+                if (_ids != null)
+                {
+                    // Delete old MeshCount
+                    GL.DeleteVertexArrays(MeshCount, _ids);
+                }
+                _ids = new uint[meshCount];
+                GL.GenVertexArrays(meshCount, _ids);
+            }
+            // Assign this in-case we support changing mesh count without changing capacity.
+            MeshCount = meshCount;
+            ResetMeshIndex();
         }
 
-        public void ResetModelIndex()
+        public void ResetMeshIndex()
         {
-            _modelIndex = 0;
+            MeshIndex = 0;
+        }
+
+        public bool IsMeshIndexBound() => IsMeshIndexBound(MeshIndex);
+
+        public bool IsMeshIndexBound(int index)
+        {
+            if (index >= MeshCount) //_meshes.Length)
+            {
+                return false;
+            }
+            return _meshes[index] != null;
         }
 
         private Mesh GetMesh(int index)
         {
-            if (index >= _meshes.Length)
+            if (index >= MeshCount) //_meshes.Length)
             {
                 return null;
             }
@@ -387,28 +564,176 @@ namespace PSXPrev.Common.Renderer
             return _meshes[index];
         }
 
-        private void DrawMesh(Mesh mesh, Matrix4 viewMatrix, Matrix4 projectionMatrix, TextureBinder textureBinder, bool wireframe, bool standard, bool verticesOnly = false)
+
+        public void Draw(Matrix4 viewMatrix, Matrix4 projectionMatrix)
         {
-            if (standard)
+            foreach (var pass in _passes)//MeshBatch.GetPasses())
             {
-                if (!_scene.LightEnabled || mesh.RenderFlags.HasFlag(RenderFlags.Unlit))
+                DrawPass(pass, viewMatrix, projectionMatrix);
+            }
+        }
+
+        public void DrawPass(RenderPass renderPass, Matrix4 viewMatrix, Matrix4 projectionMatrix)
+        {
+            if (!IsValid)
+            {
+                return;
+            }
+            if (renderPass != RenderPass.Pass1Opaque && !SemiTransparencyEnabled)
+            {
+                return; // No semi-transparent passes
+            }
+
+            if (SolidColor != null)
+            {
+                GL.Uniform1(Scene.UniformColorMode, 1); // Use solid color
+                GL.Uniform3(Scene.UniformSolidColor, SolidColor.Vector);
+            }
+
+            switch (renderPass)
+            {
+                case RenderPass.Pass1Opaque:
+                    // Pass 1: Draw opaque meshes.
+                    GL.DepthMask(true);
+                    GL.Disable(EnableCap.Blend);
+                    GL.Uniform1(Scene.UniformSemiTransparentPass, 0);
+
+                    foreach (var mesh in GetMeshes())
+                    {
+                        if (SemiTransparencyEnabled && !mesh.IsOpaque)
+                        {
+                            continue; // Not an opaque mesh, or semi-transparency is disabled
+                        }
+                        DrawMesh(mesh, viewMatrix, projectionMatrix);
+                    }
+                    break;
+
+                case RenderPass.Pass2SemiTransparentOpaquePixels when SemiTransparencyEnabled:
+                    // Pass 2: Draw opaque pixels when the stp bit is UNSET.
+                    GL.DepthMask(true);
+                    GL.Disable(EnableCap.Blend);
+                    GL.Uniform1(Scene.UniformSemiTransparentPass, 1);
+
+                    foreach (var mesh in GetMeshes())
+                    {
+                        if (!mesh.IsSemiTransparent)
+                        {
+                            continue; // Not a semi-transparent mesh
+                        }
+                        if (!mesh.RenderFlags.HasFlag(RenderFlags.Textured))
+                        {
+                            continue; // Untextured surfaces always have stp bit SET.
+                        }
+                        DrawMesh(mesh, viewMatrix, projectionMatrix);
+                    }
+                    break;
+
+                case RenderPass.Pass3SemiTransparent when SemiTransparencyEnabled:
+                    // Pass 3: Draw semi-transparent pixels when the stp bit is SET.
+                    GL.DepthMask(false); // Disable so that transparent surfaces can show behind other transparent surfaces.
+                    GL.Enable(EnableCap.Blend);
+                    GL.Uniform1(Scene.UniformSemiTransparentPass, 2);
+
+                    foreach (var mesh in GetMeshes())
+                    {
+                        if (!mesh.IsSemiTransparent)
+                        {
+                            continue; // Not a semi-transparent mesh
+                        }
+                        switch (mesh.MixtureRate)
+                        {
+                            case MixtureRate.Back50_Poly50:    //  50% back +  50% poly
+                                GL.BlendFunc(BlendingFactor.ConstantColor, BlendingFactor.ConstantColor); // C poly, C back
+                                GL.BlendColor(0.50f, 0.50f, 0.50f, 1.0f); // C = 50%
+                                GL.BlendEquation(BlendEquationMode.FuncAdd);
+                                break;
+                            case MixtureRate.Back100_Poly100:  // 100% back + 100% poly
+                                GL.BlendFunc(BlendingFactor.One, BlendingFactor.One); // 100% poly, 100% back
+                                GL.BlendEquation(BlendEquationMode.FuncAdd);
+                                break;
+                            case MixtureRate.Back100_PolyM100: // 100% back - 100% poly
+                                GL.BlendFunc(BlendingFactor.One, BlendingFactor.One);    // 100% poly, 100% back
+                                GL.BlendEquation(BlendEquationMode.FuncReverseSubtract); // back - poly
+                                break;
+                            case MixtureRate.Back100_Poly25:   // 100% back +  25% poly
+                                GL.BlendFunc(BlendingFactor.ConstantColor, BlendingFactor.One); // C poly, 100% back
+                                GL.BlendColor(0.25f, 0.25f, 0.25f, 1.0f); // C = 25%
+                                GL.BlendEquation(BlendEquationMode.FuncAdd);
+                                break;
+                            case MixtureRate.Alpha:            // 1-A% back +   A% poly
+                                GL.BlendFunc(BlendingFactor.ConstantAlpha, BlendingFactor.OneMinusConstantAlpha);
+                                GL.BlendColor(1.0f, 1.0f, 1.0f, mesh.Alpha); // C = A%
+                                GL.BlendEquation(BlendEquationMode.FuncAdd);
+                                break;
+                        }
+                        DrawMesh(mesh, viewMatrix, projectionMatrix);
+                    }
+
+                    // Restore settings.
+                    GL.DepthMask(true);
+                    GL.Disable(EnableCap.Blend);
+                    break;
+            }
+            // Restore settings.
+            GL.Disable(EnableCap.CullFace);
+        }
+
+        private IEnumerable<Mesh> GetMeshes()
+        {
+            foreach (var mesh in _meshes)
+            {
+                if (mesh != null && mesh.Visible)
                 {
-                    GL.Uniform1(Scene.UniformRenderMode, 1); // Disable lighting
-                }
-                else
-                {
-                    GL.Uniform1(Scene.UniformRenderMode, 0); // Enable lighting
-                }
-                if (mesh.RenderFlags.HasFlag(RenderFlags.Textured))
-                {
-                    GL.Uniform1(Scene.UniformTextureMode, 0); // Enable texture
-                }
-                else
-                {
-                    GL.Uniform1(Scene.UniformTextureMode, 1); // Disable texture
+                    yield return mesh;
                 }
             }
-            if (_scene.ForceDoubleSided || mesh.RenderFlags.HasFlag(RenderFlags.DoubleSided))
+        }
+
+        private void DrawMesh(Mesh mesh, Matrix4 viewMatrix, Matrix4 projectionMatrix)
+        {
+            var ambient = AmbientEnabled && !mesh.RenderFlags.HasFlag(RenderFlags.NoAmbient);
+            var light = LightEnabled && !mesh.RenderFlags.HasFlag(RenderFlags.Unlit);
+            if (ambient && light)
+            {
+                GL.Uniform1(Scene.UniformLightMode, 0); // Enable ambient, enable directional light
+            }
+            else if (ambient)
+            {
+                GL.Uniform1(Scene.UniformLightMode, 1); // Enable ambient, disable directional light
+            }
+            else if (light)
+            {
+                GL.Uniform1(Scene.UniformLightMode, 2); // Disable ambient, enable directional light
+            }
+            else
+            {
+                GL.Uniform1(Scene.UniformLightMode, 3); // Disable ambient, disable directional light
+            }
+
+            if (SolidColor == null)
+            {
+                // We only need to assign color mode and solid color if its not handled by this batch.
+                if (mesh.SolidColor == null)
+                {
+                    GL.Uniform1(Scene.UniformColorMode, 0); // Use vertex color
+                }
+                else
+                {
+                    GL.Uniform1(Scene.UniformColorMode, 1); // Use solid color
+                    GL.Uniform3(Scene.UniformSolidColor, (SolidColor ?? mesh.SolidColor).Vector);
+                }
+            }
+
+            if (TextureEnabled && mesh.RenderFlags.HasFlag(RenderFlags.Textured))
+            {
+                GL.Uniform1(Scene.UniformTextureMode, 0); // Enable texture
+            }
+            else
+            {
+                GL.Uniform1(Scene.UniformTextureMode, 1); // Disable texture
+            }
+
+            if (ForceDoubleSided || mesh.RenderFlags.HasFlag(RenderFlags.DoubleSided))
             {
                 GL.Disable(EnableCap.CullFace); // Double-sided
             }
@@ -417,95 +742,15 @@ namespace PSXPrev.Common.Renderer
                 GL.Enable(EnableCap.CullFace);  // Single-sided
                 GL.CullFace(CullFaceMode.Front);
             }
+
             var modelMatrix = mesh.WorldMatrix;
             var mvpMatrix = modelMatrix * viewMatrix * projectionMatrix;
-            GL.UniformMatrix4(Scene.UniformIndexMVP, false, ref mvpMatrix);
-            mesh.Draw(textureBinder, wireframe, verticesOnly);
+            GL.UniformMatrix4(Scene.UniformModelMatrix, false, ref modelMatrix);
+            GL.UniformMatrix4(Scene.UniformMVPMatrix, false, ref mvpMatrix);
+            mesh.Draw(TextureBinder, Wireframe, VerticesOnly, WireframeSize, VertexSize);
         }
 
-        public void Draw(Matrix4 viewMatrix, Matrix4 projectionMatrix, TextureBinder textureBinder = null, bool wireframe = false, bool standard = false, bool verticesOnly = false)
-        {
-            if (!IsValid)
-            {
-                return;
-            }
 
-            // Pass 1: Draw opaque meshes.
-            GL.DepthMask(true);
-            GL.Disable(EnableCap.Blend);
-            GL.Uniform1(Scene.UniformSemiTransparentMode, 0);
-            foreach (var mesh in _meshes)
-            {
-                if (mesh == null || (_scene.SemiTransparencyEnabled && mesh.RenderFlags.HasFlag(RenderFlags.SemiTransparent)))
-                {
-                    continue; // Not an opaque mesh
-                }
-                DrawMesh(mesh, viewMatrix, projectionMatrix, textureBinder, wireframe, standard, verticesOnly);
-            }
-
-            // Draw semi-transparent meshes.
-            if (standard && _scene.SemiTransparencyEnabled)
-            {
-                // Pass 2: Draw opaque pixels when the stp bit is UNSET.
-                GL.Uniform1(Scene.UniformSemiTransparentMode, 1);
-                foreach (var mesh in _meshes)
-                {
-                    if (mesh == null || !mesh.RenderFlags.HasFlag(RenderFlags.SemiTransparent))
-                    {
-                        continue; // Not a semi-transparent mesh
-                    }
-                    if (!mesh.RenderFlags.HasFlag(RenderFlags.Textured))
-                    {
-                        continue; // Untextured surfaces always have stp bit SET.
-                    }
-                    DrawMesh(mesh, viewMatrix, projectionMatrix, textureBinder, wireframe, standard, verticesOnly);
-                }
-
-                // Pass 3: Draw semi-transparent pixels when the stp bit is SET.
-                GL.DepthMask(false); // Disable so that transparent surfaces can show behind other transparent surfaces.
-                GL.Enable(EnableCap.Blend);
-                GL.Uniform1(Scene.UniformSemiTransparentMode, 2);
-                foreach (var mesh in _meshes)
-                {
-                    if (mesh == null || !mesh.RenderFlags.HasFlag(RenderFlags.SemiTransparent))
-                    {
-                        continue; // Not a semi-transparent mesh
-                    }
-                    switch (mesh.MixtureRate)
-                    {
-                        case MixtureRate.Back50_Poly50:    //  50% back +  50% poly
-                            GL.BlendFunc(BlendingFactor.ConstantColor, BlendingFactor.ConstantColor); // C poly, C back
-                            GL.BlendColor(0.50f, 0.50f, 0.50f, 1.0f); // C = 50%
-                            GL.BlendEquation(BlendEquationMode.FuncAdd);
-                            break;
-                        case MixtureRate.Back100_Poly100:  // 100% back + 100% poly
-                            GL.BlendFunc(BlendingFactor.One, BlendingFactor.One); // 100% poly, 100% back
-                            GL.BlendEquation(BlendEquationMode.FuncAdd);
-                            break;
-                        case MixtureRate.Back100_PolyM100: // 100% back - 100% poly
-                            GL.BlendFunc(BlendingFactor.One, BlendingFactor.One);    // 100% poly, 100% back
-                            GL.BlendEquation(BlendEquationMode.FuncReverseSubtract); // back - poly
-                            break;
-                        case MixtureRate.Back100_Poly25:   // 100% back +  25% poly
-                            GL.BlendFunc(BlendingFactor.ConstantColor, BlendingFactor.One); // C poly, 100% back
-                            GL.BlendColor(0.25f, 0.25f, 0.25f, 1.0f); // C = 25%
-                            GL.BlendEquation(BlendEquationMode.FuncAdd);
-                            break;
-                    }
-                    DrawMesh(mesh, viewMatrix, projectionMatrix, textureBinder, wireframe, standard, verticesOnly);
-                }
-
-                // Restore settings.
-                GL.DepthMask(true);
-                GL.Disable(EnableCap.Blend);
-                GL.Uniform1(Scene.UniformSemiTransparentMode, 0);
-            }
-            // Restore settings.
-            GL.Disable(EnableCap.CullFace);
-            if (standard)
-            {
-                GL.Uniform1(Scene.UniformRenderMode, (_scene.LightEnabled ? 0 : 1)); // Restore lighting
-            }
-        }
+        public static IEnumerable<RenderPass> GetPasses() => _passes;
     }
 }

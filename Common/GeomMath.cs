@@ -281,6 +281,12 @@ namespace PSXPrev.Common
             return r < 0 ? r + m : r;
         }
 
+        public static decimal PositiveModulus(decimal x, decimal m)
+        {
+            var r = x % m;
+            return r < 0 ? r + m : r;
+        }
+
         public static float ConvertFixed12(int value) => value / Fixed12Scalar;
 
         public static float ConvertFixed16(int value) => value / Fixed16Scalar;
@@ -347,11 +353,11 @@ namespace PSXPrev.Common
             const int DEGREE = 3;// NUM_POINTS - 1;
             const int start = DEGREE + 1; // Only constant when DEGREE == NUM_POINTS - 1
 
-            delta = Math.Max(0f, Math.Min(1f, delta)); // Clamp delta
+            delta = MathHelper.Clamp(delta, 0f, 1f); // Clamp delta
             var t = delta * (NUM_POINTS - DEGREE) + DEGREE;
 
             // This should always be 4 (3 + 1).
-            //var start = Math.Max(DEGREE, Math.Min(NUM_POINTS - 1, (int)t)) + 1;
+            //var start = MathHelper.Clamp((int)t, DEGREE, NUM_POINTS - 1) + 1;
 
             var points = new[] { p0, p1, p2, p3 };
 

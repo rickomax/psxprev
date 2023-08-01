@@ -33,7 +33,7 @@
             this.selectFolderButton = new System.Windows.Forms.Button();
             this.selectISOButton = new System.Windows.Forms.Button();
             this.selectFileButton = new System.Windows.Forms.Button();
-            this.fileNameTextBox = new System.Windows.Forms.TextBox();
+            this.filePathTextBox = new System.Windows.Forms.TextBox();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
             this.filterTextBox = new System.Windows.Forms.TextBox();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
@@ -70,7 +70,7 @@
             this.groupBox1.Controls.Add(this.selectFolderButton);
             this.groupBox1.Controls.Add(this.selectISOButton);
             this.groupBox1.Controls.Add(this.selectFileButton);
-            this.groupBox1.Controls.Add(this.fileNameTextBox);
+            this.groupBox1.Controls.Add(this.filePathTextBox);
             this.groupBox1.Dock = System.Windows.Forms.DockStyle.Top;
             this.groupBox1.Location = new System.Drawing.Point(0, 0);
             this.groupBox1.Name = "groupBox1";
@@ -108,15 +108,15 @@
             this.selectFileButton.UseVisualStyleBackColor = true;
             this.selectFileButton.Click += new System.EventHandler(this.selectFileButton_Click);
             // 
-            // fileNameTextBox
+            // filePathTextBox
             // 
-            this.fileNameTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            this.filePathTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.fileNameTextBox.Location = new System.Drawing.Point(12, 19);
-            this.fileNameTextBox.Name = "fileNameTextBox";
-            this.fileNameTextBox.Size = new System.Drawing.Size(360, 20);
-            this.fileNameTextBox.TabIndex = 0;
-            this.fileNameTextBox.TextChanged += new System.EventHandler(this.fileNameTextBox_TextChanged);
+            this.filePathTextBox.Location = new System.Drawing.Point(12, 19);
+            this.filePathTextBox.Name = "filePathTextBox";
+            this.filePathTextBox.Size = new System.Drawing.Size(360, 20);
+            this.filePathTextBox.TabIndex = 0;
+            this.filePathTextBox.TextChanged += new System.EventHandler(this.fileNameTextBox_TextChanged);
             // 
             // groupBox2
             // 
@@ -423,7 +423,7 @@
         private System.Windows.Forms.Button selectFolderButton;
         private System.Windows.Forms.Button selectISOButton;
         private System.Windows.Forms.Button selectFileButton;
-        private System.Windows.Forms.TextBox fileNameTextBox;
+        private System.Windows.Forms.TextBox filePathTextBox;
         private System.Windows.Forms.GroupBox groupBox2;
         private System.Windows.Forms.TextBox filterTextBox;
         private System.Windows.Forms.GroupBox groupBox3;

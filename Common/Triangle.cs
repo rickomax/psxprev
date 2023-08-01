@@ -49,6 +49,15 @@ namespace PSXPrev.Common
             _poly_g4c
         }
 
+        public const uint NoAttachment = uint.MaxValue;
+
+        public static readonly Vector3[] EmptyNormals = { Vector3.Zero, Vector3.Zero, Vector3.Zero };
+        public static readonly Vector2[] EmptyUv = { Vector2.Zero, Vector2.Zero, Vector2.Zero };
+        public static readonly Vector2[] EmptyUvCorrected = { Vector2.Zero, Vector2.Zero, new Vector2(1f/256f) };
+        public static readonly Color[] EmptyColors = { Color.Grey, Color.Grey, Color.Grey };
+        public static readonly uint[] EmptyAttachableIndices = { NoAttachment, NoAttachment, NoAttachment };
+
+
         [ReadOnly(true), DisplayName("Parent")]
         public EntityBase ParentEntity { get; set; }
 
@@ -56,10 +65,10 @@ namespace PSXPrev.Common
         public Vector3[] Vertices { get; set; }
 
         [ReadOnly(true)]
-        public Vector3[] Normals { get; set; }
+        public Vector3[] Normals { get; set; } = EmptyNormals;
 
         [ReadOnly(true), DisplayName("UVs")]
-        public Vector2[] Uv { get; set; }
+        public Vector2[] Uv { get; set; } = EmptyUv;
 
         // Defines the area of the texture page that Uv is wrapped around.
         [ReadOnly(true), Browsable(false)]
@@ -78,7 +87,7 @@ namespace PSXPrev.Common
         public bool NeedsTiled => TiledUv?.NeedsTiled ?? false;
 
         [ReadOnly(true)]
-        public Color[] Colors { get; set; }
+        public Color[] Colors { get; set; } = EmptyColors;
 
         [Browsable(false)]
         public uint[] OriginalVertexIndices { get; set; }
@@ -87,7 +96,7 @@ namespace PSXPrev.Common
         public uint[] OriginalNormalIndices { get; set; }
 
         [Browsable(false)]
-        public uint[] AttachableIndices { get; set; }
+        public uint[] AttachableIndices { get; set; } = EmptyAttachableIndices;
 
         [Browsable(false)]
         public uint[] AttachedIndices { get; set; }

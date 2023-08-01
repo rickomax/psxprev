@@ -2,19 +2,24 @@
 
 namespace PSXPrev.Common
 {
-    public struct Line
+    public class Line
     {
-        public Vector4 P1;
-        public Vector4 P2;
-        public Color Color;
-        public float Width;
+        public static readonly Vector3[] EmptyNormals = { Vector3.Zero, Vector3.Zero };
+        public static readonly Vector2[] EmptyUv = { Vector2.Zero, Vector2.Zero };
+        public static readonly Vector2[] EmptyUvCorrected = { Vector2.Zero, new Vector2(1f/256f) };
+        public static readonly Color[] EmptyColors = { Color.Grey, Color.Grey };
 
-        public Line (Vector4 p1, Vector4 p2, Color color, float width = 1f)
+        public Vector3[] Vertices { get; set; }
+        //public Vector3[] Normals { get; set; } = EmptyNormals;
+        //public Vector2[] Uv { get; set; } = EmptyUv;
+        public Color[] Colors { get; set; } = EmptyColors;
+
+        public Line(Vector3 vertex0, Vector3 vertex1, Color color0, Color color1 = null)
         {
-            P1 = p1;
-            P2 = p2;
-            Color = color;
-            Width = width;
+            Vertices = new[] { vertex0, vertex1 };
+            //Normals = EmptyNormals;
+            //Uv = EmptyUv;
+            Colors = new[] { color0, color1 ?? color0 };
         }
     }
 }

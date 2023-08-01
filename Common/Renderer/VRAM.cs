@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
+using OpenTK;
 
 namespace PSXPrev.Common.Renderer
 {
@@ -329,17 +330,17 @@ namespace PSXPrev.Common.Renderer
 
         public static int ClampTexturePage(int index)
         {
-            return Math.Max(0, Math.Min(PageCount - 1, index));
+            return MathHelper.Clamp(index, 0, (PageCount - 1));
         }
 
         public static int ClampTextureX(int x)
         {
-            return Math.Max(0, Math.Min(PageSize - 1, x));
+            return MathHelper.Clamp(x, 0, (PageSize - 1));
         }
 
         public static int ClampTextureY(int y)
         {
-            return Math.Max(0, Math.Min(PageSize - 1, y));
+            return MathHelper.Clamp(y, 0, (PageSize - 1));
         }
     }
 }

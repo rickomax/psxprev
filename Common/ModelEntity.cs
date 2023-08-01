@@ -165,7 +165,7 @@ namespace PSXPrev.Common
                     {
                         if (triangle.AttachedIndices != null)
                         {
-                            if (triangle.AttachedIndices[i] != uint.MaxValue)
+                            if (triangle.AttachedIndices[i] != Triangle.NoAttachment)
                             {
                                 continue;
                             }
@@ -227,8 +227,8 @@ namespace PSXPrev.Common
                     for (var i = 0; i < 3; i++)
                     {
                         var attachedIndex = triangle.AttachedIndices[i];
-                        var attachedNormalIndex = triangle.AttachedNormalIndices?[i] ?? uint.MaxValue;
-                        if (attachedIndex != uint.MaxValue)
+                        var attachedNormalIndex = triangle.AttachedNormalIndices?[i] ?? Triangle.NoAttachment;
+                        if (attachedIndex != Triangle.NoAttachment)
                         {
                             // In the event that some attached indices are not found,
                             // we don't want to waste time looking for them again. Create an attached cache now.

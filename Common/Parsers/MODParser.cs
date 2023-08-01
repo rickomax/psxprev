@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using OpenTK;
-using PSXPrev.Common.Animator;
 
 namespace PSXPrev.Common.Parsers
 {
@@ -200,7 +199,7 @@ namespace PSXPrev.Common.Parsers
                     Color color;
                     if (texture)
                     {
-                        renderFlags |= RenderFlags.Textured;
+                        //renderFlags |= RenderFlags.Textured; // Not supported yet
                         if (!quad)
                         {
                             // Is uvFlip flag ignored for tri? (flag has been observed both set and unset)
@@ -249,8 +248,8 @@ namespace PSXPrev.Common.Parsers
                         Vertices = new[] { vertex0, vertex1, vertex2 },
                         Normals = new[] { normal0, normal1, normal2 },
                         Colors = new[] { color, color, color },
-                        Uv = new[] { Vector2.Zero, Vector2.Zero, Vector2.Zero }, // Can't use UVs yet
-                        AttachableIndices = new [] {uint.MaxValue, uint.MaxValue, uint.MaxValue}
+                        Uv = Triangle.EmptyUv, // Can't use UVs yet
+                        AttachableIndices = Triangle.EmptyAttachableIndices,
                     }, tPage, renderFlags);
                     if (quad)
                     {
@@ -272,8 +271,8 @@ namespace PSXPrev.Common.Parsers
                             Vertices = new[] { vertex1, vertex3, vertex2 },
                             Normals = new[] { normal1, normal3, normal2 },
                             Colors = new[] { color, color, color },
-                            Uv = new[] { Vector2.Zero, Vector2.Zero, Vector2.Zero }, // Can't use UVs yet
-                            AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
+                            Uv = Triangle.EmptyUv, // Can't use UVs yet
+                            AttachableIndices = Triangle.EmptyAttachableIndices,
                         }, tPage, renderFlags);
                     }
                 }

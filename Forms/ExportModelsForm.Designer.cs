@@ -30,52 +30,52 @@
         {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ExportModelsForm));
-            this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.filePathGroupBox = new System.Windows.Forms.GroupBox();
             this.exportingModelsLabel = new System.Windows.Forms.Label();
             this.selectFolderButton = new System.Windows.Forms.Button();
-            this.fileNameTextBox = new System.Windows.Forms.TextBox();
-            this.groupBox2 = new System.Windows.Forms.GroupBox();
+            this.filePathTextBox = new System.Windows.Forms.TextBox();
+            this.formatGroupBox = new System.Windows.Forms.GroupBox();
             this.formatGLTF2RadioButton = new System.Windows.Forms.RadioButton();
             this.formatPLYRadioButton = new System.Windows.Forms.RadioButton();
             this.formatOBJRadioButton = new System.Windows.Forms.RadioButton();
-            this.groupBox3 = new System.Windows.Forms.GroupBox();
+            this.texturesGroupBox = new System.Windows.Forms.GroupBox();
             this.optionTiledTexturesCheckBox = new System.Windows.Forms.CheckBox();
             this.optionShareTexturesCheckBox = new System.Windows.Forms.CheckBox();
             this.optionRedrawTexturesCheckBox = new System.Windows.Forms.CheckBox();
             this.texturesSingleRadioButton = new System.Windows.Forms.RadioButton();
             this.texturesIndividualRadioButton = new System.Windows.Forms.RadioButton();
             this.texturesOffRadioButton = new System.Windows.Forms.RadioButton();
-            this.groupBox4 = new System.Windows.Forms.GroupBox();
+            this.optionsGroupBox = new System.Windows.Forms.GroupBox();
             this.optionAttachLimbsCheckBox = new System.Windows.Forms.CheckBox();
             this.optionExperimentalVertexColorCheckBox = new System.Windows.Forms.CheckBox();
             this.optionMergeModelsCheckBox = new System.Windows.Forms.CheckBox();
             this.exportButton = new System.Windows.Forms.Button();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
-            this.groupBox5 = new System.Windows.Forms.GroupBox();
+            this.animationsGroupBox = new System.Windows.Forms.GroupBox();
             this.label1 = new System.Windows.Forms.Label();
             this.checkedAnimationsListBox = new System.Windows.Forms.ListBox();
             this.animationsOnRadioButton = new System.Windows.Forms.RadioButton();
             this.animationsOffRadioButton = new System.Windows.Forms.RadioButton();
             this.label2 = new System.Windows.Forms.Label();
-            this.groupBox1.SuspendLayout();
-            this.groupBox2.SuspendLayout();
-            this.groupBox3.SuspendLayout();
-            this.groupBox4.SuspendLayout();
-            this.groupBox5.SuspendLayout();
+            this.filePathGroupBox.SuspendLayout();
+            this.formatGroupBox.SuspendLayout();
+            this.texturesGroupBox.SuspendLayout();
+            this.optionsGroupBox.SuspendLayout();
+            this.animationsGroupBox.SuspendLayout();
             this.SuspendLayout();
             // 
-            // groupBox1
+            // filePathGroupBox
             // 
-            this.groupBox1.Controls.Add(this.exportingModelsLabel);
-            this.groupBox1.Controls.Add(this.selectFolderButton);
-            this.groupBox1.Controls.Add(this.fileNameTextBox);
-            this.groupBox1.Dock = System.Windows.Forms.DockStyle.Top;
-            this.groupBox1.Location = new System.Drawing.Point(0, 0);
-            this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(394, 77);
-            this.groupBox1.TabIndex = 1;
-            this.groupBox1.TabStop = false;
-            this.groupBox1.Text = "Folder";
+            this.filePathGroupBox.Controls.Add(this.exportingModelsLabel);
+            this.filePathGroupBox.Controls.Add(this.selectFolderButton);
+            this.filePathGroupBox.Controls.Add(this.filePathTextBox);
+            this.filePathGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
+            this.filePathGroupBox.Location = new System.Drawing.Point(0, 0);
+            this.filePathGroupBox.Name = "filePathGroupBox";
+            this.filePathGroupBox.Size = new System.Drawing.Size(394, 77);
+            this.filePathGroupBox.TabIndex = 1;
+            this.filePathGroupBox.TabStop = false;
+            this.filePathGroupBox.Text = "Folder";
             // 
             // exportingModelsLabel
             // 
@@ -96,28 +96,28 @@
             this.selectFolderButton.Text = "Select Folder";
             this.selectFolderButton.Click += new System.EventHandler(this.selectFolderButton_Click);
             // 
-            // fileNameTextBox
+            // filePathTextBox
             // 
-            this.fileNameTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            this.filePathTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.fileNameTextBox.Location = new System.Drawing.Point(12, 19);
-            this.fileNameTextBox.Name = "fileNameTextBox";
-            this.fileNameTextBox.Size = new System.Drawing.Size(370, 20);
-            this.fileNameTextBox.TabIndex = 0;
-            this.fileNameTextBox.TextChanged += new System.EventHandler(this.fileNameTextBox_TextChanged);
+            this.filePathTextBox.Location = new System.Drawing.Point(12, 19);
+            this.filePathTextBox.Name = "filePathTextBox";
+            this.filePathTextBox.Size = new System.Drawing.Size(370, 20);
+            this.filePathTextBox.TabIndex = 0;
+            this.filePathTextBox.TextChanged += new System.EventHandler(this.fileNameTextBox_TextChanged);
             // 
-            // groupBox2
+            // formatGroupBox
             // 
-            this.groupBox2.Controls.Add(this.formatGLTF2RadioButton);
-            this.groupBox2.Controls.Add(this.formatPLYRadioButton);
-            this.groupBox2.Controls.Add(this.formatOBJRadioButton);
-            this.groupBox2.Dock = System.Windows.Forms.DockStyle.Top;
-            this.groupBox2.Location = new System.Drawing.Point(0, 77);
-            this.groupBox2.Name = "groupBox2";
-            this.groupBox2.Size = new System.Drawing.Size(394, 47);
-            this.groupBox2.TabIndex = 3;
-            this.groupBox2.TabStop = false;
-            this.groupBox2.Text = "Format";
+            this.formatGroupBox.Controls.Add(this.formatGLTF2RadioButton);
+            this.formatGroupBox.Controls.Add(this.formatPLYRadioButton);
+            this.formatGroupBox.Controls.Add(this.formatOBJRadioButton);
+            this.formatGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
+            this.formatGroupBox.Location = new System.Drawing.Point(0, 77);
+            this.formatGroupBox.Name = "formatGroupBox";
+            this.formatGroupBox.Size = new System.Drawing.Size(394, 47);
+            this.formatGroupBox.TabIndex = 3;
+            this.formatGroupBox.TabStop = false;
+            this.formatGroupBox.Text = "Format";
             // 
             // formatGLTF2RadioButton
             // 
@@ -157,21 +157,21 @@
             this.formatOBJRadioButton.UseVisualStyleBackColor = true;
             this.formatOBJRadioButton.CheckedChanged += new System.EventHandler(this.formatRadioButtons_CheckedChanged);
             // 
-            // groupBox3
+            // texturesGroupBox
             // 
-            this.groupBox3.Controls.Add(this.optionTiledTexturesCheckBox);
-            this.groupBox3.Controls.Add(this.optionShareTexturesCheckBox);
-            this.groupBox3.Controls.Add(this.optionRedrawTexturesCheckBox);
-            this.groupBox3.Controls.Add(this.texturesSingleRadioButton);
-            this.groupBox3.Controls.Add(this.texturesIndividualRadioButton);
-            this.groupBox3.Controls.Add(this.texturesOffRadioButton);
-            this.groupBox3.Dock = System.Windows.Forms.DockStyle.Top;
-            this.groupBox3.Location = new System.Drawing.Point(0, 124);
-            this.groupBox3.Name = "groupBox3";
-            this.groupBox3.Size = new System.Drawing.Size(394, 80);
-            this.groupBox3.TabIndex = 4;
-            this.groupBox3.TabStop = false;
-            this.groupBox3.Text = "Textures";
+            this.texturesGroupBox.Controls.Add(this.optionTiledTexturesCheckBox);
+            this.texturesGroupBox.Controls.Add(this.optionShareTexturesCheckBox);
+            this.texturesGroupBox.Controls.Add(this.optionRedrawTexturesCheckBox);
+            this.texturesGroupBox.Controls.Add(this.texturesSingleRadioButton);
+            this.texturesGroupBox.Controls.Add(this.texturesIndividualRadioButton);
+            this.texturesGroupBox.Controls.Add(this.texturesOffRadioButton);
+            this.texturesGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
+            this.texturesGroupBox.Location = new System.Drawing.Point(0, 124);
+            this.texturesGroupBox.Name = "texturesGroupBox";
+            this.texturesGroupBox.Size = new System.Drawing.Size(394, 80);
+            this.texturesGroupBox.TabIndex = 4;
+            this.texturesGroupBox.TabStop = false;
+            this.texturesGroupBox.Text = "Textures";
             // 
             // optionTiledTexturesCheckBox
             // 
@@ -242,18 +242,18 @@
             this.texturesOffRadioButton.UseVisualStyleBackColor = true;
             this.texturesOffRadioButton.CheckedChanged += new System.EventHandler(this.texturesRadioButtons_CheckedChanged);
             // 
-            // groupBox4
+            // optionsGroupBox
             // 
-            this.groupBox4.Controls.Add(this.optionAttachLimbsCheckBox);
-            this.groupBox4.Controls.Add(this.optionExperimentalVertexColorCheckBox);
-            this.groupBox4.Controls.Add(this.optionMergeModelsCheckBox);
-            this.groupBox4.Dock = System.Windows.Forms.DockStyle.Top;
-            this.groupBox4.Location = new System.Drawing.Point(0, 204);
-            this.groupBox4.Name = "groupBox4";
-            this.groupBox4.Size = new System.Drawing.Size(394, 46);
-            this.groupBox4.TabIndex = 5;
-            this.groupBox4.TabStop = false;
-            this.groupBox4.Text = "Options";
+            this.optionsGroupBox.Controls.Add(this.optionAttachLimbsCheckBox);
+            this.optionsGroupBox.Controls.Add(this.optionExperimentalVertexColorCheckBox);
+            this.optionsGroupBox.Controls.Add(this.optionMergeModelsCheckBox);
+            this.optionsGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
+            this.optionsGroupBox.Location = new System.Drawing.Point(0, 204);
+            this.optionsGroupBox.Name = "optionsGroupBox";
+            this.optionsGroupBox.Size = new System.Drawing.Size(394, 46);
+            this.optionsGroupBox.TabIndex = 5;
+            this.optionsGroupBox.TabStop = false;
+            this.optionsGroupBox.Text = "Options";
             // 
             // optionAttachLimbsCheckBox
             // 
@@ -307,20 +307,20 @@
             this.toolTip.InitialDelay = 500;
             this.toolTip.ReshowDelay = 100;
             // 
-            // groupBox5
+            // animationsGroupBox
             // 
-            this.groupBox5.Controls.Add(this.label2);
-            this.groupBox5.Controls.Add(this.label1);
-            this.groupBox5.Controls.Add(this.checkedAnimationsListBox);
-            this.groupBox5.Controls.Add(this.animationsOnRadioButton);
-            this.groupBox5.Controls.Add(this.animationsOffRadioButton);
-            this.groupBox5.Dock = System.Windows.Forms.DockStyle.Top;
-            this.groupBox5.Location = new System.Drawing.Point(0, 250);
-            this.groupBox5.Name = "groupBox5";
-            this.groupBox5.Size = new System.Drawing.Size(394, 186);
-            this.groupBox5.TabIndex = 7;
-            this.groupBox5.TabStop = false;
-            this.groupBox5.Text = "Animations";
+            this.animationsGroupBox.Controls.Add(this.label2);
+            this.animationsGroupBox.Controls.Add(this.label1);
+            this.animationsGroupBox.Controls.Add(this.checkedAnimationsListBox);
+            this.animationsGroupBox.Controls.Add(this.animationsOnRadioButton);
+            this.animationsGroupBox.Controls.Add(this.animationsOffRadioButton);
+            this.animationsGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
+            this.animationsGroupBox.Location = new System.Drawing.Point(0, 250);
+            this.animationsGroupBox.Name = "animationsGroupBox";
+            this.animationsGroupBox.Size = new System.Drawing.Size(394, 186);
+            this.animationsGroupBox.TabIndex = 7;
+            this.animationsGroupBox.TabStop = false;
+            this.animationsGroupBox.Text = "Animations";
             // 
             // label1
             // 
@@ -378,12 +378,12 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(394, 473);
-            this.Controls.Add(this.groupBox5);
+            this.Controls.Add(this.animationsGroupBox);
             this.Controls.Add(this.exportButton);
-            this.Controls.Add(this.groupBox4);
-            this.Controls.Add(this.groupBox3);
-            this.Controls.Add(this.groupBox2);
-            this.Controls.Add(this.groupBox1);
+            this.Controls.Add(this.optionsGroupBox);
+            this.Controls.Add(this.texturesGroupBox);
+            this.Controls.Add(this.formatGroupBox);
+            this.Controls.Add(this.filePathGroupBox);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MaximizeBox = false;
@@ -393,33 +393,33 @@
             this.Text = "PSXPrev Export Models";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.ExportModelsForm_FormClosed);
             this.Load += new System.EventHandler(this.ExportModelsForm_Load);
-            this.groupBox1.ResumeLayout(false);
-            this.groupBox1.PerformLayout();
-            this.groupBox2.ResumeLayout(false);
-            this.groupBox2.PerformLayout();
-            this.groupBox3.ResumeLayout(false);
-            this.groupBox3.PerformLayout();
-            this.groupBox4.ResumeLayout(false);
-            this.groupBox4.PerformLayout();
-            this.groupBox5.ResumeLayout(false);
-            this.groupBox5.PerformLayout();
+            this.filePathGroupBox.ResumeLayout(false);
+            this.filePathGroupBox.PerformLayout();
+            this.formatGroupBox.ResumeLayout(false);
+            this.formatGroupBox.PerformLayout();
+            this.texturesGroupBox.ResumeLayout(false);
+            this.texturesGroupBox.PerformLayout();
+            this.optionsGroupBox.ResumeLayout(false);
+            this.optionsGroupBox.PerformLayout();
+            this.animationsGroupBox.ResumeLayout(false);
+            this.animationsGroupBox.PerformLayout();
             this.ResumeLayout(false);
 
         }
 
         #endregion
 
-        private System.Windows.Forms.GroupBox groupBox1;
+        private System.Windows.Forms.GroupBox filePathGroupBox;
         private System.Windows.Forms.Button selectFolderButton;
-        private System.Windows.Forms.TextBox fileNameTextBox;
-        private System.Windows.Forms.GroupBox groupBox2;
+        private System.Windows.Forms.TextBox filePathTextBox;
+        private System.Windows.Forms.GroupBox formatGroupBox;
         private System.Windows.Forms.RadioButton formatPLYRadioButton;
         private System.Windows.Forms.RadioButton formatOBJRadioButton;
-        private System.Windows.Forms.GroupBox groupBox3;
+        private System.Windows.Forms.GroupBox texturesGroupBox;
         private System.Windows.Forms.RadioButton texturesSingleRadioButton;
         private System.Windows.Forms.RadioButton texturesIndividualRadioButton;
         private System.Windows.Forms.RadioButton texturesOffRadioButton;
-        private System.Windows.Forms.GroupBox groupBox4;
+        private System.Windows.Forms.GroupBox optionsGroupBox;
         private System.Windows.Forms.CheckBox optionRedrawTexturesCheckBox;
         private System.Windows.Forms.CheckBox optionExperimentalVertexColorCheckBox;
         private System.Windows.Forms.CheckBox optionMergeModelsCheckBox;
@@ -430,7 +430,7 @@
         private System.Windows.Forms.CheckBox optionTiledTexturesCheckBox;
         private System.Windows.Forms.ToolTip toolTip;
         private System.Windows.Forms.RadioButton formatGLTF2RadioButton;
-        private System.Windows.Forms.GroupBox groupBox5;
+        private System.Windows.Forms.GroupBox animationsGroupBox;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.ListBox checkedAnimationsListBox;
         private System.Windows.Forms.RadioButton animationsOnRadioButton;
