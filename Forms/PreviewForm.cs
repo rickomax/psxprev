@@ -393,7 +393,7 @@ namespace PSXPrev.Forms
             {
                 _vramPageScale /= 2f;
             }
-            _vramPageScale = MathHelper.Clamp(_vramPageScale, 0.25f, 8.0f);
+            _vramPageScale = GeomMath.Clamp(_vramPageScale, 0.25f, 8.0f);
             vramPagePictureBox.Width = (int)(VRAM.PageSize * _vramPageScale);
             vramPagePictureBox.Height = (int)(VRAM.PageSize * _vramPageScale);
             vramZoomLabel.Text = string.Format("{0:P0}", _vramPageScale);
@@ -410,7 +410,7 @@ namespace PSXPrev.Forms
             {
                 _texturePreviewScale /= 2f;
             }
-            _texturePreviewScale = MathHelper.Clamp(_texturePreviewScale, 0.25f, 8.0f);
+            _texturePreviewScale = GeomMath.Clamp(_texturePreviewScale, 0.25f, 8.0f);
             var texture = GetSelectedTexture();
             if (texture == null)
             {
@@ -747,17 +747,21 @@ namespace PSXPrev.Forms
             Texture[] textures;
             if (vram)
             {
-                if (all)
+                if (all && vramDrawnTo)
                 {
-                    var vramTextures = new List<Texture>();
+                    var drawnToTextures = new List<Texture>();
                     for (var i = 0; i < _vram.Count; i++)
                     {
-                        if (!vramDrawnTo || _vram.IsPageUsed(i))
+                        if (_vram.IsPageUsed(i))
                         {
-                            vramTextures.Add(_vram[i]);
+                            drawnToTextures.Add(_vram[i]);
                         }
                     }
-                    textures = vramTextures.ToArray();
+                    textures = drawnToTextures.ToArray();
+                }
+                else if (all)
+                {
+                    textures = _vram.ToArray();
                 }
                 else
                 {

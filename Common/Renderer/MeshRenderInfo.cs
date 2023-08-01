@@ -1,6 +1,4 @@
-﻿using OpenTK;
-
-namespace PSXPrev.Common.Renderer
+﻿namespace PSXPrev.Common.Renderer
 {
     public class MeshRenderInfo
     {
@@ -11,7 +9,7 @@ namespace PSXPrev.Common.Renderer
         public float Alpha
         {
             get => _alpha;
-            set => _alpha = MathHelper.Clamp(value, 0f, 1f);
+            set => _alpha = GeomMath.Clamp(value, 0f, 1f);
         }
         public float Thickness { get; set; } = 1f;
         public Color SolidColor { get; set; }

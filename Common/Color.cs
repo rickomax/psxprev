@@ -53,7 +53,7 @@ namespace PSXPrev.Common
 
         public static Color Lerp(Color a, Color b, float blend)
         {
-            //blend = MathHelper.Clamp(blend, 0f, 1f);
+            //blend = GeomMath.Clamp(blend, 0f, 1f);
             return new Color(Vector3.Lerp(a.Vector, b.Vector, blend));
         }
     }

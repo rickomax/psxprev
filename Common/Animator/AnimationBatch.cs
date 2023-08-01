@@ -136,7 +136,7 @@ namespace PSXPrev.Common.Animator
             set => Time = (FPS == 0 ? 0 : value / FPS);
         }
         // Looped, capped, and mirrored playback time in frames.
-        public double CurrentFrameTime => MathHelper.Clamp(LoopFrameTime(), 0, FrameCount);
+        public double CurrentFrameTime => GeomMath.Clamp(LoopFrameTime(), 0, FrameCount);
 
 
         public AnimationBatch(Scene scene)
@@ -786,7 +786,7 @@ namespace PSXPrev.Common.Animator
             }
             else
             {
-                return MathHelper.Clamp(((float)(frameTime - frame.FrameTime) / frame.FrameDuration), 0f, 1f);
+                return GeomMath.Clamp(((float)(frameTime - frame.FrameTime) / frame.FrameDuration), 0f, 1f);
             }
         }
 

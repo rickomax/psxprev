@@ -208,7 +208,7 @@ namespace PSXPrev.Common.Renderer
             get => _cameraFOV;
             set
             {
-                _cameraFOV = MathHelper.Clamp(value, CameraMinFOV, CameraMaxFOV);
+                _cameraFOV = GeomMath.Clamp(value, CameraMinFOV, CameraMaxFOV);
                 _cameraDistanceScalar = (float)(Math.Tan(CameraFOVRads / 2d) * 2d / CameraBaseDistanceScalar);
                 SetupMatrices();
                 UpdateViewMatrix(); // Update view matrix because it relies on FOV to preserve distance
@@ -248,7 +248,7 @@ namespace PSXPrev.Common.Renderer
             {
                 if (CameraPitchYaw != value)
                 {
-                    _cameraPitch = MathHelper.Clamp(value.X, -CameraMaxPitch, CameraMaxPitch);
+                    _cameraPitch = GeomMath.Clamp(value.X, -CameraMaxPitch, CameraMaxPitch);
                     _cameraYaw = GeomMath.PositiveModulus(value.Y, (float)(Math.PI * 2));
                     UpdateViewMatrix();
                     CameraChanged?.Invoke(this, EventArgs.Empty);

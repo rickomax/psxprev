@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using OpenTK;
 using PSXPrev.Common.Animator;
 
 namespace PSXPrev.Common.Parsers
@@ -46,7 +45,8 @@ namespace PSXPrev.Common.Parsers
 
             // Assume this is a read-only stream, and that the length won't change.
             _offset = StartOffset ?? 0;
-            var length = MathHelper.Clamp((StopOffset ?? long.MaxValue), (_offset + 1), reader.BaseStream.Length);
+            // Ensure stop offset is always at least StartOffset + 1.
+            var length = Math.Min(Math.Max((StopOffset ?? long.MaxValue), (_offset + 1)), reader.BaseStream.Length);
 
 
             while (reader.BaseStream.CanRead && _offset < length)
