@@ -343,7 +343,7 @@ namespace PSXPrev.Common.Renderer
                 mesh.SetData(MeshDataType.Triangle, numElements, positionList, normalList, colorList, uvList, tiledAreaList);
             }
 
-            if (TextureBinder != null && modelEntity.Texture != null && modelEntity.IsTextured)
+            if (TextureBinder != null && modelEntity.HasTexture)
             {
                 mesh.Texture = TextureBinder.GetTexture((int)modelEntity.TexturePage);
             }

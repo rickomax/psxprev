@@ -35,7 +35,7 @@ namespace PSXPrev.Common
             set
             {
                 _translation = value.ExtractTranslation();
-                _rotation = value.ExtractRotation();
+                _rotation = value.ExtractRotationSafe();
                 _scale = value.ExtractScale();
                 _localMatrix = value;
             }

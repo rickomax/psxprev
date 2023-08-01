@@ -40,6 +40,17 @@ namespace PSXPrev.Common
         public WeakReferenceCollection<Animation> OwnedAnimations { get; } = new WeakReferenceCollection<Animation>();
 
 
+        public RootEntity()
+        {
+        }
+
+        public RootEntity(RootEntity fromRootEntity)
+            : base(fromRootEntity)
+        {
+            Coords = fromRootEntity.Coords;
+        }
+
+
         public override void ComputeBounds()
         {
             base.ComputeBounds();
@@ -54,9 +65,8 @@ namespace PSXPrev.Common
         public List<ModelEntity> GetModelsWithTMDID(uint id)
         {
             _groupedModels.Clear();
-            foreach (var entityBase in ChildEntities)
+            foreach (ModelEntity model in ChildEntities)
             {
-                var model = (ModelEntity) entityBase;
                 if (model.TMDID == id)
                 {
                     _groupedModels.Add(model);

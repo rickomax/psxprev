@@ -116,7 +116,7 @@
             this.filePathTextBox.Name = "filePathTextBox";
             this.filePathTextBox.Size = new System.Drawing.Size(360, 20);
             this.filePathTextBox.TabIndex = 0;
-            this.filePathTextBox.TextChanged += new System.EventHandler(this.fileNameTextBox_TextChanged);
+            this.filePathTextBox.TextChanged += new System.EventHandler(this.filePathTextBox_TextChanged);
             // 
             // groupBox2
             // 

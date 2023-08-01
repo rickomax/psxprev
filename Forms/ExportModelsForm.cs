@@ -12,8 +12,12 @@ namespace PSXPrev.Forms
 {
     public partial class ExportModelsForm : Form
     {
-        private static string _lastSelectedPath = "";
-        private static string _lastFormat = "OBJ";
+        private const string FormatOBJ = "OBJ";
+        private const string FormatPLY = "PLY";
+        private const string FormatGLTF2 = "glTF2";
+
+        private static string _lastSelectedPath = string.Empty;
+        private static string _lastFormat = FormatOBJ;
         private static ExportModelOptions _lastOptions = new ExportModelOptions();
 
         private string _format;
@@ -36,6 +40,18 @@ namespace PSXPrev.Forms
             set
             {
                 _animations = value;
+                checkedAnimationsListBox.Items.Clear();
+                if (_animations != null && _animations.Length > 0)
+                {
+                    foreach (var animation in _animations)
+                    {
+                        checkedAnimationsListBox.Items.Add(animation.AnimationName);
+                    }
+                }
+                else
+                {
+                    checkedAnimationsListBox.Items.Add("Please select or check an Animation under the Animations tab");
+                }
             }
         }
         public AnimationBatch AnimationBatch { get; private set; }
@@ -85,6 +101,16 @@ namespace PSXPrev.Forms
             optionMergeModelsCheckBox.Checked = options.MergeEntities;
             optionAttachLimbsCheckBox.Checked = options.AttachLimbs;
             optionExperimentalVertexColorCheckBox.Checked = options.ExperimentalOBJVertexColor;
+
+            // Update Animations radio buttons
+            if (!options.ExportAnimations)
+            {
+                animationsOffRadioButton.Checked = true;
+            }
+            else
+            {
+                animationsOnRadioButton.Checked = true;
+            }
         }
 
         private void SaveOptions(ExportModelOptions options)
@@ -102,6 +128,15 @@ namespace PSXPrev.Forms
             toolTip.SetToolTip(optionRedrawTexturesCheckBox, "Models with associated textures will draw these\ntextures to the VRAM pages before exporting");
             toolTip.SetToolTip(optionShareTexturesCheckBox, "All exported models will reference the same\nexported texture files");
             toolTip.SetToolTip(optionMergeModelsCheckBox, "The geometry for all models will be merged\nand exported as a single file");
+
+            // Debugging: Instantly export with specified settings.
+            //{
+            //    filePathTextBox.Text = @"";
+            //    formatGLTF2RadioButton.Checked = true;
+            //    animationsOnRadioButton.Checked = true;
+            //    optionRedrawTexturesCheckBox.Checked = true;
+            //    DialogResult = DialogResult.OK;
+            //}
         }
 
         private void selectFolderButton_Click(object sender, EventArgs e)
@@ -118,7 +153,7 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void fileNameTextBox_TextChanged(object sender, EventArgs e)
+        private void filePathTextBox_TextChanged(object sender, EventArgs e)
         {
             exportButton.Enabled = Directory.Exists(filePathTextBox.Text);
         }
@@ -132,7 +167,7 @@ namespace PSXPrev.Forms
 
                 // We can optionally coerce the textures radio button to Single.
                 // But that would be inconvenient if the user is swapping back and forth between formats.
-                /*if (formatPLYRadioButton.Checked && texturesIndividualRadioButton.Checked)
+                /*if (_format == FormatPLY && texturesIndividualRadioButton.Checked)
                 {
                     texturesSingleRadioButton.Checked = true;
                 }
@@ -140,14 +175,14 @@ namespace PSXPrev.Forms
                 {
                     texturesIndividualRadioButton.Checked = true;
                 }*/
-                texturesIndividualRadioButton.Enabled = !formatPLYRadioButton.Checked;
+                texturesIndividualRadioButton.Enabled = _format != FormatPLY;
 
-                optionExperimentalVertexColorCheckBox.Enabled = formatOBJRadioButton.Checked;
+                optionMergeModelsCheckBox.Enabled = _format != FormatGLTF2;
+                optionExperimentalVertexColorCheckBox.Enabled = _format == FormatOBJ;
 
-                animationsOnRadioButton.Checked = false;
-                animationsOffRadioButton.Checked = true;
+                animationsGroupBox.Enabled = _format == FormatGLTF2;
 
-                animationsOffRadioButton.Enabled = animationsOnRadioButton.Enabled = _format == "glTF2";
+                animationsOffRadioButton.Checked = true; // Always turn off animations when switching formats?
             }
         }
 
@@ -156,6 +191,18 @@ namespace PSXPrev.Forms
             // Only handle checked event once by seeing if the sender is checked.
             if (sender is RadioButton radioButton && radioButton.Checked)
             {
+                optionRedrawTexturesCheckBox.Enabled = !texturesOffRadioButton.Checked;
+                optionShareTexturesCheckBox.Enabled = !texturesOffRadioButton.Checked;
+                optionTiledTexturesCheckBox.Enabled = !texturesOffRadioButton.Checked;
+            }
+        }
+
+        private void animationsRadioButtons_CheckedChanged(object sender, EventArgs e)
+        {
+            // Only handle checked event once by seeing if the sender is checked.
+            if (sender is RadioButton radioButton && radioButton.Checked)
+            {
+                checkedAnimationsListBox.Enabled = !animationsOffRadioButton.Checked;
                 optionRedrawTexturesCheckBox.Enabled = !texturesOffRadioButton.Checked;
                 optionShareTexturesCheckBox.Enabled = !texturesOffRadioButton.Checked;
                 optionTiledTexturesCheckBox.Enabled = !texturesOffRadioButton.Checked;
@@ -184,20 +231,20 @@ namespace PSXPrev.Forms
 
                 ExperimentalOBJVertexColor = optionExperimentalVertexColorCheckBox.Checked,
 
-                ExportAnimations = animationsOnRadioButton.Checked
+                ExportAnimations = !animationsOffRadioButton.Checked,
             };
 
             switch (_format)
             {
-                case "OBJ":
+                case FormatOBJ:
                     var objExporter = new OBJExporter();
                     objExporter.Export(Entities, selectedPath, options);
                     break;
-                case "PLY":
+                case FormatPLY:
                     var plyExporter = new PLYExporter();
                     plyExporter.Export(Entities, selectedPath, options);
                     break;
-                case "glTF2":
+                case FormatGLTF2:
                     var glTF2Exporter = new glTF2Exporter();
                     glTF2Exporter.Export(Entities, Animations, AnimationBatch, selectedPath, options);
                     break;
@@ -214,18 +261,6 @@ namespace PSXPrev.Forms
                 form.Entities = entities;
                 form.Animations = animations;
                 form.AnimationBatch = animationBatch;
-                form.checkedAnimationsListBox.Items.Clear();
-                if (animations != null && animations.Length > 0)
-                {
-                    foreach (var animation in animations)
-                    {
-                        form.checkedAnimationsListBox.Items.Add(animation.AnimationName);
-                    }
-                }
-                else
-                {
-                    form.checkedAnimationsListBox.Items.Add("Please select or check an Animation under the Animations tab");
-                }
                 return form.ShowDialog(owner) == DialogResult.OK;
             }
         }

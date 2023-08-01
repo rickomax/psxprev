@@ -71,6 +71,23 @@ namespace PSXPrev.Common
             RotationOrder = OriginalRotationOrder;
         }
 
+        public Coordinate(Coordinate fromCoordinate, Coordinate[] coords)
+        {
+            _originalLocalMatrix = fromCoordinate._originalLocalMatrix;
+            _originalTranslation = fromCoordinate._originalTranslation;
+            _originalRotation = fromCoordinate._originalRotation;
+
+            LocalMatrix = fromCoordinate.LocalMatrix;
+            Translation = fromCoordinate.Translation;
+            Rotation = fromCoordinate.Rotation;
+            RotationOrder = fromCoordinate.RotationOrder;
+
+            ID = fromCoordinate.ID;
+            ParentID = fromCoordinate.ParentID;
+
+            Coords = coords;
+        }
+
         public void ResetTransform()
         {
             LocalMatrix = OriginalLocalMatrix;
@@ -116,6 +133,17 @@ namespace PSXPrev.Common
                 }
             }
             return false; // Safe. No circular references found.
+        }
+
+
+        public static Coordinate[] CloneCoordiantes(Coordinate[] coords)
+        {
+            var newCoords = new Coordinate[coords.Length];
+            for (var i = 0; i < coords.Length; i++)
+            {
+                newCoords[i] = new Coordinate(coords[i], newCoords);
+            }
+            return newCoords;
         }
     }
 }

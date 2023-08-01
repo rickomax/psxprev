@@ -52,11 +52,11 @@
             this.exportButton = new System.Windows.Forms.Button();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
             this.animationsGroupBox = new System.Windows.Forms.GroupBox();
+            this.label2 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.checkedAnimationsListBox = new System.Windows.Forms.ListBox();
             this.animationsOnRadioButton = new System.Windows.Forms.RadioButton();
             this.animationsOffRadioButton = new System.Windows.Forms.RadioButton();
-            this.label2 = new System.Windows.Forms.Label();
             this.filePathGroupBox.SuspendLayout();
             this.formatGroupBox.SuspendLayout();
             this.texturesGroupBox.SuspendLayout();
@@ -104,7 +104,7 @@
             this.filePathTextBox.Name = "filePathTextBox";
             this.filePathTextBox.Size = new System.Drawing.Size(370, 20);
             this.filePathTextBox.TabIndex = 0;
-            this.filePathTextBox.TextChanged += new System.EventHandler(this.fileNameTextBox_TextChanged);
+            this.filePathTextBox.TextChanged += new System.EventHandler(this.filePathTextBox_TextChanged);
             // 
             // formatGroupBox
             // 
@@ -322,6 +322,15 @@
             this.animationsGroupBox.TabStop = false;
             this.animationsGroupBox.Text = "Animations";
             // 
+            // label2
+            // 
+            this.label2.Location = new System.Drawing.Point(12, 149);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(366, 30);
+            this.label2.TabIndex = 9;
+            this.label2.Text = "Before exporting Animations, please make sure the animations you have checked are" +
+    " playable";
+            // 
             // label1
             // 
             this.label1.AutoSize = true;
@@ -336,13 +345,13 @@
             this.checkedAnimationsListBox.FormattingEnabled = true;
             this.checkedAnimationsListBox.Location = new System.Drawing.Point(12, 74);
             this.checkedAnimationsListBox.Name = "checkedAnimationsListBox";
+            this.checkedAnimationsListBox.SelectionMode = System.Windows.Forms.SelectionMode.None;
             this.checkedAnimationsListBox.Size = new System.Drawing.Size(370, 69);
             this.checkedAnimationsListBox.TabIndex = 7;
             // 
             // animationsOnRadioButton
             // 
             this.animationsOnRadioButton.AutoSize = true;
-            this.animationsOnRadioButton.Enabled = false;
             this.animationsOnRadioButton.Location = new System.Drawing.Point(101, 19);
             this.animationsOnRadioButton.Name = "animationsOnRadioButton";
             this.animationsOnRadioButton.Size = new System.Drawing.Size(101, 17);
@@ -354,7 +363,6 @@
             // 
             this.animationsOffRadioButton.AutoSize = true;
             this.animationsOffRadioButton.Checked = true;
-            this.animationsOffRadioButton.Enabled = false;
             this.animationsOffRadioButton.Location = new System.Drawing.Point(12, 19);
             this.animationsOffRadioButton.Name = "animationsOffRadioButton";
             this.animationsOffRadioButton.Size = new System.Drawing.Size(83, 17);
@@ -362,15 +370,7 @@
             this.animationsOffRadioButton.TabStop = true;
             this.animationsOffRadioButton.Text = "Don\'t Export";
             this.animationsOffRadioButton.UseVisualStyleBackColor = true;
-            // 
-            // label2
-            // 
-            this.label2.Location = new System.Drawing.Point(12, 149);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(366, 30);
-            this.label2.TabIndex = 9;
-            this.label2.Text = "Before exporting Animations, please make sure the animations you have checked are" +
-    " playable";
+            this.animationsOffRadioButton.CheckedChanged += new System.EventHandler(this.animationsRadioButtons_CheckedChanged);
             // 
             // ExportModelsForm
             // 
