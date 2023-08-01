@@ -1387,7 +1387,7 @@ namespace PSXPrev.Common.Parsers
                         Normals = new[] { normal1, normal1, normal1 },
                         Colors = new[] { color, color, color },
                         Uv = new[] { uv0, uv1, uv2 },
-                        AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
+                        AttachableIndices = Triangle.EmptyAttachableIndices,
                     }, tPage, renderFlags, mixtureRate);
 
                     AddTriangle(new Triangle
@@ -1396,7 +1396,7 @@ namespace PSXPrev.Common.Parsers
                         Normals = new[] { normal2, normal2, normal2 },
                         Uv = new[] { uv1, uv3, uv2 },
                         Colors = new[] { color, color, color },
-                        AttachableIndices = new[] { uint.MaxValue, uint.MaxValue, uint.MaxValue }
+                        AttachableIndices = Triangle.EmptyAttachableIndices,
                     }, tPage, renderFlags, mixtureRate);
                 }
                 reader.BaseStream.Seek(polyPosition, SeekOrigin.Begin);

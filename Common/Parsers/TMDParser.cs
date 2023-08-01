@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using OpenTK;
-using PSXPrev.Common.Animator;
 
 namespace PSXPrev.Common.Parsers
 {

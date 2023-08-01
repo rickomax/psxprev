@@ -136,7 +136,7 @@ namespace PSXPrev.Common.Animator
             set => Time = (FPS == 0 ? 0 : value / FPS);
         }
         // Looped, capped, and mirrored playback time in frames.
-        public double CurrentFrameTime => Math.Max(0, Math.Min(FrameCount, LoopFrameTime()));
+        public double CurrentFrameTime => GeomMath.Clamp(LoopFrameTime(), 0, FrameCount);
 
 
         public AnimationBatch(Scene scene)
@@ -184,7 +184,7 @@ namespace PSXPrev.Common.Animator
             // todo: Is this correct for handling reseting the mesh batch?
             // What if the animation doesn't match the object?
             var objectCount = animation == null ? 0 : (animation.ObjectCount + 1);
-            _scene.ResetBatches(objectCount);
+            _scene.MeshBatch.Reset(objectCount);
             if (_animation != animation)
             {
                 _animation = animation;
@@ -199,7 +199,7 @@ namespace PSXPrev.Common.Animator
         {
             var rootEntity = selectedRootEntity ?? selectedModelEntity?.GetRootEntity();
 
-            _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, selectedModelEntity, selectedRootEntity, _scene.TextureBinder, updateMeshData || _scene.AutoAttach, false, true);
+            _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, selectedModelEntity, selectedRootEntity, updateMeshData || _scene.AutoAttach, false, true);
 
             ComputePlaybackFrameTime();
 
@@ -786,7 +786,7 @@ namespace PSXPrev.Common.Animator
             }
             else
             {
-                return Math.Max(0f, Math.Min(1f, (float)(frameTime - frame.FrameTime) / frame.FrameDuration));
+                return GeomMath.Clamp(((float)(frameTime - frame.FrameTime) / frame.FrameDuration), 0f, 1f);
             }
         }
 

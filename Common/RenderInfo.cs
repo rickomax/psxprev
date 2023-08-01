@@ -16,6 +16,9 @@ namespace PSXPrev.Common
         Subdivision       = (1 << 6),
         AutomaticDivision = (1 << 7),
 
+
+        NoAmbient         = (1 << 28),
+
         // Bits 29-31 are reserved for MixtureRate.
     }
 
@@ -27,6 +30,7 @@ namespace PSXPrev.Common
         Back100_Poly100  = 2, // 100% back + 100% poly
         Back100_PolyM100 = 3, // 100% back - 100% poly
         Back100_Poly25   = 4, // 100% back +  25% poly
+        Alpha            = 5, // 1-A% back +   A% poly (not a PSX mixture rate! for use with 3D visuals)
     }
     
     // A named Tuple<uint, RenderFlags, MixtureRate> for render information used to separate models/meshes.
@@ -72,6 +76,33 @@ namespace PSXPrev.Common
         public bool Equals(RenderInfo other)
         {
             return RawValue.Equals(other.RawValue);
+        }
+
+
+        public static bool IsOpaque(RenderFlags renderFlags, MixtureRate mixtureRate, float alpha = 1f)
+        {
+            if (!renderFlags.HasFlag(RenderFlags.SemiTransparent) || mixtureRate == MixtureRate.None)
+            {
+                return true;
+            }
+            else if (mixtureRate == MixtureRate.Alpha && alpha >= 1f)
+            {
+                return true;
+            }
+            return false;
+        }
+
+        public static bool IsSemiTransparent(RenderFlags renderFlags, MixtureRate mixtureRate, float alpha = 1f)
+        {
+            if (!renderFlags.HasFlag(RenderFlags.SemiTransparent) || mixtureRate == MixtureRate.None)
+            {
+                return false;
+            }
+            else if (mixtureRate == MixtureRate.Alpha && (alpha <= 0f || alpha >= 1f))
+            {
+                return false;
+            }
+            return true;
         }
     }
 }

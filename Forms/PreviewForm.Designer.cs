@@ -30,6 +30,7 @@ namespace PSXPrev.Forms
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             Manina.Windows.Forms.ImageListView.ImageListViewColumnHeader imageListViewColumnHeader1 = new Manina.Windows.Forms.ImageListView.ImageListViewColumnHeader(Manina.Windows.Forms.ColumnType.Custom, "Found", "Found", 100, 0, true);
             Manina.Windows.Forms.ImageListView.ImageListViewColumnHeader imageListViewColumnHeader2 = new Manina.Windows.Forms.ImageListView.ImageListViewColumnHeader(Manina.Windows.Forms.ColumnType.Custom, "Textures", "Textures", 100, 1, true);
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(PreviewForm));
@@ -153,7 +154,6 @@ namespace PSXPrev.Forms
             this.gridSizeNumericUpDown = new System.Windows.Forms.NumericUpDown();
             this.flowLayoutPanel3 = new System.Windows.Forms.FlowLayoutPanel();
             this.label1 = new System.Windows.Forms.Label();
-            this.lightRollNumericUpDown = new System.Windows.Forms.NumericUpDown();
             this.lightYawNumericUpDown = new System.Windows.Forms.NumericUpDown();
             this.lightPitchNumericUpDown = new System.Windows.Forms.NumericUpDown();
             this.flowLayoutPanel4 = new System.Windows.Forms.FlowLayoutPanel();
@@ -165,6 +165,7 @@ namespace PSXPrev.Forms
             this.flowLayoutPanel6 = new System.Windows.Forms.FlowLayoutPanel();
             this.label7 = new System.Windows.Forms.Label();
             this.cameraFOVUpDown = new System.Windows.Forms.NumericUpDown();
+            this.toolTip = new System.Windows.Forms.ToolTip(this.components);
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -223,7 +224,6 @@ namespace PSXPrev.Forms
             this.flowLayoutPanel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridSizeNumericUpDown)).BeginInit();
             this.flowLayoutPanel3.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.lightRollNumericUpDown)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.lightYawNumericUpDown)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.lightPitchNumericUpDown)).BeginInit();
             this.flowLayoutPanel4.SuspendLayout();
@@ -1255,13 +1255,14 @@ namespace PSXPrev.Forms
             this.exportSelectedTexturesToolStripMenuItem.Name = "exportSelectedTexturesToolStripMenuItem";
             this.exportSelectedTexturesToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
             this.exportSelectedTexturesToolStripMenuItem.Text = "Export Selected Textures";
-            this.exportSelectedTexturesToolStripMenuItem.Click += new System.EventHandler(this.exportSelectedTexturesToolStripMenuItem_Click);
+            this.exportSelectedTexturesToolStripMenuItem.Click += new System.EventHandler(this.exportSelectedTextures_Click);
             // 
             // exportAllTexturesToolStripMenuItem
             // 
             this.exportAllTexturesToolStripMenuItem.Name = "exportAllTexturesToolStripMenuItem";
             this.exportAllTexturesToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
             this.exportAllTexturesToolStripMenuItem.Text = "Export All Textures";
+            this.exportAllTexturesToolStripMenuItem.Click += new System.EventHandler(this.exportAllTextures_Click);
             // 
             // toolStripSeparator3
             // 
@@ -1559,14 +1560,13 @@ namespace PSXPrev.Forms
             // 
             this.flowLayoutPanel3.AutoSize = true;
             this.flowLayoutPanel3.Controls.Add(this.label1);
-            this.flowLayoutPanel3.Controls.Add(this.lightRollNumericUpDown);
             this.flowLayoutPanel3.Controls.Add(this.lightYawNumericUpDown);
             this.flowLayoutPanel3.Controls.Add(this.lightPitchNumericUpDown);
             this.flowLayoutPanel3.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.flowLayoutPanel3.Location = new System.Drawing.Point(669, 0);
+            this.flowLayoutPanel3.Location = new System.Drawing.Point(718, 0);
             this.flowLayoutPanel3.Margin = new System.Windows.Forms.Padding(0);
             this.flowLayoutPanel3.Name = "flowLayoutPanel3";
-            this.flowLayoutPanel3.Size = new System.Drawing.Size(229, 26);
+            this.flowLayoutPanel3.Size = new System.Drawing.Size(180, 26);
             this.flowLayoutPanel3.TabIndex = 25;
             // 
             // label1
@@ -1580,27 +1580,19 @@ namespace PSXPrev.Forms
             this.label1.Text = "Light Rotation:";
             this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lightRollNumericUpDown
-            // 
-            this.lightRollNumericUpDown.Location = new System.Drawing.Point(85, 3);
-            this.lightRollNumericUpDown.Maximum = new decimal(new int[] {
-            360,
-            0,
-            0,
-            0});
-            this.lightRollNumericUpDown.Name = "lightRollNumericUpDown";
-            this.lightRollNumericUpDown.Size = new System.Drawing.Size(43, 20);
-            this.lightRollNumericUpDown.TabIndex = 20;
-            this.lightRollNumericUpDown.ValueChanged += new System.EventHandler(this.lightRollNumericUpDown_ValueChanged);
-            // 
             // lightYawNumericUpDown
             // 
-            this.lightYawNumericUpDown.Location = new System.Drawing.Point(134, 3);
+            this.lightYawNumericUpDown.Location = new System.Drawing.Point(85, 3);
             this.lightYawNumericUpDown.Maximum = new decimal(new int[] {
             360,
             0,
             0,
             0});
+            this.lightYawNumericUpDown.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            -2147483648});
             this.lightYawNumericUpDown.Name = "lightYawNumericUpDown";
             this.lightYawNumericUpDown.Size = new System.Drawing.Size(43, 20);
             this.lightYawNumericUpDown.TabIndex = 21;
@@ -1613,17 +1605,22 @@ namespace PSXPrev.Forms
             // 
             // lightPitchNumericUpDown
             // 
-            this.lightPitchNumericUpDown.Location = new System.Drawing.Point(183, 3);
+            this.lightPitchNumericUpDown.Location = new System.Drawing.Point(134, 3);
             this.lightPitchNumericUpDown.Maximum = new decimal(new int[] {
             360,
             0,
             0,
             0});
+            this.lightPitchNumericUpDown.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            -2147483648});
             this.lightPitchNumericUpDown.Name = "lightPitchNumericUpDown";
             this.lightPitchNumericUpDown.Size = new System.Drawing.Size(43, 20);
             this.lightPitchNumericUpDown.TabIndex = 22;
             this.lightPitchNumericUpDown.Value = new decimal(new int[] {
-            135,
+            225,
             0,
             0,
             0});
@@ -1635,7 +1632,7 @@ namespace PSXPrev.Forms
             this.flowLayoutPanel4.Controls.Add(this.label4);
             this.flowLayoutPanel4.Controls.Add(this.lightIntensityNumericUpDown);
             this.flowLayoutPanel4.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.flowLayoutPanel4.Location = new System.Drawing.Point(539, 0);
+            this.flowLayoutPanel4.Location = new System.Drawing.Point(588, 0);
             this.flowLayoutPanel4.Margin = new System.Windows.Forms.Padding(0);
             this.flowLayoutPanel4.Name = "flowLayoutPanel4";
             this.flowLayoutPanel4.Size = new System.Drawing.Size(130, 26);
@@ -1676,7 +1673,7 @@ namespace PSXPrev.Forms
             this.flowLayoutPanel5.Controls.Add(this.label5);
             this.flowLayoutPanel5.Controls.Add(this.vertexSizeUpDown);
             this.flowLayoutPanel5.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.flowLayoutPanel5.Location = new System.Drawing.Point(421, 0);
+            this.flowLayoutPanel5.Location = new System.Drawing.Point(470, 0);
             this.flowLayoutPanel5.Margin = new System.Windows.Forms.Padding(0);
             this.flowLayoutPanel5.Name = "flowLayoutPanel5";
             this.flowLayoutPanel5.Size = new System.Drawing.Size(118, 26);
@@ -1717,7 +1714,7 @@ namespace PSXPrev.Forms
             this.flowLayoutPanel6.Controls.Add(this.label7);
             this.flowLayoutPanel6.Controls.Add(this.cameraFOVUpDown);
             this.flowLayoutPanel6.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.flowLayoutPanel6.Location = new System.Drawing.Point(335, 0);
+            this.flowLayoutPanel6.Location = new System.Drawing.Point(384, 0);
             this.flowLayoutPanel6.Margin = new System.Windows.Forms.Padding(0);
             this.flowLayoutPanel6.Name = "flowLayoutPanel6";
             this.flowLayoutPanel6.Size = new System.Drawing.Size(86, 26);
@@ -1846,7 +1843,6 @@ namespace PSXPrev.Forms
             ((System.ComponentModel.ISupportInitialize)(this.gridSizeNumericUpDown)).EndInit();
             this.flowLayoutPanel3.ResumeLayout(false);
             this.flowLayoutPanel3.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.lightRollNumericUpDown)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.lightYawNumericUpDown)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.lightPitchNumericUpDown)).EndInit();
             this.flowLayoutPanel4.ResumeLayout(false);
@@ -1964,7 +1960,6 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.NumericUpDown gridSizeNumericUpDown;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel3;
         private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.NumericUpDown lightRollNumericUpDown;
         private System.Windows.Forms.NumericUpDown lightYawNumericUpDown;
         private System.Windows.Forms.NumericUpDown lightPitchNumericUpDown;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel4;
@@ -1997,5 +1992,6 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel9;
         private System.Windows.Forms.Label label9;
         private System.Windows.Forms.CheckBox animationReverseCheckBox;
+        private System.Windows.Forms.ToolTip toolTip;
     }
 }

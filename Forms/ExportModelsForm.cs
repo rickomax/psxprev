@@ -49,18 +49,18 @@ namespace PSXPrev.Forms
 
         private void LoadOptions(string selectedPath, string format, ExportModelOptions options)
         {
-            fileNameTextBox.Text = selectedPath;
+            filePathTextBox.Text = selectedPath;
             _format = format;
 
             // Update Format radio buttons
-            switch (_format)
+            foreach (RadioButton radioButton in formatGroupBox.Controls)
             {
-                case "OBJ":
-                    formatOBJRadioButton.Checked = true;
+                var tag = (string)radioButton.Tag;
+                if (tag == _format)
+                {
+                    radioButton.Checked = true;
                     break;
-                case "PLY":
-                    formatPLYRadioButton.Checked = true;
-                    break;
+                }
             }
 
             // Update Textures radio buttons
@@ -89,7 +89,7 @@ namespace PSXPrev.Forms
 
         private void SaveOptions(ExportModelOptions options)
         {
-            _lastSelectedPath = fileNameTextBox.Text;
+            _lastSelectedPath = filePathTextBox.Text;
             _lastFormat = _format;
             _lastOptions = options;
         }
@@ -109,18 +109,18 @@ namespace PSXPrev.Forms
             using (var folderBrowserDialog = new CommonOpenFileDialog())
             {
                 folderBrowserDialog.IsFolderPicker = true;
-                folderBrowserDialog.Title = "Select a Folder to Scan";
+                folderBrowserDialog.Title = "Select a Folder to Export to";
                 // Parameter name used to avoid overload resolution with WPF Window, which we don't have a reference to.
                 if (folderBrowserDialog.ShowDialog(ownerWindowHandle: Handle) == CommonFileDialogResult.Ok)
                 {
-                    fileNameTextBox.Text = folderBrowserDialog.FileName;
+                    filePathTextBox.Text = folderBrowserDialog.FileName;
                 }
             }
         }
 
         private void fileNameTextBox_TextChanged(object sender, EventArgs e)
         {
-            exportButton.Enabled = Directory.Exists(fileNameTextBox.Text);
+            exportButton.Enabled = Directory.Exists(filePathTextBox.Text);
         }
 
         private void formatRadioButtons_CheckedChanged(object sender, EventArgs e)
@@ -169,7 +169,7 @@ namespace PSXPrev.Forms
                 return;
             }
 
-            var selectedPath = fileNameTextBox.Text;
+            var selectedPath = filePathTextBox.Text;
 
             var options = new ExportModelOptions
             {

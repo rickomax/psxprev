@@ -41,12 +41,17 @@ namespace PSXPrev.Common.Renderer
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
+        public Texture[] ToArray()
+        {
+            return (Texture[])_vramPages.Clone();
+        }
+
         public void Dispose()
         {
             for (var i = 0; i < PageCount; i++)
             {
                 _vramPages[i]?.Dispose();
-                //_vramPages[i] = null;
+                _vramPages[i] = null;
                 _modifiedPages[i] = false;
                 _usedPages[i] = false;
             }
@@ -325,21 +330,25 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        public static uint ClampTexturePage(uint index) => (uint)ClampTexturePage((int)index);
+        // Explicitly define uint overload to properly clamp values above int.MaxValue.
+        public static uint ClampTexturePage(uint index)
+        {
+            return GeomMath.Clamp(index, 0, (PageCount - 1));
+        }
 
         public static int ClampTexturePage(int index)
         {
-            return Math.Max(0, Math.Min(PageCount - 1, index));
+            return GeomMath.Clamp(index, 0, (PageCount - 1));
         }
 
         public static int ClampTextureX(int x)
         {
-            return Math.Max(0, Math.Min(PageSize - 1, x));
+            return GeomMath.Clamp(x, 0, (PageSize - 1));
         }
 
         public static int ClampTextureY(int y)
         {
-            return Math.Max(0, Math.Min(PageSize - 1, y));
+            return GeomMath.Clamp(y, 0, (PageSize - 1));
         }
     }
 }

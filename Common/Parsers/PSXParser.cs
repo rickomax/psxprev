@@ -5,7 +5,6 @@ using System.Drawing;
 using System.IO;
 using System.Text;
 using OpenTK;
-using PSXPrev.Common.Animator;
 
 //Translated from:
 //https://gist.github.com/iamgreaser/2a67f7473d9c48a70946018b73fa1e40
@@ -191,14 +190,14 @@ namespace PSXPrev.Common.Parsers
                         var g0 = reader.ReadByte() / 255f;
                         var b0 = reader.ReadByte() / 255f;
                         var command = reader.ReadByte();
-                        var attachedIndex0 = attachedIndices.TryGetValue(i0, out var index0) ? index0 : uint.MaxValue;
-                        var attachedIndex1 = attachedIndices.TryGetValue(i1, out var index1) ? index1 : uint.MaxValue;
-                        var attachedIndex2 = attachedIndices.TryGetValue(i2, out var index2) ? index2 : uint.MaxValue;
-                        var attachedIndex3 = attachedIndices.TryGetValue(i3, out var index3) ? index3 : uint.MaxValue;
-                        var attachableIndex0 = attachableIndices.TryGetValue(i0, out var attIndex0) ? attIndex0 : uint.MaxValue;
-                        var attachableIndex1 = attachableIndices.TryGetValue(i1, out var attIndex1) ? attIndex1 : uint.MaxValue;
-                        var attachableIndex2 = attachableIndices.TryGetValue(i2, out var attIndex2) ? attIndex2 : uint.MaxValue;
-                        var attachableIndex3 = attachableIndices.TryGetValue(i3, out var attIndex3) ? attIndex3 : uint.MaxValue;
+                        var attachedIndex0 = attachedIndices.TryGetValue(i0, out var index0) ? index0 : Triangle.NoAttachment;
+                        var attachedIndex1 = attachedIndices.TryGetValue(i1, out var index1) ? index1 : Triangle.NoAttachment;
+                        var attachedIndex2 = attachedIndices.TryGetValue(i2, out var index2) ? index2 : Triangle.NoAttachment;
+                        var attachedIndex3 = attachedIndices.TryGetValue(i3, out var index3) ? index3 : Triangle.NoAttachment;
+                        var attachableIndex0 = attachableIndices.TryGetValue(i0, out var attIndex0) ? attIndex0 : Triangle.NoAttachment;
+                        var attachableIndex1 = attachableIndices.TryGetValue(i1, out var attIndex1) ? attIndex1 : Triangle.NoAttachment;
+                        var attachableIndex2 = attachableIndices.TryGetValue(i2, out var attIndex2) ? attIndex2 : Triangle.NoAttachment;
+                        var attachableIndex3 = attachableIndices.TryGetValue(i3, out var attIndex3) ? attIndex3 : Triangle.NoAttachment;
                         if (gouraud)
                         {
                             color0 = color1 = color2 = color3 = Color.Grey; //todo
@@ -290,14 +289,14 @@ namespace PSXPrev.Common.Parsers
                         var g0 = reader.ReadByte() / 255f;
                         var b0 = reader.ReadByte() / 255f;
                         var command = reader.ReadByte();
-                        var attachedIndex0 = attachedIndices.TryGetValue(i0, out var index0) ? index0 : uint.MaxValue;
-                        var attachedIndex1 = attachedIndices.TryGetValue(i1, out var index1) ? index1 : uint.MaxValue;
-                        var attachedIndex2 = attachedIndices.TryGetValue(i2, out var index2) ? index2 : uint.MaxValue;
-                        var attachedIndex3 = attachedIndices.TryGetValue(i3, out var index3) ? index3 : uint.MaxValue;
-                        var attachableIndex0 = attachableIndices.TryGetValue(i0, out var attIndex0) ? attIndex0 : uint.MaxValue;
-                        var attachableIndex1 = attachableIndices.TryGetValue(i1, out var attIndex1) ? attIndex1 : uint.MaxValue;
-                        var attachableIndex2 = attachableIndices.TryGetValue(i2, out var attIndex2) ? attIndex2 : uint.MaxValue;
-                        var attachableIndex3 = attachableIndices.TryGetValue(i3, out var attIndex3) ? attIndex3 : uint.MaxValue;
+                        var attachedIndex0 = attachedIndices.TryGetValue(i0, out var index0) ? index0 : Triangle.NoAttachment;
+                        var attachedIndex1 = attachedIndices.TryGetValue(i1, out var index1) ? index1 : Triangle.NoAttachment;
+                        var attachedIndex2 = attachedIndices.TryGetValue(i2, out var index2) ? index2 : Triangle.NoAttachment;
+                        var attachedIndex3 = attachedIndices.TryGetValue(i3, out var index3) ? index3 : Triangle.NoAttachment;
+                        var attachableIndex0 = attachableIndices.TryGetValue(i0, out var attIndex0) ? attIndex0 : Triangle.NoAttachment;
+                        var attachableIndex1 = attachableIndices.TryGetValue(i1, out var attIndex1) ? attIndex1 : Triangle.NoAttachment;
+                        var attachableIndex2 = attachableIndices.TryGetValue(i2, out var attIndex2) ? attIndex2 : Triangle.NoAttachment;
+                        var attachableIndex3 = attachableIndices.TryGetValue(i3, out var attIndex3) ? attIndex3 : Triangle.NoAttachment;
                         if (gouraud)
                         {
                             color0 = color1 = color2 = color3 = Color.Grey; //todo

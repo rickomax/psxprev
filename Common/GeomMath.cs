@@ -281,6 +281,51 @@ namespace PSXPrev.Common
             return r < 0 ? r + m : r;
         }
 
+        public static decimal PositiveModulus(decimal x, decimal m)
+        {
+            var r = x % m;
+            return r < 0 ? r + m : r;
+        }
+
+        // Yes, OpenTK.MathHelper.Clamp exists, but only for int, float, and double.
+        // Using it when not expecting it to be missing other types is dangerous.
+        // Like if using long with MathHelper.Clamp, YOU'LL GET A FLOAT OF ALL THINGS!!!
+        // Clamp should not be used when a preference is needed between favoring min or max when min > max.
+        public static int Clamp(int n, int min, int max)
+        {
+            return Math.Max(Math.Min(n, max), min);
+        }
+
+        public static uint Clamp(uint n, uint min, uint max)
+        {
+            return Math.Max(Math.Min(n, max), min);
+        }
+
+        public static long Clamp(long n, long min, long max)
+        {
+            return Math.Max(Math.Min(n, max), min);
+        }
+
+        public static ulong Clamp(ulong n, ulong min, ulong max)
+        {
+            return Math.Max(Math.Min(n, max), min);
+        }
+
+        public static float Clamp(float n, float min, float max)
+        {
+            return Math.Max(Math.Min(n, max), min);
+        }
+
+        public static double Clamp(double n, double min, double max)
+        {
+            return Math.Max(Math.Min(n, max), min);
+        }
+
+        public static decimal Clamp(decimal n, decimal min, decimal max)
+        {
+            return Math.Max(Math.Min(n, max), min);
+        }
+
         public static float ConvertFixed12(int value) => value / Fixed12Scalar;
 
         public static float ConvertFixed16(int value) => value / Fixed16Scalar;
@@ -347,11 +392,11 @@ namespace PSXPrev.Common
             const int DEGREE = 3;// NUM_POINTS - 1;
             const int start = DEGREE + 1; // Only constant when DEGREE == NUM_POINTS - 1
 
-            delta = Math.Max(0f, Math.Min(1f, delta)); // Clamp delta
+            delta = GeomMath.Clamp(delta, 0f, 1f); // Clamp delta
             var t = delta * (NUM_POINTS - DEGREE) + DEGREE;
 
             // This should always be 4 (3 + 1).
-            //var start = Math.Max(DEGREE, Math.Min(NUM_POINTS - 1, (int)t)) + 1;
+            //var start = GeomMath.Clamp((int)t, DEGREE, NUM_POINTS - 1) + 1;
 
             var points = new[] { p0, p1, p2, p3 };
 

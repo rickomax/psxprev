@@ -20,7 +20,7 @@ namespace PSXPrev.Forms
                 openFileDialog.Title = "Select a File to Scan";
                 if (openFileDialog.ShowDialog(this) == DialogResult.OK)
                 {
-                    fileNameTextBox.Text = openFileDialog.FileName;
+                    filePathTextBox.Text = openFileDialog.FileName;
                 }
             }
         }
@@ -33,7 +33,7 @@ namespace PSXPrev.Forms
                 openFileDialog.Title = "Select an ISO to Scan";
                 if (openFileDialog.ShowDialog(this) == DialogResult.OK)
                 {
-                    fileNameTextBox.Text = openFileDialog.FileName;
+                    filePathTextBox.Text = openFileDialog.FileName;
                 }
             }
         }
@@ -47,14 +47,14 @@ namespace PSXPrev.Forms
                 // Parameter name used to avoid overload resolution with WPF Window, which we don't have a reference to.
                 if (folderBrowserDialog.ShowDialog(ownerWindowHandle: Handle) == CommonFileDialogResult.Ok)
                 {
-                    fileNameTextBox.Text = folderBrowserDialog.FileName;
+                    filePathTextBox.Text = folderBrowserDialog.FileName;
                 }
             }
         }
 
         private void scanButton_Click(object sender, EventArgs e)
         {
-            Program.DoScan(fileNameTextBox.Text, filterTextBox.Text, new Program.ScanOptions
+            Program.DoScan(filePathTextBox.Text, filterTextBox.Text, new Program.ScanOptions
             {
                 CheckAN = scanANCheckBox.Checked,
                 CheckBFF = scanBFFCheckBox.Checked,
@@ -96,7 +96,7 @@ namespace PSXPrev.Forms
 
         private void fileNameTextBox_TextChanged(object sender, EventArgs e)
         {
-            scanButton.Enabled = File.Exists(fileNameTextBox.Text) || Directory.Exists(fileNameTextBox.Text);
+            scanButton.Enabled = File.Exists(filePathTextBox.Text) || Directory.Exists(filePathTextBox.Text);
         }
     }
 }

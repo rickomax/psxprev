@@ -58,7 +58,8 @@ namespace PSXPrev.Forms
         private Animation _curAnimation;
         private AnimationFrame _curAnimationFrameObj;
         private AnimationObject _curAnimationObject;
-        private Scene.GizmoId _hoveredGizmo;
+        private GizmoId _hoveredGizmo;
+        private GizmoId _selectedGizmo;
         private bool _inAnimationTab;
         private float _lastMouseX;
         private float _lastMouseY;
@@ -69,7 +70,6 @@ namespace PSXPrev.Forms
         private bool _playing;
         private Timer _redrawTimer;
         private readonly Scene _scene;
-        private Scene.GizmoId _selectedGizmo;
         private Tuple<ModelEntity, Triangle> _selectedTriangle;
         private ModelEntity _selectedModelEntity;
         private RootEntity _selectedRootEntity;
@@ -393,7 +393,7 @@ namespace PSXPrev.Forms
             {
                 _vramPageScale /= 2f;
             }
-            _vramPageScale = Math.Max(0.25f, Math.Min(8.0f, _vramPageScale));
+            _vramPageScale = GeomMath.Clamp(_vramPageScale, 0.25f, 8.0f);
             vramPagePictureBox.Width = (int)(VRAM.PageSize * _vramPageScale);
             vramPagePictureBox.Height = (int)(VRAM.PageSize * _vramPageScale);
             vramZoomLabel.Text = string.Format("{0:P0}", _vramPageScale);
@@ -410,7 +410,7 @@ namespace PSXPrev.Forms
             {
                 _texturePreviewScale /= 2f;
             }
-            _texturePreviewScale = Math.Max(0.25f, Math.Min(8.0f, _texturePreviewScale));
+            _texturePreviewScale = GeomMath.Clamp(_texturePreviewScale, 0.25f, 8.0f);
             var texture = GetSelectedTexture();
             if (texture == null)
             {
@@ -538,6 +538,9 @@ namespace PSXPrev.Forms
             // Set grouper and comparer for "Textures" (everything else) group.
             texturesListView.Columns[1].Grouper  = grouper;
             texturesListView.Columns[1].Comparer = comparer;
+
+            toolTip.SetToolTip(lightYawNumericUpDown, "Yaw");
+            toolTip.SetToolTip(lightPitchNumericUpDown, "Pitch");
         }
 
         private void previewForm_FormClosing(object sender, FormClosingEventArgs e)
@@ -578,6 +581,7 @@ namespace PSXPrev.Forms
         {
             if (!_inDialog && !IsDisposed && !_closing)
             {
+                _scene.AddTime(_redrawTimer.Interval);
                 Redraw();
             }
         }
@@ -743,17 +747,21 @@ namespace PSXPrev.Forms
             Texture[] textures;
             if (vram)
             {
-                if (all)
+                if (all && vramDrawnTo)
                 {
-                    var vramTextures = new List<Texture>();
+                    var drawnToTextures = new List<Texture>();
                     for (var i = 0; i < _vram.Count; i++)
                     {
-                        if (!vramDrawnTo || _vram.IsPageUsed(i))
+                        if (_vram.IsPageUsed(i))
                         {
-                            vramTextures.Add(_vram[i]);
+                            drawnToTextures.Add(_vram[i]);
                         }
                     }
-                    textures = vramTextures.ToArray();
+                    textures = drawnToTextures.ToArray();
+                }
+                else if (all)
+                {
+                    textures = _vram.ToArray();
                 }
                 else
                 {
@@ -912,13 +920,11 @@ namespace PSXPrev.Forms
         {
             if (_inAnimationTab)
             {
-                _selectedGizmo = Scene.GizmoId.None;
+                _selectedGizmo = GizmoId.None;
             }
             if (eventType == MouseEventType.Wheel)
             {
                 _scene.CameraDistance -= e.Delta * MouseSensivity * _scene.CameraDistanceIncrement;
-                _scene.UpdateViewMatrix();
-                UpdateGizmos(_selectedGizmo, _hoveredGizmo, false);
                 return;
             }
             var deltaX = e.X - _lastMouseX;
@@ -932,11 +938,11 @@ namespace PSXPrev.Forms
             var selectedGizmo = _selectedGizmo;
             switch (_selectedGizmo)
             {
-                case Scene.GizmoId.None:
+                case GizmoId.None:
                     if (!_inAnimationTab && mouseLeft && eventType == MouseEventType.Down)
                     {
                         _pickedPosition = _scene.GetPickedPosition(-_scene.CameraDirection);
-                        if (hoveredGizmo == Scene.GizmoId.None)
+                        if (hoveredGizmo == GizmoId.None)
                         {
                             var checkedEntities = GetCheckedEntities();
                             var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
@@ -973,27 +979,19 @@ namespace PSXPrev.Forms
                     }
                     else
                     {
-                        var hasToUpdateViewMatrix = false;
                         if (mouseRight && eventType == MouseEventType.Move)
                         {
-                            _scene.CameraYaw -= deltaX * MouseSensivity;
-                            _scene.CameraPitch += deltaY * MouseSensivity;
-                            hasToUpdateViewMatrix = true;
+                            _scene.CameraPitchYaw += new Vector2(deltaY * MouseSensivity,
+                                                                 -deltaX * MouseSensivity);
                         }
                         if (mouseMiddle && eventType == MouseEventType.Move)
                         {
-                            _scene.CameraX += deltaX * MouseSensivity * _scene.CameraPanIncrement;
-                            _scene.CameraY += deltaY * MouseSensivity * _scene.CameraPanIncrement;
-                            hasToUpdateViewMatrix = true;
-                        }
-                        if (hasToUpdateViewMatrix)
-                        {
-                            _scene.UpdateViewMatrix();
-                            UpdateGizmos(_selectedGizmo, _hoveredGizmo, false);
+                            _scene.CameraPosition += new Vector2(deltaX * MouseSensivity * _scene.CameraPanIncrement,
+                                                                 deltaY * MouseSensivity * _scene.CameraPanIncrement);
                         }
                     }
                     break;
-                case Scene.GizmoId.XMover when !_inAnimationTab:
+                case GizmoId.XMover when !_inAnimationTab:
                     if (mouseLeft && eventType == MouseEventType.Move && selectedEntityBase != null)
                     {
                         var pickedPosition = _scene.GetPickedPosition(-_scene.CameraDirection);
@@ -1007,10 +1005,10 @@ namespace PSXPrev.Forms
                     else
                     {
                         AlignSelectedEntityToGrid(selectedEntityBase);
-                        selectedGizmo = Scene.GizmoId.None;
+                        selectedGizmo = GizmoId.None;
                     }
                     break;
-                case Scene.GizmoId.YMover when !_inAnimationTab:
+                case GizmoId.YMover when !_inAnimationTab:
                     if (mouseLeft && eventType == MouseEventType.Move && selectedEntityBase != null)
                     {
                         var pickedPosition = _scene.GetPickedPosition(-_scene.CameraDirection);
@@ -1024,10 +1022,10 @@ namespace PSXPrev.Forms
                     else
                     {
                         AlignSelectedEntityToGrid(selectedEntityBase);
-                        selectedGizmo = Scene.GizmoId.None;
+                        selectedGizmo = GizmoId.None;
                     }
                     break;
-                case Scene.GizmoId.ZMover when !_inAnimationTab:
+                case GizmoId.ZMover when !_inAnimationTab:
                     if (mouseLeft && eventType == MouseEventType.Move && selectedEntityBase != null)
                     {
                         var pickedPosition = _scene.GetPickedPosition(-_scene.CameraDirection);
@@ -1041,7 +1039,7 @@ namespace PSXPrev.Forms
                     else
                     {
                         AlignSelectedEntityToGrid(selectedEntityBase);
-                        selectedGizmo = Scene.GizmoId.None;
+                        selectedGizmo = GizmoId.None;
                     }
                     break;
             }
@@ -1096,10 +1094,10 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void UpdateGizmos(Scene.GizmoId selectedGizmo = Scene.GizmoId.None, Scene.GizmoId hoveredGizmo = Scene.GizmoId.None, bool updateMeshData = true)
+        private void UpdateGizmos(GizmoId selectedGizmo, GizmoId hoveredGizmo)
         {
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
-            _scene.UpdateGizmos(selectedEntityBase, hoveredGizmo, selectedGizmo, updateMeshData);
+            _scene.UpdateGizmos(selectedEntityBase, hoveredGizmo, selectedGizmo);
             if (selectedEntityBase != null)
             {
                 _selectedGizmo = selectedGizmo;
@@ -1109,7 +1107,7 @@ namespace PSXPrev.Forms
 
         private void UpdateSelectedEntity(bool updateMeshData = true)
         {
-            _scene.BoundsBatch.Reset();
+            _scene.BoundsBatch.Reset(1);
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
             var rootEntity = selectedEntityBase?.GetRootEntity();
             if (rootEntity != null)
@@ -1121,27 +1119,31 @@ namespace PSXPrev.Forms
             {
                 selectedEntityBase.ComputeBoundsRecursively();
                 var checkedEntities = GetCheckedEntities();
-                _scene.BoundsBatch.SetupEntityBounds(selectedEntityBase);
-                _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, _selectedModelEntity, _selectedRootEntity, _scene.TextureBinder, updateMeshData || _scene.AutoAttach, _selectionSource == EntitySelectionSource.TreeView && _selectedModelEntity == null);
+                _scene.BoundsBatch.BindEntityBounds(selectedEntityBase);
+                _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, _selectedModelEntity, _selectedRootEntity, updateMeshData || _scene.AutoAttach, _selectionSource == EntitySelectionSource.TreeView && _selectedModelEntity == null);
             }
             else
             {
                 _scene.MeshBatch.Reset(0);
-                _selectedGizmo = Scene.GizmoId.None;
-                _hoveredGizmo = Scene.GizmoId.None;
+                _selectedGizmo = GizmoId.None;
+                _hoveredGizmo = GizmoId.None;
+            }
+            if (_selectionSource != EntitySelectionSource.Click)
+            {
+                _scene.DebugIntersectionsBatch.Reset(1);
             }
             UpdateSelectedTriangle();
             UpdateModelPropertyGrid();
-            UpdateGizmos(_selectedGizmo, _hoveredGizmo, updateMeshData);
+            UpdateGizmos(_selectedGizmo, _hoveredGizmo);
             _selectionSource = EntitySelectionSource.None;
         }
 
-        private void UpdateSelectedTriangle()
+        private void UpdateSelectedTriangle(bool updateMeshData = true)
         {
-            _scene.TriangleOutlineBatch.Reset();
+            _scene.TriangleOutlineBatch.Reset(1);
             if (_selectedTriangle != null)
             {
-                _scene.TriangleOutlineBatch.SetupTriangleOutline(_selectedTriangle.Item2, _selectedTriangle.Item1.WorldMatrix);
+                _scene.TriangleOutlineBatch.BindTriangleOutline(_selectedTriangle.Item1.WorldMatrix, _selectedTriangle.Item2);
             }
         }
 
@@ -1738,24 +1740,10 @@ namespace PSXPrev.Forms
         }
 
 
-        private void lightRoll_Scroll(object sender, EventArgs e)
-        {
-            UpdateLightDirection();
-        }
-
-        private void lightYaw_Scroll(object sender, EventArgs e)
-        {
-            UpdateLightDirection();
-        }
-
-        private void lightPitch_Scroll(object sender, EventArgs e)
-        {
-            UpdateLightDirection();
-        }
-
         private void UpdateLightDirection()
         {
-            _scene.LightRotation = new Vector3(MathHelper.DegreesToRadians((float)lightPitchNumericUpDown.Value), MathHelper.DegreesToRadians((float)lightYawNumericUpDown.Value), MathHelper.DegreesToRadians((float)lightRollNumericUpDown.Value));
+            _scene.LightPitchYaw = new Vector2((float)lightPitchNumericUpDown.Value * GeomMath.Deg2Rad,
+                                               (float)lightYawNumericUpDown.Value   * GeomMath.Deg2Rad);
         }
 
         private void restartToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1797,17 +1785,16 @@ namespace PSXPrev.Forms
 
         private void lightPitchNumericUpDown_ValueChanged(object sender, EventArgs e)
         {
+            lightPitchNumericUpDown.Value = GeomMath.PositiveModulus(lightPitchNumericUpDown.Value, 360m);
             UpdateLightDirection();
+            lightPitchNumericUpDown.Refresh();
         }
 
         private void lightYawNumericUpDown_ValueChanged(object sender, EventArgs e)
         {
+            lightYawNumericUpDown.Value = GeomMath.PositiveModulus(lightYawNumericUpDown.Value, 360m);
             UpdateLightDirection();
-        }
-
-        private void lightRollNumericUpDown_ValueChanged(object sender, EventArgs e)
-        {
-            UpdateLightDirection();
+            lightYawNumericUpDown.Refresh();
         }
 
         private void enableLightToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1842,6 +1829,7 @@ namespace PSXPrev.Forms
         private void lightIntensityNumericUpDown_ValueChanged(object sender, EventArgs e)
         {
             _scene.LightIntensity = (float)lightIntensityNumericUpDown.Value / 100f;
+            lightIntensityNumericUpDown.Refresh();
         }
 
         private void lineRendererToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
@@ -1944,14 +1932,13 @@ namespace PSXPrev.Forms
 
         private void vertexSizeUpDown_ValueChanged(object sender, EventArgs e)
         {
-            _scene.VertexSize = vertexSizeUpDown.Value;
+            _scene.VertexSize = (float)vertexSizeUpDown.Value;
         }
 
         private void cameraFOVUpDown_ValueChanged(object sender, EventArgs e)
         {
-            _scene.CameraFOV = (float)cameraFOVUpDown.Value;
+            _scene.CameraFOV = (float)cameraFOVUpDown.Value;// * GeomMath.Deg2Rad;
             cameraFOVUpDown.Refresh(); // Too slow to refresh number normally if using the arrow keys
-            UpdateGizmos(_selectedGizmo, _hoveredGizmo, false);
         }
 
         private void pauseScanningToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
@@ -2188,11 +2175,6 @@ namespace PSXPrev.Forms
         private void animationReverseCheckBox_CheckedChanged(object sender, EventArgs e)
         {
             _scene.AnimationBatch.Reverse = animationReverseCheckBox.Checked;
-        }
-
-        private void exportSelectedTexturesToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-
         }
     }
 }
