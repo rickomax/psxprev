@@ -93,6 +93,11 @@ namespace PSXPrev.Common
         [Browsable(false)]
         public bool IsTextured => RenderFlags.HasFlag(RenderFlags.Textured);
 
+        // Not to be confused with IsTextured, this signifies a model is textured, and has a texture assigned.
+        // IsTextured is still useful to help assigning Textures in PreviewForm.
+        [Browsable(false)]
+        public bool HasTexture => Texture != null && IsTextured;
+
         //[ReadOnly(true)]
         //public uint PrimitiveIndex { get; set; }
 

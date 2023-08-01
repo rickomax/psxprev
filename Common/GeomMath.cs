@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Text;
 using OpenTK;
 
@@ -101,6 +102,13 @@ namespace PSXPrev.Common
                 case RotationOrder.ZYX: return xRot * yRot * zRot;
             }
             return Matrix4.Identity; // Invalid rotation order
+        }
+
+        // Avoid getting NaN quaternions when any matrix scale dimension is 0.
+        public static Quaternion ExtractRotationSafe(this Matrix4 matrix)
+        {
+            var rotation = matrix.ExtractRotation();
+            return float.IsNaN(rotation.X) ? Quaternion.Identity : rotation;
         }
 
         public static Vector3 UnProject(this Vector3 position, Matrix4 projection, Matrix4 view, float width, float height)
@@ -324,6 +332,56 @@ namespace PSXPrev.Common
         public static decimal Clamp(decimal n, decimal min, decimal max)
         {
             return Math.Max(Math.Min(n, max), min);
+        }
+
+        public static int RoundUpToPower(int n, int power)
+        {
+            Debug.Assert(power >= 2, "RoundUpToPower must have power greater than or equal to 2");
+            if (n == 0)
+            {
+                return 0;
+            }
+            var value = 1;
+            var nAbs = Math.Abs(n);
+            while (value < nAbs) value *= power;
+            return value * Math.Sign(n);
+        }
+
+        public static uint RoundUpToPower(uint n, uint power)
+        {
+            Debug.Assert(power >= 2, "RoundUpToPower must have power greater than or equal to 2");
+            if (n == 0)
+            {
+                return 0;
+            }
+            uint value = 1;
+            while (value < n) value *= power;
+            return value;
+        }
+
+        public static long RoundUpToPower(long n, long power)
+        {
+            Debug.Assert(power >= 2, "RoundUpToPower must have power greater than or equal to 2");
+            if (n == 0)
+            {
+                return 0;
+            }
+            long value = 1;
+            var nAbs = Math.Abs(n);
+            while (value < nAbs) value *= power;
+            return value * Math.Sign(n);
+        }
+
+        public static ulong RoundUpToPower(ulong n, ulong power)
+        {
+            Debug.Assert(power >= 2, "RoundUpToPower must have power greater than or equal to 2");
+            if (n == 0)
+            {
+                return 0;
+            }
+            ulong value = 1;
+            while (value < n) value *= power;
+            return value;
         }
 
         public static float ConvertFixed12(int value) => value / Fixed12Scalar;

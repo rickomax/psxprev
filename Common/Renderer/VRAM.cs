@@ -226,18 +226,30 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        public static Bitmap ConvertTiledTexture(Texture texture, Rectangle srcRect, int repeatX, int repeatY, bool semiTransparency)
+        public static Bitmap ConvertTiledTexture(Texture texture, Rectangle srcRect, int repeatX, int repeatY, int? fullWidth, int? fullHeight, bool semiTransparency)
         {
             var stpX = semiTransparency ? PageSemiTransparencyX : 0;
             srcRect.X += stpX;
 
-            var bitmap = new Bitmap(repeatX * srcRect.Width, repeatY * srcRect.Height);
+            if (!fullWidth.HasValue)
+            {
+                fullWidth  = repeatX * srcRect.Width;
+            }
+            if (!fullHeight.HasValue)
+            {
+                fullHeight = repeatY * srcRect.Height;
+            }
+
+            var bitmap = new Bitmap(fullWidth.Value, fullHeight.Value);
             try
             {
                 using (var graphics = Graphics.FromImage(bitmap))
                 {
                     graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
                     graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+
+                    // Full size might be larger than tiled size.
+                    graphics.Clear(DefaultBackgroundColor);
 
                     for (var ry = 0; ry < repeatY; ry++)
                     {

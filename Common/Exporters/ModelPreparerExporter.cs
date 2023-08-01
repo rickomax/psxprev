@@ -11,7 +11,7 @@ namespace PSXPrev.Common.Exporters
     public class ModelPreparerExporter : IDisposable
     {
         private readonly Dictionary<Tuple<uint, Vector4>, TiledTextureInfo> _groupedModels = new Dictionary<Tuple<uint, Vector4>, TiledTextureInfo>();
-        private readonly Dictionary<RootEntity, List<ModelEntity>> _rootEntityModels = new Dictionary<RootEntity, List<ModelEntity>>();
+        private readonly Dictionary<RootEntity, Tuple<RootEntity, List<ModelEntity>>> _rootEntityModels = new Dictionary<RootEntity, Tuple<RootEntity, List<ModelEntity>>>();
         private readonly Texture[] _copiedVRAMPages = new Texture[VRAM.PageCount];
         private readonly ExportModelOptions _options;
         private SingleTextureInfo _singleInfo;
@@ -24,9 +24,12 @@ namespace PSXPrev.Common.Exporters
         }
 
 
-        public List<ModelEntity> GetModels(RootEntity rootEntity)
+        // I'm not happy with how this is setup right now, but it's a quick fix. -trigger
+        public RootEntity GetPreparedRootEntity(RootEntity rootEntity, out List<ModelEntity> models)
         {
-            return _rootEntityModels[rootEntity];
+            var rootTuple = _rootEntityModels[rootEntity];
+            models = rootTuple.Item2;
+            return rootTuple.Item1;
         }
 
         // Call this after AddRootEntity has been called for all root entities that plan to be exported.
@@ -54,6 +57,40 @@ namespace PSXPrev.Common.Exporters
                 foreach (var rootEntity in rootEntities)
                 {
                     AddRootEntity(rootEntity);
+                }
+
+                // Assign child entities and coordinates to new root entities.
+                foreach (var rootTuple in _rootEntityModels.Values)
+                {
+                    var newRootEntity = rootTuple.Item1;
+                    var models = rootTuple.Item2;
+
+                    // Setup children array
+                    var newChildEntities = new EntityBase[models.Count];
+                    for (var i = 0; i < newChildEntities.Length; i++)
+                    {
+                        newChildEntities[i] = models[i];
+                        newChildEntities[i].ParentEntity = newRootEntity;
+                    }
+                    newRootEntity.ChildEntities = newChildEntities;
+
+                    // Clone coordinates array
+                    var coords = newRootEntity.Coords;
+                    if (coords != null)
+                    {
+                        var newCoords = new Coordinate[coords.Length];
+                        for (var i = 0; i < coords.Length; i++)
+                        {
+                            newCoords[i] = new Coordinate(coords[i], newCoords);
+                        }
+                        newRootEntity.Coords = newCoords;
+                    }
+
+                    // Fix connections for new root entity
+                    if (_options.AttachLimbs)
+                    {
+                        newRootEntity.FixConnections();
+                    }
                 }
 
                 PrepareTiledTextures();
@@ -112,7 +149,7 @@ namespace PSXPrev.Common.Exporters
             }
 
             // Create a new tiled texture that repeats the needed amount of times.
-            tiledInfo.SetupTiledTexture(maxUv);
+            tiledInfo.SetupTiledTexture(maxUv, powerOfTwo: true);
 
             // Assign new tiled texture to models.
             foreach (var model in tiledInfo.Models)
@@ -147,10 +184,10 @@ namespace PSXPrev.Common.Exporters
                 var addedTextures = new HashSet<Texture>();
                 foreach (var rootEntity in rootEntities)
                 {
-                    var models = GetModels(rootEntity);
+                    GetPreparedRootEntity(rootEntity, out var models);
                     foreach (var model in models)
                     {
-                        if (model.Texture != null && model.IsTextured)
+                        if (model.HasTexture)
                         {
                             if (addedTextures.Add(model.Texture))
                             {
@@ -167,7 +204,7 @@ namespace PSXPrev.Common.Exporters
                 // Assign new single texture to models.
                 foreach (var model in _singleInfo.Models)
                 {
-                    if (model.Texture != null && model.IsTextured)
+                    if (model.HasTexture)
                     {
                         var uvConverter = _singleInfo.GetUVConverter(model.Texture);
                         model.Texture = _singleInfo.SingleTexture;
@@ -192,12 +229,11 @@ namespace PSXPrev.Common.Exporters
 
         private bool ModelNeedsCopy(ModelEntity model)
         {
-            // todo: Currently we just attach limbs by modifying the real models.
-            /*if (_options.AttachLimbs)
+            if (_options.AttachLimbs)
             {
                 return true; // Model vertices need to be changed
-            }*/
-            if (model.Texture != null && model.IsTextured)
+            }
+            if (model.HasTexture)
             {
                 if (_options.SingleTexture || _options.RedrawTextures || (_options.TiledTextures && model.NeedsTiled))
                 {
@@ -207,13 +243,46 @@ namespace PSXPrev.Common.Exporters
             return false;
         }
 
+        private Triangle CloneTriangle(Triangle triangle)
+        {
+            var newTriangle = new Triangle(triangle);
+            // If attaching limbs, then we need to clone vertices to prevent overwriting the existing model vertices.
+            if (_options.AttachLimbs)
+            {
+                // Some exporters will assign attached indices even if there are none, so only clone the array if any are found.
+                if (newTriangle.AttachedIndices != null)
+                {
+                    for (var j = 0; j < 3; j++)
+                    {
+                        if (newTriangle.AttachedIndices[j] != Triangle.NoAttachment)
+                        {
+                            newTriangle.Vertices = (Vector3[])newTriangle.Vertices.Clone();
+                            break;
+                        }
+                    }
+                }
+                if (newTriangle.AttachedNormalIndices != null)
+                {
+                    for (var j = 0; j < 3; j++)
+                    {
+                        if (newTriangle.AttachedNormalIndices[j] != Triangle.NoAttachment)
+                        {
+                            newTriangle.Normals = (Vector3[])newTriangle.Normals.Clone();
+                            break;
+                        }
+                    }
+                }
+            }
+            return newTriangle;
+        }
+
         private void SeparateModel(RootEntity rootEntity, ModelEntity model)
         {
             var modelNeedsCopy = ModelNeedsCopy(model);
 
             // Create a copy of the VRAM page so that we can redraw textures to it.
             var texture = model.Texture;
-            if (modelNeedsCopy && _options.RedrawTextures && texture != null && model.IsTextured)
+            if (modelNeedsCopy && _options.RedrawTextures && model.HasTexture)
             {
                 var texturePage = texture.TexturePage;
                 if (texture.IsVRAMPage)
@@ -230,19 +299,20 @@ namespace PSXPrev.Common.Exporters
                 }
             }
 
-            if (!modelNeedsCopy)
+            // Currently we're forced to create copies to support root entity transforms.
+            /*if (!modelNeedsCopy)
             {
                 // No changes to the model.
                 AddModel(rootEntity, model, Vector4.Zero);
             }
-            else if (!_options.TiledTextures)
+            else*/ if (!modelNeedsCopy || !_options.TiledTextures)
             {
                 // Create copies for every model with copies of each triangle.
                 var triangles = model.Triangles;
                 var newTriangles = new Triangle[triangles.Length];
                 for (var i = 0; i < triangles.Length; i++)
                 {
-                    newTriangles[i] = new Triangle(triangles[i]);
+                    newTriangles[i] = modelNeedsCopy ? CloneTriangle(triangles[i]) : triangles[i];
                 }
                 var newModel = new ModelEntity(model, newTriangles)
                 {
@@ -258,7 +328,7 @@ namespace PSXPrev.Common.Exporters
                 foreach (var triangle in model.Triangles)
                 {
                     var needsTiled = _options.TiledTextures && triangle.NeedsTiled;
-                    var triangleNeedsCopy = true;// _options.SingleTexture || needsTiled;
+                    var triangleNeedsCopy = true;// _options.SingleTexture || _options.AttachLimbs || needsTiled;
                     var tiledArea = needsTiled ? triangle.TiledArea.Value : Vector4.Zero;
                     if (!groupedTriangles.TryGetValue(tiledArea, out var triangles))
                     {
@@ -266,7 +336,7 @@ namespace PSXPrev.Common.Exporters
                         groupedTriangles.Add(tiledArea, triangles);
                     }
                     // We only need to create a copy for tiled triangles, since we'll be modifying those.
-                    triangles.Add(triangleNeedsCopy ? new Triangle(triangle) : triangle);
+                    triangles.Add(triangleNeedsCopy ? CloneTriangle(triangle) : triangle);
                 }
 
                 foreach (var kvp in groupedTriangles)
@@ -284,12 +354,6 @@ namespace PSXPrev.Common.Exporters
 
         private void AddRootEntity(RootEntity rootEntity)
         {
-            // todo: Maybe change this so models are copied before fixing connections?
-            if (_options.AttachLimbs)
-            {
-                rootEntity.FixConnections();
-            }
-
             foreach (ModelEntity model in rootEntity.ChildEntities)
             {
                 SeparateModel(rootEntity, model);
@@ -300,7 +364,7 @@ namespace PSXPrev.Common.Exporters
 
         private void AddModel(RootEntity rootEntity, ModelEntity model, Vector4 tiledArea)
         {
-            if (model.Texture != null && model.IsTextured)
+            if (model.HasTexture)
             {
                 var tuple = new Tuple<uint, Vector4>(model.TexturePage, tiledArea);
                 if (!_groupedModels.TryGetValue(tuple, out var tiledInfo))
@@ -311,12 +375,14 @@ namespace PSXPrev.Common.Exporters
                 tiledInfo.Models.Add(model);
             }
 
-            if (!_rootEntityModels.TryGetValue(rootEntity, out var childModels))
+            if (!_rootEntityModels.TryGetValue(rootEntity, out var rootTuple))
             {
-                childModels = new List<ModelEntity>();
-                _rootEntityModels.Add(rootEntity, childModels);
+                var newRootEntity = new RootEntity(rootEntity);
+                var models = new List<ModelEntity>();
+                rootTuple = new Tuple<RootEntity, List<ModelEntity>>(newRootEntity, models);
+                _rootEntityModels.Add(rootEntity, rootTuple);
             }
-            childModels.Add(model);
+            rootTuple.Item2.Add(model);
         }
 
         private void CleanupCurrent()
@@ -448,12 +514,7 @@ namespace PSXPrev.Common.Exporters
                     if (powerOfTwo)
                     {
                         // Find a power of two for the height.
-                        var h2 = 1;
-                        while (h2 < h)
-                        {
-                            h2 *= 2;
-                        }
-                        h = h2;
+                        h = GeomMath.RoundUpToPower(h, 2);
                     }
 
                     // Use <= to prefer larger widths over larger heights.
@@ -641,33 +702,43 @@ namespace PSXPrev.Common.Exporters
                 return new Vector2(baseUv.X * _scalarX, baseUv.Y * _scalarY);
             }
 
-            public void SetupTiledTexture(Vector2 maxUv)
+            public void SetupTiledTexture(Vector2 maxUv, bool powerOfTwo)
             {
                 // Make sure repeat is at least one or higher.
                 _repeatX = (int)Math.Max(1, Width  != 0f ? Math.Ceiling(maxUv.X / Width)  : 1f);
                 _repeatY = (int)Math.Max(1, Height != 0f ? Math.Ceiling(maxUv.Y / Height) : 1f);
 
-                _scalarX = (Width  != 0f ? 1f / (Width  * _repeatX) : 1f);
-                _scalarY = (Height != 0f ? 1f / (Height * _repeatY) : 1f);
+                // We can't just use this, since we still need to support disabling the UV alignment fix.
+                //var uvScalar = (float)VRAM.PageSize;
+                var uvScalar = GeomMath.UVScalar;
+                var srcX = (int)(X * uvScalar);
+                var srcY = (int)(Y * uvScalar);
+                var srcWidth  = Width  != 0f ? (int)(Width  * uvScalar) : VRAM.PageSize;
+                var srcHeight = Height != 0f ? (int)(Height * uvScalar) : VRAM.PageSize;
+                var srcRect = new Rectangle(srcX, srcY, srcWidth, srcHeight);
+
+                var fullWidth  = _repeatX * srcWidth;
+                var fullHeight = _repeatY * srcHeight;
+                if (powerOfTwo)
+                {
+                    fullWidth  = GeomMath.RoundUpToPower(fullWidth,  2);
+                    fullHeight = GeomMath.RoundUpToPower(fullHeight, 2);
+                }
+
+                //_scalarX = (Width  != 0f ? 1f / (Width  * _repeatX) : 1f);
+                //_scalarY = (Height != 0f ? 1f / (Height * _repeatY) : 1f);
+                _scalarX = (Width  != 0f ? uvScalar / fullWidth  : 1f);
+                _scalarY = (Height != 0f ? uvScalar / fullHeight : 1f);
 
                 if (TiledTexture == null)
                 {
-                    // We can't just use this, since we still need to support disabling the UV alignment fix.
-                    //var uvScalar = (float)VRAM.PageSize;
-                    var uvScalar = GeomMath.UVScalar;
-                    var srcX = (int)(X * uvScalar);
-                    var srcY = (int)(Y * uvScalar);
-                    var srcWidth  = Width  != 0f ? (int)(Width  * uvScalar) : VRAM.PageSize;
-                    var srcHeight = Height != 0f ? (int)(Height * uvScalar) : VRAM.PageSize;
-                    var srcRect = new Rectangle(srcX, srcY, srcWidth, srcHeight);
-
-                    var bitmap = VRAM.ConvertTiledTexture(OriginalTexture, srcRect, _repeatX, _repeatY, false);
+                    var bitmap = VRAM.ConvertTiledTexture(OriginalTexture, srcRect, _repeatX, _repeatY, fullWidth, fullHeight, false);
                     try
                     {
                         TiledTexture = new Texture(bitmap, 0, 0, 32, TexturePage);
                         //TiledTexture.TextureName = $"Tiled[{srcX},{srcY} {srcWidth}x{srcHeight}]";
                         TiledTexture.TextureName = $"Tiled[{_repeatX}x{_repeatY}]";
-                        //TiledTexture.SemiTransparentMap = VRAM.ConvertTiledTexture(OriginalTexture, srcRect, _repeatX, _repeatY, true);
+                        //TiledTexture.SemiTransparentMap = VRAM.ConvertTiledTexture(OriginalTexture, srcRect, _repeatX, _repeatY, fullWidth, fullHeight, true);
                     }
                     catch
                     {

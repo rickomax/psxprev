@@ -94,7 +94,7 @@ namespace PSXPrev.Forms
             Close();
         }
 
-        private void fileNameTextBox_TextChanged(object sender, EventArgs e)
+        private void filePathTextBox_TextChanged(object sender, EventArgs e)
         {
             scanButton.Enabled = File.Exists(filePathTextBox.Text) || Directory.Exists(filePathTextBox.Text);
         }

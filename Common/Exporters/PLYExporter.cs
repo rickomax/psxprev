@@ -77,12 +77,13 @@ namespace PSXPrev.Common.Exporters
             Texture singleTexture = null;
             foreach (var entity in entities)
             {
-                foreach (var model in _modelPreparer.GetModels(entity))
+                _modelPreparer.GetPreparedRootEntity(entity, out var models);
+                foreach (var model in models)
                 {
                     faceCount += model.Triangles.Length;
 
                     // Export material if we haven't already
-                    if (_options.ExportTextures && model.Texture != null && model.IsTextured)
+                    if (NeedsTexture(model))
                     {
                         singleTexture = model.Texture;
 
@@ -159,10 +160,11 @@ namespace PSXPrev.Common.Exporters
             // Write vertices
             foreach (var entity in entities)
             {
-                foreach (var model in _modelPreparer.GetModels(entity))
+                _modelPreparer.GetPreparedRootEntity(entity, out var models);
+                foreach (var model in models)
                 {
                     var materialIndex = 0; // Untextured
-                    if (_options.ExportTextures && model.Texture != null && model.IsTextured)
+                    if (NeedsTexture(model))
                     {
                         materialIndex = _materialsDictionary[model.Texture];
                     }
@@ -217,6 +219,11 @@ namespace PSXPrev.Common.Exporters
         private void WriteMaterial()
         {
             _writer.WriteLine("128 128 128 1.00000 128 128 128 1.00000");
+        }
+
+        private bool NeedsTexture(ModelEntity model)
+        {
+            return _options.ExportTextures && model.HasTexture;
         }
 
         private static string F(float value)

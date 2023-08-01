@@ -74,7 +74,8 @@ namespace PSXPrev.Common.Exporters
             // Write vertices and export materials
             foreach (var entity in entities)
             {
-                foreach (var model in _modelPreparer.GetModels(entity))
+                _modelPreparer.GetPreparedRootEntity(entity, out var models);
+                foreach (var model in models)
                 {
                     WriteModel(model);
                 }
@@ -84,7 +85,7 @@ namespace PSXPrev.Common.Exporters
             var baseIndex = 1; // Obj format is 1-indexed I guess...
             foreach (var entity in entities)
             {
-                var models = _modelPreparer.GetModels(entity);
+                _modelPreparer.GetPreparedRootEntity(entity, out var models);
                 // todo: Should we really be restarting j (groupIndex) from 0 for each root entity?
                 for (var j = 0; j < models.Count; j++)
                 {
@@ -102,7 +103,7 @@ namespace PSXPrev.Common.Exporters
         private void WriteModel(ModelEntity model)
         {
             // Export material if we haven't already
-            if (_options.ExportTextures && model.Texture != null && model.IsTextured)
+            if (NeedsTexture(model))
             {
                 if (_mtlExporter.AddMaterial(model.Texture, out var materialId))
                 {
@@ -172,6 +173,11 @@ namespace PSXPrev.Common.Exporters
                 // v/vt/vn
                 _writer.WriteLine("f {2}/{2}/{2} {1}/{1}/{1} {0}/{0}/{0}", baseIndex++, baseIndex++, baseIndex++);
             }
+        }
+
+        private bool NeedsTexture(ModelEntity model)
+        {
+            return _options.ExportTextures && model.HasTexture;
         }
 
         private static string F(float value)

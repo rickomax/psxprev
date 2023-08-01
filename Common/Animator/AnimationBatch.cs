@@ -179,12 +179,16 @@ namespace PSXPrev.Common.Animator
             }
         }
 
-        public void SetupAnimationBatch(Animation animation)
+        public void SetupAnimationBatch(Animation animation, bool simulate = false)
         {
-            // todo: Is this correct for handling reseting the mesh batch?
-            // What if the animation doesn't match the object?
-            var objectCount = animation == null ? 0 : (animation.ObjectCount + 1);
-            _scene.MeshBatch.Reset(objectCount);
+            if (!simulate)
+            {
+                // todo: Is this correct for handling reseting the mesh batch?
+                // What if the animation doesn't match the object?
+                var objectCount = animation == null ? 0 : (animation.ObjectCount + 1);
+                _scene.MeshBatch.Reset(objectCount);
+            }
+
             if (_animation != animation)
             {
                 _animation = animation;
@@ -195,11 +199,14 @@ namespace PSXPrev.Common.Animator
         }
 
         // Returns true if the animation has been processed (updated), or false if nothing needed to be updated.
-        public bool SetupAnimationFrame(RootEntity[] checkedEntities, RootEntity selectedRootEntity, ModelEntity selectedModelEntity, bool updateMeshData = false)
+        public bool SetupAnimationFrame(RootEntity[] checkedEntities, RootEntity selectedRootEntity, ModelEntity selectedModelEntity, bool updateMeshData = false, bool simulate = false)
         {
             var rootEntity = selectedRootEntity ?? selectedModelEntity?.GetRootEntity();
 
-            _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, selectedModelEntity, selectedRootEntity, updateMeshData || _scene.AutoAttach, false, true);
+            if (!simulate)
+            {
+                _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, selectedModelEntity, selectedRootEntity, updateMeshData || _scene.AutoAttach, false, true);
+            }
 
             ComputePlaybackFrameTime();
 
@@ -540,10 +547,13 @@ namespace PSXPrev.Common.Animator
                             childModel.FinalVertices = null;
                             childModel.InitialNormals = null;
                             childModel.FinalNormals = null;
+                            var childWorldMatrix = childModel.WorldMatrix;
                             childModel.TempMatrix =
                                 coord.WorldMatrix * // Transform by new coord matrix
-                                childModel.OriginalWorldMatrix.Inverted() * childModel.WorldMatrix * // Preserve gizmo translations
-                                childModel.WorldMatrix.Inverted(); // Overwrite original transforms of models
+                                childModel.OriginalWorldMatrix.Inverted() * childWorldMatrix * // Preserve gizmo translations
+                                childWorldMatrix.Inverted(); // Overwrite original transforms of models
+
+                            childModel.TempLocalMatrix = childWorldMatrix;
                         }
                     }
                 }

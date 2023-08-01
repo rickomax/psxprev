@@ -181,6 +181,12 @@ namespace PSXPrev.Forms
             animationsTreeView.Nodes.Add(animationNode);
             AddAnimationObject(animation.RootAnimationObject, animationNode);
             animationsTreeView.EndUpdate();
+
+            // Debugging: Quickly export HMD animation on startup.
+            //if (_animations.Count == 1)
+            //{
+            //    ExportModelsForm.Show(this, new[] { _rootEntities[0] }, new[] { _animations[0] }, _scene.AnimationBatch);
+            //}
         }
 
         public void UpdateRootEntities(List<RootEntity> entities)

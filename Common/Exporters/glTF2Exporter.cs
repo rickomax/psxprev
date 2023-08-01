@@ -33,6 +33,7 @@ namespace PSXPrev.Common.Exporters
         {
             _options = options?.Clone() ?? new ExportModelOptions();
             // Force any required options for this format here, before calling Validate.
+            _options.MergeEntities = false;
             _options.Validate();
 
             _pngExporter = new PNGExporter();
@@ -59,20 +60,22 @@ namespace PSXPrev.Common.Exporters
         {
             var exportAnimations = _options.ExportAnimations && animations?.Length > 0;
 
-            _baseName = $"obj{index}";
-            _baseTextureName = (_options.ShareTextures ? "objshared" : _baseName) + "_";
+            _baseName = $"gltf{index}";
+            _baseTextureName = (_options.ShareTextures ? "gltfshared" : _baseName) + "_";
+
+            // Prepare the state for the current model being exported.
+            _modelPreparer.PrepareCurrent(entities);
 
             for (var entityIndex = 0; entityIndex < entities.Length; entityIndex++)
             {
-                var entity = entities[entityIndex];
-                _writer = new StreamWriter($"{_selectedPath}\\{_baseName}_{entityIndex}.gltf");
-                _writer.WriteLine("{");
+                var entity = _modelPreparer.GetPreparedRootEntity(entities[entityIndex], out var models);
 
-                var models = _modelPreparer.GetModels(entity);
+                _writer = new StreamWriter($"{_selectedPath}/{_baseName}_{entityIndex}.gltf");
+                _writer.WriteLine("{");
 
                 // Binary buffer creation
                 var binaryBufferShortFilename = $"{_baseName}_{entityIndex}.bin";
-                var binaryBufferFilename = $"{_selectedPath}\\{binaryBufferShortFilename}";
+                var binaryBufferFilename = $"{_selectedPath}/{binaryBufferShortFilename}";
                 _binaryWriter = new BinaryWriter(File.OpenWrite(binaryBufferFilename));
 
                 // Write Asset
@@ -115,10 +118,42 @@ namespace PSXPrev.Common.Exporters
                             var totalTime = animation.FrameCount / animation.FPS;
                             var timeStep = 1f / animation.FPS;
                             WriteAnimationTimeBufferView(totalTime, timeStep, ref offset, initialOffset);
+
+                            // Compute animation frames
+                            var totalFrames = (int)Math.Ceiling(totalTime / timeStep) + 1; // +1 to include last frame
+                            var translations = new Vector3[models.Count, totalFrames];
+                            var rotations = new Quaternion[models.Count, totalFrames];
+                            var scales = new Vector3[models.Count, totalFrames];
+                            var frame = 0;
+                            var oldLoopMode = animationBatch.LoopMode;
+                            animationBatch.SetupAnimationBatch(animation, simulate: true);
+                            animationBatch.LoopMode = AnimationLoopMode.Once;
+                            for (var t = 0f; t < totalTime; t += timeStep, frame++)
+                            {
+                                animationBatch.Time = t;
+                                if (animationBatch.SetupAnimationFrame(null, entity, null, simulate: true))
+                                {
+                                    for (var j = 0; j < models.Count; j++)
+                                    {
+                                        var model = models[j];
+                                        var matrix = model.TempMatrix * model.TempLocalMatrix;
+                                        translations[j, frame] = matrix.ExtractTranslation();
+                                        rotations[j, frame] = matrix.ExtractRotationSafe();
+                                        scales[j, frame] = matrix.ExtractScale();
+                                    }
+                                }
+                                else
+                                {
+                                    totalFrames = frame + 1;
+                                }
+                            }
+                            animationBatch.LoopMode = oldLoopMode;
+
+                            // Write animation frames for each model
                             for (var j = 0; j < models.Count; j++)
                             {
                                 var model = models[j];
-                                WriteAnimationDataBufferViews(entities, model, animation, animationBatch, totalTime, timeStep, ref offset, initialOffset, j == models.Count - 1 && i == animations.Length - 1);
+                                WriteAnimationDataBufferViews(model, j, translations, rotations, scales, totalFrames, ref offset, initialOffset, j == models.Count - 1 && i == animations.Length - 1);
                             }
                         }
                     }
@@ -147,7 +182,7 @@ namespace PSXPrev.Common.Exporters
                     for (var i = 0; i < models.Count; i++)
                     {
                         var model = models[i];
-                        if (model.Texture != null && model.IsTextured)
+                        if (NeedsTexture(model))
                         {
                             int imageId;
                             if (!textureImages.Contains(model.Texture))
@@ -216,13 +251,34 @@ namespace PSXPrev.Common.Exporters
                         {
                             var model = models[i];
                             var vertexCount = model.Triangles.Length * 3;
-                            var boundsMin = new[] { model.Bounds3D.Min.X, model.Bounds3D.Min.Y, model.Bounds3D.Min.Z };
-                            var boundsMax = new[] { model.Bounds3D.Max.X, model.Bounds3D.Max.Y, model.Bounds3D.Max.Z };
-                            //todo: are bounds inverted bc of y-z negation?
+
+                            // Compute the local min/max vertex positions. We can't use Bounds3D because that's transformed.
+                            var triangles = model.Triangles;
+                            var minPos = triangles.Length > 0 ? triangles[0].Vertices[0] : Vector3.Zero;
+                            var maxPos = minPos;
+                            for (var j = 0; j < triangles.Length; j++)
+                            {
+                                var triangle = triangles[j];
+                                for (var k = 0; k < 3; k++)
+                                {
+                                    var vertex = triangle.Vertices[k];
+                                    minPos = Vector3.ComponentMin(minPos, vertex);
+                                    maxPos = Vector3.ComponentMax(maxPos, vertex);
+                                }
+                            }
+                            // Swap min/max and negate for Y and Z to fix handiness.
+                            var boundsMin = new[] { minPos.X, -maxPos.Y, -maxPos.Z };
+                            var boundsMax = new[] { maxPos.X, -minPos.Y, -minPos.Z };
+
+                            var final = !exportAnimations && i == models.Count - 1;
+                            var noTextureFinal = final && !NeedsTexture(model);
                             WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, vertexCount, "VEC3", false, boundsMin, boundsMax); // Vertex positions
                             WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, vertexCount, "VEC3"); // Vertex colors
-                            WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, vertexCount, "VEC3"); // Vertex normals
-                            WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, vertexCount, "VEC2", !exportAnimations && i == models.Count - 1); // Vertex uvs
+                            WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, vertexCount, "VEC3", noTextureFinal); // Vertex normals
+                            if (NeedsTexture(model))
+                            {
+                                WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, vertexCount, "VEC2", final); // Vertex uvs
+                            }
                         }
                     }
                     // Animations
@@ -239,9 +295,10 @@ namespace PSXPrev.Common.Exporters
                             WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, stepCount, "SCALAR", false, timeMin, timeMax); // Frame times
                             for (var j = 0; j < models.Count; j++)
                             {
+                                var final = i == animations.Length - 1 && j == models.Count - 1;
                                 WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, stepCount, "VEC3"); // Object translation
                                 WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, stepCount, "VEC4"); // Object rotation
-                                WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, stepCount, "VEC3", i == animations.Length - 1 && j == models.Count - 1); // Object scale
+                                WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, stepCount, "VEC3", final); // Object scale
                             }
                         }
                     }
@@ -263,8 +320,11 @@ namespace PSXPrev.Common.Exporters
                         _writer.WriteLine($"   \"attributes\": {{");
                         _writer.WriteLine($"    \"POSITION\": {accessorIndex++},");
                         _writer.WriteLine($"    \"COLOR_0\": {accessorIndex++},");
-                        _writer.WriteLine($"    \"NORMAL\": {accessorIndex++},");
-                        _writer.WriteLine($"    \"TEXCOORD_0\": {accessorIndex++}");
+                        _writer.WriteLine($"    \"NORMAL\": {accessorIndex++}" + (NeedsTexture(model) ? "," : string.Empty));
+                        if (NeedsTexture(model))
+                        {
+                            _writer.WriteLine($"    \"TEXCOORD_0\": {accessorIndex++}");
+                        }
                         _writer.WriteLine("   },");
                         _writer.WriteLine($"   \"material\": {i},");
                         _writer.WriteLine($"   \"mode\": {PrimitiveMode_Triangles}");
@@ -318,10 +378,13 @@ namespace PSXPrev.Common.Exporters
                     _writer.WriteLine($" \"mesh\": {i},");
                     _writer.WriteLine($" \"name\": \"{model.EntityName}\",");
                     _writer.WriteLine(" \"translation\": [");
-                    WriteVector3(model.Translation, true);
+                    WriteVector3(model.WorldMatrix.ExtractTranslation(), true);
+                    _writer.WriteLine(" ],");
+                    _writer.WriteLine(" \"rotation\": [");
+                    WriteQuaternion(model.WorldMatrix.ExtractRotationSafe(), true);
                     _writer.WriteLine(" ],");
                     _writer.WriteLine(" \"scale\": [");
-                    WriteVector3(model.Scale, false);
+                    WriteVector3(model.WorldMatrix.ExtractScale(), false);
                     _writer.WriteLine(" ]");
                     _writer.WriteLine(i == models.Count - 1 ? "}" : "},");
                 }
@@ -416,23 +479,16 @@ namespace PSXPrev.Common.Exporters
         }
 
         // todo: we could avoid so many loops by intercalating data
-        private void WriteAnimationDataBufferViews(RootEntity[] entities, ModelEntity model, Animation animation, AnimationBatch animationBatch, float totalTime, float timeStep, ref long offset, long initialOffset, bool final)
+        private void WriteAnimationDataBufferViews(ModelEntity model, int modelIndex, Vector3[,] translations, Quaternion[,] rotations, Vector3[,] scales, int totalFrames, ref long offset, long initialOffset, bool final)
         {
             // Write position
             _writer.WriteLine("{");
             _writer.WriteLine(" \"buffer\": 0,");
             _writer.WriteLine($" \"byteOffset\": {_binaryWriter.BaseStream.Position - initialOffset},");
-            animationBatch.SetupAnimationBatch(animation);
-            animationBatch.LoopMode = AnimationLoopMode.Once;
-            for (var t = 0f; t < totalTime; t += timeStep)
+            for (var frame = 0; frame < totalFrames; frame++)
             {
-                animationBatch.Time = t;
-                if (animationBatch.SetupAnimationFrame(entities, null, model))
-                {
-                    var matrix = model.TempMatrix * model.TempLocalMatrix;
-                    var translation = matrix.ExtractTranslation();
-                    WriteBinaryVector3(translation, true);
-                }
+                var translation = translations[modelIndex, frame];
+                WriteBinaryVector3(translation, true);
             }
             _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
             _writer.WriteLine("},");
@@ -443,17 +499,10 @@ namespace PSXPrev.Common.Exporters
             _writer.WriteLine("{");
             _writer.WriteLine(" \"buffer\": 0,");
             _writer.WriteLine($" \"byteOffset\": {_binaryWriter.BaseStream.Position - initialOffset},");
-            animationBatch.SetupAnimationBatch(animation);
-            animationBatch.LoopMode = AnimationLoopMode.Once;
-            for (var t = 0f; t < totalTime; t += timeStep)
+            for (var frame = 0; frame < totalFrames; frame++)
             {
-                animationBatch.Time = t;
-                if (animationBatch.SetupAnimationFrame(entities, null, model))
-                {
-                    var matrix = model.TempMatrix * model.TempLocalMatrix;
-                    var rotation = matrix.ExtractRotation();
-                    WriteBinaryQuaternion(rotation, true);
-                }
+                var rotation = rotations[modelIndex, frame];
+                WriteBinaryQuaternion(rotation, true);
             }
             _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
             _writer.WriteLine("},");
@@ -464,17 +513,10 @@ namespace PSXPrev.Common.Exporters
             _writer.WriteLine("{");
             _writer.WriteLine(" \"buffer\": 0,");
             _writer.WriteLine($" \"byteOffset\": {_binaryWriter.BaseStream.Position - initialOffset},");
-            animationBatch.SetupAnimationBatch(animation);
-            animationBatch.LoopMode = AnimationLoopMode.Once;
-            for (var t = 0f; t < totalTime; t += timeStep)
+            for (var frame = 0; frame < totalFrames; frame++)
             {
-                animationBatch.Time = t;
-                if (animationBatch.SetupAnimationFrame(entities, null, model))
-                {
-                    var matrix = model.TempMatrix * model.TempLocalMatrix;
-                    var scale = matrix.ExtractScale();
-                    WriteBinaryVector3(scale, false);
-                }
+                var scale = scales[modelIndex, frame];
+                WriteBinaryVector3(scale, false);
             }
             _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
             _writer.WriteLine(final ? "}" : "},");
@@ -484,6 +526,8 @@ namespace PSXPrev.Common.Exporters
 
         private void WriteMeshBufferViews(ModelEntity model, ref long offset, long initialOffset, bool final = false)
         {
+            var noTextureFinal = final && !NeedsTexture(model);
+
             // Write vertex positions
             _writer.WriteLine("{");
             _writer.WriteLine(" \"buffer\": 0,");
@@ -531,24 +575,27 @@ namespace PSXPrev.Common.Exporters
                 }
             }
             _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
-            _writer.WriteLine("},");
+            _writer.WriteLine(noTextureFinal ? "}" : "},");
 
             offset = _binaryWriter.BaseStream.Position;
 
             // Write vertex UVs
-            _writer.WriteLine("{");
-            _writer.WriteLine(" \"buffer\": 0,");
-            _writer.WriteLine($" \"target\": {Target_ArrayBuffer},");
-            _writer.WriteLine($" \"byteOffset\": {_binaryWriter.BaseStream.Position - initialOffset},");
-            foreach (var triangle in model.Triangles)
+            if (NeedsTexture(model))
             {
-                for (var j = 2; j >= 0; j--)
+                _writer.WriteLine("{");
+                _writer.WriteLine(" \"buffer\": 0,");
+                _writer.WriteLine($" \"target\": {Target_ArrayBuffer},");
+                _writer.WriteLine($" \"byteOffset\": {_binaryWriter.BaseStream.Position - initialOffset},");
+                foreach (var triangle in model.Triangles)
                 {
-                    WriteBinaryUV(triangle.Uv[j]);
+                    for (var j = 2; j >= 0; j--)
+                    {
+                        WriteBinaryUV(triangle.Uv[j]);
+                    }
                 }
+                _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
+                _writer.WriteLine(final ? "}" : "},");
             }
-            _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
-            _writer.WriteLine(final ? "}" : "},");
 
             offset = _binaryWriter.BaseStream.Position;
         }
@@ -567,7 +614,23 @@ namespace PSXPrev.Common.Exporters
                 _writer.WriteLine($"  {F(vector.Z)}");
             }
         }
-        
+
+        private void WriteQuaternion(Quaternion quaternion, bool fixHandiness = false)
+        {
+            _writer.WriteLine($"  {F(quaternion.X)},");
+            if (fixHandiness)
+            {
+                _writer.WriteLine($"  {F(-quaternion.Y)},");
+                _writer.WriteLine($"  {F(-quaternion.Z)},");
+            }
+            else
+            {
+                _writer.WriteLine($"  {F(quaternion.Y)},");
+                _writer.WriteLine($"  {F(quaternion.Z)},");
+            }
+            _writer.WriteLine($"  {F(quaternion.W)}");
+        }
+
         private void WriteBinaryColor(Color color)
         {
             _binaryWriter.Write(color.R);
@@ -615,6 +678,11 @@ namespace PSXPrev.Common.Exporters
         {
             _binaryWriter.Write(vector.X);
             _binaryWriter.Write(vector.Y);
+        }
+
+        private bool NeedsTexture(ModelEntity model)
+        {
+            return _options.ExportTextures && model.HasTexture;
         }
 
         private static string F(float value)
