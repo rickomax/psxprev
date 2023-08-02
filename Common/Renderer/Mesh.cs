@@ -71,7 +71,7 @@ namespace PSXPrev.Common.Renderer
         }
 
 
-        public void Draw(TextureBinder textureBinder = null, bool wireframe = false, bool verticesOnly = false, float wireframeSize = 1f, float vertexSize = 1f)
+        public void Draw(TextureBinder textureBinder = null, bool showWireframe = false, bool showVertices = false, float wireframeSize = 1f, float vertexSize = 1f)
         {
             // Bind buffers
             GL.BindVertexArray(_meshId);
@@ -103,26 +103,26 @@ namespace PSXPrev.Common.Renderer
             }
 
             // Setup point size or line width
-            if (verticesOnly || _meshDataType == MeshDataType.Point)
+            if (showVertices || _meshDataType == MeshDataType.Point)
             {
-                GL.PointSize(verticesOnly ? vertexSize : Thickness);
+                GL.PointSize(showVertices ? vertexSize : Thickness);
             }
-            else if (wireframe || _meshDataType == MeshDataType.Line)
+            else if (showWireframe || _meshDataType == MeshDataType.Line)
             {
-                GL.LineWidth(wireframe ? wireframeSize : Thickness);
+                GL.LineWidth(showWireframe ? wireframeSize : Thickness);
             }
 
             // Draw geometry
             switch (_meshDataType)
             {
                 case MeshDataType.Triangle:
-                    GL.PolygonMode(MaterialFace.FrontAndBack, wireframe ? PolygonMode.Line : PolygonMode.Fill);
-                    GL.DrawArrays(verticesOnly ? PrimitiveType.Points : PrimitiveType.Triangles, 0, _numElements);
+                    GL.PolygonMode(MaterialFace.FrontAndBack, showWireframe ? PolygonMode.Line : PolygonMode.Fill);
+                    GL.DrawArrays(showVertices ? PrimitiveType.Points : PrimitiveType.Triangles, 0, _numElements);
                     GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
                     break;
 
                 case MeshDataType.Line:
-                    GL.DrawArrays(verticesOnly ? PrimitiveType.Points : PrimitiveType.Lines, 0, _numElements);
+                    GL.DrawArrays(showVertices ? PrimitiveType.Points : PrimitiveType.Lines, 0, _numElements);
                     break;
 
                 case MeshDataType.Point:
@@ -131,11 +131,11 @@ namespace PSXPrev.Common.Renderer
             }
 
             // Restore point size or line width
-            if (verticesOnly || _meshDataType == MeshDataType.Point)
+            if (showVertices || _meshDataType == MeshDataType.Point)
             {
                 GL.PointSize(1f);
             }
-            else if (wireframe || _meshDataType == MeshDataType.Line)
+            else if (showWireframe || _meshDataType == MeshDataType.Line)
             {
                 GL.LineWidth(1f);
             }

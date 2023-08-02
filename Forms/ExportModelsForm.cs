@@ -12,14 +12,6 @@ namespace PSXPrev.Forms
 {
     public partial class ExportModelsForm : Form
     {
-        private const string FormatOBJ = "OBJ";
-        private const string FormatPLY = "PLY";
-        private const string FormatGLTF2 = "glTF2";
-
-        private static string _lastSelectedPath = string.Empty;
-        private static string _lastFormat = FormatOBJ;
-        private static ExportModelOptions _lastOptions = new ExportModelOptions();
-
         private string _format;
 
         private RootEntity[] _entities;
@@ -29,7 +21,8 @@ namespace PSXPrev.Forms
             set
             {
                 _entities = value;
-                exportingModelsLabel.Text = $"Exporting {_entities.Length} Models";
+                var plural = _entities.Length != 1 ? "s" : string.Empty;
+                exportingModelsLabel.Text = $"Exporting {_entities.Length} Model{plural}";
             }
         }
 
@@ -59,65 +52,6 @@ namespace PSXPrev.Forms
         public ExportModelsForm()
         {
             InitializeComponent();
-            // Use the last export options
-            LoadOptions(_lastSelectedPath, _lastFormat, _lastOptions);
-        }
-
-        private void LoadOptions(string selectedPath, string format, ExportModelOptions options)
-        {
-            filePathTextBox.Text = selectedPath;
-            _format = format;
-
-            // Update Format radio buttons
-            foreach (RadioButton radioButton in formatGroupBox.Controls)
-            {
-                var tag = (string)radioButton.Tag;
-                if (tag == _format)
-                {
-                    radioButton.Checked = true;
-                    break;
-                }
-            }
-
-            // Update Textures radio buttons
-            if (!options.ExportTextures)
-            {
-                texturesOffRadioButton.Checked = true;
-            }
-            else if (!options.SingleTexture)
-            {
-                texturesIndividualRadioButton.Checked = true;
-            }
-            else
-            {
-                texturesSingleRadioButton.Checked = true;
-            }
-            // Update Textures check boxes
-            optionShareTexturesCheckBox.Checked = options.ShareTextures;
-            optionTiledTexturesCheckBox.Checked = options.TiledTextures;
-            optionRedrawTexturesCheckBox.Checked = options.RedrawTextures;
-
-            // Update Options check boxes
-            optionMergeModelsCheckBox.Checked = options.MergeEntities;
-            optionAttachLimbsCheckBox.Checked = options.AttachLimbs;
-            optionExperimentalVertexColorCheckBox.Checked = options.ExperimentalOBJVertexColor;
-
-            // Update Animations radio buttons
-            if (!options.ExportAnimations)
-            {
-                animationsOffRadioButton.Checked = true;
-            }
-            else
-            {
-                animationsOnRadioButton.Checked = true;
-            }
-        }
-
-        private void SaveOptions(ExportModelOptions options)
-        {
-            _lastSelectedPath = filePathTextBox.Text;
-            _lastFormat = _format;
-            _lastOptions = options;
         }
 
 
@@ -128,6 +62,9 @@ namespace PSXPrev.Forms
             toolTip.SetToolTip(optionRedrawTexturesCheckBox, "Models with associated textures will draw these\ntextures to the VRAM pages before exporting");
             toolTip.SetToolTip(optionShareTexturesCheckBox, "All exported models will reference the same\nexported texture files");
             toolTip.SetToolTip(optionMergeModelsCheckBox, "The geometry for all models will be merged\nand exported as a single file");
+
+            // Use the last export options
+            ReadSettings(Settings.Instance.ExportModelOptions);
 
             // Debugging: Instantly export with specified settings.
             //{
@@ -167,7 +104,7 @@ namespace PSXPrev.Forms
 
                 // We can optionally coerce the textures radio button to Single.
                 // But that would be inconvenient if the user is swapping back and forth between formats.
-                /*if (_format == FormatPLY && texturesIndividualRadioButton.Checked)
+                /*if (_format == ExportModelOptions.PLY && texturesIndividualRadioButton.Checked)
                 {
                     texturesSingleRadioButton.Checked = true;
                 }
@@ -175,12 +112,12 @@ namespace PSXPrev.Forms
                 {
                     texturesIndividualRadioButton.Checked = true;
                 }*/
-                texturesIndividualRadioButton.Enabled = _format != FormatPLY;
+                texturesIndividualRadioButton.Enabled = _format != ExportModelOptions.PLY;
 
-                optionMergeModelsCheckBox.Enabled = _format != FormatGLTF2;
-                optionExperimentalVertexColorCheckBox.Enabled = _format == FormatOBJ;
+                optionMergeModelsCheckBox.Enabled = _format != ExportModelOptions.GLTF2;
+                optionExperimentalVertexColorCheckBox.Enabled = _format == ExportModelOptions.OBJ;
 
-                animationsGroupBox.Enabled = _format == FormatGLTF2;
+                animationsGroupBox.Enabled = _format == ExportModelOptions.GLTF2;
 
                 animationsOffRadioButton.Checked = true; // Always turn off animations when switching formats?
             }
@@ -220,8 +157,9 @@ namespace PSXPrev.Forms
 
             var options = new ExportModelOptions
             {
-                MergeEntities = optionMergeModelsCheckBox.Checked,
-                AttachLimbs = optionAttachLimbsCheckBox.Checked,
+                // These settings are only present for loading and saving purposes.
+                Path = selectedPath,
+                Format = _format,
 
                 ExportTextures = !texturesOffRadioButton.Checked,
                 ShareTextures = optionShareTexturesCheckBox.Checked,
@@ -229,28 +167,113 @@ namespace PSXPrev.Forms
                 RedrawTextures = optionRedrawTexturesCheckBox.Checked,
                 SingleTexture = texturesSingleRadioButton.Checked,
 
+                MergeEntities = optionMergeModelsCheckBox.Checked,
+                AttachLimbs = optionAttachLimbsCheckBox.Checked,
                 ExperimentalOBJVertexColor = optionExperimentalVertexColorCheckBox.Checked,
 
                 ExportAnimations = !animationsOffRadioButton.Checked,
             };
 
+            WriteSettings(options);
+
             switch (_format)
             {
-                case FormatOBJ:
+                case ExportModelOptions.OBJ:
                     var objExporter = new OBJExporter();
                     objExporter.Export(Entities, selectedPath, options);
                     break;
-                case FormatPLY:
+                case ExportModelOptions.PLY:
                     var plyExporter = new PLYExporter();
                     plyExporter.Export(Entities, selectedPath, options);
                     break;
-                case FormatGLTF2:
+                case ExportModelOptions.GLTF2:
                     var glTF2Exporter = new glTF2Exporter();
                     glTF2Exporter.Export(Entities, Animations, AnimationBatch, selectedPath, options);
                     break;
             }
+        }
 
-            SaveOptions(options);
+        private void ReadSettings(ExportModelOptions options)
+        {
+            if (options == null)
+            {
+                options = new ExportModelOptions();
+            }
+
+            filePathTextBox.Text = options.Path ?? string.Empty;
+            _format = options.Format ?? ExportModelOptions.DefaultFormat;
+
+            // Update Format radio buttons
+            foreach (var control in formatGroupBox.Controls)
+            {
+                if (control is RadioButton radioButton)
+                {
+                    var tag = (string)radioButton.Tag;
+                    if (string.Equals(tag, _format, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        radioButton.Checked = true;
+                        // Force checked changed event in-case this is already the checked radio button.
+                        formatRadioButtons_CheckedChanged(radioButton, EventArgs.Empty);
+                        break;
+                    }
+                }
+            }
+
+            // Update Textures radio buttons
+            if (!options.ExportTextures)
+            {
+                texturesOffRadioButton.Checked = true;
+            }
+            else if (!options.SingleTexture)
+            {
+                texturesIndividualRadioButton.Checked = true;
+            }
+            else
+            {
+                texturesSingleRadioButton.Checked = true;
+            }
+            foreach (var control in texturesGroupBox.Controls)
+            {
+                if (control is RadioButton radioButton && radioButton.Checked)
+                {
+                    // Force checked changed event in-case this is already the checked radio button.
+                    texturesRadioButtons_CheckedChanged(radioButton, EventArgs.Empty);
+                    break;
+                }
+            }
+            // Update Textures check boxes
+            optionShareTexturesCheckBox.Checked = options.ShareTextures;
+            optionTiledTexturesCheckBox.Checked = options.TiledTextures;
+            optionRedrawTexturesCheckBox.Checked = options.RedrawTextures;
+
+            // Update Options check boxes
+            optionMergeModelsCheckBox.Checked = options.MergeEntities;
+            optionAttachLimbsCheckBox.Checked = options.AttachLimbs;
+            optionExperimentalVertexColorCheckBox.Checked = options.ExperimentalOBJVertexColor;
+
+            // Update Animations radio buttons
+            if (!options.ExportAnimations)
+            {
+                animationsOffRadioButton.Checked = true;
+            }
+            else
+            {
+                animationsOnRadioButton.Checked = true;
+            }
+            foreach (var control in animationsGroupBox.Controls)
+            {
+                if (control is RadioButton radioButton && radioButton.Checked)
+                {
+                    // Force checked changed event in-case this is already the checked radio button.
+                    animationsRadioButtons_CheckedChanged(radioButton, EventArgs.Empty);
+                    break;
+                }
+            }
+        }
+
+        private void WriteSettings(ExportModelOptions options)
+        {
+            Settings.Instance.ExportModelOptions = options.Clone();
         }
 
 

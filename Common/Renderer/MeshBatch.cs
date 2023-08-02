@@ -34,13 +34,13 @@ namespace PSXPrev.Common.Renderer
         public int MeshIndex { get; set; } // Manually set this index to handle which mesh to bind
 
         public TextureBinder TextureBinder { get; set; }
-        public bool Wireframe { get; set; }
-        public bool VerticesOnly { get; set; }
+        public bool ShowWireframe { get; set; }
+        public bool ShowVertices { get; set; }
         public float WireframeSize { get; set; } = 1f;
         public float VertexSize { get; set; } = 1f;
         public bool AmbientEnabled { get; set; }
         public bool LightEnabled { get; set; }
-        public bool TextureEnabled { get; set; }
+        public bool TexturesEnabled { get; set; }
         public bool SemiTransparencyEnabled { get; set; } = true;
         public bool ForceDoubleSided { get; set; }
         public Color SolidColor { get; set; }
@@ -724,7 +724,7 @@ namespace PSXPrev.Common.Renderer
                 }
             }
 
-            if (TextureEnabled && mesh.RenderFlags.HasFlag(RenderFlags.Textured))
+            if (TexturesEnabled && mesh.RenderFlags.HasFlag(RenderFlags.Textured))
             {
                 GL.Uniform1(Scene.UniformTextureMode, 0); // Enable texture
             }
@@ -747,7 +747,7 @@ namespace PSXPrev.Common.Renderer
             var mvpMatrix = modelMatrix * viewMatrix * projectionMatrix;
             GL.UniformMatrix4(Scene.UniformModelMatrix, false, ref modelMatrix);
             GL.UniformMatrix4(Scene.UniformMVPMatrix, false, ref mvpMatrix);
-            mesh.Draw(TextureBinder, Wireframe, VerticesOnly, WireframeSize, VertexSize);
+            mesh.Draw(TextureBinder, ShowWireframe, ShowVertices, WireframeSize, VertexSize);
         }
 
 

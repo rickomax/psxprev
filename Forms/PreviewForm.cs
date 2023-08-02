@@ -241,79 +241,6 @@ namespace PSXPrev.Forms
             }
         }
 
-        public void SetAutoAttachLimbs(bool attachLimbs)
-        {
-            if (IsDisposed || _closing)
-            {
-                return;
-            }
-            if (InvokeRequired)
-            {
-                var invokeAction = new Action<bool>(SetAutoAttachLimbs);
-                Invoke(invokeAction, attachLimbs);
-            }
-            else
-            {
-                autoAttachLimbsToolStripMenuItem.Checked = attachLimbs;
-                _scene.AutoAttach = attachLimbs;
-                UpdateSelectedEntity();
-            }
-        }
-
-        public void SetAutoDrawModelTextures(bool autoDraw)
-        {
-            if (IsDisposed || _closing)
-            {
-                return;
-            }
-            if (InvokeRequired)
-            {
-                var invokeAction = new Action<bool>(SetAutoDrawModelTextures);
-                Invoke(invokeAction, autoDraw);
-            }
-            else
-            {
-                autoDrawModelTexturesToolStripMenuItem.Checked = autoDraw;
-                _autoDrawModelTextures = autoDraw;
-            }
-        }
-
-        public void SetAutoSelectAnimationModel(bool autoSelect)
-        {
-            if (IsDisposed || _closing)
-            {
-                return;
-            }
-            if (InvokeRequired)
-            {
-                var invokeAction = new Action<bool>(SetAutoSelectAnimationModel);
-                Invoke(invokeAction, autoSelect);
-            }
-            else
-            {
-                autoSelectAnimationModelToolStripMenuItem.Checked = autoSelect;
-                _autoSelectAnimationModel = autoSelect;
-            }
-        }
-
-        public void SetAutoPlayAnimations(bool autoPlay)
-        {
-            if (IsDisposed || _closing)
-            {
-                return;
-            }
-            if (InvokeRequired)
-            {
-                var invokeAction = new Action<bool>(SetAutoPlayAnimations);
-                Invoke(invokeAction, autoPlay);
-            }
-            else
-            {
-                autoPlayAnimationsToolStripMenuItem.Checked = autoPlay;
-                _autoPlayAnimations = autoPlay;
-            }
-        }
-
         public void SelectFirstEntity()
         {
             if (IsDisposed || _closing)
@@ -547,10 +474,14 @@ namespace PSXPrev.Forms
 
             toolTip.SetToolTip(lightYawNumericUpDown, "Yaw");
             toolTip.SetToolTip(lightPitchNumericUpDown, "Pitch");
+
+            ReadSettings(Settings.Instance);
         }
 
         private void previewForm_FormClosing(object sender, FormClosingEventArgs e)
         {
+            SaveSettings();
+
             _closing = true;
             _redrawTimer?.Stop();
             _animateTimer?.Stop();
@@ -1463,7 +1394,7 @@ namespace PSXPrev.Forms
 
         private void wireframeToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
-            _scene.Wireframe = wireframeToolStripMenuItem.Checked;
+            _scene.ShowWireframe = wireframeToolStripMenuItem.Checked;
         }
 
         private void clearAllPagesToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1729,12 +1660,12 @@ namespace PSXPrev.Forms
             UpdateSelectedEntity();
         }
 
-        private void showGizmosToolStripMenuItem_Click(object sender, EventArgs e)
+        private void showGizmosToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _scene.ShowGizmos = showGizmosToolStripMenuItem.Checked;
         }
 
-        private void showBoundsToolStripMenuItem_Click(object sender, EventArgs e)
+        private void showBoundsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _scene.ShowBounds = showBoundsToolStripMenuItem.Checked;
         }
@@ -1773,7 +1704,7 @@ namespace PSXPrev.Forms
             Process.Start("https://github.com/rickomax/psxprev");
         }
 
-        private void autoAttachLimbsToolStripMenuItem_Click(object sender, EventArgs e)
+        private void autoAttachLimbsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _scene.AutoAttach = autoAttachLimbsToolStripMenuItem.Checked;
             UpdateSelectedEntity();
@@ -1803,7 +1734,7 @@ namespace PSXPrev.Forms
             lightYawNumericUpDown.Refresh();
         }
 
-        private void enableLightToolStripMenuItem_Click(object sender, EventArgs e)
+        private void enableLightToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _scene.LightEnabled = enableLightToolStripMenuItem.Checked;
         }
@@ -1896,13 +1827,13 @@ namespace PSXPrev.Forms
             messageToolStripLabel.Width = (int)(statusStrip1.Width * 0.35f);
         }
 
-        private void enableTransparencyToolStripMenuItem_Click(object sender, EventArgs e)
+        private void enableTransparencyToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _scene.SemiTransparencyEnabled = enableSemiTransparencyToolStripMenuItem.Checked;
             Redraw();
         }
 
-        private void forceDoubleSidedToolStripMenuItem_Click(object sender, EventArgs e)
+        private void forceDoubleSidedToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _scene.ForceDoubleSided = forceDoubleSidedToolStripMenuItem.Checked;
             Redraw();
@@ -1931,9 +1862,9 @@ namespace PSXPrev.Forms
             e.Graphics.PixelOffsetMode = PixelOffsetMode.Default;
         }
 
-        private void verticesOnlyToolStripMenuItem_Click(object sender, EventArgs e)
+        private void verticesOnlyToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
-            _scene.VerticesOnly = verticesOnlyToolStripMenuItem.Checked;
+            _scene.ShowVertices = verticesOnlyToolStripMenuItem.Checked;
         }
 
         private void vertexSizeUpDown_ValueChanged(object sender, EventArgs e)
@@ -1974,17 +1905,17 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void autoDrawModelTexturesToolStripMenuItem_Click(object sender, EventArgs e)
+        private void autoDrawModelTexturesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _autoDrawModelTextures = autoDrawModelTexturesToolStripMenuItem.Checked;
         }
 
-        private void autoSelectAnimationModelToolStripMenuItem_Click(object sender, EventArgs e)
+        private void autoSelectAnimationModelToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _autoSelectAnimationModel = autoSelectAnimationModelToolStripMenuItem.Checked;
         }
 
-        private void autoPlayAnimationsToolStripMenuItem_Click(object sender, EventArgs e)
+        private void autoPlayAnimationsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _autoPlayAnimations = autoPlayAnimationsToolStripMenuItem.Checked;
         }
@@ -2181,6 +2112,112 @@ namespace PSXPrev.Forms
         private void animationReverseCheckBox_CheckedChanged(object sender, EventArgs e)
         {
             _scene.AnimationBatch.Reverse = animationReverseCheckBox.Checked;
+        }
+
+        public void LoadDefaultSettings()
+        {
+            Settings.LoadDefaults();
+            ReadSettings(Settings.Instance);
+        }
+
+        public void LoadSettings()
+        {
+            Settings.Load();
+            ReadSettings(Settings.Instance);
+        }
+
+        public void SaveSettings()
+        {
+            WriteSettings(Settings.Instance);
+            Settings.Instance.Save();
+        }
+
+        public void ReadSettings(Settings settings)
+        {
+            gridSizeNumericUpDown.Value = (decimal)settings.GridSnap;
+            cameraFOVUpDown.Value = (decimal)settings.CameraFOV;
+            lightIntensityNumericUpDown.Value = (decimal)settings.LightIntensity;
+            // Prevent light rotation ray from showing up while reading settings.
+            // This will be re-assigned later in the function.
+            _scene.ShowLightRotationRay = false;
+            lightYawNumericUpDown.Value = (decimal)settings.LightYaw;
+            lightPitchNumericUpDown.Value = (decimal)settings.LightPitch;
+            enableLightToolStripMenuItem.Checked = settings.LightEnabled;
+            _scene.AmbientEnabled = settings.AmbientEnabled;
+            _scene.TexturesEnabled = settings.TexturesEnabled;
+            enableSemiTransparencyToolStripMenuItem.Checked = settings.SemiTransparencyEnabled;
+            forceDoubleSidedToolStripMenuItem.Checked = settings.ForceDoubleSided;
+            autoAttachLimbsToolStripMenuItem.Checked = settings.AutoAttachLimbs;
+            wireframeToolStripMenuItem.Checked = settings.ShowWireframe;
+            verticesOnlyToolStripMenuItem.Checked = settings.ShowVertices;
+            _scene.WireframeSize = settings.WireframeSize;
+            vertexSizeUpDown.Value = (decimal)settings.VertexSize;
+            showGizmosToolStripMenuItem.Checked = settings.ShowGizmos;
+            showBoundsToolStripMenuItem.Checked = settings.ShowBounds;
+            _scene.ShowLightRotationRay = settings.ShowLightRotationRay;
+            _scene.ShowDebugVisuals = settings.ShowDebugVisuals;
+            _scene.ShowDebugPickingRay = settings.ShowDebugPickingRay;
+            _scene.ShowDebugIntersections = settings.ShowDebugIntersections;
+            SetBackgroundColor(settings.BackgroundColor);
+            SetAmbientColor(settings.AmbientColor);
+            SetMaskColor(settings.MaskColor);
+            showUVToolStripMenuItem.Checked = settings.ShowUVsInVRAM;
+            autoDrawModelTexturesToolStripMenuItem.Checked = settings.AutoDrawModelTextures;
+            autoPlayAnimationsToolStripMenuItem.Checked = settings.AutoPlayAnimation;
+            autoSelectAnimationModelToolStripMenuItem.Checked = settings.AutoSelectAnimationModel;
+            animationLoopModeComboBox.SelectedIndex = (int)settings.AnimationLoopMode;
+            animationReverseCheckBox.Checked = settings.AnimationReverse;
+            animationSpeedNumericUpDown.Value = (decimal)settings.AnimationSpeed;
+        }
+
+        public void WriteSettings(Settings settings)
+        {
+            settings.GridSnap = (float)gridSizeNumericUpDown.Value;
+            settings.CameraFOV = (float)cameraFOVUpDown.Value;
+            settings.LightIntensity = (float)lightIntensityNumericUpDown.Value;
+            settings.LightYaw = (float)lightYawNumericUpDown.Value;
+            settings.LightPitch = (float)lightPitchNumericUpDown.Value;
+            settings.LightEnabled = enableLightToolStripMenuItem.Checked;
+            settings.AmbientEnabled = _scene.AmbientEnabled;
+            settings.TexturesEnabled = _scene.TexturesEnabled;
+            settings.SemiTransparencyEnabled = enableSemiTransparencyToolStripMenuItem.Checked;
+            settings.ForceDoubleSided = forceDoubleSidedToolStripMenuItem.Checked;
+            settings.AutoAttachLimbs = autoAttachLimbsToolStripMenuItem.Checked;
+            settings.ShowWireframe = wireframeToolStripMenuItem.Checked;
+            settings.ShowVertices = verticesOnlyToolStripMenuItem.Checked;
+            settings.WireframeSize = _scene.WireframeSize;
+            settings.VertexSize = (float)vertexSizeUpDown.Value;
+            settings.ShowGizmos = showGizmosToolStripMenuItem.Checked;
+            settings.ShowBounds = showBoundsToolStripMenuItem.Checked;
+            settings.ShowLightRotationRay = _scene.ShowLightRotationRay;
+            settings.ShowDebugVisuals = _scene.ShowDebugVisuals;
+            settings.ShowDebugPickingRay = _scene.ShowDebugPickingRay;
+            settings.ShowDebugIntersections = _scene.ShowDebugIntersections;
+            settings.BackgroundColor =  _scene.ClearColor;
+            settings.AmbientColor = _scene.AmbientColor;
+            settings.MaskColor = _scene.MaskColor;
+            settings.ShowUVsInVRAM = showUVToolStripMenuItem.Checked;
+            settings.AutoDrawModelTextures = autoDrawModelTexturesToolStripMenuItem.Checked;
+            settings.AutoPlayAnimation = autoPlayAnimationsToolStripMenuItem.Checked;
+            settings.AutoSelectAnimationModel = autoSelectAnimationModelToolStripMenuItem.Checked;
+            settings.AnimationLoopMode = (AnimationLoopMode)animationLoopModeComboBox.SelectedIndex;
+            settings.AnimationReverse = animationReverseCheckBox.Checked;
+            settings.AnimationSpeed = (float)animationSpeedNumericUpDown.Value;
+        }
+
+        private void defaultSettingsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            LoadDefaultSettings();
+        }
+
+        private void loadSettingsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            LoadSettings();
+        }
+
+        private void saveSettingsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SaveSettings();
         }
     }
 }
