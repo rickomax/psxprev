@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Drawing.Design;
 using System.Windows.Forms;
 using System.Windows.Forms.Design;
+using PSXPrev.Common;
 using PSXPrev.Forms.Dialogs;
 
 namespace PSXPrev.Forms.Controls
@@ -16,14 +17,11 @@ namespace PSXPrev.Forms.Controls
 
         public override object EditValue(ITypeDescriptorContext context, IServiceProvider provider, object value)
         {
-            if (Program.IsScanning)
-            {
-                MessageBox.Show("Please wait until the scan finishes.");
-                return null;
-            }
             var svc = provider.GetService(typeof(IWindowsFormsEditorService)) as IWindowsFormsEditorService;
             using (var form = new SelectRootEntityDialog())
             {
+                form.RootEntities = Program.GetEntityResults();
+                form.SelectedRootEntity = value as RootEntity;
                 var result = svc != null ? svc.ShowDialog(form) : form.ShowDialog();
                 if (result == DialogResult.OK)
                 {

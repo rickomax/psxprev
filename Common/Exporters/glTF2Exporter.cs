@@ -29,7 +29,7 @@ namespace PSXPrev.Common.Exporters
 
         private const string AssetTemplate = " \"asset\" : {\r\n  \"generator\" : \"PSXPREV\",\r\n  \"version\" : \"2.0\"\r\n },";
 
-        public void Export(RootEntity[] entities, Animation[] animations, AnimationBatch animationBatch, string selectedPath, ExportModelOptions options = null)
+        public void Export(RootEntity[] entities, Animation[] animations, AnimationBatch animationBatch, ExportModelOptions options = null)
         {
             _options = options?.Clone() ?? new ExportModelOptions();
             // Force any required options for this format here, before calling Validate.
@@ -38,7 +38,7 @@ namespace PSXPrev.Common.Exporters
 
             _pngExporter = new PNGExporter();
             _modelPreparer = new ModelPreparerExporter(_options);
-            _selectedPath = selectedPath;
+            _selectedPath = _options.Path;
 
             // Prepare the shared state for all models being exported (mainly setting up tiled textures).
             _modelPreparer.PrepareAll(entities);
