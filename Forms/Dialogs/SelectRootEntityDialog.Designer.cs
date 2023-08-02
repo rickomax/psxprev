@@ -30,13 +30,15 @@
         {
             this.okButton = new System.Windows.Forms.Button();
             this.mainLabel = new System.Windows.Forms.Label();
-            this.TMDListBox = new System.Windows.Forms.ComboBox();
+            this.entitiesListBox = new System.Windows.Forms.ComboBox();
             this.SuspendLayout();
             // 
             // okButton
             // 
+            this.okButton.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.okButton.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.okButton.Location = new System.Drawing.Point(107, 58);
+            this.okButton.Location = new System.Drawing.Point(107, 67);
             this.okButton.Name = "okButton";
             this.okButton.Size = new System.Drawing.Size(91, 24);
             this.okButton.TabIndex = 3;
@@ -49,24 +51,24 @@
             this.mainLabel.Name = "mainLabel";
             this.mainLabel.Size = new System.Drawing.Size(283, 20);
             this.mainLabel.TabIndex = 5;
-            this.mainLabel.Text = "Select a TMD Model";
+            this.mainLabel.Text = "Select a Model";
             this.mainLabel.TextAlign = System.Drawing.ContentAlignment.TopCenter;
             // 
-            // TMDListBox
+            // entitiesListBox
             // 
-            this.TMDListBox.FormattingEnabled = true;
-            this.TMDListBox.Location = new System.Drawing.Point(12, 35);
-            this.TMDListBox.Name = "TMDListBox";
-            this.TMDListBox.Size = new System.Drawing.Size(280, 21);
-            this.TMDListBox.TabIndex = 6;
+            this.entitiesListBox.FormattingEnabled = true;
+            this.entitiesListBox.Location = new System.Drawing.Point(12, 35);
+            this.entitiesListBox.Name = "entitiesListBox";
+            this.entitiesListBox.Size = new System.Drawing.Size(280, 21);
+            this.entitiesListBox.TabIndex = 6;
             // 
             // SelectRootEntityDialog
             // 
             this.AcceptButton = this.okButton;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(304, 90);
-            this.Controls.Add(this.TMDListBox);
+            this.ClientSize = new System.Drawing.Size(304, 99);
+            this.Controls.Add(this.entitiesListBox);
             this.Controls.Add(this.mainLabel);
             this.Controls.Add(this.okButton);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
@@ -75,8 +77,7 @@
             this.Name = "SelectRootEntityDialog";
             this.ShowIcon = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "PSXPrev";
-            this.Load += new System.EventHandler(this.SelectTMDForm_Load);
+            this.Text = "PSXPrev Model Selector";
             this.ResumeLayout(false);
 
         }
@@ -85,6 +86,6 @@
 
         private System.Windows.Forms.Button okButton;
         private System.Windows.Forms.Label mainLabel;
-        private System.Windows.Forms.ComboBox TMDListBox;
+        private System.Windows.Forms.ComboBox entitiesListBox;
     }
 }

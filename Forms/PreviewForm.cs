@@ -49,10 +49,10 @@ namespace PSXPrev.Forms
         private static readonly Pen White1Px = new Pen(Color.White, 1f);
         private static readonly Pen Cyan1Px = new Pen(Color.Cyan, 1f);
 
-        private readonly List<Animation> _animations;
-        private readonly Action<PreviewForm> _refreshAction;
         private readonly List<RootEntity> _rootEntities;
         private readonly List<Texture> _textures;
+        private readonly List<Animation> _animations;
+        private readonly Action<PreviewForm> _refreshAction;
 
         private Timer _animateTimer;
         private Animation _curAnimation;
@@ -132,7 +132,7 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void EntityAdded(RootEntity entity)
+        private void EntityAdded(RootEntity entity, int index)
         {
             foreach (var entityBase in entity.ChildEntities)
             {
@@ -173,7 +173,7 @@ namespace PSXPrev.Forms
             }, texture.Bitmap);
         }
 
-        private void AnimationAdded(Animation animation)
+        private void AnimationAdded(Animation animation, int index)
         {
             animationsTreeView.BeginUpdate();
             var animationNode = new TreeNode(animation.AnimationName);
@@ -183,13 +183,17 @@ namespace PSXPrev.Forms
             animationsTreeView.EndUpdate();
 
             // Debugging: Quickly export HMD animation on startup.
-            //if (_animations.Count == 1)
+            //if (_rootEntities.Count >= 1 && _animations.Count == 1)
             //{
-            //    ExportModelsForm.Show(this, new[] { _rootEntities[0] }, new[] { _animations[0] }, _scene.AnimationBatch);
+            //    var options = new ExportModelOptions
+            //    {
+            //        Format = ExportModelOptions.GLTF2,
+            //    };
+            //    ExportModelsForm.Export(options, new[] { _rootEntities[0] }, new[] { _animations[0] }, _scene.AnimationBatch);
             //}
         }
 
-        public void UpdateRootEntities(List<RootEntity> entities)
+        public void AddRootEntities(List<RootEntity> entities)
         {
             if (IsDisposed || _closing)
             {
@@ -197,16 +201,12 @@ namespace PSXPrev.Forms
             }
             foreach (var entity in entities)
             {
-                if (_rootEntities.Contains(entity))
-                {
-                    continue;
-                }
                 _rootEntities.Add(entity);
-                EntityAdded(entity);
+                EntityAdded(entity, _rootEntities.Count - 1);
             }
         }
 
-        public void UpdateTextures(List<Texture> textures)
+        public void AddTextures(List<Texture> textures)
         {
             if (IsDisposed || _closing)
             {
@@ -214,17 +214,12 @@ namespace PSXPrev.Forms
             }
             foreach (var texture in textures)
             {
-                if (_textures.Contains(texture))
-                {
-                    continue;
-                }
                 _textures.Add(texture);
-                var textureIndex = _textures.IndexOf(texture);
-                TextureAdded(texture, textureIndex);
+                TextureAdded(texture, _textures.Count - 1);
             }
         }
 
-        public void UpdateAnimations(List<Animation> animations)
+        public void AddAnimations(List<Animation> animations)
         {
             if (IsDisposed || _closing)
             {
@@ -232,12 +227,35 @@ namespace PSXPrev.Forms
             }
             foreach (var animation in animations)
             {
-                if (_animations.Contains(animation))
-                {
-                    continue;
-                }
                 _animations.Add(animation);
-                AnimationAdded(animation);
+                AnimationAdded(animation, _animations.Count - 1);
+            }
+        }
+
+        public void ScanFinished(bool drawAllToVRAM)
+        {
+            if (IsDisposed || _closing)
+            {
+                return;
+            }
+            if (InvokeRequired)
+            {
+                var invokeAction = new Action<bool>(ScanFinished);
+                Invoke(invokeAction, drawAllToVRAM);
+            }
+            else
+            {
+                SelectFirstEntity(); // Select something if the user hasn't already done so.
+                if (drawAllToVRAM)
+                {
+                    DrawAllTexturesToVRAM();
+                }
+
+                pauseScanningToolStripMenuItem.Checked = false;
+                pauseScanningToolStripMenuItem.Enabled = false;
+                stopScanningToolStripMenuItem.Enabled = false;
+                startScanToolStripMenuItem.Enabled = true;
+                clearScanResultsToolStripMenuItem.Enabled = true;
             }
         }
 
@@ -398,28 +416,30 @@ namespace PSXPrev.Forms
             SetBackgroundColor(Color.LightSkyBlue);
         }
 
-        private void SetupTextures()
+        private void SetupEntities()
         {
-            for (var index = 0; index < _textures.Count; index++)
+            for (var i = 0; i < _rootEntities.Count; i++)
             {
-                var texture = _textures[index];
-                TextureAdded(texture, index);
+                var entity = _rootEntities[i];
+                EntityAdded(entity, i);
             }
         }
 
-        private void SetupEntities()
+        private void SetupTextures()
         {
-            foreach (var entity in _rootEntities)
+            for (var i = 0; i < _textures.Count; i++)
             {
-                EntityAdded(entity);
+                var texture = _textures[i];
+                TextureAdded(texture, i);
             }
         }
 
         private void SetupAnimations()
         {
-            foreach (var animation in _animations)
+            for (var i = 0; i < _animations.Count; i++)
             {
-                AnimationAdded(animation);
+                var animation = _animations[i];
+                AnimationAdded(animation, i);
             }
         }
 
@@ -476,6 +496,18 @@ namespace PSXPrev.Forms
             toolTip.SetToolTip(lightPitchNumericUpDown, "Pitch");
 
             ReadSettings(Settings.Instance);
+        }
+
+        private void previewForm_Shown(object sender, EventArgs e)
+        {
+            if (Program.HasCommandLineArguments)
+            {
+                Program.ScanCommandLineAsync();
+            }
+            else
+            {
+                PromptScan();
+            }
         }
 
         private void previewForm_FormClosing(object sender, FormClosingEventArgs e)
@@ -564,6 +596,87 @@ namespace PSXPrev.Forms
                 }
             }
             return selectedAnimations.Count == 0 ? null : selectedAnimations.ToArray();
+        }
+
+        private void ClearResults()
+        {
+            if (!Program.IsScanning)
+            {
+                Program.ClearResults();
+
+                // Clear selections
+                SelectEntity(null);
+                UnselectTriangle();
+                _selectedTriangle = null;
+                _selectedModelEntity = null;
+                _selectedRootEntity = null;
+                _curAnimation = null;
+                _curAnimationObject = null;
+                _curAnimationFrameObj = null;
+                UpdateSelectedAnimation(false);
+
+                // Clear selected property grid objects
+                modelPropertyGrid.SelectedObject = null;
+                texturePropertyGrid.SelectedObject = null;
+                animationPropertyGrid.SelectedObject = null;
+
+                // Clear listed results
+                entitiesTreeView.Nodes.Clear();
+                texturesListView.Items.Clear();
+                animationsTreeView.Nodes.Clear();
+
+                // Clear picture boxes
+                texturePreviewPictureBox.Image = null;
+                vramPagePictureBox.Image = null;
+                vramPagePictureBox.Invalidate();
+
+                // Clear actual results
+                _rootEntities.Clear();
+                foreach (var texture in _textures)
+                {
+                    texture.Dispose();
+                }
+                _textures.Clear();
+                _animations.Clear();
+                _vram.ClearAllPages();
+
+                // Reset scene batches
+                _scene.MeshBatch.Reset(0);
+                _scene.BoundsBatch.Reset(1);
+                _scene.TriangleOutlineBatch.Reset(1);
+                _scene.DebugIntersectionsBatch.Reset(1);
+                _scene.SetDebugPickingRay(false);
+
+                TMDBindingsForm.CloseTool();
+            }
+        }
+
+        private void PromptScan()
+        {
+            if (!Program.IsScanning)
+            {
+                _inDialog = true;
+                try
+                {
+                    pauseScanningToolStripMenuItem.Checked = false;
+                    pauseScanningToolStripMenuItem.Enabled = true;
+                    stopScanningToolStripMenuItem.Enabled = true;
+                    startScanToolStripMenuItem.Enabled = false;
+                    clearScanResultsToolStripMenuItem.Enabled = false;
+                    if (!ScannerForm.Show(this))
+                    {
+                        pauseScanningToolStripMenuItem.Checked = false;
+                        pauseScanningToolStripMenuItem.Enabled = false;
+                        stopScanningToolStripMenuItem.Enabled = false;
+                        startScanToolStripMenuItem.Enabled = true;
+                        clearScanResultsToolStripMenuItem.Enabled = true;
+                    }
+                }
+                finally
+                {
+                    _inDialog = false;
+                }
+            }
         }
 
         private void PromptOutputFolder(Action<string> pathCallback)
@@ -1086,27 +1199,14 @@ namespace PSXPrev.Forms
 
         private void UpdateModelPropertyGrid()
         {
-            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+            var propertyObject = _selectedTriangle?.Item2 ?? _selectedRootEntity ?? (object)_selectedModelEntity;
 
-            object propertyObject = null;
-            if (_selectedTriangle != null)
-            {
-                propertyObject = _selectedTriangle.Item2;
-            }
-            else if (selectedEntityBase != null)
-            {
-                propertyObject = selectedEntityBase;
-            }
             modelPropertyGrid.SelectedObject = propertyObject;
         }
 
         private void UpdateSelectedAnimation(bool play = false)
         {
             var propertyObject = _curAnimationFrameObj ?? _curAnimationObject ?? (object)_curAnimation;
-            if (propertyObject == null)
-            {
-                return;
-            }
 
             // Change Playing after Enabled, so that the call to Refresh in Playing will affect the enabled visual style too.
             animationPlayButtonx.Enabled = (_curAnimation != null);
@@ -1554,7 +1654,7 @@ namespace PSXPrev.Forms
                 UpdateAnimationProgressLabel();
             }
 
-            if (TMDBindingsForm.IsVisible)
+            if (TMDBindingsForm.IsVisible && _curAnimation != null)
             {
                 TMDBindingsForm.ShowTool(this, _curAnimation);
             }
@@ -1589,9 +1689,6 @@ namespace PSXPrev.Forms
                 messageToolStripLabel.Text = message;
                 if (complete)
                 {
-                    pauseScanningToolStripMenuItem.Checked = false;
-                    pauseScanningToolStripMenuItem.Enabled = false;
-                    stopScanningToolStripMenuItem.Enabled = false;
                 }
             }
         }
@@ -1681,12 +1778,6 @@ namespace PSXPrev.Forms
         {
             _scene.LightPitchYaw = new Vector2((float)lightPitchNumericUpDown.Value * GeomMath.Deg2Rad,
                                                (float)lightYawNumericUpDown.Value   * GeomMath.Deg2Rad);
-        }
-
-        private void restartToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            Close();
-            Program.Initialize(null);
         }
 
         private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2097,7 +2188,10 @@ namespace PSXPrev.Forms
             {
                 MessageBox.Show(this, "Please select an Animation first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
-            TMDBindingsForm.ShowTool(this, _curAnimation);
+            else
+            {
+                TMDBindingsForm.ShowTool(this, _curAnimation);
+            }
         }
 
         private void animationLoopModeComboBox_SelectedIndexChanged(object sender, EventArgs e)
@@ -2134,11 +2228,16 @@ namespace PSXPrev.Forms
 
         public void ReadSettings(Settings settings)
         {
+            if (!Program.IsScanning)
+            {
+                Program.Logger.ReadSettings(Settings.Instance);
+            }
+
             gridSizeNumericUpDown.Value = (decimal)settings.GridSnap;
             cameraFOVUpDown.Value = (decimal)settings.CameraFOV;
             lightIntensityNumericUpDown.Value = (decimal)settings.LightIntensity;
             // Prevent light rotation ray from showing up while reading settings.
-            // This will be re-assigned later in the function.
+            // This is re-assigned later in the function.
             _scene.ShowLightRotationRay = false;
             lightYawNumericUpDown.Value = (decimal)settings.LightYaw;
             lightPitchNumericUpDown.Value = (decimal)settings.LightPitch;
@@ -2172,6 +2271,8 @@ namespace PSXPrev.Forms
 
         public void WriteSettings(Settings settings)
         {
+            Program.Logger.WriteSettings(Settings.Instance);
+
             settings.GridSnap = (float)gridSizeNumericUpDown.Value;
             settings.CameraFOV = (float)cameraFOVUpDown.Value;
             settings.LightIntensity = (float)lightIntensityNumericUpDown.Value;
@@ -2218,6 +2319,16 @@ namespace PSXPrev.Forms
         private void saveSettingsToolStripMenuItem_Click(object sender, EventArgs e)
         {
             SaveSettings();
+        }
+
+        private void startScanToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            PromptScan();
+        }
+
+        private void clearScanResultsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ClearResults();
         }
     }
 }

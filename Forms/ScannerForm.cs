@@ -16,6 +16,14 @@ namespace PSXPrev.Forms
         {
             toolTip.SetToolTip(optionOldUVAlignmentCheckBox, "PSXPrev originally used UV alignment that\nranged from 0-256, however this was incorrect,\nand 0-255 is now used by default.");
 
+            if (Program.HasEntityResults)
+            {
+                // This setting needs to be preserved, since it changes how entities are loaded, and exported.
+                // This really should be changed in the future though, so that it only changes renderer behavior.
+                optionOldUVAlignmentCheckBox.Checked = !Program.FixUVAlignment;
+                optionOldUVAlignmentCheckBox.Enabled = false;
+            }
+
             ReadSettings(Settings.Instance.ScanOptions);
         }
 
@@ -64,16 +72,18 @@ namespace PSXPrev.Forms
             scanButton.Enabled = File.Exists(filePathTextBox.Text) || Directory.Exists(filePathTextBox.Text);
         }
 
-        private void scanButton_Click(object sender, EventArgs e)
+        private void ScannerForm_FormClosed(object sender, FormClosedEventArgs e)
         {
-            var path = filePathTextBox.Text;
-            var filter = filterTextBox.Text;
+            if (DialogResult != DialogResult.OK)
+            {
+                return;
+            }
 
             var options = new ScanOptions
             {
                 // These settings are only present for loading and saving purposes.
-                Path = path,
-                Filter = filter,
+                Path = filePathTextBox.Text,
+                Filter = filterTextBox.Text,
 
                 CheckAN = scanANCheckBox.Checked,
                 CheckBFF = scanBFFCheckBox.Checked,
@@ -110,9 +120,11 @@ namespace PSXPrev.Forms
 
             WriteSettings(options);
 
-            Program.DoScan(path, filter, options);
-
-            Close();
+            if (!Program.ScanAsync(options))
+            {
+                MessageBox.Show(this, $"Directory/File not found: {options.Path}", "Scan Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                DialogResult = DialogResult.Cancel; // Change dialog result so that Show returns false.
+            }
         }
 
         private void ReadSettings(ScanOptions options)
@@ -155,6 +167,15 @@ namespace PSXPrev.Forms
         private void WriteSettings(ScanOptions options)
         {
             Settings.Instance.ScanOptions = options.Clone();
+        }
+
+
+        public static bool Show(IWin32Window owner)
+        {
+            using (var form = new ScannerForm())
+            {
+                return form.ShowDialog(owner) == DialogResult.OK;
+            }
         }
     }
 }

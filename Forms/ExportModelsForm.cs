@@ -65,15 +65,6 @@ namespace PSXPrev.Forms
 
             // Use the last export options
             ReadSettings(Settings.Instance.ExportModelOptions);
-
-            // Debugging: Instantly export with specified settings.
-            //{
-            //    filePathTextBox.Text = @"";
-            //    formatGLTF2RadioButton.Checked = true;
-            //    animationsOnRadioButton.Checked = true;
-            //    optionRedrawTexturesCheckBox.Checked = true;
-            //    DialogResult = DialogResult.OK;
-            //}
         }
 
         private void selectFolderButton_Click(object sender, EventArgs e)
@@ -153,12 +144,10 @@ namespace PSXPrev.Forms
                 return;
             }
 
-            var selectedPath = filePathTextBox.Text;
-
             var options = new ExportModelOptions
             {
                 // These settings are only present for loading and saving purposes.
-                Path = selectedPath,
+                Path = filePathTextBox.Text,
                 Format = _format,
 
                 ExportTextures = !texturesOffRadioButton.Checked,
@@ -176,21 +165,7 @@ namespace PSXPrev.Forms
 
             WriteSettings(options);
 
-            switch (_format)
-            {
-                case ExportModelOptions.OBJ:
-                    var objExporter = new OBJExporter();
-                    objExporter.Export(Entities, selectedPath, options);
-                    break;
-                case ExportModelOptions.PLY:
-                    var plyExporter = new PLYExporter();
-                    plyExporter.Export(Entities, selectedPath, options);
-                    break;
-                case ExportModelOptions.GLTF2:
-                    var glTF2Exporter = new glTF2Exporter();
-                    glTF2Exporter.Export(Entities, Animations, AnimationBatch, selectedPath, options);
-                    break;
-            }
+            Export(options, Entities, Animations, AnimationBatch);
         }
 
         private void ReadSettings(ExportModelOptions options)
@@ -232,11 +207,11 @@ namespace PSXPrev.Forms
             {
                 texturesSingleRadioButton.Checked = true;
             }
+            // Force checked changed event in-case this is already the checked radio button.
             foreach (var control in texturesGroupBox.Controls)
             {
                 if (control is RadioButton radioButton && radioButton.Checked)
                 {
-                    // Force checked changed event in-case this is already the checked radio button.
                     texturesRadioButtons_CheckedChanged(radioButton, EventArgs.Empty);
                     break;
                 }
@@ -260,11 +235,11 @@ namespace PSXPrev.Forms
             {
                 animationsOnRadioButton.Checked = true;
             }
+            // Force checked changed event in-case this is already the checked radio button.
             foreach (var control in animationsGroupBox.Controls)
             {
                 if (control is RadioButton radioButton && radioButton.Checked)
                 {
-                    // Force checked changed event in-case this is already the checked radio button.
                     animationsRadioButtons_CheckedChanged(radioButton, EventArgs.Empty);
                     break;
                 }
@@ -276,6 +251,25 @@ namespace PSXPrev.Forms
             Settings.Instance.ExportModelOptions = options.Clone();
         }
 
+
+        public static void Export(ExportModelOptions options, RootEntity[] entities, Animation[] animations = null, AnimationBatch animationBatch = null)
+        {
+            switch (options.Format)
+            {
+                case ExportModelOptions.OBJ:
+                    var objExporter = new OBJExporter();
+                    objExporter.Export(entities, options);
+                    break;
+                case ExportModelOptions.PLY:
+                    var plyExporter = new PLYExporter();
+                    plyExporter.Export(entities, options);
+                    break;
+                case ExportModelOptions.GLTF2:
+                    var glTF2Exporter = new glTF2Exporter();
+                    glTF2Exporter.Export(entities, animations, animationBatch, options);
+                    break;
+            }
+        }
 
         public static bool Show(IWin32Window owner, RootEntity[] entities, Animation[] animations = null, AnimationBatch animationBatch = null)
         {

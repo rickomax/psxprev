@@ -382,6 +382,7 @@
             // scanButton
             // 
             this.scanButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.scanButton.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.scanButton.Enabled = false;
             this.scanButton.Location = new System.Drawing.Point(297, 326);
             this.scanButton.Name = "scanButton";
@@ -389,7 +390,6 @@
             this.scanButton.TabIndex = 4;
             this.scanButton.Text = "Scan";
             this.scanButton.UseVisualStyleBackColor = true;
-            this.scanButton.Click += new System.EventHandler(this.scanButton_Click);
             // 
             // toolTip
             // 
@@ -399,6 +399,7 @@
             // 
             // ScannerForm
             // 
+            this.AcceptButton = this.scanButton;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(384, 356);
@@ -411,8 +412,9 @@
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MaximizeBox = false;
             this.Name = "ScannerForm";
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "PSXPrev Launcher";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
+            this.Text = "PSXPrev Scan Files";
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.ScannerForm_FormClosed);
             this.Load += new System.EventHandler(this.ScannerForm_Load);
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();

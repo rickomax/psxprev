@@ -7,28 +7,80 @@ namespace PSXPrev.Common.Utils
 {
     public class Logger : IDisposable
     {
-        private readonly StreamWriter _writer;
-        private readonly bool _writeToFile;
-        private readonly bool _writeToConsole;
-        private readonly bool _useColor;
+        private StreamWriter _writer;
 
-        public ConsoleColor StandardColor { get; set; } = ConsoleColor.White;
-        public ConsoleColor PositiveColor { get; set; } = ConsoleColor.Green;
-        public ConsoleColor WarningColor { get; set; } = ConsoleColor.Yellow;
-        public ConsoleColor ErrorColor { get; set; } = ConsoleColor.Red;
-        public ConsoleColor ExceptionPrefixColor { get; set; } = ConsoleColor.DarkGray;
-
-        public Logger(bool writeToFile = false, bool writeToConsole = true, bool useColor = true)
+        private bool _logToFile;
+        public bool LogToFile
         {
-            if (writeToFile)
+            get => _logToFile;
+            set
+            {
+                _logToFile = value;
+                if (_logToFile && _writer == null)
+                {
+                    Open(); // No log file is open yet
+                }
+            }
+        }
+        public bool LogToConsole { get; set; }
+        public bool UseConsoleColor { get; set; }
+
+        // Default colors are now assigned in Settings.
+        public ConsoleColor StandardColor { get; set; }
+        public ConsoleColor PositiveColor { get; set; }
+        public ConsoleColor WarningColor { get; set; }
+        public ConsoleColor ErrorColor { get; set; }
+        public ConsoleColor ExceptionPrefixColor { get; set; }
+
+        public Logger(bool logToFile = false, bool logToConsole = true, bool useConsoleColor = true)
+        {
+            LogToFile = logToFile;
+            LogToConsole = logToConsole;
+            UseConsoleColor = useConsoleColor;
+        }
+
+        public void ReadSettings(Settings settings)
+        {
+            StandardColor = settings.LogStandardColor;
+            PositiveColor = settings.LogPositiveColor;
+            WarningColor = settings.LogWarningColor;
+            ErrorColor = settings.LogErrorColor;
+            ExceptionPrefixColor = settings.LogExceptionPrefixColor;
+        }
+
+        public void WriteSettings(Settings settings)
+        {
+            settings.LogStandardColor = StandardColor;
+            settings.LogPositiveColor = PositiveColor;
+            settings.LogWarningColor = WarningColor;
+            settings.LogErrorColor = ErrorColor;
+            settings.LogExceptionPrefixColor = ExceptionPrefixColor;
+        }
+
+        private void Open()
+        {
+            if (_writer == null)
             {
                 var time = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss.fffffff", CultureInfo.InvariantCulture);
                 _writer = new StreamWriter(Path.Combine(Application.StartupPath, $"{time}.log"));
             }
-            _writeToFile = writeToFile;
-            _writeToConsole = writeToConsole;
-            _useColor = useColor;
         }
+
+        private void Close()
+        {
+            if (_writer != null)
+            {
+                _writer.Dispose();
+                _writer = null;
+                _logToFile = false;
+            }
+        }
+
+        public void Dispose()
+        {
+            Close();
+        }
+
 
         private void WriteInternal(ConsoleColor? color, bool newLine, string text)
         {
@@ -36,9 +88,9 @@ namespace PSXPrev.Common.Utils
             {
                 text = string.Empty;
             }
-            if (_writeToConsole)
+            if (LogToConsole)
             {
-                if (_useColor && color.HasValue)
+                if (UseConsoleColor && color.HasValue)
                 {
                     Console.ForegroundColor = color.Value;
                 }
@@ -56,7 +108,7 @@ namespace PSXPrev.Common.Utils
                     Console.Write(text);
                 }
             }
-            if (_writeToFile)
+            if (_logToFile && _writer != null)
             {
                 if (newLine)
                 {
@@ -154,15 +206,6 @@ namespace PSXPrev.Common.Utils
         public void WriteExceptionLine(Exception exp, string prefixText)
         {
             WriteExceptionLine(exp, "{0}", prefixText);
-        }
-
-
-        public void Dispose()
-        {
-            if (_writeToFile)
-            {
-                _writer.Close();
-            }
         }
     }
 }

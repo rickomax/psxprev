@@ -22,25 +22,25 @@ namespace PSXPrev
 {
     public class Program
     {
-        public static Logger Logger;
-        // Volatile because these are assigned and accessed in different threads.
-        private static volatile PreviewForm PreviewForm;
-        private static volatile ScannerForm ScannerForm;
-        // Wait handles to make sure that forms can be constructed and assigned in their respective thread before continuing execution.
-        private static AutoResetEvent _waitForPreviewForm = new AutoResetEvent(false);
-        private static AutoResetEvent _waitForScannerForm = new AutoResetEvent(false);
+        public static readonly Logger Logger = new Logger();
 
-        public static List<RootEntity> AllEntities { get; private set; }
-        public static List<Texture> AllTextures { get; private set; }
-        public static List<Animation> AllAnimations { get; private set; }
+        private static PreviewForm PreviewForm;
+
+        // Results to be added to PreviewForm on next refresh
+        private static readonly List<RootEntity> _addedEntities = new List<RootEntity>();
+        private static readonly List<Texture> _addedTextures = new List<Texture>();
+        private static readonly List<Animation> _addedAnimations = new List<Animation>();
+
+        private static readonly List<RootEntity> _allEntities = new List<RootEntity>();
+        private static readonly List<Texture> _allTextures = new List<Texture>();
+        private static readonly List<Animation> _allAnimations = new List<Animation>();
 
         // Lock for _currentFileLength and _largestCurrentFilePosition, because longs can't be volatile.
         private static readonly object _fileProgressLock = new object();
         private static long _currentFileLength;
         private static long _largestCurrentFilePosition;
-        private static string _path;
-        private static string _filter;
         private static ScanOptions _options = new ScanOptions();
+        private static ScanOptions _commandLineOptions;
 
         private static volatile bool _scanning;        // Is a scan currently running?
         private static volatile bool _pauseRequested;  // Is the scan currently paused? Reset when _scanning is false.
@@ -49,6 +49,11 @@ namespace PSXPrev
         public static bool IsScanning => _scanning;
         public static bool IsScanPaused => _pauseRequested;
         public static bool IsScanCanceling => _cancelRequested;
+
+        public static bool HasCommandLineArguments => _commandLineOptions != null;
+        public static bool HasEntityResults => _allEntities.Count > 0;
+        public static bool HasTextureResults => _allTextures.Count > 0;
+        public static bool HasAnimationResults => _allAnimations.Count > 0;
 
         public static bool IgnoreHmdVersion => _options.IgnoreHMDVersion;
         public static bool IgnoreTimVersion => _options.IgnoreTIMVersion;
@@ -95,6 +100,8 @@ namespace PSXPrev
         public static uint MaxANFrames = 5000;
 
 
+        // This attribute is necessary since PreviewForm now runs on the main thread.
+        [STAThread]
         private static void Main(string[] args)
         {
             Initialize(args);
@@ -317,7 +324,7 @@ namespace PSXPrev
                     options.ShowErrors = true;
                     break;
                 case "-nocolor":
-                    options.ConsoleColor = false;
+                    options.UseConsoleColor = false;
                     break;
 
                 // Program options:
@@ -395,35 +402,21 @@ namespace PSXPrev
             return false;
         }
 
-        public static void Initialize(string[] args)
+        // Returns true if the program should quit after this.
+        private static bool ParseCommandLineOptions(string[] args)
         {
-            Application.EnableVisualStyles();
-
-            Settings.Load();
-
-            if (args == null || args.Length == 0)
+            if (args == null)
             {
-                // No arguments specified. Show the ScannerForm and let the user choose what to do in the GUI.
-                // Also print usage so that the user can either ask for help, or specify what they want without the GUI in the future.
+                return false; // This was not called from main. Don't do anything or print usage again.
+            }
+            else if (args.Length == 0)
+            {
+                // No arguments specified.  Print usage so that the user can either
+                // ask for help, or specify what they want without the GUI in the future.
                 PrintUsage();
-                
-                var thread = new Thread(new ThreadStart(delegate
-                {
-                    ScannerForm = new ScannerForm();
-                    ScannerForm.HandleCreated += (sender, e) => {
-                        // InvokeRequired won't return true unless the form's handle has been created.
-                        _waitForScannerForm.Set(); // ScannerForm has been assigned and is setup, let the main thread continue.
-                    };
-                    Application.Run(ScannerForm);
-                }));
-                thread.SetApartmentState(ApartmentState.STA);
-                thread.Start();
-                _waitForScannerForm.WaitOne(); // Wait for ScannerForm to be assigned before continuing.
-                return;
+                return false; // No command line arguments
             }
 
-            string path = null;
-            string filter = null;
             var options = new ScanOptions();
             var help = false; // Skip scanning and print the help message.
 
@@ -437,27 +430,20 @@ namespace PSXPrev
                 }
             }
 
-            // Use a default logger before starting a scan.
-            Logger = new Logger();
-
             if (!help)
             {
                 // Parse positional arguments PATH and FILTER.
-                path = args[0];
+                options.Path = args[0];
 
-                filter = args.Length > 1 ? args[1] : ScanOptions.DefaultFilter;
+                options.Filter = args.Length > 1 ? args[1] : ScanOptions.DefaultFilter;
                 // If we want, we can make FILTER truly optional by checking TryParseOption, and skipping FILTER if one was found.
                 // However, this would prevent the user from specifying a filter that matches a command line option.
                 // This is a pretty unlikely scenario, but it's worth considering.
-                //filter = ScanOptions.DefaultFilter;
+                //options.Filter = ScanOptions.DefaultFilter;
                 //if (args.Length > 1 && !TryParseOption(args, 1, options, ref help, out _))
                 //{
-                //    filter = args[1];
+                //    options.Filter = args[1];
                 //}
-                if (string.IsNullOrEmpty(filter))
-                {
-                    filter = "*"; // When filter is empty, default to matching all files (with or without an extension).
-                }
 
 
                 // Parse all remaining options that aren't PATH or FILTER.
@@ -468,11 +454,7 @@ namespace PSXPrev
                         if (a == 1)
                         {
                             // If we want to make filter optional, then handle it here.
-                            filter = args[a];
-                            if (string.IsNullOrEmpty(filter))
-                            {
-                                filter = "*"; // When filter is empty, default to matching all files (with or without an extension).
-                            }
+                            options.Filter = args[a];
                         }
                         else
                         {
@@ -488,78 +470,164 @@ namespace PSXPrev
             // Show help and quit.
             if (help)
             {
-                PrintHelp(!options.ConsoleColor);
+                PrintHelp(!options.UseConsoleColor);
                 if (options.Debug)
                 {
                     PressAnyKeyToContinue(); // Make it easier to check console output before closing.
                 }
-                return;
+                return true; // Quit program after this
             }
 
-            DoScan(path, filter, options);
+            _commandLineOptions = options;
+            return false; // Command line arguments, but no help
         }
 
-        internal static void DoScan(string path, string filter = null, ScanOptions options = null)
+        public static void Initialize(string[] args)
         {
+            Application.EnableVisualStyles();
+
+            Settings.Load();
+            Logger.UseConsoleColor = Settings.Instance.ScanOptions.UseConsoleColor;
+            Logger.ReadSettings(Settings.Instance);
+
+
+            if (ParseCommandLineOptions(args))
+            {
+                return; // Help command was used, close the program.
+            }
+
+            PreviewForm = new PreviewForm(RefreshPreviewForm);
+            Application.Run(PreviewForm);
+        }
+
+        private static void RefreshPreviewForm(PreviewForm form)
+        {
+            // Prevent another thread from adding to the lists while enumerating them.
+            lock (_addedEntities)
+            {
+                form.AddRootEntities(_addedEntities);
+                _allEntities.AddRange(_addedEntities);
+                _addedEntities.Clear();
+            }
+            lock (_addedTextures)
+            {
+                form.AddTextures(_addedTextures);
+                _allTextures.AddRange(_addedTextures);
+                _addedTextures.Clear();
+            }
+            lock (_addedAnimations)
+            {
+                form.AddAnimations(_addedAnimations);
+                _allAnimations.AddRange(_addedAnimations);
+                _addedAnimations.Clear();
+            }
+        }
+
+        public static RootEntity[] GetEntityResults()
+        {
+            lock (_addedEntities)
+            {
+                return _allEntities.ToArray();
+            }
+        }
+
+        public static Texture[] GetTextureResults()
+        {
+            lock (_addedTextures)
+            {
+                return _allTextures.ToArray();
+            }
+        }
+
+        public static Animation[] GetAnimationResults()
+        {
+            lock (_addedAnimations)
+            {
+                return _allAnimations.ToArray();
+            }
+        }
+
+        internal static void ClearResults()
+        {
+            if (!_scanning)
+            {
+                _allEntities.Clear();
+                _allTextures.Clear();
+                _allAnimations.Clear();
+            }
+        }
+
+        // Returns false if the path argument was not found.
+        internal static bool ScanCommandLineAsync()
+        {
+            var options = _commandLineOptions;
+            _commandLineOptions = null; // Clear so that HasCommandLineOptions returns false
+            return ScanInternal(options, true);
+        }
+
+        // Returns false if the path was not found.
+        internal static bool ScanAsync(ScanOptions options = null)
+        {
+            return ScanInternal(options, true);
+        }
+
+        // Returns false if the path was not found.
+        private static bool ScanInternal(ScanOptions options, bool @async)
+        {
+            if (_scanning)
+            {
+                return true; // Can't start scan while another is in-progress.
+            }
+
             if (options == null)
             {
                 options = new ScanOptions(); // Use default options if none given.
             }
-            
-            Logger = new Logger(options.LogToFile, options.LogToConsole, options.ConsoleColor);
 
-            if (!Directory.Exists(path) && !File.Exists(path))
+            var oldFixUVAlignment = Program.FixUVAlignment;
+            options = options.Clone();
+            options.Validate();
+            if (HasEntityResults)
             {
-                Program.Logger.WriteErrorLine($"Directory/File not found: {path}");
-                if (options.Debug && options.LogToConsole)
-                {
-                    PressAnyKeyToContinue(); // Make it easier to check console output before closing.
-                }
-                return;
+                // Force-preserve this option if entities have already been parsed using it.
+                options.FixUVAlignment = oldFixUVAlignment;
             }
 
-            _path = path;
-            _filter = filter ?? ScanOptions.DefaultFilter;
-            _options = options.Clone();
+            Logger.LogToFile = options.LogToFile;
+            Logger.LogToConsole = options.LogToConsole;
+            Logger.UseConsoleColor = options.UseConsoleColor;
+            Logger.ReadSettings(Settings.Instance);
 
+            if (!Directory.Exists(options.Path) && !File.Exists(options.Path))
+            {
+                Program.Logger.WriteErrorLine($"Directory/File not found: {options.Path}");
+                return false;
+            }
+
+            _options = options;
             _scanning = true;
             _pauseRequested = false;
             _cancelRequested = false;
 
-            AllEntities = new List<RootEntity>();
-            AllTextures = new List<Texture>();
-            AllAnimations = new List<Animation>();
+            _addedEntities.Clear();
+            _addedTextures.Clear();
+            _addedAnimations.Clear();
 
-
-            var thread = new Thread(new ThreadStart(delegate
+            if (@async)
             {
-                PreviewForm = new PreviewForm((form) =>
-                {
-                    // Prevent another thread from adding to the lists while enumerating them.
-                    lock (AllAnimations)
-                    {
-                        form.UpdateAnimations(AllAnimations);
-                    }
-                    lock (AllEntities)
-                    {
-                        form.UpdateRootEntities(AllEntities);
-                    }
-                    lock (AllTextures)
-                    {
-                        form.UpdateTextures(AllTextures);
-                    }
-                });
-                PreviewForm.HandleCreated += (sender, e) => {
-                    // InvokeRequired won't return true unless the form's handle has been created.
-                    _waitForPreviewForm.Set(); // PreviewForm has been assigned and is setup, let the main thread continue.
-                };
-                Application.Run(PreviewForm);
-            }));
-            thread.SetApartmentState(ApartmentState.STA);
-            thread.Start();
-            _waitForPreviewForm.WaitOne(); // Wait for PreviewForm to be assigned before continuing.
+                var thread = new Thread(new ThreadStart(ScanThread));
+                thread.SetApartmentState(ApartmentState.STA);
+                thread.Start();
+            }
+            else
+            {
+                ScanThread();
+            }
+            return true;
+        }
 
-
+        private static void ScanThread()
+        {
             try
             {
                 //Program.Logger.WriteLine();
@@ -572,18 +640,19 @@ namespace PSXPrev
                 watch.Stop();
                 Program.Logger.WriteLine("Scan end {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
                 Program.Logger.WriteLine("Scan took {0} minutes and {1} seconds", (int)watch.Elapsed.TotalMinutes, watch.Elapsed.Seconds);
-                Program.Logger.WritePositiveLine("Found {0} Models", AllEntities.Count);
-                Program.Logger.WritePositiveLine("Found {0} Textures", AllTextures.Count);
-                Program.Logger.WritePositiveLine("Found {0} Animations", AllAnimations.Count);
+                Program.Logger.WritePositiveLine("Found {0} Models", _allEntities.Count);
+                Program.Logger.WritePositiveLine("Found {0} Textures", _allTextures.Count);
+                Program.Logger.WritePositiveLine("Found {0} Animations", _allAnimations.Count);
 
-                PreviewForm.UpdateProgress(0, 0, true, $"{AllEntities.Count} Models, {AllTextures.Count} Textures, {AllAnimations.Count} Animations Found");
+                PreviewForm.UpdateProgress(0, 0, true, $"{_allEntities.Count} Models, {_allTextures.Count} Textures, {_allAnimations.Count} Animations Found");
 
                 // Scan finished, perform end-of-scan actions specified by the user.
-                PreviewForm.SelectFirstEntity(); // Select something if the user hasn't already done so.
-                if (_options.DrawAllToVRAM)
-                {
-                    PreviewForm.DrawAllTexturesToVRAM();
-                }
+                PreviewForm.ScanFinished(_options.DrawAllToVRAM);
+                //PreviewForm.SelectFirstEntity(); // Select something if the user hasn't already done so.
+                //if (_options.DrawAllToVRAM)
+                //{
+                //    PreviewForm.DrawAllTexturesToVRAM();
+                //}
             }
             catch (Exception exp)
             {
@@ -629,9 +698,9 @@ namespace PSXPrev
         private static void AddEntity(RootEntity entity, long fp)
         {
             // Prevent another thread from enumerating or modifying the list while adding to it.
-            lock (AllEntities)
+            lock (_addedEntities)
             {
-                AllEntities.Add(entity);
+                _addedEntities.Add(entity);
             }
             UpdateFileProgress(fp, $"Found Model with {entity.ChildCount} objects");
             PreviewForm.ReloadItems();
@@ -640,9 +709,9 @@ namespace PSXPrev
         private static void AddTexture(Texture texture, long fp)
         {
             // Prevent another thread from enumerating or modifying the list while adding to it.
-            lock (AllTextures)
+            lock (_addedTextures)
             {
-                AllTextures.Add(texture);
+                _addedTextures.Add(texture);
             }
             UpdateFileProgress(fp, $"Found Texture {texture.Width}x{texture.Height} {texture.Bpp}bpp");
             PreviewForm.ReloadItems();
@@ -651,9 +720,9 @@ namespace PSXPrev
         private static void AddAnimation(Animation animation, long fp)
         {
             // Prevent another thread from enumerating or modifying the list while adding to it.
-            lock (AllAnimations)
+            lock (_addedAnimations)
             {
-                AllAnimations.Add(animation);
+                _addedAnimations.Add(animation);
             }
             UpdateFileProgress(fp, $"Found Animation with {animation.ObjectCount} objects and {animation.FrameCount} frames");
             PreviewForm.ReloadItems();
@@ -765,17 +834,17 @@ namespace PSXPrev
                 parsers.Add(() => new VDFParser(AddAnimation));
             }
 
-            if (HasISOExtension(_path))
+            if (HasISOExtension(_options.Path))
             {
-                ProcessISO(_path, _filter, parsers);
+                ProcessISO(_options.Path, _options.Filter, parsers);
             }
-            else if (File.Exists(_path))
+            else if (File.Exists(_options.Path))
             {
-                ProcessFile(_path, parsers);
+                ProcessFile(_options.Path, parsers);
             }
             else
             {
-                ProcessFiles(_path, _filter, parsers);
+                ProcessFiles(_options.Path, _options.Filter, parsers);
             }
         }
 

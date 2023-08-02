@@ -6,6 +6,7 @@ namespace PSXPrev
     public class ScanOptions
     {
         public const string DefaultFilter = "*.*";
+        public const string EmptyFilter = "*";
 
         // These settings are only present for loading and saving purposes.
         // File path:
@@ -64,12 +65,12 @@ namespace PSXPrev
         public bool LogToFile { get; set; } = false;
         [JsonProperty("logToConsole")]
         public bool LogToConsole { get; set; } = true;
+        [JsonProperty("consoleColor")]
+        public bool UseConsoleColor { get; set; } = true;
         [JsonProperty("debug")]
         public bool Debug { get; set; } = false;
         [JsonProperty("showErrors")]
         public bool ShowErrors { get; set; } = false;
-        [JsonProperty("consoleColor")]
-        public bool ConsoleColor { get; set; } = true;
 
         // Program options:
         [JsonProperty("drawAllToVRAM")]
@@ -77,6 +78,23 @@ namespace PSXPrev
         [JsonProperty("fixUVAlignment")]
         public bool FixUVAlignment { get; set; } = true;
 
+
+        public void Validate()
+        {
+            if (Path == null)
+            {
+                Path = string.Empty;
+            }
+
+            if (Filter == null)
+            {
+                Filter = DefaultFilter;
+            }
+            else if (string.IsNullOrWhiteSpace(Filter))
+            {
+                Filter = EmptyFilter; // When filter is empty, default to matching all files (with or without an extension).
+            }
+        }
 
         public ScanOptions Clone()
         {

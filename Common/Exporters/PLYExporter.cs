@@ -18,7 +18,7 @@ namespace PSXPrev.Common.Exporters
         private string _baseTextureName;
         private ExportModelOptions _options;
 
-        public void Export(RootEntity[] entities, string selectedPath, ExportModelOptions options = null)
+        public void Export(RootEntity[] entities, ExportModelOptions options = null)
         {
             _options = options?.Clone() ?? new ExportModelOptions();
             // Force any required options for this format here, before calling Validate.
@@ -30,7 +30,7 @@ namespace PSXPrev.Common.Exporters
             _materialsDictionary = new Dictionary<Texture, int>();
             _untexturedMaterialExported = false;
             _modelPreparer = new ModelPreparerExporter(_options);
-            _selectedPath = selectedPath;
+            _selectedPath = _options.Path;
 
             // Prepare the shared state for all models being exported (mainly setting up tiled textures).
             _modelPreparer.PrepareAll(entities);

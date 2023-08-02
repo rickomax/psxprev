@@ -473,15 +473,15 @@ namespace PSXPrev.Common.Parsers
                         if (Program.FixUVAlignment)
                         {
                             tuvm = GeomMath.ConvertUV(((((tumValue << 3) ^ 0xff) + 1) & 0xff),
-                                                       ((((tvmValue << 3) ^ 0xff) + 1) & 0xff));
+                                                      ((((tvmValue << 3) ^ 0xff) + 1) & 0xff));
                         }
                         else
                         {
                             tuvm = GeomMath.ConvertUV(((tumValue << 3) ^ 0xff),
-                                                       ((tvmValue << 3) ^ 0xff));
+                                                      ((tvmValue << 3) ^ 0xff));
                         }
                         tuva = GeomMath.ConvertUV((tuaValue << 3),
-                                                   (tvaValue << 3));
+                                                  (tvaValue << 3));
                     }
                 }
 

@@ -62,6 +62,14 @@ namespace PSXPrev.Forms
             IsVisible = true;
         }
 
+        public static void CloseTool()
+        {
+            if (_instance != null)
+            {
+                _instance.Close();
+            }
+        }
+
         private void TMDBindingForm_FormClosed(object sender, FormClosedEventArgs e)
         {
             _instance = null;
