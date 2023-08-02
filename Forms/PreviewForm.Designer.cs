@@ -92,6 +92,8 @@ namespace PSXPrev.Forms
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.pauseScanningToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.stopScanningToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator10 = new System.Windows.Forms.ToolStripSeparator();
+            this.defaultSettingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
             this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.modelsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -166,6 +168,8 @@ namespace PSXPrev.Forms
             this.label7 = new System.Windows.Forms.Label();
             this.cameraFOVUpDown = new System.Windows.Forms.NumericUpDown();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
+            this.loadSettingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.saveSettingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -1036,6 +1040,10 @@ namespace PSXPrev.Forms
             this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.pauseScanningToolStripMenuItem,
             this.stopScanningToolStripMenuItem,
+            this.toolStripSeparator10,
+            this.defaultSettingsToolStripMenuItem,
+            this.loadSettingsToolStripMenuItem,
+            this.saveSettingsToolStripMenuItem,
             this.toolStripMenuItem1,
             this.exitToolStripMenuItem});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
@@ -1046,26 +1054,38 @@ namespace PSXPrev.Forms
             // 
             this.pauseScanningToolStripMenuItem.CheckOnClick = true;
             this.pauseScanningToolStripMenuItem.Name = "pauseScanningToolStripMenuItem";
-            this.pauseScanningToolStripMenuItem.Size = new System.Drawing.Size(157, 22);
+            this.pauseScanningToolStripMenuItem.Size = new System.Drawing.Size(207, 22);
             this.pauseScanningToolStripMenuItem.Text = "Pause Scanning";
             this.pauseScanningToolStripMenuItem.CheckedChanged += new System.EventHandler(this.pauseScanningToolStripMenuItem_CheckedChanged);
             // 
             // stopScanningToolStripMenuItem
             // 
             this.stopScanningToolStripMenuItem.Name = "stopScanningToolStripMenuItem";
-            this.stopScanningToolStripMenuItem.Size = new System.Drawing.Size(157, 22);
+            this.stopScanningToolStripMenuItem.Size = new System.Drawing.Size(207, 22);
             this.stopScanningToolStripMenuItem.Text = "Stop Scanning";
             this.stopScanningToolStripMenuItem.Click += new System.EventHandler(this.stopScanningToolStripMenuItem_Click);
+            // 
+            // toolStripSeparator10
+            // 
+            this.toolStripSeparator10.Name = "toolStripSeparator10";
+            this.toolStripSeparator10.Size = new System.Drawing.Size(204, 6);
+            // 
+            // defaultSettingsToolStripMenuItem
+            // 
+            this.defaultSettingsToolStripMenuItem.Name = "defaultSettingsToolStripMenuItem";
+            this.defaultSettingsToolStripMenuItem.Size = new System.Drawing.Size(207, 22);
+            this.defaultSettingsToolStripMenuItem.Text = "Reset Settings to Defaults";
+            this.defaultSettingsToolStripMenuItem.Click += new System.EventHandler(this.defaultSettingsToolStripMenuItem_Click);
             // 
             // toolStripMenuItem1
             // 
             this.toolStripMenuItem1.Name = "toolStripMenuItem1";
-            this.toolStripMenuItem1.Size = new System.Drawing.Size(154, 6);
+            this.toolStripMenuItem1.Size = new System.Drawing.Size(204, 6);
             // 
             // exitToolStripMenuItem
             // 
             this.exitToolStripMenuItem.Name = "exitToolStripMenuItem";
-            this.exitToolStripMenuItem.Size = new System.Drawing.Size(157, 22);
+            this.exitToolStripMenuItem.Size = new System.Drawing.Size(207, 22);
             this.exitToolStripMenuItem.Text = "Exit";
             this.exitToolStripMenuItem.Click += new System.EventHandler(this.exitToolStripMenuItem_Click);
             // 
@@ -1134,47 +1154,39 @@ namespace PSXPrev.Forms
             this.verticesOnlyToolStripMenuItem.Name = "verticesOnlyToolStripMenuItem";
             this.verticesOnlyToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.verticesOnlyToolStripMenuItem.Text = "Vertices Only";
-            this.verticesOnlyToolStripMenuItem.Click += new System.EventHandler(this.verticesOnlyToolStripMenuItem_Click);
+            this.verticesOnlyToolStripMenuItem.CheckedChanged += new System.EventHandler(this.verticesOnlyToolStripMenuItem_CheckedChanged);
             // 
             // showGizmosToolStripMenuItem
             // 
-            this.showGizmosToolStripMenuItem.Checked = true;
             this.showGizmosToolStripMenuItem.CheckOnClick = true;
-            this.showGizmosToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.showGizmosToolStripMenuItem.Name = "showGizmosToolStripMenuItem";
             this.showGizmosToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.showGizmosToolStripMenuItem.Text = "Show Gizmos";
-            this.showGizmosToolStripMenuItem.Click += new System.EventHandler(this.showGizmosToolStripMenuItem_Click);
+            this.showGizmosToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showGizmosToolStripMenuItem_CheckedChanged);
             // 
             // showBoundsToolStripMenuItem
             // 
-            this.showBoundsToolStripMenuItem.Checked = true;
             this.showBoundsToolStripMenuItem.CheckOnClick = true;
-            this.showBoundsToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.showBoundsToolStripMenuItem.Name = "showBoundsToolStripMenuItem";
             this.showBoundsToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.showBoundsToolStripMenuItem.Text = "Show Bounds";
-            this.showBoundsToolStripMenuItem.Click += new System.EventHandler(this.showBoundsToolStripMenuItem_Click);
+            this.showBoundsToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showBoundsToolStripMenuItem_CheckedChanged);
             // 
             // enableLightToolStripMenuItem
             // 
-            this.enableLightToolStripMenuItem.Checked = true;
             this.enableLightToolStripMenuItem.CheckOnClick = true;
-            this.enableLightToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.enableLightToolStripMenuItem.Name = "enableLightToolStripMenuItem";
             this.enableLightToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.enableLightToolStripMenuItem.Text = "Enable Light";
-            this.enableLightToolStripMenuItem.Click += new System.EventHandler(this.enableLightToolStripMenuItem_Click);
+            this.enableLightToolStripMenuItem.CheckedChanged += new System.EventHandler(this.enableLightToolStripMenuItem_CheckedChanged);
             // 
             // enableSemiTransparencyToolStripMenuItem
             // 
-            this.enableSemiTransparencyToolStripMenuItem.Checked = true;
             this.enableSemiTransparencyToolStripMenuItem.CheckOnClick = true;
-            this.enableSemiTransparencyToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.enableSemiTransparencyToolStripMenuItem.Name = "enableSemiTransparencyToolStripMenuItem";
             this.enableSemiTransparencyToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.enableSemiTransparencyToolStripMenuItem.Text = "Enable Semi-Transparency";
-            this.enableSemiTransparencyToolStripMenuItem.Click += new System.EventHandler(this.enableTransparencyToolStripMenuItem_Click);
+            this.enableSemiTransparencyToolStripMenuItem.CheckedChanged += new System.EventHandler(this.enableTransparencyToolStripMenuItem_CheckedChanged);
             // 
             // forceDoubleSidedToolStripMenuItem
             // 
@@ -1182,7 +1194,7 @@ namespace PSXPrev.Forms
             this.forceDoubleSidedToolStripMenuItem.Name = "forceDoubleSidedToolStripMenuItem";
             this.forceDoubleSidedToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.forceDoubleSidedToolStripMenuItem.Text = "Force Double-Sided";
-            this.forceDoubleSidedToolStripMenuItem.Click += new System.EventHandler(this.forceDoubleSidedToolStripMenuItem_Click);
+            this.forceDoubleSidedToolStripMenuItem.CheckedChanged += new System.EventHandler(this.forceDoubleSidedToolStripMenuItem_CheckedChanged);
             // 
             // autoAttachLimbsToolStripMenuItem
             // 
@@ -1190,7 +1202,7 @@ namespace PSXPrev.Forms
             this.autoAttachLimbsToolStripMenuItem.Name = "autoAttachLimbsToolStripMenuItem";
             this.autoAttachLimbsToolStripMenuItem.Size = new System.Drawing.Size(212, 22);
             this.autoAttachLimbsToolStripMenuItem.Text = "Auto Attach Limbs";
-            this.autoAttachLimbsToolStripMenuItem.Click += new System.EventHandler(this.autoAttachLimbsToolStripMenuItem_Click);
+            this.autoAttachLimbsToolStripMenuItem.CheckedChanged += new System.EventHandler(this.autoAttachLimbsToolStripMenuItem_CheckedChanged);
             // 
             // toolStripSeparator7
             // 
@@ -1308,7 +1320,7 @@ namespace PSXPrev.Forms
             this.autoDrawModelTexturesToolStripMenuItem.Name = "autoDrawModelTexturesToolStripMenuItem";
             this.autoDrawModelTexturesToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.autoDrawModelTexturesToolStripMenuItem.Text = "Auto Draw Textures";
-            this.autoDrawModelTexturesToolStripMenuItem.Click += new System.EventHandler(this.autoDrawModelTexturesToolStripMenuItem_Click);
+            this.autoDrawModelTexturesToolStripMenuItem.CheckedChanged += new System.EventHandler(this.autoDrawModelTexturesToolStripMenuItem_CheckedChanged);
             // 
             // toolStripSeparator6
             // 
@@ -1393,11 +1405,9 @@ namespace PSXPrev.Forms
             // 
             // showUVToolStripMenuItem
             // 
-            this.showUVToolStripMenuItem.Checked = true;
             this.showUVToolStripMenuItem.CheckOnClick = true;
-            this.showUVToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
             this.showUVToolStripMenuItem.Name = "showUVToolStripMenuItem";
-            this.showUVToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.showUVToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.showUVToolStripMenuItem.Text = "Show UV";
             this.showUVToolStripMenuItem.Click += new System.EventHandler(this.showUVToolStripMenuItem_Click);
             // 
@@ -1418,7 +1428,7 @@ namespace PSXPrev.Forms
             this.autoPlayAnimationsToolStripMenuItem.Name = "autoPlayAnimationsToolStripMenuItem";
             this.autoPlayAnimationsToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
             this.autoPlayAnimationsToolStripMenuItem.Text = "Auto Play Animation";
-            this.autoPlayAnimationsToolStripMenuItem.Click += new System.EventHandler(this.autoPlayAnimationsToolStripMenuItem_Click);
+            this.autoPlayAnimationsToolStripMenuItem.CheckedChanged += new System.EventHandler(this.autoPlayAnimationsToolStripMenuItem_CheckedChanged);
             // 
             // autoSelectAnimationModelToolStripMenuItem
             // 
@@ -1426,7 +1436,7 @@ namespace PSXPrev.Forms
             this.autoSelectAnimationModelToolStripMenuItem.Name = "autoSelectAnimationModelToolStripMenuItem";
             this.autoSelectAnimationModelToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
             this.autoSelectAnimationModelToolStripMenuItem.Text = "Auto Select Model";
-            this.autoSelectAnimationModelToolStripMenuItem.Click += new System.EventHandler(this.autoSelectAnimationModelToolStripMenuItem_Click);
+            this.autoSelectAnimationModelToolStripMenuItem.CheckedChanged += new System.EventHandler(this.autoSelectAnimationModelToolStripMenuItem_CheckedChanged);
             // 
             // toolStripMenuItem2
             // 
@@ -1550,11 +1560,6 @@ namespace PSXPrev.Forms
             this.gridSizeNumericUpDown.Name = "gridSizeNumericUpDown";
             this.gridSizeNumericUpDown.Size = new System.Drawing.Size(43, 20);
             this.gridSizeNumericUpDown.TabIndex = 18;
-            this.gridSizeNumericUpDown.Value = new decimal(new int[] {
-            1,
-            0,
-            0,
-            0});
             // 
             // flowLayoutPanel3
             // 
@@ -1596,11 +1601,6 @@ namespace PSXPrev.Forms
             this.lightYawNumericUpDown.Name = "lightYawNumericUpDown";
             this.lightYawNumericUpDown.Size = new System.Drawing.Size(43, 20);
             this.lightYawNumericUpDown.TabIndex = 21;
-            this.lightYawNumericUpDown.Value = new decimal(new int[] {
-            135,
-            0,
-            0,
-            0});
             this.lightYawNumericUpDown.ValueChanged += new System.EventHandler(this.lightYawNumericUpDown_ValueChanged);
             // 
             // lightPitchNumericUpDown
@@ -1619,11 +1619,6 @@ namespace PSXPrev.Forms
             this.lightPitchNumericUpDown.Name = "lightPitchNumericUpDown";
             this.lightPitchNumericUpDown.Size = new System.Drawing.Size(43, 20);
             this.lightPitchNumericUpDown.TabIndex = 22;
-            this.lightPitchNumericUpDown.Value = new decimal(new int[] {
-            225,
-            0,
-            0,
-            0});
             this.lightPitchNumericUpDown.ValueChanged += new System.EventHandler(this.lightPitchNumericUpDown_ValueChanged);
             // 
             // flowLayoutPanel4
@@ -1660,11 +1655,6 @@ namespace PSXPrev.Forms
             this.lightIntensityNumericUpDown.Name = "lightIntensityNumericUpDown";
             this.lightIntensityNumericUpDown.Size = new System.Drawing.Size(43, 20);
             this.lightIntensityNumericUpDown.TabIndex = 20;
-            this.lightIntensityNumericUpDown.Value = new decimal(new int[] {
-            100,
-            0,
-            0,
-            0});
             this.lightIntensityNumericUpDown.ValueChanged += new System.EventHandler(this.lightIntensityNumericUpDown_ValueChanged);
             // 
             // flowLayoutPanel5
@@ -1701,11 +1691,6 @@ namespace PSXPrev.Forms
             this.vertexSizeUpDown.Name = "vertexSizeUpDown";
             this.vertexSizeUpDown.Size = new System.Drawing.Size(43, 20);
             this.vertexSizeUpDown.TabIndex = 22;
-            this.vertexSizeUpDown.Value = new decimal(new int[] {
-            1,
-            0,
-            0,
-            0});
             this.vertexSizeUpDown.ValueChanged += new System.EventHandler(this.vertexSizeUpDown_ValueChanged);
             // 
             // flowLayoutPanel6
@@ -1748,11 +1733,25 @@ namespace PSXPrev.Forms
             this.cameraFOVUpDown.Size = new System.Drawing.Size(43, 20);
             this.cameraFOVUpDown.TabIndex = 25;
             this.cameraFOVUpDown.Value = new decimal(new int[] {
-            60,
+            1,
             0,
             0,
             0});
             this.cameraFOVUpDown.ValueChanged += new System.EventHandler(this.cameraFOVUpDown_ValueChanged);
+            // 
+            // loadSettingsToolStripMenuItem
+            // 
+            this.loadSettingsToolStripMenuItem.Name = "loadSettingsToolStripMenuItem";
+            this.loadSettingsToolStripMenuItem.Size = new System.Drawing.Size(207, 22);
+            this.loadSettingsToolStripMenuItem.Text = "Reload Settings";
+            this.loadSettingsToolStripMenuItem.Click += new System.EventHandler(this.loadSettingsToolStripMenuItem_Click);
+            // 
+            // saveSettingsToolStripMenuItem
+            // 
+            this.saveSettingsToolStripMenuItem.Name = "saveSettingsToolStripMenuItem";
+            this.saveSettingsToolStripMenuItem.Size = new System.Drawing.Size(207, 22);
+            this.saveSettingsToolStripMenuItem.Text = "Save Current Settings";
+            this.saveSettingsToolStripMenuItem.Click += new System.EventHandler(this.saveSettingsToolStripMenuItem_Click);
             // 
             // PreviewForm
             // 
@@ -1993,5 +1992,9 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.Label label9;
         private System.Windows.Forms.CheckBox animationReverseCheckBox;
         private System.Windows.Forms.ToolTip toolTip;
+        private System.Windows.Forms.ToolStripMenuItem defaultSettingsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator10;
+        private System.Windows.Forms.ToolStripMenuItem loadSettingsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem saveSettingsToolStripMenuItem;
     }
 }

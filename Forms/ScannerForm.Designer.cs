@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ScannerForm));
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.selectFolderButton = new System.Windows.Forms.Button();
@@ -48,17 +49,18 @@
             this.scanVDFCheckBox = new System.Windows.Forms.CheckBox();
             this.scanTMDCheckBox = new System.Windows.Forms.CheckBox();
             this.groupBox4 = new System.Windows.Forms.GroupBox();
+            this.optionIgnoreTIMVersionCheckBox = new System.Windows.Forms.CheckBox();
             this.optionIgnoreHMDVersionCheckBox = new System.Windows.Forms.CheckBox();
             this.optionNoOffsetCheckBox = new System.Windows.Forms.CheckBox();
             this.optionShowErrorsCheckBox = new System.Windows.Forms.CheckBox();
-            this.optionAutoAttachLimbsCheckBox = new System.Windows.Forms.CheckBox();
+            this.optionOldUVAlignmentCheckBox = new System.Windows.Forms.CheckBox();
             this.optionDrawAllToVRAMCheckBox = new System.Windows.Forms.CheckBox();
             this.optionIgnoreTMDVersionCheckBox = new System.Windows.Forms.CheckBox();
             this.optionDebugCheckBox = new System.Windows.Forms.CheckBox();
             this.optionNoVerboseCheckBox = new System.Windows.Forms.CheckBox();
             this.optionLogToFileCheckBox = new System.Windows.Forms.CheckBox();
             this.scanButton = new System.Windows.Forms.Button();
-            this.optionIgnoreTIMVersionCheckBox = new System.Windows.Forms.CheckBox();
+            this.toolTip = new System.Windows.Forms.ToolTip(this.components);
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox3.SuspendLayout();
@@ -263,7 +265,7 @@
             this.groupBox4.Controls.Add(this.optionIgnoreHMDVersionCheckBox);
             this.groupBox4.Controls.Add(this.optionNoOffsetCheckBox);
             this.groupBox4.Controls.Add(this.optionShowErrorsCheckBox);
-            this.groupBox4.Controls.Add(this.optionAutoAttachLimbsCheckBox);
+            this.groupBox4.Controls.Add(this.optionOldUVAlignmentCheckBox);
             this.groupBox4.Controls.Add(this.optionDrawAllToVRAMCheckBox);
             this.groupBox4.Controls.Add(this.optionIgnoreTMDVersionCheckBox);
             this.groupBox4.Controls.Add(this.optionDebugCheckBox);
@@ -276,6 +278,16 @@
             this.groupBox4.TabIndex = 3;
             this.groupBox4.TabStop = false;
             this.groupBox4.Text = "Options";
+            // 
+            // optionIgnoreTIMVersionCheckBox
+            // 
+            this.optionIgnoreTIMVersionCheckBox.AutoSize = true;
+            this.optionIgnoreTIMVersionCheckBox.Location = new System.Drawing.Point(246, 65);
+            this.optionIgnoreTIMVersionCheckBox.Name = "optionIgnoreTIMVersionCheckBox";
+            this.optionIgnoreTIMVersionCheckBox.Size = new System.Drawing.Size(107, 17);
+            this.optionIgnoreTIMVersionCheckBox.TabIndex = 11;
+            this.optionIgnoreTIMVersionCheckBox.Text = "Skip TIM Version";
+            this.optionIgnoreTIMVersionCheckBox.UseVisualStyleBackColor = true;
             // 
             // optionIgnoreHMDVersionCheckBox
             // 
@@ -307,15 +319,15 @@
             this.optionShowErrorsCheckBox.Text = "Show Errors";
             this.optionShowErrorsCheckBox.UseVisualStyleBackColor = true;
             // 
-            // optionAutoAttachLimbsCheckBox
+            // optionOldUVAlignmentCheckBox
             // 
-            this.optionAutoAttachLimbsCheckBox.AutoSize = true;
-            this.optionAutoAttachLimbsCheckBox.Location = new System.Drawing.Point(129, 42);
-            this.optionAutoAttachLimbsCheckBox.Name = "optionAutoAttachLimbsCheckBox";
-            this.optionAutoAttachLimbsCheckBox.Size = new System.Drawing.Size(87, 17);
-            this.optionAutoAttachLimbsCheckBox.TabIndex = 7;
-            this.optionAutoAttachLimbsCheckBox.Text = "Attach Limbs";
-            this.optionAutoAttachLimbsCheckBox.UseVisualStyleBackColor = true;
+            this.optionOldUVAlignmentCheckBox.AutoSize = true;
+            this.optionOldUVAlignmentCheckBox.Location = new System.Drawing.Point(129, 42);
+            this.optionOldUVAlignmentCheckBox.Name = "optionOldUVAlignmentCheckBox";
+            this.optionOldUVAlignmentCheckBox.Size = new System.Drawing.Size(86, 17);
+            this.optionOldUVAlignmentCheckBox.TabIndex = 7;
+            this.optionOldUVAlignmentCheckBox.Text = "Old UV Align";
+            this.optionOldUVAlignmentCheckBox.UseVisualStyleBackColor = true;
             // 
             // optionDrawAllToVRAMCheckBox
             // 
@@ -379,15 +391,11 @@
             this.scanButton.UseVisualStyleBackColor = true;
             this.scanButton.Click += new System.EventHandler(this.scanButton_Click);
             // 
-            // optionIgnoreTIMVersionCheckBox
+            // toolTip
             // 
-            this.optionIgnoreTIMVersionCheckBox.AutoSize = true;
-            this.optionIgnoreTIMVersionCheckBox.Location = new System.Drawing.Point(246, 65);
-            this.optionIgnoreTIMVersionCheckBox.Name = "optionIgnoreTIMVersionCheckBox";
-            this.optionIgnoreTIMVersionCheckBox.Size = new System.Drawing.Size(107, 17);
-            this.optionIgnoreTIMVersionCheckBox.TabIndex = 11;
-            this.optionIgnoreTIMVersionCheckBox.Text = "Skip TIM Version";
-            this.optionIgnoreTIMVersionCheckBox.UseVisualStyleBackColor = true;
+            this.toolTip.AutoPopDelay = 10000;
+            this.toolTip.InitialDelay = 500;
+            this.toolTip.ReshowDelay = 100;
             // 
             // ScannerForm
             // 
@@ -405,6 +413,7 @@
             this.Name = "ScannerForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "PSXPrev Launcher";
+            this.Load += new System.EventHandler(this.ScannerForm_Load);
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
             this.groupBox2.ResumeLayout(false);
@@ -443,11 +452,12 @@
         private System.Windows.Forms.CheckBox scanANCheckBox;
         private System.Windows.Forms.CheckBox optionIgnoreTMDVersionCheckBox;
         private System.Windows.Forms.CheckBox scanBFFCheckBox;
-        private System.Windows.Forms.CheckBox optionAutoAttachLimbsCheckBox;
+        private System.Windows.Forms.CheckBox optionOldUVAlignmentCheckBox;
         private System.Windows.Forms.CheckBox optionDrawAllToVRAMCheckBox;
         private System.Windows.Forms.CheckBox optionShowErrorsCheckBox;
         private System.Windows.Forms.CheckBox optionNoOffsetCheckBox;
         private System.Windows.Forms.CheckBox optionIgnoreHMDVersionCheckBox;
         private System.Windows.Forms.CheckBox optionIgnoreTIMVersionCheckBox;
+        private System.Windows.Forms.ToolTip toolTip;
     }
 }

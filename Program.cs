@@ -22,54 +22,6 @@ namespace PSXPrev
 {
     public class Program
     {
-        public class ScanOptions
-        {
-            // Scanner formats:
-            public bool CheckAll => !CheckAN && !CheckBFF && !CheckHMD && !CheckMOD && !CheckPMD && !CheckPSX && !CheckTIM && !CheckTMD && !CheckTOD && !CheckVDF;
-
-            public bool CheckAN { get; set; }
-            public bool CheckBFF { get; set; }
-            public bool CheckHMD { get; set; }
-            public bool CheckMOD { get; set; } // Previously called Croc
-            public bool CheckPMD { get; set; }
-            public bool CheckPSX { get; set; }
-            public bool CheckTIM { get; set; }
-            public bool CheckTMD { get; set; }
-            public bool CheckTOD { get; set; }
-            public bool CheckVDF { get; set; }
-
-            // Scanner options:
-            public bool IgnoreHMDVersion { get; set; }
-            public bool IgnoreTIMVersion { get; set; }
-            public bool IgnoreTMDVersion { get; set; }
-
-            public long? StartOffset { get; set; }
-            public long? StopOffset { get; set; }
-            public bool NextOffset { get; set; }
-
-            public bool DepthFirstFileSearch { get; set; } = true; // AKA top-down
-            public bool AsyncFileScan { get; set; } = true;
-
-            // Log options:
-            public bool LogToFile { get; set; }
-            public bool LogToConsole { get; set; } = true;
-            public bool Debug { get; set; }
-            public bool ShowErrors { get; set; }
-            public bool ConsoleColor { get; set; } = true;
-
-            // Program options:
-            public bool DrawAllToVRAM { get; set; }
-            public bool AutoAttachLimbs { get; set; }
-            public bool AutoPlayAnimations { get; set; }
-            public bool AutoSelect { get; set; }
-            public bool FixUVAlignment { get; set; } = true;
-
-            public ScanOptions Clone()
-            {
-                return (ScanOptions)MemberwiseClone();
-            }
-        }
-
         public static Logger Logger;
         // Volatile because these are assigned and accessed in different threads.
         private static volatile PreviewForm PreviewForm;
@@ -106,8 +58,6 @@ namespace PSXPrev
         public static bool Debug => _options.Debug;
         public static bool ShowErrors => _options.ShowErrors;
 
-
-        public const string DefaultFilter = "*.*";
 
         private static readonly string[] InvalidFileExtensions = { ".str", ".str;1", ".xa", ".xa;1", ".vb", ".vb;1" };
         private static readonly string[] ISOFileExtensions = { ".iso" };
@@ -161,14 +111,7 @@ namespace PSXPrev
                 Console.ResetColor();
             }
 
-            Console.WriteLine("usage: PSXPrev <PATH> [FILTER=\"" + DefaultFilter + "\"] [-help]"  // general
-                + " [...options]" // Just use -help to see the rest
-                //+ " [-an] [-bff] [-croc] [-hmd] [-mod] [-pmd] [-psx] [-tim] [-tmd] [-tod] [-vdf]" // scanner formats
-                //+ " [-ignorehmdversion] [-ignoretimversion] [-ignoretmdversion]" // scanner options
-                //+ " [-start <OFFSET>] [-stop <OFFSET>] [-range [START],[STOP]] [-nooffset] [-nextoffset] [-syncscan]"
-                //+ " [-log] [-noverbose] [-debug] [-error] [-nocolor]" // log options
-                //+ " [-drawvram] [-nooffset] [-attachlimbs] [-autoplay] [-autoselect]" // program options
-                );
+            Console.WriteLine($"usage: PSXPrev <PATH> [FILTER=\"{ScanOptions.DefaultFilter}\"] [-help] [...options]");
 
             Console.ResetColor();
         }
@@ -190,7 +133,7 @@ namespace PSXPrev
             //Console.WriteLine("positional arguments:");
             Console.WriteLine("arguments:");
             Console.WriteLine("  PATH   : folder or file path to scan");
-            Console.WriteLine("  FILTER : wildcard filter for files to include (default: \"" + DefaultFilter + "\")");
+            Console.WriteLine("  FILTER : wildcard filter for files to include (default: \"" + ScanOptions.DefaultFilter + "\")");
             Console.WriteLine();
             Console.WriteLine("scanner formats: (default: all formats)");
             Console.WriteLine("  -an        : scan for AN animations");
@@ -224,12 +167,8 @@ namespace PSXPrev
             Console.WriteLine();
             Console.WriteLine("program options:");
             //Console.WriteLine("  -help        : show this help message"); // It's redundant to display this
-            Console.WriteLine("  -drawvram    : draw all loaded textures to VRAM (not advised when scanning many files)");
-            Console.WriteLine("  -attachlimbs : enable Auto Attach Limbs by default");
-            Console.WriteLine("  -autoplay    : automatically play selected animations");
-            Console.WriteLine("  -autoselect  : select animation's model and draw selected model's textures (HMD only)");
-            //Console.WriteLine("  -fixuv       : fix UV alignment to closely match that on the PlayStation");
-            Console.WriteLine("  -olduv       : use old UV alignment that less-accurately matches the PlayStation");
+            Console.WriteLine("  -drawvram  : draw all loaded textures to VRAM (not advised when scanning many files)");
+            Console.WriteLine("  -olduv     : use old UV alignment that less-accurately matches the PlayStation");
 
             Console.ResetColor();
         }
@@ -385,15 +324,6 @@ namespace PSXPrev
                 case "-drawvram":
                     options.DrawAllToVRAM = true;
                     break;
-                case "-attachlimbs":
-                    options.AutoAttachLimbs = true;
-                    break;
-                case "-autoplay":
-                    options.AutoPlayAnimations = true;
-                    break;
-                case "-autoselect":
-                    options.AutoSelect = true;
-                    break;
                 case "-olduv":
                     options.FixUVAlignment = false;
                     break;
@@ -468,6 +398,9 @@ namespace PSXPrev
         public static void Initialize(string[] args)
         {
             Application.EnableVisualStyles();
+
+            Settings.Load();
+
             if (args == null || args.Length == 0)
             {
                 // No arguments specified. Show the ScannerForm and let the user choose what to do in the GUI.
@@ -512,11 +445,11 @@ namespace PSXPrev
                 // Parse positional arguments PATH and FILTER.
                 path = args[0];
 
-                filter = args.Length > 1 ? args[1] : DefaultFilter;
+                filter = args.Length > 1 ? args[1] : ScanOptions.DefaultFilter;
                 // If we want, we can make FILTER truly optional by checking TryParseOption, and skipping FILTER if one was found.
                 // However, this would prevent the user from specifying a filter that matches a command line option.
                 // This is a pretty unlikely scenario, but it's worth considering.
-                //filter = DefaultFilter;
+                //filter = ScanOptions.DefaultFilter;
                 //if (args.Length > 1 && !TryParseOption(args, 1, options, ref help, out _))
                 //{
                 //    filter = args[1];
@@ -586,7 +519,7 @@ namespace PSXPrev
             }
 
             _path = path;
-            _filter = filter ?? DefaultFilter;
+            _filter = filter ?? ScanOptions.DefaultFilter;
             _options = options.Clone();
 
             _scanning = true;
@@ -626,12 +559,6 @@ namespace PSXPrev
             thread.Start();
             _waitForPreviewForm.WaitOne(); // Wait for PreviewForm to be assigned before continuing.
 
-
-            // Assign default preview settings.
-            PreviewForm.SetAutoAttachLimbs(_options.AutoAttachLimbs);
-            PreviewForm.SetAutoPlayAnimations(_options.AutoPlayAnimations);
-            PreviewForm.SetAutoSelectAnimationModel(_options.AutoSelect);
-            PreviewForm.SetAutoDrawModelTextures(_options.AutoSelect);
 
             try
             {

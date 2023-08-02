@@ -10,8 +10,8 @@ namespace PSXPrev.Common.Renderer
 {
     public class Scene
     {
-        private const float CameraMinFOV = 1f;
-        private const float CameraMaxFOV = 160f; // Anything above this just looks unintelligible
+        public const float CameraMinFOV = 1f;
+        public const float CameraMaxFOV = 160f; // Anything above this just looks unintelligible
         private const float CameraNearClip = 0.1f;
         private const float CameraFarClip = 500000f;
         private const float CameraMinDistance = 0.01f;
@@ -140,7 +140,6 @@ namespace PSXPrev.Common.Renderer
         private List<Tuple<ModelEntity, Triangle>> _lastPickedTriangles;
         private int _lastPickedEntityIndex;
         private int _lastPickedTriangleIndex;
-        private float _cameraDistanceScalar = 1f; // Applied when using _viewMatrix(Origin) to correct distance
         private double _timeDelta;
         private double _time;
         private bool _lightRayVisible;
@@ -173,28 +172,28 @@ namespace PSXPrev.Common.Renderer
 
         public bool AutoAttach { get; set; }
 
-        public bool Wireframe { get; set; }
-        public bool VerticesOnly { get; set; }
-        public float WireframeSize { get; set; } = 1f;
-        public float VertexSize { get; set; } = 1f;
+        public bool ShowWireframe { get; set; }
+        public bool ShowVertices { get; set; }
+        public float WireframeSize { get; set; }
+        public float VertexSize { get; set; }
 
         public bool VibRibbonWireframe { get; set; }
 
-        public bool ShowGizmos { get; set; } = true;
-        public bool ShowBounds { get; set; } = true;
-        public bool ShowLightRotationRay { get; set; } = true;
-        public bool ShowDebugIntersections { get; set; } = true;
-        public bool ShowDebugPickingRay { get; set; } = true;
+        public bool ShowGizmos { get; set; }
+        public bool ShowBounds { get; set; }
+        public bool ShowLightRotationRay { get; set; }
+        public bool ShowDebugIntersections { get; set; }
+        public bool ShowDebugPickingRay { get; set; }
         public bool ShowDebugVisuals { get; set; } // 3D debug information like picking ray lines
         public bool ShowVisuals { get; set; } = true; // Enables the use of ShowGizmos, ShowBounds, ShowDebugVisuals, etc.
 
-        public bool AmbientEnabled { get; set; } = true;
-        public bool LightEnabled { get; set; } = true;
-        public bool TextureEnabled { get; set; } = true;
-        public bool SemiTransparencyEnabled { get; set; } = true;
+        public bool AmbientEnabled { get; set; }
+        public bool LightEnabled { get; set; }
+        public bool TexturesEnabled { get; set; }
+        public bool SemiTransparencyEnabled { get; set; }
         public bool ForceDoubleSided { get; set; }
 
-        public float LightIntensity { get; set; } = 1f;
+        public float LightIntensity { get; set; }
 
         public float ViewportWidth { get; private set; } = 1f;
         public float ViewportHeight { get; private set; } = 1f;
@@ -202,17 +201,23 @@ namespace PSXPrev.Common.Renderer
         public float CameraDistanceIncrement => CameraDistanceToTarget * CameraDistanceIncrementFactor;
         public float CameraPanIncrement => CameraDistanceToTarget * CameraPanIncrementFactor;
 
-        private float _cameraFOV = 60f;
+        // Applied when using _viewMatrix(Origin) to correct distance
+        private float _cameraDistanceScalar = CalculateCameraDistanceScalar(CameraMinFOV);
+        private float _cameraFOV = CameraMinFOV;
         public float CameraFOV
         {
             get => _cameraFOV;
             set
             {
-                _cameraFOV = GeomMath.Clamp(value, CameraMinFOV, CameraMaxFOV);
-                _cameraDistanceScalar = (float)(Math.Tan(CameraFOVRads / 2d) * 2d / CameraBaseDistanceScalar);
-                SetupMatrices();
-                UpdateViewMatrix(); // Update view matrix because it relies on FOV to preserve distance
-                CameraChanged?.Invoke(this, EventArgs.Empty);
+                value = GeomMath.Clamp(value, CameraMinFOV, CameraMaxFOV);
+                if (_cameraFOV != value)
+                {
+                    _cameraFOV = value;
+                    _cameraDistanceScalar = CalculateCameraDistanceScalar(_cameraFOV);
+                    SetupMatrices();
+                    UpdateViewMatrix(); // Update view matrix because it relies on FOV to preserve distance
+                    CameraChanged?.Invoke(this, EventArgs.Empty);
+                }
             }
         }
         private float CameraFOVRads => CameraFOV * GeomMath.Deg2Rad;
@@ -223,9 +228,13 @@ namespace PSXPrev.Common.Renderer
             get => _cameraDistance;
             set
             {
-                _cameraDistance = Math.Max(CameraMinDistance, value);
-                UpdateViewMatrix();
-                CameraChanged?.Invoke(this, EventArgs.Empty);
+                value = Math.Max(CameraMinDistance, value);
+                if (_cameraDistance != value)
+                {
+                    _cameraDistance = value;
+                    UpdateViewMatrix();
+                    CameraChanged?.Invoke(this, EventArgs.Empty);
+                }
             }
         }
 
@@ -246,10 +255,12 @@ namespace PSXPrev.Common.Renderer
             get => new Vector2(_cameraPitch, _cameraYaw);
             set
             {
+                value.X = GeomMath.Clamp(value.X, -CameraMaxPitch, CameraMaxPitch);
+                value.Y = GeomMath.PositiveModulus(value.Y, (float)(Math.PI * 2));
                 if (CameraPitchYaw != value)
                 {
-                    _cameraPitch = GeomMath.Clamp(value.X, -CameraMaxPitch, CameraMaxPitch);
-                    _cameraYaw = GeomMath.PositiveModulus(value.Y, (float)(Math.PI * 2));
+                    _cameraPitch = value.X;
+                    _cameraYaw   = value.Y;
                     UpdateViewMatrix();
                     CameraChanged?.Invoke(this, EventArgs.Empty);
                 }
@@ -306,10 +317,12 @@ namespace PSXPrev.Common.Renderer
             get => new Vector2(_lightPitch, _lightYaw);
             set
             {
+                value.X = GeomMath.PositiveModulus(value.X, (float)(Math.PI * 2));
+                value.Y = GeomMath.PositiveModulus(value.Y, (float)(Math.PI * 2));
                 if (LightPitchYaw != value)
                 {
-                    _lightPitch = GeomMath.PositiveModulus(value.X, (float)(Math.PI * 2));
-                    _lightYaw   = GeomMath.PositiveModulus(value.Y, (float)(Math.PI * 2));
+                    _lightPitch = value.X;
+                    _lightYaw   = value.Y;
                     UpdateLightRotation();
                     LightChanged?.Invoke(this, EventArgs.Empty);
                 }
@@ -397,7 +410,7 @@ namespace PSXPrev.Common.Renderer
         {
             GL.ClearColor(0.0f, 0.0f, 0.0f, 0.0f);
             GL.Hint(HintTarget.PerspectiveCorrectionHint, HintMode.Nicest);
-            Wireframe = false;
+            ShowWireframe = false;
         }
 
         private void SetupShaders()
@@ -518,13 +531,13 @@ namespace PSXPrev.Common.Renderer
 
 
             // The main model mesh batch uses the scene's settings.
-            MeshBatch.Wireframe = Wireframe;
-            MeshBatch.VerticesOnly = VerticesOnly;
+            MeshBatch.ShowWireframe = ShowWireframe;
+            MeshBatch.ShowVertices = ShowVertices;
             MeshBatch.WireframeSize = WireframeSize;
             MeshBatch.VertexSize = VertexSize;
             MeshBatch.AmbientEnabled = AmbientEnabled;
             MeshBatch.LightEnabled = LightEnabled;
-            MeshBatch.TextureEnabled = TextureEnabled;
+            MeshBatch.TexturesEnabled = TexturesEnabled;
             MeshBatch.SemiTransparencyEnabled = SemiTransparencyEnabled;
             MeshBatch.ForceDoubleSided = ForceDoubleSided;
             MeshBatch.SolidColor = null;
@@ -1025,6 +1038,12 @@ namespace PSXPrev.Common.Renderer
         public void ResetIntersection()
         {
             _intersected = null;
+        }
+
+
+        private static float CalculateCameraDistanceScalar(float fov)
+        {
+            return (float)(Math.Tan(fov * GeomMath.Deg2Rad / 2d) * 2d / CameraBaseDistanceScalar);
         }
     }
 }

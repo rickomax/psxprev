@@ -54,6 +54,9 @@
     <Reference Include="Microsoft.WindowsAPICodePack.Shell, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>packages\WindowsAPICodePack-Shell.1.1.1\lib\Microsoft.WindowsAPICodePack.Shell.dll</HintPath>
     </Reference>
+    <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>packages\Newtonsoft.Json.11.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="OpenTK, Version=3.3.3.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL">
       <HintPath>packages\OpenTK.3.3.3\lib\net20\OpenTK.dll</HintPath>
     </Reference>
@@ -113,6 +116,8 @@
     <Compile Include="Common\Renderer\VRAM.cs" />
     <Compile Include="Common\Utils\BinaryReaderExtensions.cs" />
     <Compile Include="Common\Utils\FInt.cs" />
+    <Compile Include="Common\Utils\JsonStringColorConverter.cs" />
+    <Compile Include="Common\Utils\JsonStringEnumConverter.cs" />
     <Compile Include="Common\Utils\Logger.cs" />
     <Compile Include="Common\Utils\ManifestResourceLoader.cs" />
     <Compile Include="Common\Utils\StringUtils.cs" />
@@ -169,13 +174,15 @@
     <Compile Include="Forms\TMDBindingsForm.Designer.cs">
       <DependentUpon>TMDBindingsForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="ScanOptions.cs" />
+    <Compile Include="Settings.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
