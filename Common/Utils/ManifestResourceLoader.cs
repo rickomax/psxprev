@@ -5,14 +5,12 @@ namespace PSXPrev.Common.Utils
 {
     public static class ManifestResourceLoader
     {
-        public static string BaseNamespace = "PSXPrev";
-
         private static string ConvertPath(string fileName)
         {
             // Replace path slashes with dots.
             var resourceName = fileName.Replace('\\', '.').Replace('/', '.');
             // Prefix path with base namespace.
-            return $"{BaseNamespace}.{resourceName}";
+            return $"{Program.RootNamespace}.{resourceName}";
         }
 
         public static Stream Open(string fileName, bool checkFileSystem = true)

@@ -181,16 +181,6 @@ namespace PSXPrev.Forms
             animationsTreeView.Nodes.Add(animationNode);
             AddAnimationObject(animation.RootAnimationObject, animationNode);
             animationsTreeView.EndUpdate();
-
-            // Debugging: Quickly export HMD animation on startup.
-            //if (_rootEntities.Count >= 1 && _animations.Count == 1)
-            //{
-            //    var options = new ExportModelOptions
-            //    {
-            //        Format = ExportModelOptions.GLTF2,
-            //    };
-            //    ExportModelsForm.Export(options, new[] { _rootEntities[0] }, new[] { _animations[0] }, _scene.AnimationBatch);
-            //}
         }
 
         public void AddRootEntities(List<RootEntity> entities)
@@ -256,6 +246,22 @@ namespace PSXPrev.Forms
                 stopScanningToolStripMenuItem.Enabled = false;
                 startScanToolStripMenuItem.Enabled = true;
                 clearScanResultsToolStripMenuItem.Enabled = true;
+
+                // Debugging: Quickly export models and animations on startup.
+                /*if (_rootEntities.Count >= 1 && _animations.Count >= 1)
+                {
+                    var options = new ExportModelOptions
+                    {
+                        Path = @"",
+                        Format = ExportModelOptions.GLTF2,
+                        SingleTexture = false,
+                        AttachLimbs = true,
+                        RedrawTextures = true,
+                        ExportAnimations = true,
+                    };
+                    ExportModelsForm.Export(options, new[] { _rootEntities[0] }, new[] { _animations[0] }, _scene.AnimationBatch);
+                    Close();
+                }*/
             }
         }
 

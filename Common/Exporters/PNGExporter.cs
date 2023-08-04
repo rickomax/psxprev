@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
 using PSXPrev.Common.Renderer;
 
 namespace PSXPrev.Common.Exporters
@@ -59,7 +60,7 @@ namespace PSXPrev.Common.Exporters
 
         private void ExportBitmap(Bitmap bitmap, string name, string selectedPath)
         {
-            var filePath = $"{selectedPath}/{name}.png";
+            var filePath = Path.Combine(selectedPath, $"{name}.png");
             bitmap.Save(filePath, ImageFormat.Png);
         }
     }

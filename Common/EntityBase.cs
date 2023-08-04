@@ -138,7 +138,7 @@ namespace PSXPrev.Common
         }
 
         [ReadOnly(true), DisplayName("Sub-Models")]
-        public string ChildCount => ChildEntities == null ? "0" : ChildEntities.Length.ToString(CultureInfo.InvariantCulture);
+        public string ChildCount => ChildEntities == null ? "0" : ChildEntities.Length.ToString(NumberFormatInfo.InvariantInfo);
 
         [Browsable(false)]
         public EntityBase[] ChildEntities

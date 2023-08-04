@@ -1,44 +1,36 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Globalization;
 using System.IO;
+using System.Linq;
+using Newtonsoft.Json;
 using OpenTK;
 using PSXPrev.Common.Animator;
+using PSXPrev.Common.Exporters.glTF2Schema;
 
 namespace PSXPrev.Common.Exporters
 {
     // todo: Model is upside down as simply changing the vertices Y and Z as we do in the viewer is screwing up the results. Figuring out what is going on here
     public class glTF2Exporter
     {
-        private StreamWriter _writer;
+        private glTF _root;
         private BinaryWriter _binaryWriter;
-
         private PNGExporter _pngExporter;
+        private Dictionary<Texture, int> _exportedTextures;
         private ModelPreparerExporter _modelPreparer;
-        private string _baseName;
-        private string _baseTextureName;
         private ExportModelOptions _options;
-        private string _selectedPath;
+        private string _baseName;
 
-        private const int ComponentType_Float = 5126;
-        private const int MagFilter_Linear = 9728;
-        private const int WrapMode_Repeat = 10497;
-        private const int PrimitiveMode_Triangles = 4;
-        private const int Target_ArrayBuffer = 34962;
-
-        private const string AssetTemplate = " \"asset\" : {\r\n  \"generator\" : \"PSXPREV\",\r\n  \"version\" : \"2.0\"\r\n },";
-
-        public void Export(RootEntity[] entities, Animation[] animations, AnimationBatch animationBatch, ExportModelOptions options = null)
+        public void Export(ExportModelOptions options, RootEntity[] entities, Animation[] animations, AnimationBatch animationBatch)
         {
             _options = options?.Clone() ?? new ExportModelOptions();
             // Force any required options for this format here, before calling Validate.
-            _options.MergeEntities = false;
-            _options.Validate();
+            _options.MergeEntities = false; // Not supported yet
+            _options.Validate("gltf");
 
             _pngExporter = new PNGExporter();
+            _exportedTextures = new Dictionary<Texture, int>();
             _modelPreparer = new ModelPreparerExporter(_options);
-            _selectedPath = _options.Path;
 
             // Prepare the shared state for all models being exported (mainly setting up tiled textures).
             _modelPreparer.PrepareAll(entities);
@@ -47,492 +39,705 @@ namespace PSXPrev.Common.Exporters
             {
                 for (var i = 0; i < entities.Length; i++)
                 {
-                    ExportEntities(i, animations, animationBatch, entities[i]);
+                    // Prepare the state for the current model being exported.
+                    _modelPreparer.PrepareCurrent(entities);
+
+                    ExportEntities(i, new[] { entities[i] }, animations, animationBatch);
                 }
+            }
+            else // Not supported yet, disabled before Validate
+            {
+                // Prepare the state for the current model being exported.
+                _modelPreparer.PrepareCurrent(entities);
+
+                ExportEntities(0, entities, animations, animationBatch);
             }
 
             _pngExporter = null;
+            _exportedTextures = null;
             _modelPreparer.Dispose();
             _modelPreparer = null;
         }
 
-        private void ExportEntities(int index, Animation[] animations, AnimationBatch animationBatch, params RootEntity[] entities)
+        private void ExportEntities(int index, RootEntity[] entities, Animation[] animations, AnimationBatch animationBatch)
         {
             var exportAnimations = _options.ExportAnimations && animations?.Length > 0;
 
-            _baseName = $"gltf{index}";
-            _baseTextureName = (_options.ShareTextures ? "gltfshared" : _baseName) + "_";
-
-            // Prepare the state for the current model being exported.
-            _modelPreparer.PrepareCurrent(entities);
-
             for (var entityIndex = 0; entityIndex < entities.Length; entityIndex++)
             {
-                var entity = _modelPreparer.GetPreparedRootEntity(entities[entityIndex], out var models);
+                // Re-use the dictionary of textures so that we only export them once.
+                if (!_options.ShareTextures)
+                {
+                    _exportedTextures.Clear();
+                }
 
-                _writer = new StreamWriter($"{_selectedPath}/{_baseName}_{entityIndex}.gltf");
-                _writer.WriteLine("{");
+                _baseName = _options.GetBaseName(index, entityIndex);
+                var filePath = Path.Combine(_options.Path, $"{_baseName}.gltf");
+                _root = new glTF();
 
                 // Binary buffer creation
-                var binaryBufferShortFilename = $"{_baseName}_{entityIndex}.bin";
-                var binaryBufferFilename = $"{_selectedPath}/{binaryBufferShortFilename}";
-                _binaryWriter = new BinaryWriter(File.OpenWrite(binaryBufferFilename));
+                var binaryBufferFileName = $"{_baseName}.bin";
+                _binaryWriter = new BinaryWriter(File.Create(Path.Combine(_options.Path, $"{binaryBufferFileName}")));
+
+                var entity = _modelPreparer.GetPreparedRootEntity(entities[entityIndex], out var models);
+
 
                 // Write Asset
-                _writer.WriteLine(AssetTemplate);
+                // "asset": {
+                //  "generator": "PSXPREV",
+                //  "version": "2.0"
+                // }
+                _root.asset = new asset
+                {
+                    generator = "PSXPREV",
+                    version = "2.0",
+                };
+
+                _root.extensionsUsed = new List<string>();
+
 
                 // Write Scenes
+                // "scene": 0,
+                // "scenes": [
+                //  {
+                //   "nodes": [ {0...models.Count-1} ]
+                //  }
+                // ]
+                _root.scene = 0;
+                _root.scenes = new List<scene>(1)
                 {
-                    _writer.WriteLine("\"scene\": 0,");
-                    _writer.WriteLine(" \"scenes\": [");
-                    _writer.WriteLine("  {");
-                    _writer.WriteLine("  \"nodes\": [");
-                    for (var i = 0; i < models.Count; i++)
+                    new scene
                     {
-                        _writer.WriteLine(i == models.Count - 1 ? $"{i}" : $"{i},");
-                    }
-                    _writer.WriteLine("  ]");
-                    _writer.WriteLine(" }");
-                    _writer.WriteLine("],");
-                }
+                        nodes = new List<int>(Enumerable.Range(0, models.Count)),
+                    },
+                };
+
 
                 // Write Buffer Views
+                // "bufferViews": [
+                //  // MeshBufferViews
+                //  {
+                //   "buffer": 0,
+                //   "target": Target_ArrayBuffer,
+                //   "byteOffset": {_binaryWriter.BaseStream.Position - initialOffset},
+                //   "byteLength": {_binaryWriter.BaseStream.Position - offset}
+                //  },
+                //  //...
+                //  // AnimationTimeBufferView
+                //  {
+                //   "buffer": 0,
+                //   "byteOffset": {_binaryWriter.BaseStream.Position - initialOffset},
+                //   "byteLength": {_binaryWriter.BaseStream.Position - offset}
+                //  },
+                //  //...
+                //  // AnimationDataBufferViews
+                //  {
+                //   "buffer": 0,
+                //   "byteOffset": {_binaryWriter.BaseStream.Position - initialOffset},
+                //   "byteLength": {_binaryWriter.BaseStream.Position - offset}
+                //  },
+                //  //...
+                // ]
+                var initialOffset = _binaryWriter.BaseStream.Position;
+                var offset = initialOffset;
+                _root.bufferViews = new List<bufferView>();
                 {
-                    var initialOffset = _binaryWriter.BaseStream.Position;
-                    var offset = initialOffset;
-                    _writer.WriteLine("\"bufferViews\": [");
+                    _root.bufferViews.Capacity = models.Count * 4;
+                    // Meshes
+                    foreach (var model in models)
                     {
-                        // Meshes
-                        for (var i = 0; i < models.Count; i++)
-                        {
-                            var model = models[i];
-                            WriteMeshBufferViews(model, ref offset, initialOffset, !exportAnimations && i == models.Count - 1);
-                        }
+                        WriteMeshBufferViews(model, ref offset, initialOffset);
                     }
-                    // Animations
-                    if (exportAnimations)
-                    {
-                        for (var i = 0; i < animations.Length; i++)
-                        {
-                            var animation = animations[i];
-                            var totalTime = animation.FrameCount / animation.FPS;
-                            var timeStep = 1f / animation.FPS;
-                            WriteAnimationTimeBufferView(totalTime, timeStep, ref offset, initialOffset);
-
-                            // Compute animation frames
-                            var totalFrames = (int)Math.Ceiling(totalTime / timeStep) + 1; // +1 to include last frame
-                            var translations = new Vector3[models.Count, totalFrames];
-                            var rotations = new Quaternion[models.Count, totalFrames];
-                            var scales = new Vector3[models.Count, totalFrames];
-                            var frame = 0;
-                            var oldLoopMode = animationBatch.LoopMode;
-                            animationBatch.SetupAnimationBatch(animation, simulate: true);
-                            animationBatch.LoopMode = AnimationLoopMode.Once;
-                            for (var t = 0f; t < totalTime; t += timeStep, frame++)
-                            {
-                                animationBatch.Time = t;
-                                if (animationBatch.SetupAnimationFrame(null, entity, null, simulate: true))
-                                {
-                                    for (var j = 0; j < models.Count; j++)
-                                    {
-                                        var model = models[j];
-                                        var matrix = model.TempMatrix * model.TempLocalMatrix;
-                                        translations[j, frame] = matrix.ExtractTranslation();
-                                        rotations[j, frame] = matrix.ExtractRotationSafe();
-                                        scales[j, frame] = matrix.ExtractScale();
-                                    }
-                                }
-                                else
-                                {
-                                    totalFrames = frame + 1;
-                                }
-                            }
-                            animationBatch.LoopMode = oldLoopMode;
-
-                            // Write animation frames for each model
-                            for (var j = 0; j < models.Count; j++)
-                            {
-                                var model = models[j];
-                                WriteAnimationDataBufferViews(model, j, translations, rotations, scales, totalFrames, ref offset, initialOffset, j == models.Count - 1 && i == animations.Length - 1);
-                            }
-                        }
-                    }
-                    _writer.WriteLine("],");
                 }
-
-                var modelImages = new OrderedDictionary();
-
-                // Write Textures
-                if (_options.ExportTextures)
+                if (exportAnimations)
                 {
-                    // Sampler
-                    _writer.WriteLine("\"samplers\": [");
-                    _writer.WriteLine(" {");
-                    _writer.WriteLine($"  \"magFilter\": {MagFilter_Linear},");
-                    _writer.WriteLine($"  \"minFilter\": {MagFilter_Linear},");
-                    _writer.WriteLine($"  \"wrapS\": {WrapMode_Repeat},");
-                    _writer.WriteLine($"  \"wrapT\": {WrapMode_Repeat}");
-                    _writer.WriteLine(" }");
-                    _writer.WriteLine("],");
-
-                    // Images
-                    var textureImages = new OrderedDictionary();
-
-                    _writer.WriteLine("\"images\": [");
-                    for (var i = 0; i < models.Count; i++)
+                    _root.bufferViews.Capacity = _root.bufferViews.Count + animations.Length * (1 + models.Count * 3);
+                    // Animations
+                    foreach (var animation in animations)
                     {
-                        var model = models[i];
-                        if (NeedsTexture(model))
+                        var totalTime = animation.FrameCount / animation.FPS;
+                        var timeStep = 1f / animation.FPS;
+                        WriteAnimationTimeBufferView(totalTime, timeStep, ref offset, initialOffset);
+
+                        // Compute animation frames
+                        var totalFrames = (int)Math.Ceiling(totalTime / timeStep) + 1; // +1 to include last frame
+                        var translations = new Vector3[models.Count, totalFrames];
+                        var rotations = new Quaternion[models.Count, totalFrames];
+                        var scales = new Vector3[models.Count, totalFrames];
+                        var frame = 0;
+                        var oldLoopMode = animationBatch.LoopMode;
+                        animationBatch.SetupAnimationBatch(animation, simulate: true);
+                        animationBatch.LoopMode = AnimationLoopMode.Once;
+                        for (var t = 0f; t < totalTime; t += timeStep, frame++)
                         {
-                            int imageId;
-                            if (!textureImages.Contains(model.Texture))
+                            animationBatch.Time = t;
+                            if (animationBatch.SetupAnimationFrame(null, entity, null, simulate: true))
                             {
-                                imageId = textureImages.Count;
-                                textureImages.Add(model.Texture, imageId);
-                                var uri = $"{_baseTextureName}{imageId}";
-                                _writer.WriteLine(modelImages.Count > 0 ? ", {" : "{");
-                                _pngExporter.Export(model.Texture, uri, _selectedPath);
-                                _writer.WriteLine($" \"uri\": \"{uri}.png\"");
-                                _writer.WriteLine("}");
+                                for (var j = 0; j < models.Count; j++)
+                                {
+                                    var model = models[j];
+                                    var matrix = model.TempMatrix * model.TempLocalMatrix;
+                                    translations[j, frame] = matrix.ExtractTranslation();
+                                    rotations[j, frame] = matrix.ExtractRotationSafe();
+                                    scales[j, frame] = matrix.ExtractScale();
+                                }
                             }
                             else
                             {
-                                imageId = (int)textureImages[model.Texture];
+                                totalFrames = frame + 1;
                             }
-                            modelImages.Add(model, imageId);
+                        }
+                        animationBatch.LoopMode = oldLoopMode;
+
+                        // Write animation frames for each model
+                        for (var j = 0; j < models.Count; j++)
+                        {
+                            var model = models[j];
+                            WriteAnimationDataBufferViews(model, j, translations, rotations, scales, totalFrames, ref offset, initialOffset);
                         }
                     }
-                    _writer.WriteLine("],");
-
-                    // Textures
-                    _writer.WriteLine("\"textures\": [");
-                    for (var i = 0; i < textureImages.Count; i++)
-                    {
-                        var imageId = (int)textureImages[i];
-                        _writer.WriteLine("{");
-                        _writer.WriteLine($" \"source\": {imageId},");
-                        _writer.WriteLine(" \"sampler\": 0");
-                        _writer.WriteLine(i == textureImages.Count - 1 ? "}" : "}, ");
-                    }
-                    _writer.WriteLine("],");
                 }
+
+                // Write Textures
+                var imagesDictionary = new Dictionary<Texture, int>();
+
+                if (_options.ExportTextures)
+                {
+                    // Write Texture Samplers
+                    // "samplers": [
+                    //  {
+                    //   "magFilter": {sampler_filter.NEAREST},
+                    //   "minFilter": {sampler_filter.NEAREST},
+                    //   "wrapS": {sampler_wrap.REPEAT},
+                    //   "wrapT": {sampler_wrap.REPEAT}
+                    //  },
+                    //  //...
+                    // ]
+                    _root.samplers = new List<sampler>
+                    {
+                        new sampler
+                        {
+                            magFilter = sampler_filter.NEAREST,
+                            minFilter = sampler_filter.NEAREST,
+                            wrapS = sampler_wrap.REPEAT,
+                            wrapT = sampler_wrap.REPEAT,
+                        }
+                    };
+
+                    // Write Texture Images
+                    // "images": [
+                    //  {
+                    //   "uri": "{textureName}.png"
+                    //  },
+                    //  //...
+                    // ]
+                    _root.images = new List<image>();
+                    foreach (var model in models)
+                    {
+                        var texture = model.Texture;
+                        if (NeedsTexture(model) && !imagesDictionary.ContainsKey(texture))
+                        {
+                            imagesDictionary.Add(texture, imagesDictionary.Count);
+
+                            var exported = true;
+                            if (!_exportedTextures.TryGetValue(texture, out var exportedTextureId))
+                            {
+                                exportedTextureId = _exportedTextures.Count;
+                                _exportedTextures.Add(texture, exportedTextureId);
+                                exported = false;
+                            }
+
+                            var textureName = _options.GetTextureName(_baseName, exportedTextureId);
+                            if (!exported)
+                            {
+                                _pngExporter.Export(texture, textureName, _options.Path);
+                            }
+
+                            _root.images.Add(new image
+                            {
+                                uri = $"{textureName}.png",
+                            });
+                        }
+                    }
+
+                    // Write Texture Textures
+                    // "textures": [
+                    //  {
+                    //   "source": {imageId},
+                    //   "sampler": 0
+                    //  },
+                    //  //...
+                    // ]
+                    _root.textures = new List<texture>(imagesDictionary.Count);
+                    for (var imageId = 0; imageId < imagesDictionary.Count; imageId++)
+                    {
+                        _root.textures.Add(new texture
+                        {
+                            source = imageId,
+                            sampler = 0,
+                        });
+                    }
+                }
+
 
                 // Write Materials
+                // "materials": [
+                // {
+                //  "pbrMetallicRoughness": {
+                // * "baseColorTexture": { "index": {imageId} }, // if textured
+                //   "metallicFactor": 0.0,
+                //   "roughnessFactor": 1.0
+                //  },
+                //  "alphaMode": "MASK"|"OPAQUE",
+                //  "doubleSided": true|false,
+                // *"extensions": { "KHR_materials_unlit": {} } // if RenderFlags.Unlit
+                // },
+                // //...
+                // ]
+                _root.materials = new List<material>(models.Count);
+                var anyUnlit = false;
+                foreach (var model in models)
                 {
-                    _writer.WriteLine("\"materials\": [");
-                    for (var i = 0; i < models.Count; i++)
+                    var imageId = 0; // dummy init
+                    var needsTexture = NeedsTexture(model) && imagesDictionary.TryGetValue(model.Texture, out imageId);
+                    _root.materials.Add(new material
                     {
-                        var model = models[i];
-                        _writer.WriteLine("{");
-                        _writer.WriteLine("\"pbrMetallicRoughness\" : {");
-                        if (modelImages.Contains(model))
+                        pbrMetallicRoughness =
+                            new material_pbrMetallicRoughness
+                            {
+                                //baseColorFactor = new[] { 1f, 1f, 1f, 1f },
+                                baseColorTexture = needsTexture
+                                    ? new textureInfo
+                                    {
+                                        index = imageId,
+                                    }
+                                    : null,
+                                metallicFactor = 0.0f,
+                                roughnessFactor = 1.0f,
+                            },
+                        alphaMode = needsTexture ? material_alphaMode.MASK : material_alphaMode.OPAQUE, // Hide pixels with black mask transparency (when stp bit is false)
+                        doubleSided = model.RenderFlags.HasFlag(RenderFlags.DoubleSided),
+                        extensions = model.RenderFlags.HasFlag(RenderFlags.Unlit)
+                            ? new Dictionary<string, object>
+                            {
+                                { glTF.ExtensionUnlit, new object() },
+                            }
+                            : null,
+                    });
+                    if (model.RenderFlags.HasFlag(RenderFlags.Unlit))
+                    {
+                        if (!anyUnlit)
                         {
-                            var imageId = (int)modelImages[model];
-                            _writer.WriteLine("\"baseColorTexture\" : {");
-                            _writer.WriteLine($"\"index\" : {imageId}");
-                            _writer.WriteLine("},");
+                            anyUnlit = true;
+                            _root.extensionsUsed.Add(glTF.ExtensionUnlit);
                         }
-                        _writer.WriteLine("\"metallicFactor\" : 0.0,");
-                        _writer.WriteLine("\"roughnessFactor\" : 1.0");
-                        _writer.WriteLine("}");
-                        _writer.WriteLine(i == models.Count - 1 ? "}" : "}, ");
                     }
-                    _writer.WriteLine("],");
                 }
+
 
                 // Write Accessors
+                // "accessors": [
+                //  {
+                //   "bufferView": {bufferViewIndex++},
+                //   "byteOffset": 0,
+                //   "componentType": {accessor_componentType.FLOAT},
+                //   "count": {vertexCount},
+                //   "type": "VEC3"|"VEC3"|"VEC3"|"VEC2", // VEC2 if textured
+                // * "min": [ {minPos} ], // first VEC3 only
+                // * "max": [ {maxPos} ]  // first VEC3 only
+                //  },
+                //  //...
+                //  {
+                //   "bufferView": {bufferViewIndex++},
+                //   "byteOffset": 0,
+                //   "componentType": {accessor_componentType.FLOAT},
+                //   "count": {stepCount},
+                //   "type": "SCALAR"|"VEC3"|"VEC4"|"VEC3",
+                // * "min": [ {timeMin} ], // SCALAR only
+                // * "max": [ {timeMax} ]  // SCALAR only
+                //  },
+                //  //...
+                // ]
+                var bufferViewIndex = 0;
+                _root.accessors = new List<accessor>();
+
+                // Write Accessor Meshes
                 {
-                    _writer.WriteLine("\"accessors\": [");
-
-                    var bufferViewIndex = 0;
-                    // Meshes
+                    _root.accessors.Capacity = models.Count * 4;
+                    foreach (var model in models)
                     {
-                        for (var i = 0; i < models.Count; i++)
+                        var triangles = model.Triangles;
+                        var vertexCount = triangles.Length * 3;
+
+                        // Compute the local min/max vertex positions. We can't use Bounds3D because that's transformed.
+                        var vertMin = triangles.Length > 0 ? FixHandiness(triangles[0].Vertices[0]) : Vector3.Zero;
+                        var vertMax = vertMin;
+                        foreach (var triangle in triangles)
                         {
-                            var model = models[i];
-                            var vertexCount = model.Triangles.Length * 3;
-
-                            // Compute the local min/max vertex positions. We can't use Bounds3D because that's transformed.
-                            var triangles = model.Triangles;
-                            var minPos = triangles.Length > 0 ? triangles[0].Vertices[0] : Vector3.Zero;
-                            var maxPos = minPos;
-                            for (var j = 0; j < triangles.Length; j++)
+                            for (var j = 0; j < 3; j++)
                             {
-                                var triangle = triangles[j];
-                                for (var k = 0; k < 3; k++)
-                                {
-                                    var vertex = triangle.Vertices[k];
-                                    minPos = Vector3.ComponentMin(minPos, vertex);
-                                    maxPos = Vector3.ComponentMax(maxPos, vertex);
-                                }
-                            }
-                            // Swap min/max and negate for Y and Z to fix handiness.
-                            var boundsMin = new[] { minPos.X, -maxPos.Y, -maxPos.Z };
-                            var boundsMax = new[] { maxPos.X, -minPos.Y, -minPos.Z };
-
-                            var final = !exportAnimations && i == models.Count - 1;
-                            var noTextureFinal = final && !NeedsTexture(model);
-                            WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, vertexCount, "VEC3", false, boundsMin, boundsMax); // Vertex positions
-                            WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, vertexCount, "VEC3"); // Vertex colors
-                            WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, vertexCount, "VEC3", noTextureFinal); // Vertex normals
-                            if (NeedsTexture(model))
-                            {
-                                WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, vertexCount, "VEC2", final); // Vertex uvs
+                                var vertex = FixHandiness(triangle.Vertices[j]);
+                                vertMin = Vector3.ComponentMin(vertMin, vertex);
+                                vertMax = Vector3.ComponentMax(vertMax, vertex);
                             }
                         }
-                    }
-                    // Animations
-                    if (exportAnimations)
-                    {
-                        for (var i = 0; i < animations.Length; i++)
+                        var boundsMin = new[] { vertMin.X, vertMin.Y, vertMin.Z };
+                        var boundsMax = new[] { vertMax.X, vertMax.Y, vertMax.Z };
+
+                        WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, vertexCount, accessor_type.VEC3, boundsMin, boundsMax); // Vertex positions
+                        WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, vertexCount, accessor_type.VEC3); // Vertex normals
+                        WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, vertexCount, accessor_type.VEC3); // Vertex colors
+                        if (NeedsTexture(model))
                         {
-                            var animation = animations[i];
-                            var totalTime = animation.FrameCount / animation.FPS;
-                            var timeStep = 1f / animation.FPS;
-                            var stepCount = (int)Math.Ceiling(totalTime / timeStep);
-                            var timeMin = new [] { 0f };
-                            var timeMax = new [] { totalTime };
-                            WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, stepCount, "SCALAR", false, timeMin, timeMax); // Frame times
-                            for (var j = 0; j < models.Count; j++)
-                            {
-                                var final = i == animations.Length - 1 && j == models.Count - 1;
-                                WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, stepCount, "VEC3"); // Object translation
-                                WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, stepCount, "VEC4"); // Object rotation
-                                WriteAccessor(bufferViewIndex++, 0, ComponentType_Float, stepCount, "VEC3", final); // Object scale
-                            }
+                            WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, vertexCount, accessor_type.VEC2); // Vertex uvs
                         }
                     }
-                    _writer.WriteLine("],");
                 }
+                // Write Accessor Animations
+                if (exportAnimations)
+                {
+                    _root.accessors.Capacity = _root.accessors.Count + animations.Length * (1 + models.Count);
+                    foreach (var animation in animations)
+                    {
+                        var totalTime = animation.FrameCount / animation.FPS;
+                        var timeStep = 1f / animation.FPS;
+                        var stepCount = (int)Math.Ceiling(totalTime / timeStep);
+                        var timeMin = new [] { 0f };
+                        var timeMax = new [] { totalTime };
+                        WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, stepCount, accessor_type.SCALAR, timeMin, timeMax); // Frame times
+                        foreach (var model in models)
+                        {
+                            WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, stepCount, accessor_type.VEC3); // Object translation
+                            WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, stepCount, accessor_type.VEC4); // Object rotation
+                            WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, stepCount, accessor_type.VEC3); // Object scale
+                        }
+                    }
+                }
+
 
                 var accessorIndex = 0;
 
                 // Write Meshes
+                // "meshes": [
+                //  {
+                //   "name": "{model.EntityName}",
+                //   "primitives": [
+                //    {
+                //     "attributes": {
+                //      "POSITION": {accessorIndex++},
+                //      "NORMAL": {accessorIndex++},
+                //      "COLOR_0": {accessorIndex++},
+                // *    "TEXCOORD_0": {accessorIndex++} // if textered
+                //     },
+                //     "material": {i},
+                //     "mode": {mesh_primitive_mode.TRIANGLES}
+                //    }
+                //   ]
+                //  },
+                //  //...
+                // ]
+                _root.meshes = new List<mesh>(models.Count);
+                for (var i = 0; i < models.Count; i++)
                 {
-                    _writer.WriteLine("\"meshes\": [");
-                    for (var i = 0; i < models.Count; i++)
+                    var model = models[i];
+                    _root.meshes.Add(new mesh
                     {
-                        var model = models[i];
-                        _writer.WriteLine("{");
-                        _writer.WriteLine($" \"name\": \"{model.EntityName}\",");
-                        _writer.WriteLine(" \"primitives\": [");
-                        _writer.WriteLine("  {");
-                        _writer.WriteLine($"   \"attributes\": {{");
-                        _writer.WriteLine($"    \"POSITION\": {accessorIndex++},");
-                        _writer.WriteLine($"    \"COLOR_0\": {accessorIndex++},");
-                        _writer.WriteLine($"    \"NORMAL\": {accessorIndex++}" + (NeedsTexture(model) ? "," : string.Empty));
-                        if (NeedsTexture(model))
+                        name = model.EntityName,
+                        primitives = new List<mesh_primitive>
                         {
-                            _writer.WriteLine($"    \"TEXCOORD_0\": {accessorIndex++}");
-                        }
-                        _writer.WriteLine("   },");
-                        _writer.WriteLine($"   \"material\": {i},");
-                        _writer.WriteLine($"   \"mode\": {PrimitiveMode_Triangles}");
-                        _writer.WriteLine("  }");
-                        _writer.WriteLine(" ]");
-                        _writer.WriteLine(i == models.Count - 1 ? "}" : "},");
-                    }
-                    _writer.WriteLine("],");
+                            new mesh_primitive
+                            {
+                                attributes = new mesh_primitive_attributes
+                                {
+                                    POSITION = accessorIndex++,
+                                    NORMAL = accessorIndex++,
+                                    COLOR_0 = accessorIndex++,
+                                    TEXCOORD_0 = NeedsTexture(model)
+                                        ? accessorIndex++
+                                        : (int?)null,
+                                },
+                                material = i,
+                                mode = mesh_primitive_mode.TRIANGLES,
+                            },
+                        },
+                    });
                 }
+
 
                 // Write Animations 
                 if (exportAnimations)
                 {
-                    _writer.WriteLine("\"animations\": [");
-                    for (var i = 0; i < animations.Length; i++)
+                    // "animations": [
+                    //  {
+                    //   "samplers": [
+                    //    {
+                    //     "input": {timeAccessorIndex},
+                    //     "interpolation": "LINEAR",
+                    //     "output": {accessorIndex++}
+                    //    },
+                    //    //...
+                    //   ],
+                    //   "channels": [
+                    //    {
+                    //     "sampler": {animationSamplerIndex++},
+                    //     "target": {
+                    //      "node": {j},
+                    //      "path": "translation"
+                    //     }
+                    //    },
+                    //    {
+                    //     "sampler": {animationSamplerIndex++},
+                    //     "target": {
+                    //      "node": {j},
+                    //      "path": "rotation"
+                    //     }
+                    //    },
+                    //    {
+                    //     "sampler": {animationSamplerIndex++},
+                    //     "target": {
+                    //      "node": {j},
+                    //      "path": "scale"
+                    //     }
+                    //    },
+                    //    //...
+                    //   ]
+                    //  },
+                    //  //...
+                    // ]
+                    _root.animations = new List<animation>(animations.Length);
+                    foreach (var animation in animations)
                     {
                         var animationSamplerIndex = 0;
                         var timeAccessorIndex = accessorIndex++;
 
-                        _writer.WriteLine("{");
-                        // Samplers
-                        _writer.WriteLine(" \"samplers\" : [");
-                        for (var j = 0; j < models.Count; j++)
+                        _root.animations.Add(new animation
                         {
-                            WriteAnimationSampler(timeAccessorIndex, "LINEAR", accessorIndex++); // object translation
-                            WriteAnimationSampler(timeAccessorIndex, "LINEAR", accessorIndex++); // object rotation
-                            WriteAnimationSampler(timeAccessorIndex, "LINEAR", accessorIndex++, j == models.Count - 1); // object scale
-                        }
-                        _writer.WriteLine("],");
+                            samplers = new List<animation_sampler>(models.Count * 3),
+                            channels = new List<animation_channel>(models.Count * 3),
+                        });
+                        
+                        {
+                            // Samplers
+                            for (var j = 0; j < models.Count; j++)
+                            {
+                                WriteAnimationSampler(timeAccessorIndex, animation_sampler_interpolation.LINEAR, accessorIndex++); // object translation
+                                WriteAnimationSampler(timeAccessorIndex, animation_sampler_interpolation.LINEAR, accessorIndex++); // object rotation
+                                WriteAnimationSampler(timeAccessorIndex, animation_sampler_interpolation.LINEAR, accessorIndex++); // object scale
+                            }
 
-                        // Channels
-                        _writer.WriteLine(" \"channels\" : [");
-                        for (var j = 0; j < models.Count; j++)
-                        {
-                            WriteAnimationChannel(animationSamplerIndex++, "translation", j); // object translation
-                            WriteAnimationChannel(animationSamplerIndex++, "rotation", j); // object rotation
-                            WriteAnimationChannel(animationSamplerIndex++, "scale", j, j == models.Count - 1); // object scale
+                            // Channels
+                            for (var j = 0; j < models.Count; j++)
+                            {
+                                WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.translation, j); // object translation
+                                WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.rotation, j); // object rotation
+                                WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.scale, j); // object scale
+                            }
                         }
-                        _writer.WriteLine("  ]");
-                        _writer.WriteLine(i == animations.Length - 1 ? "}" : "}, ");
                     }
-                    _writer.WriteLine("],");
                 }
 
+
                 // Write Nodes
-                _writer.WriteLine("\"nodes\": [");
+                // "nodes:" [
+                //  {
+                //   "mesh": {i},
+                //   "name": "{model.EntityName}",
+                //   "translation": [ {model.WorldMatrix.ExtractTranslation()} ],
+                //   "rotation": [ {model.WorldMatrix.ExtractRotationSafe()} ],
+                //   "scale": [ {model.WorldMatrix.ExtractScale()} ]
+                //  },
+                //  //...
+                // ]
+                _root.nodes = new List<node>(models.Count);
                 for (var i = 0; i < models.Count; i++)
                 {
                     var model = models[i];
-                    _writer.WriteLine("{");
-                    _writer.WriteLine($" \"mesh\": {i},");
-                    _writer.WriteLine($" \"name\": \"{model.EntityName}\",");
-                    _writer.WriteLine(" \"translation\": [");
-                    WriteVector3(model.WorldMatrix.ExtractTranslation(), true);
-                    _writer.WriteLine(" ],");
-                    _writer.WriteLine(" \"rotation\": [");
-                    WriteQuaternion(model.WorldMatrix.ExtractRotationSafe(), true);
-                    _writer.WriteLine(" ],");
-                    _writer.WriteLine(" \"scale\": [");
-                    WriteVector3(model.WorldMatrix.ExtractScale(), false);
-                    _writer.WriteLine(" ]");
-                    _writer.WriteLine(i == models.Count - 1 ? "}" : "},");
+                    var matrix = model.WorldMatrix; //model.LocalMatrix;
+                    var translation = matrix.ExtractTranslation();
+                    var rotation = matrix.ExtractRotationSafe();
+                    var scale = matrix.ExtractScale();
+                    _root.nodes.Add(new node
+                    {
+                        mesh = i,
+                        name = model.EntityName,
+                        translation = WriteVector3(translation, true),
+                        rotation = WriteQuaternion(rotation, true),
+                        scale = WriteVector3(scale, false),
+                    });
                 }
-                _writer.WriteLine("],");
 
-                //Write Buffers
-                _writer.WriteLine("\"buffers\": [");
-                _writer.WriteLine(" {");
-                _writer.WriteLine($"  \"uri\": \"{binaryBufferShortFilename}\",");
-                _writer.WriteLine($"  \"byteLength\": {_binaryWriter.BaseStream.Length}");
-                _writer.WriteLine(" }");
-                _writer.WriteLine("]");
 
-                _writer.WriteLine("}");
+                // Write Buffers
+                // "buffers": [
+                //  {
+                //   "uri": "{binaryBufferFileName}",
+                //   "byteLength": {_binaryWriter.BaseStream.Length}
+                //  }
+                // ]
+                _root.buffers = new List<buffer>(1)
+                {
+                    new buffer
+                    {
+                        uri = binaryBufferFileName,
+                        byteLength = _binaryWriter.BaseStream.Length,
+                    }
+                };
+
+
+                // Don't write the extensions list if we don't have any extensions.
+                if (_root.extensionsUsed.Count == 0)
+                {
+                    _root.extensionsUsed = null;
+                }
+
 
                 _binaryWriter.Dispose();
                 _binaryWriter = null;
 
-                _writer.Dispose();
-                _writer = null;
+                using (var streamWriter = File.CreateText(filePath))
+                using (var jsonWriter = new JsonTextWriter(streamWriter))
+                {
+                    jsonWriter.Culture = CultureInfo.InvariantCulture;
+                    jsonWriter.Formatting = _options.ReadableFormat ? Formatting.Indented : Formatting.None;
+                    jsonWriter.Indentation = 1;
+                    jsonWriter.IndentChar = '\t';
+
+                    var jsonSerializer = new JsonSerializer
+                    {
+                        NullValueHandling = NullValueHandling.Ignore,
+                    };
+                    jsonSerializer.Serialize(jsonWriter, _root);
+                }
             }
         }
-        private void WriteAnimationChannel(int sampler, string path, int node, bool final = false)
+        private void WriteAnimationChannel(int sampler, animation_channel_target_path path, int node)
         {
-            _writer.WriteLine("{");
-            _writer.WriteLine($" \"sampler\": {sampler},");
-            _writer.WriteLine(" \"target\": {");
-            _writer.WriteLine($" \"node\": {node},");
-            _writer.WriteLine($" \"path\": \"{path}\"");
-            _writer.WriteLine(" }");
-            _writer.WriteLine(final ? "}" : "}, ");
-        }
-
-        private void WriteAnimationSampler(int input, string interpolation, int output, bool final = false)
-        {
-            _writer.WriteLine("{");
-            _writer.WriteLine($" \"input\": {input},");
-            _writer.WriteLine($" \"interpolation\": \"{interpolation}\",");
-            _writer.WriteLine($" \"output\": {output}");
-            _writer.WriteLine(final ? "}" : "}, ");
-        }
-
-        private void WriteAccessor(int bufferView, int byteOffset, int componentType, int count, string type, bool final = false, float[] min = null, float[] max = null)
-        {
-            _writer.WriteLine("{");
-            _writer.WriteLine($" \"bufferView\": {bufferView},");
-            _writer.WriteLine($" \"byteOffset\": {byteOffset},");
-            _writer.WriteLine($" \"componentType\": {componentType},");
-            _writer.WriteLine($" \"count\": {count},");
-            _writer.WriteLine($" \"type\": \"{type}\"");
-            if (min != null && max != null)
+            //  {
+            //   "sampler": {sampler},
+            //   "target": {
+            //    "node": {node},
+            //    "path": "{path}"
+            //   }
+            //  }
+            var animation = _root.animations[_root.animations.Count - 1];
+            animation.channels.Add(new animation_channel
             {
-                _writer.WriteLine(",");
-                _writer.WriteLine(" \"min\": [");
-                for (var i = 0; i < min.Length; i++)
+                sampler = sampler,
+                target = new animation_channel_target
                 {
-                    _writer.WriteLine($"  {F(min[i])}");
-                    if (i < min.Length - 1)
-                    {
-                        _writer.Write(",");
-                    }
-                }
-                _writer.WriteLine(" ],");
-                _writer.WriteLine(" \"max\": [");
-                for (var i = 0; i < max.Length; i++)
-                {
-                    _writer.WriteLine($"  {F(max[i])}");
-                    if (i < max.Length - 1)
-                    {
-                        _writer.Write(",");
-                    }
-                }
-                _writer.WriteLine(" ]");
-            }
-            _writer.WriteLine(final ? "}" : "},");
+                    node = node,
+                    path = path,
+                },
+            });
+        }
+
+        private void WriteAnimationSampler(int input, animation_sampler_interpolation interpolation, int output)
+        {
+            //  {
+            //   "input": {input},
+            //   "interpolation": "{interpolation}",
+            //   "output": {output}
+            //  }
+            var animation = _root.animations[_root.animations.Count - 1];
+            animation.samplers.Add(new animation_sampler
+            {
+                input = input,
+                interpolation = interpolation,
+                output = output,
+            });
+        }
+
+        private void WriteAccessor(int bufferView, long byteOffset, accessor_componentType componentType, int count, accessor_type type, float[] min = null, float[] max = null)
+        {
+            //  {
+            //   "bufferView": {bufferView},
+            //   "byteOffset": {byteOffset},
+            //   "componentType": {componentType},
+            //   "count": {count},
+            //   "type": "{type}",
+            // * "min": [ {min[0]...min[N-1]} ], // if min and max != null
+            // * "max": [ {max[0]...max[N-1]} ]  // if min and max != null
+            //  }
+            _root.accessors.Add(new accessor
+            {
+                bufferView = bufferView,
+                byteOffset = byteOffset,
+                componentType = componentType,
+                count = count,
+                type = type,
+                min = min,
+                max = max,
+            });
+        }
+
+        private void WriteStartBufferView(long initialOffset, bufferView_target? target = null)
+        {
+            //  {
+            //   "buffer": 0,
+            // * "target": {target}, // if target.HasValue
+            //   "byteOffset": {_binaryWriter.BaseStream.Position - initialOffset},
+            _root.bufferViews.Add(new bufferView
+            {
+                buffer = 0,
+                target = target,
+                byteOffset = (_binaryWriter.BaseStream.Position - initialOffset),
+            });
+        }
+
+        private void WriteEndBufferView(ref long offset)
+        {
+            //   "byteLength": {_binaryWriter.BaseStream.Position - offset}
+            //  }
+            _root.bufferViews[_root.bufferViews.Count - 1].byteLength = (_binaryWriter.BaseStream.Position - offset);
+
+            offset = _binaryWriter.BaseStream.Position;
         }
 
         private void WriteAnimationTimeBufferView(float totalTime, float timeStep, ref long offset, long initialOffset)
         {
             // Write time
-            _writer.WriteLine("{");
-            _writer.WriteLine(" \"buffer\": 0,");
-            _writer.WriteLine($" \"byteOffset\": {_binaryWriter.BaseStream.Position - initialOffset},");
+            WriteStartBufferView(initialOffset);
             for (var time = 0f; time < totalTime; time += timeStep)
             {
                 WriteBinaryFloat(time);
             }
-            _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
-            _writer.WriteLine("},");
-
-            offset = _binaryWriter.BaseStream.Position;
+            WriteEndBufferView(ref offset);
         }
 
-        // todo: we could avoid so many loops by intercalating data
-        private void WriteAnimationDataBufferViews(ModelEntity model, int modelIndex, Vector3[,] translations, Quaternion[,] rotations, Vector3[,] scales, int totalFrames, ref long offset, long initialOffset, bool final)
+        private void WriteAnimationDataBufferViews(ModelEntity model, int modelIndex, Vector3[,] translations, Quaternion[,] rotations, Vector3[,] scales, int totalFrames, ref long offset, long initialOffset)
         {
             // Write position
-            _writer.WriteLine("{");
-            _writer.WriteLine(" \"buffer\": 0,");
-            _writer.WriteLine($" \"byteOffset\": {_binaryWriter.BaseStream.Position - initialOffset},");
+            WriteStartBufferView(initialOffset);
             for (var frame = 0; frame < totalFrames; frame++)
             {
                 var translation = translations[modelIndex, frame];
                 WriteBinaryVector3(translation, true);
             }
-            _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
-            _writer.WriteLine("},");
-
-            offset = _binaryWriter.BaseStream.Position;
+            WriteEndBufferView(ref offset);
 
             // Write rotation
-            _writer.WriteLine("{");
-            _writer.WriteLine(" \"buffer\": 0,");
-            _writer.WriteLine($" \"byteOffset\": {_binaryWriter.BaseStream.Position - initialOffset},");
+            WriteStartBufferView(initialOffset);
             for (var frame = 0; frame < totalFrames; frame++)
             {
                 var rotation = rotations[modelIndex, frame];
                 WriteBinaryQuaternion(rotation, true);
             }
-            _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
-            _writer.WriteLine("},");
-
-            offset = _binaryWriter.BaseStream.Position;
+            WriteEndBufferView(ref offset);
 
             // Write scale
-            _writer.WriteLine("{");
-            _writer.WriteLine(" \"buffer\": 0,");
-            _writer.WriteLine($" \"byteOffset\": {_binaryWriter.BaseStream.Position - initialOffset},");
+            WriteStartBufferView(initialOffset);
             for (var frame = 0; frame < totalFrames; frame++)
             {
                 var scale = scales[modelIndex, frame];
                 WriteBinaryVector3(scale, false);
             }
-            _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
-            _writer.WriteLine(final ? "}" : "},");
-
-            offset = _binaryWriter.BaseStream.Position;
+            WriteEndBufferView(ref offset);
         }
 
-        private void WriteMeshBufferViews(ModelEntity model, ref long offset, long initialOffset, bool final = false)
+        private void WriteMeshBufferViews(ModelEntity model, ref long offset, long initialOffset)
         {
-            var noTextureFinal = final && !NeedsTexture(model);
-
             // Write vertex positions
-            _writer.WriteLine("{");
-            _writer.WriteLine(" \"buffer\": 0,");
-            _writer.WriteLine($" \"target\": {Target_ArrayBuffer},");
-            _writer.WriteLine($" \"byteOffset\": {_binaryWriter.BaseStream.Position - initialOffset},");
+            WriteStartBufferView(initialOffset, bufferView_target.ARRAY_BUFFER);
             foreach (var triangle in model.Triangles)
             {
                 for (var j = 2; j >= 0; j--)
@@ -540,33 +745,10 @@ namespace PSXPrev.Common.Exporters
                     WriteBinaryVector3(triangle.Vertices[j], true);
                 }
             }
-            _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
-            _writer.WriteLine("},");
-
-            offset = _binaryWriter.BaseStream.Position;
-
-            // Write vertex colors
-            _writer.WriteLine("{");
-            _writer.WriteLine(" \"buffer\": 0,");
-            _writer.WriteLine($" \"target\": {Target_ArrayBuffer},");
-            _writer.WriteLine($" \"byteOffset\": {_binaryWriter.BaseStream.Position - initialOffset},");
-            foreach (var triangle in model.Triangles)
-            {
-                for (var j = 2; j >= 0; j--)
-                {
-                    WriteBinaryColor(triangle.Colors[j]);
-                }
-            }
-            _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
-            _writer.WriteLine("},");
-
-            offset = _binaryWriter.BaseStream.Position;
+            WriteEndBufferView(ref offset);
 
             // Write vertex normals
-            _writer.WriteLine("{");
-            _writer.WriteLine(" \"buffer\": 0,");
-            _writer.WriteLine($" \"target\": {Target_ArrayBuffer},");
-            _writer.WriteLine($" \"byteOffset\": {_binaryWriter.BaseStream.Position - initialOffset},");
+            WriteStartBufferView(initialOffset, bufferView_target.ARRAY_BUFFER);
             foreach (var triangle in model.Triangles)
             {
                 for (var j = 2; j >= 0; j--)
@@ -574,18 +756,23 @@ namespace PSXPrev.Common.Exporters
                     WriteBinaryVector3(triangle.Normals[j], true);
                 }
             }
-            _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
-            _writer.WriteLine(noTextureFinal ? "}" : "},");
+            WriteEndBufferView(ref offset);
 
-            offset = _binaryWriter.BaseStream.Position;
+            // Write vertex colors
+            WriteStartBufferView(initialOffset, bufferView_target.ARRAY_BUFFER);
+            foreach (var triangle in model.Triangles)
+            {
+                for (var j = 2; j >= 0; j--)
+                {
+                    WriteBinaryColor(triangle.Colors[j]);
+                }
+            }
+            WriteEndBufferView(ref offset);
 
             // Write vertex UVs
             if (NeedsTexture(model))
             {
-                _writer.WriteLine("{");
-                _writer.WriteLine(" \"buffer\": 0,");
-                _writer.WriteLine($" \"target\": {Target_ArrayBuffer},");
-                _writer.WriteLine($" \"byteOffset\": {_binaryWriter.BaseStream.Position - initialOffset},");
+                WriteStartBufferView(initialOffset, bufferView_target.ARRAY_BUFFER);
                 foreach (var triangle in model.Triangles)
                 {
                     for (var j = 2; j >= 0; j--)
@@ -593,42 +780,26 @@ namespace PSXPrev.Common.Exporters
                         WriteBinaryUV(triangle.Uv[j]);
                     }
                 }
-                _writer.WriteLine($" \"byteLength\": {_binaryWriter.BaseStream.Position - offset}");
-                _writer.WriteLine(final ? "}" : "},");
-            }
-
-            offset = _binaryWriter.BaseStream.Position;
-        }
-
-        private void WriteVector3(Vector3 vector, bool fixHandiness = false)
-        {
-            _writer.WriteLine($"  {F(vector.X)},");
-            if (fixHandiness)
-            {
-                _writer.WriteLine($"  {F(-vector.Y)},");
-                _writer.WriteLine($"  {F(-vector.Z)}");
-            }
-            else
-            {
-                _writer.WriteLine($"  {F(vector.Y)},");
-                _writer.WriteLine($"  {F(vector.Z)}");
+                WriteEndBufferView(ref offset);
             }
         }
 
-        private void WriteQuaternion(Quaternion quaternion, bool fixHandiness = false)
+        private float[] WriteVector3(Vector3 vector, bool fixHandiness = false)
         {
-            _writer.WriteLine($"  {F(quaternion.X)},");
             if (fixHandiness)
             {
-                _writer.WriteLine($"  {F(-quaternion.Y)},");
-                _writer.WriteLine($"  {F(-quaternion.Z)},");
+                vector = FixHandiness(vector);
             }
-            else
+            return new float[] { vector.X, vector.Y, vector.Z };
+        }
+
+        private float[] WriteQuaternion(Quaternion quaternion, bool fixHandiness = false)
+        {
+            if (fixHandiness)
             {
-                _writer.WriteLine($"  {F(quaternion.Y)},");
-                _writer.WriteLine($"  {F(quaternion.Z)},");
+                quaternion = FixHandiness(quaternion);
             }
-            _writer.WriteLine($"  {F(quaternion.W)}");
+            return new float[] { quaternion.X, quaternion.Y, quaternion.Z, quaternion.W };
         }
 
         private void WriteBinaryColor(Color color)
@@ -645,32 +816,24 @@ namespace PSXPrev.Common.Exporters
 
         private void WriteBinaryVector3(Vector3 vector, bool fixHandiness = false)
         {
-            _binaryWriter.Write(vector.X);
             if (fixHandiness)
             {
-                _binaryWriter.Write(-vector.Y);
-                _binaryWriter.Write(-vector.Z);
+                vector = FixHandiness(vector);
             }
-            else
-            {
-                _binaryWriter.Write(vector.Y);
-                _binaryWriter.Write(vector.Z);
-            }
+            _binaryWriter.Write(vector.X);
+            _binaryWriter.Write(vector.Y);
+            _binaryWriter.Write(vector.Z);
         }
 
         private void WriteBinaryQuaternion(Quaternion quaternion, bool fixHandiness = false)
         {
-            _binaryWriter.Write(quaternion.X);
             if (fixHandiness)
             {
-                _binaryWriter.Write(-quaternion.Y);
-                _binaryWriter.Write(-quaternion.Z);
+                quaternion = FixHandiness(quaternion);
             }
-            else
-            {
-                _binaryWriter.Write(quaternion.Y);
-                _binaryWriter.Write(quaternion.Z);
-            }
+            _binaryWriter.Write(quaternion.X);
+            _binaryWriter.Write(quaternion.Y);
+            _binaryWriter.Write(quaternion.Z);
             _binaryWriter.Write(quaternion.W);
         }
 
@@ -685,9 +848,14 @@ namespace PSXPrev.Common.Exporters
             return _options.ExportTextures && model.HasTexture;
         }
 
-        private static string F(float value)
+        private static Vector3 FixHandiness(Vector3 vector)
         {
-            return value.ToString(GeomMath.FloatFormat, CultureInfo.InvariantCulture);
+            return new Vector3(vector.X, -vector.Y, -vector.Z);
+        }
+
+        private static Quaternion FixHandiness(Quaternion quaternion)
+        {
+            return new Quaternion(quaternion.X, -quaternion.Y, -quaternion.Z, quaternion.W);
         }
     }
 }
