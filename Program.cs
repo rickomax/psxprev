@@ -9,7 +9,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-
 using DiscUtils;
 using DiscUtils.Iso9660;
 using PSXPrev.Common;
@@ -22,6 +21,9 @@ namespace PSXPrev
 {
     public class Program
     {
+        public static string Name = "PSXPrev";
+        public static string RootNamespace = "PSXPrev";
+
         public static readonly Logger Logger = new Logger();
 
         private static PreviewForm PreviewForm;

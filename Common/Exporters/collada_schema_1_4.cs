@@ -12,6 +12,10 @@
 //     the code is regenerated.
 // </auto-generated>
 //------------------------------------------------------------------------------
+// Modifications:
+// ConvertFromArray<T> now uses StrictFloatFormat static property. When false,
+// floats will be output with the "G" format specifier instead of a fixed one.               
+//------------------------------------------------------------------------------
 
 using System;
 using System.CodeDom.Compiler;
@@ -9853,6 +9857,8 @@ namespace Collada141
     {
         private static Regex regex = new Regex(@"\s+");
 
+        public static bool StrictFloatFormat { get; set; } = true;
+
         public static string ConvertFromArray<T>(IList<T> array)
         {
             if (array == null)
@@ -9866,10 +9872,22 @@ namespace Collada141
                 {
                     object value1 = array[i];
                     double value = (double) value1;
-                    text.Append(
-                        value.ToString(
-                            "0.000000",
-                            NumberFormatInfo.InvariantInfo));
+                    if (StrictFloatFormat)
+                    {
+                        text.Append(
+                            value.ToString(
+                                "0.000000",
+                                NumberFormatInfo.InvariantInfo));
+                    }
+                    else
+                    {
+                        // All of our data is stored as floats, so cast to reduce verbosity
+                        float valuef = (float) value;
+                        text.Append(
+                            valuef.ToString(
+                                "G",
+                                NumberFormatInfo.InvariantInfo));
+                    }
                     if ((i + 1) < array.Count)
                         text.Append(" ");
                 }

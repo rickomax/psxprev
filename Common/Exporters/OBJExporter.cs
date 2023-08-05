@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -11,22 +12,22 @@ namespace PSXPrev.Common.Exporters
         private PNGExporter _pngExporter;
         private MTLExporter _mtlExporter;
         private MTLExporter.MaterialDictionary _mtlDictionary;
+        private Dictionary<Tuple<Vector3, Vector3>, int> _positionIndices; // position, color
+        private Dictionary<Vector3, int> _normalIndices;
+        private Dictionary<Vector2, int> _uvIndices;
         private ModelPreparerExporter _modelPreparer;
-        private string _selectedPath;
-        private string _baseName;
-        private string _baseTextureName;
         private ExportModelOptions _options;
+        private string _baseName;
 
-        public void Export(RootEntity[] entities, ExportModelOptions options = null)
+        public void Export(ExportModelOptions options, RootEntity[] entities)
         {
             _options = options?.Clone() ?? new ExportModelOptions();
             // Force any required options for this format here, before calling Validate.
-            _options.Validate();
+            _options.Validate("obj");
 
             _pngExporter = new PNGExporter();
             _mtlDictionary = new MTLExporter.MaterialDictionary();
             _modelPreparer = new ModelPreparerExporter(_options);
-            _selectedPath = _options.Path;
 
             // Prepare the shared state for all models being exported (mainly setting up tiled textures).
             _modelPreparer.PrepareAll(entities);
@@ -35,17 +36,22 @@ namespace PSXPrev.Common.Exporters
             {
                 for (var i = 0; i < entities.Length; i++)
                 {
+                    // Prepare the state for the current model being exported.
+                    _modelPreparer.PrepareCurrent(entities);
+
                     ExportEntities(i, entities[i]);
                 }
             }
             else
             {
+                // Prepare the state for the current model being exported.
+                _modelPreparer.PrepareCurrent(entities);
+
                 ExportEntities(0, entities);
             }
 
             //_pngExporter.Dispose();
             _pngExporter = null;
-            //_mtlDictionary.Clear();
             _mtlDictionary = null;
             _modelPreparer.Dispose();
             _modelPreparer = null;
@@ -53,20 +59,20 @@ namespace PSXPrev.Common.Exporters
 
         private void ExportEntities(int index, params RootEntity[] entities)
         {
-            // Re-use the dictionary of materials so that we only export them once,
-            // and so that different textures aren't assigned the same ID.
+            // If shared, reuse the dictionary of textures so that we only export them once.
             // We're using a separate mtl file for each model so that unused materials aren't added.
             if (!_options.ShareTextures)
             {
                 _mtlDictionary.Clear();
             }
-            _baseName = $"obj{index}";
-            _baseTextureName = (_options.ShareTextures ? "objshared" : _baseName) + "_";
-            _mtlExporter = new MTLExporter(_selectedPath, _baseName, _baseTextureName, _mtlDictionary);
-            _writer = new StreamWriter($"{_selectedPath}/{_baseName}.obj");
 
-            // Prepare the state for the current model being exported.
-            _modelPreparer.PrepareCurrent(entities);
+            _baseName = _options.GetBaseName(index);
+            _mtlExporter = new MTLExporter(_options, _baseName, _mtlDictionary);
+            _writer = new StreamWriter(Path.Combine(_options.Path, $"{_baseName}.obj"));
+
+            _positionIndices = new Dictionary<Tuple<Vector3, Vector3>, int>();
+            _normalIndices = new Dictionary<Vector3, int>();
+            _uvIndices = new Dictionary<Vector2, int>();
 
             // Write mtl file reference
             _writer.WriteLine("mtllib {0}", _mtlExporter.FileName);
@@ -81,19 +87,26 @@ namespace PSXPrev.Common.Exporters
                 }
             }
 
-            // Write groups and their faces
-            var baseIndex = 1; // Obj format is 1-indexed I guess...
-            foreach (var entity in entities)
+            // Write objects/groups and their faces
+            var vertexIndex = 1; // Index for vertex positions and normals (OBJ format is 1-indexed)
+            var uvIndex     = 1; // Index for UVs
+            for (var i = 0; i < entities.Length; i++)
             {
+                var entity = entities[i];
                 _modelPreparer.GetPreparedRootEntity(entity, out var models);
-                // todo: Should we really be restarting j (groupIndex) from 0 for each root entity?
+
+                // Write start of object
+                _writer.WriteLine("o object{0}", i);
                 for (var j = 0; j < models.Count; j++)
                 {
                     var model = models[j];
-                    WriteGroup(j, ref baseIndex, model);
+                    WriteGroup(j, ref vertexIndex, ref uvIndex, model);
                 }
             }
 
+            _positionIndices = null;
+            _normalIndices = null;
+            _uvIndices = null;
             _mtlExporter.Dispose();
             _mtlExporter = null;
             _writer.Dispose();
@@ -103,45 +116,58 @@ namespace PSXPrev.Common.Exporters
         private void WriteModel(ModelEntity model)
         {
             // Export material if we haven't already
-            if (NeedsTexture(model))
+            var texture = model.Texture;
+            if (NeedsTexture(model) && _mtlExporter.AddMaterial(texture, out var materialId))
             {
-                if (_mtlExporter.AddMaterial(model.Texture, out var materialId))
-                {
-                    _pngExporter.Export(model.Texture, _baseTextureName + materialId, _selectedPath);
-                }
+                var textureName = _options.GetTextureName(_baseName, materialId);
+                _pngExporter.Export(texture, textureName, _options.Path);
             }
 
             var worldMatrix = model.WorldMatrix;
             // Write vertex positions (and colors if experimental)
             foreach (var triangle in model.Triangles)
             {
-                for (var j = 0; j < 3; j++)
+                for (var j = 2; j >= 0; j--)
                 {
-                    var vertex = Vector3.TransformPosition(triangle.Vertices[j], worldMatrix);
-                    WriteVertexPosition(vertex, triangle.Colors[j]);
+                    WriteVertexPosition(triangle.Vertices[j], triangle.Colors[j], ref worldMatrix);
                 }
             }
+
             // Write vertex normals
             foreach (var triangle in model.Triangles)
             {
-                for (var j = 0; j < 3; j++)
+                for (var j = 2; j >= 0; j--)
                 {
-                    var normal = Vector3.TransformNormal(triangle.Normals[j], worldMatrix);
-                    WriteNormal(normal);
+                    WriteNormal(triangle.Normals[j], ref worldMatrix);
                 }
             }
-            // Write vertex UVs
-            foreach (var triangle in model.Triangles)
+
+            if (NeedsTexture(model))
             {
-                for (var j = 0; j < 3; j++)
+                // Write vertex UVs
+                foreach (var triangle in model.Triangles)
                 {
-                    WriteUV(triangle.Uv[j]);
+                    for (var j = 2; j >= 0; j--)
+                    {
+                        WriteUV(triangle.Uv[j]);
+                    }
                 }
             }
         }
 
-        private void WriteVertexPosition(Vector3 vertex, Color color)
+        private void WriteVertexPosition(Vector3 localVertex, Color color, ref Matrix4 worldMatrix)
         {
+            Vector3.TransformPosition(ref localVertex, ref worldMatrix, out var vertex);
+            if (_options.VertexIndexReuse)
+            {
+                var colorVec = _options.ExperimentalOBJVertexColor ? color.Vector : Vector3.Zero;
+                var tuple = new Tuple<Vector3, Vector3>(vertex, colorVec);
+                if (_positionIndices.ContainsKey(tuple))
+                {
+                    return; // Vertex position/color already defined
+                }
+                _positionIndices.Add(tuple, _positionIndices.Count + 1); // +1 because indices are 1-indexed
+            }
             var vertexColor = string.Empty;
             if (_options.ExperimentalOBJVertexColor)
             {
@@ -150,29 +176,98 @@ namespace PSXPrev.Common.Exporters
             _writer.WriteLine("v {0} {1} {2}{3}", F(vertex.X), F(-vertex.Y), F(-vertex.Z), vertexColor);
         }
 
-        private void WriteNormal(Vector3 normal)
+        private void WriteNormal(Vector3 localNormal, ref Matrix4 worldMatrix)
         {
+            Vector3.TransformNormal(ref localNormal, ref worldMatrix, out var normal);
+            if (_options.VertexIndexReuse)
+            {
+                if (_normalIndices.ContainsKey(normal))
+                {
+                    return; // Vertex normal already defined
+                }
+                _normalIndices.Add(normal, _normalIndices.Count + 1); // +1 because indices are 1-indexed
+            }
             _writer.WriteLine("vn {0} {1} {2}", F(normal.X), F(-normal.Y), F(-normal.Z));
         }
 
         private void WriteUV(Vector2 uv)
         {
+            if (_options.VertexIndexReuse)
+            {
+                if (_uvIndices.ContainsKey(uv))
+                {
+                    return; // Vertex UV already defined
+                }
+                _uvIndices.Add(uv, _uvIndices.Count + 1); // +1 because indices are 1-indexed
+            }
             _writer.WriteLine("vt {0} {1}", F(uv.X), F(1f - uv.Y));
         }
 
-        private void WriteGroup(int groupIndex, ref int baseIndex, ModelEntity model)
+        private void WriteGroup(int groupIndex, ref int vertexIndex, ref int uvIndex, ModelEntity model)
         {
+            var worldMatrix = model.WorldMatrix;
+            var needsTexture = NeedsTexture(model);
             var materialName = _mtlExporter.GetMaterialName(_options.ExportTextures ? model.Texture : null);
 
-            // Write group header
+            // Write start of group
             _writer.WriteLine("g group{0}", groupIndex);
             _writer.WriteLine("usemtl {0}", materialName);
             // Write group faces
-            for (var k = 0; k < model.Triangles.Length; k++)
+            foreach (var triangle in model.Triangles)
             {
-                // v/vt/vn
-                _writer.WriteLine("f {2}/{2}/{2} {1}/{1}/{1} {0}/{0}/{0}", baseIndex++, baseIndex++, baseIndex++);
+                if (_options.VertexIndexReuse)
+                {
+                    _writer.Write("f");
+                    for (var j = 2; j >= 0; j--)
+                    {
+                        // We're using ref parameters as local variables here, the ref aspect isn't important for VertexIndexReuse.
+                        vertexIndex = GetVertexPosition(triangle.Vertices[j], triangle.Colors[j], ref worldMatrix);
+                        var normalIndex = GetNormal(triangle.Normals[j], ref worldMatrix);
+                        if (needsTexture)
+                        {
+                            uvIndex = GetUV(triangle.Uv[j]);
+                            _writer.Write(" {0}/{1}/{2}", vertexIndex, uvIndex, normalIndex);
+                        }
+                        else
+                        {
+                            _writer.Write(" {0}//{1}", vertexIndex, normalIndex);
+                        }
+                    }
+                    _writer.WriteLine();
+                }
+                else
+                {
+                    if (needsTexture)
+                    {
+                        // v/vt/vn
+                        _writer.WriteLine("f {0}/{3}/{0} {1}/{4}/{1} {2}/{5}/{2}",
+                                          vertexIndex++, vertexIndex++, vertexIndex++, uvIndex++, uvIndex++, uvIndex++);
+                    }
+                    else
+                    {
+                        // v//vn
+                        _writer.WriteLine("f {0}//{0} {1}//{1} {2}//{2}", vertexIndex++, vertexIndex++, vertexIndex++);
+                    }
+                }
             }
+        }
+
+        private int GetVertexPosition(Vector3 localVertex, Color color, ref Matrix4 worldMatrix)
+        {
+            Vector3.TransformPosition(ref localVertex, ref worldMatrix, out var vertex);
+            var colorVec = _options.ExperimentalOBJVertexColor ? color.Vector : Vector3.Zero;
+            return _positionIndices[new Tuple<Vector3, Vector3>(vertex, colorVec)];
+        }
+
+        private int GetNormal(Vector3 localNormal, ref Matrix4 worldMatrix)
+        {
+            Vector3.TransformNormal(ref localNormal, ref worldMatrix, out var normal);
+            return _normalIndices[normal];
+        }
+
+        private int GetUV(Vector2 uv)
+        {
+            return _uvIndices[uv];
         }
 
         private bool NeedsTexture(ModelEntity model)
@@ -180,14 +275,14 @@ namespace PSXPrev.Common.Exporters
             return _options.ExportTextures && model.HasTexture;
         }
 
-        private static string F(float value)
+        private string F(float value)
         {
-            return value.ToString(GeomMath.FloatFormat, CultureInfo.InvariantCulture);
+            return value.ToString(_options.FloatFormat, NumberFormatInfo.InvariantInfo);
         }
 
         private static string I(float value)
         {
-            return value.ToString(GeomMath.IntegerFormat, CultureInfo.InvariantCulture);
+            return value.ToString(GeomMath.IntegerFormat, NumberFormatInfo.InvariantInfo);
         }
     }
 }

@@ -258,15 +258,19 @@ namespace PSXPrev.Forms
             {
                 case ExportModelOptions.OBJ:
                     var objExporter = new OBJExporter();
-                    objExporter.Export(entities, options);
+                    objExporter.Export(options, entities);
                     break;
                 case ExportModelOptions.PLY:
                     var plyExporter = new PLYExporter();
-                    plyExporter.Export(entities, options);
+                    plyExporter.Export(options, entities);
+                    break;
+                case ExportModelOptions.DAE:
+                    var daeExporter = new DAEExporter();
+                    daeExporter.Export(options, entities);
                     break;
                 case ExportModelOptions.GLTF2:
                     var glTF2Exporter = new glTF2Exporter();
-                    glTF2Exporter.Export(entities, animations, animationBatch, options);
+                    glTF2Exporter.Export(options, entities, animations, animationBatch);
                     break;
             }
         }

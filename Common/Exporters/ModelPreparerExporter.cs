@@ -149,7 +149,7 @@ namespace PSXPrev.Common.Exporters
             }
 
             // Create a new tiled texture that repeats the needed amount of times.
-            tiledInfo.SetupTiledTexture(maxUv, powerOfTwo: true);
+            tiledInfo.SetupTiledTexture(maxUv, powerOfTwo: !_options.SingleTexture);
 
             // Assign new tiled texture to models.
             foreach (var model in tiledInfo.Models)

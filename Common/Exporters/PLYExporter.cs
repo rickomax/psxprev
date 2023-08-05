@@ -10,27 +10,23 @@ namespace PSXPrev.Common.Exporters
     {
         private StreamWriter _writer;
         private PNGExporter _pngExporter;
-        private Dictionary<Texture, int> _materialsDictionary;
-        private bool _untexturedMaterialExported;
+        private Dictionary<Texture, int> _exportedTextures;
         private ModelPreparerExporter _modelPreparer;
-        private string _selectedPath;
-        private string _baseName;
-        private string _baseTextureName;
         private ExportModelOptions _options;
+        private string _baseName;
 
-        public void Export(RootEntity[] entities, ExportModelOptions options = null)
+        public void Export(ExportModelOptions options, RootEntity[] entities)
         {
             _options = options?.Clone() ?? new ExportModelOptions();
             // Force any required options for this format here, before calling Validate.
             _options.SingleTexture = true; // PLY only supports one texture file
-            _options.Validate();
+            _options.VertexIndexReuse = false; // Vertices have too much information to bother with reuse
+            _options.Validate("ply");
 
             // todo: Different material IDs aren't handled for different root entities.
             _pngExporter = new PNGExporter();
-            _materialsDictionary = new Dictionary<Texture, int>();
-            _untexturedMaterialExported = false;
+            _exportedTextures = new Dictionary<Texture, int>();
             _modelPreparer = new ModelPreparerExporter(_options);
-            _selectedPath = _options.Path;
 
             // Prepare the shared state for all models being exported (mainly setting up tiled textures).
             _modelPreparer.PrepareAll(entities);
@@ -39,41 +35,42 @@ namespace PSXPrev.Common.Exporters
             {
                 for (var i = 0; i < entities.Length; i++)
                 {
+                    // Prepare the state for the current model being exported.
+                    _modelPreparer.PrepareCurrent(entities);
+
                     ExportEntities(i, entities[i]);
                 }
             }
             else
             {
+                // Prepare the state for the current model being exported.
+                _modelPreparer.PrepareCurrent(entities);
+
                 ExportEntities(0, entities);
             }
 
             //_pngExporter.Dispose();
             _pngExporter = null;
-            //_materialsDictionary.Clear();
-            _materialsDictionary = null;
+            _exportedTextures = null;
             _modelPreparer.Dispose();
             _modelPreparer = null;
         }
 
         private void ExportEntities(int index, params RootEntity[] entities)
         {
+            // If shared, reuse the dictionary of textures so that we only export them once.
             if (!_options.ShareTextures)
             {
-                _materialsDictionary.Clear();
+                _exportedTextures.Clear();
             }
 
-            _baseName = $"ply{index}";
-            _baseTextureName = (_options.ShareTextures ? "plyshared" : _baseName); //+ "_";
-            _writer = new StreamWriter($"{_selectedPath}/{_baseName}.ply");
-
-            // Prepare the state for the current model being exported.
-            _modelPreparer.PrepareCurrent(entities);
+            _baseName = _options.GetBaseName(index);
+            _writer = new StreamWriter(Path.Combine(_options.Path, $"{_baseName}.ply"));
 
             // Count faces and export materials
             // Note that the standard Ply format does not support listing
             // texture files, even though it supports texture UVs...
             var faceCount = 0;
-            var materialCount = 1; // change: Start at 1 because 0 is untextured
             Texture singleTexture = null;
             foreach (var entity in entities)
             {
@@ -83,31 +80,21 @@ namespace PSXPrev.Common.Exporters
                     faceCount += model.Triangles.Length;
 
                     // Export material if we haven't already
+                    var texture = model.Texture;
                     if (NeedsTexture(model))
                     {
-                        singleTexture = model.Texture;
+                        singleTexture = texture;
 
-                        if (!_materialsDictionary.TryGetValue(model.Texture, out var materialIndex))
+                        if (!_exportedTextures.TryGetValue(texture, out var exportedTextureId))
                         {
-                            // Using singleTexture, materialIndex is always 0.
-                            materialIndex = 0;// _materialsDictionary.Count + 1; // 1-indexed because 0 is untextured
-                            _materialsDictionary.Add(model.Texture, materialIndex);
+                            exportedTextureId = _exportedTextures.Count; // Should always be 0 here
+                            _exportedTextures.Add(texture, exportedTextureId);
 
-                            //_pngExporter.Export(model.Texture, _baseTextureName + materialIndex, _selectedPath);
+                            var textureName = _options.GetTextureName(_baseName, exportedTextureId);
+                            _pngExporter.Export(singleTexture, textureName, _options.Path);
                         }
-                        // For each later model we write, there may be more materials defined that are unused.
-                        materialCount = Math.Max(materialCount, materialIndex + 1);
                     }
                 }
-            }
-
-            // Export untextured material
-            if (_options.ExportTextures && !_untexturedMaterialExported)
-            {
-                // We always need to export the untextured material, because we're 1-indexing other materials.
-                _untexturedMaterialExported = true;
-                // It's pointless to export an empty material, if the importer isn't going to use it.
-                //_pngExporter.ExportEmpty(System.Drawing.Color.White, _baseTextureName + 0, _selectedPath);
             }
 
             // Write header
@@ -116,11 +103,11 @@ namespace PSXPrev.Common.Exporters
 
             // Export single texture material
             // Note: Some formats allow defining ONE texture file, like so.
-            if (_options.ExportTextures && singleTexture != null)
+            if (singleTexture != null)
             {
-                _pngExporter.Export(singleTexture, _baseTextureName, _selectedPath);
-
-                _writer.WriteLine("comment TextureFile {0}.png", _baseTextureName);
+                var exportedTextureId = _exportedTextures[singleTexture];
+                var textureName = _options.GetTextureName(_baseName, exportedTextureId);
+                _writer.WriteLine("comment TextureFile {0}.png", textureName);
             }
 
             // Write header vertex structure
@@ -145,6 +132,7 @@ namespace PSXPrev.Common.Exporters
             _writer.WriteLine("element face {0}", faceCount);
             _writer.WriteLine("property list uint8 int32 vertex_indices");
             // Write header material structure
+            var materialCount = 1; // Only one material is defined
             _writer.WriteLine("element material {0}", materialCount);
             _writer.WriteLine("property uchar ambient_red");
             _writer.WriteLine("property uchar ambient_green");
@@ -163,20 +151,15 @@ namespace PSXPrev.Common.Exporters
                 _modelPreparer.GetPreparedRootEntity(entity, out var models);
                 foreach (var model in models)
                 {
-                    var materialIndex = 0; // Untextured
-                    if (NeedsTexture(model))
-                    {
-                        materialIndex = _materialsDictionary[model.Texture];
-                    }
+                    var materialIndex = 0; // Only one material is defined
 
                     var worldMatrix = model.WorldMatrix;
                     foreach (var triangle in model.Triangles)
                     {
-                        for (var j = 0; j < 3; j++)
+                        for (var j = 2; j >= 0; j--)
                         {
-                            var vertex = Vector3.TransformPosition(triangle.Vertices[j], worldMatrix);
-                            var normal = Vector3.TransformNormal(triangle.Normals[j], worldMatrix);
-                            WriteVertex(vertex, normal, triangle.Uv[j], triangle.Colors[j], materialIndex);
+                            WriteVertex(triangle.Vertices[j], triangle.Normals[j], triangle.Uv[j], triangle.Colors[j],
+                                        materialIndex, ref worldMatrix);
                         }
                     }
                 }
@@ -196,12 +179,14 @@ namespace PSXPrev.Common.Exporters
             _writer = null;
         }
 
-        private void WriteVertex(Vector3 vertex, Vector3 normal, Vector2 uv, Color color, int materialIndex)
+        private void WriteVertex(Vector3 localVertex, Vector3 localNormal, Vector2 uv, Color color, int materialIndex, ref Matrix4 worldMatrix)
         {
+            Vector3.TransformPosition(ref localVertex, ref worldMatrix, out var vertex);
+            Vector3.TransformNormal(ref localNormal, ref worldMatrix, out var normal);
+
             // Output UV (6 and 7) twice, since we're supporting two different names for it.
+            // vertex X Y Z, normal X Y Z, uv U V S T, color R G B, material index
             _writer.WriteLine("{0} {1} {2} {3} {4} {5} {6} {7} {6} {7} {8} {9} {10} {11}",
-                              //F(-vertex.X), F(-vertex.Y), F(-vertex.Z),
-                              //F(-normal.X), F(-normal.Y), F(-normal.Z),
                               F(vertex.X), F(-vertex.Y), F(-vertex.Z),
                               F(normal.X), F(-normal.Y), F(-normal.Z),
                               F(uv.X), F(1f - uv.Y),
@@ -212,13 +197,15 @@ namespace PSXPrev.Common.Exporters
         private void WriteFace(int faceIndex)
         {
             var vertexIndex = faceIndex * 3;
-            //_writer.WriteLine("3 {0} {1} {2}", vertexIndex, vertexIndex + 1, vertexIndex + 2);
-            _writer.WriteLine("3 {2} {1} {0}", vertexIndex, vertexIndex + 1, vertexIndex + 2);
+            _writer.WriteLine("3 {0} {1} {2}", vertexIndex++, vertexIndex++, vertexIndex++);
         }
 
         private void WriteMaterial()
         {
-            _writer.WriteLine("128 128 128 1.00000 128 128 128 1.00000");
+            // ambient R G B Coef, diffuse R G B Coef
+            _writer.WriteLine("{0} {1} {2} {3} {4} {5} {6} {7}",
+                              128, 128, 128, F(1.0f),  // ambient
+                              128, 128, 128, F(1.0f)); // diffuse
         }
 
         private bool NeedsTexture(ModelEntity model)
@@ -226,14 +213,14 @@ namespace PSXPrev.Common.Exporters
             return _options.ExportTextures && model.HasTexture;
         }
 
-        private static string F(float value)
+        private string F(float value)
         {
-            return value.ToString(GeomMath.FloatFormat, CultureInfo.InvariantCulture);
+            return value.ToString(_options.FloatFormat, NumberFormatInfo.InvariantInfo);
         }
 
         private static string I(float value)
         {
-            return value.ToString(GeomMath.IntegerFormat, CultureInfo.InvariantCulture);
+            return value.ToString(GeomMath.IntegerFormat, NumberFormatInfo.InvariantInfo);
         }
     }
 }

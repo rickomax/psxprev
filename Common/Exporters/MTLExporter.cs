@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using PSXPrev.Common.Renderer;
 
@@ -7,25 +8,24 @@ namespace PSXPrev.Common.Exporters
 {
     public class MTLExporter : IDisposable
     {
-        public const string UntexturedID = "none";
+        private const string UntexturedID = "none";
 
         private readonly StreamWriter _writer;
-        private readonly string _selectedPath;
-        private readonly string _baseName;
-        private readonly string _baseTextureName;
         private readonly MaterialDictionary _materialIds;
         private readonly HashSet<Texture> _writtenMaterials = new HashSet<Texture>();
+        private readonly ExportModelOptions _options;
+        private readonly string _baseName;
 
         public string FileName { get; }
 
-        public MTLExporter(string selectedPath, string baseName, string baseTextureName, MaterialDictionary materialIds = null)
+        public MTLExporter(ExportModelOptions options, string baseName, MaterialDictionary materialIds = null)
         {
-            FileName = $"{baseName}.mtl";
-            _writer = new StreamWriter($"{selectedPath}/{FileName}");
-            _selectedPath = selectedPath;
+            _options = options;
+
             _baseName = baseName;
-            _baseTextureName = baseTextureName;
+            FileName = $"{_baseName}.mtl";
             _materialIds = materialIds ?? new MaterialDictionary();
+            _writer = new StreamWriter(Path.Combine(_options.Path, FileName));
 
             // Add a material without a file for use with untextured models.
             WriteMaterial(null);
@@ -61,22 +61,28 @@ namespace PSXPrev.Common.Exporters
         private void WriteMaterial(int? materialId)
         {
             _writer.WriteLine("newmtl {0}", GetMaterialName(materialId));
-            _writer.WriteLine("Ka 0.00000 0.00000 0.00000"); // ambient color
-            _writer.WriteLine("Kd 0.50000 0.50000 0.50000"); // diffuse color
-            _writer.WriteLine("Ks 0.00000 0.00000 0.00000"); // specular color
-            _writer.WriteLine("d 1.00000"); // "dissolved" (opaque)
-            _writer.WriteLine("illum 0"); // illumination: 0-color on and ambient off
+            _writer.WriteLine("Ka {0} {1} {2}", F(0.0f), F(0.0f), F(0.0f)); // ambient color
+            _writer.WriteLine("Kd {0} {1} {2}", F(0.5f), F(0.5f), F(0.5f)); // diffuse color
+            _writer.WriteLine("Ks {0} {1} {2}", F(0.0f), F(0.0f), F(0.0f)); // specular color
+            _writer.WriteLine("d {0}", F(1.0f)); // "dissolved" (opaque)
+            _writer.WriteLine("illum {0}", 0); // illumination: 0-color on and ambient off
             if (materialId.HasValue)
             {
-                _writer.WriteLine("map_Kd {0}.png", _baseTextureName + materialId); // diffuse texture map
+                var textureName = _options.GetTextureName(_baseName, materialId.Value);
+                _writer.WriteLine("map_Kd {0}.png", textureName); // diffuse texture map
                 //todo: Output alpha for transparent pixels
-                //_writer.WriteLine("map_d {0}a.png", _baseTextureName + materialId); // alpha texture map
+                //_writer.WriteLine("map_d {0}a.png", textureName); // alpha texture map
             }
         }
 
         public void Dispose()
         {
             _writer.Close();
+        }
+
+        private string F(float value)
+        {
+            return value.ToString(_options.FloatFormat, NumberFormatInfo.InvariantInfo);
         }
 
 
