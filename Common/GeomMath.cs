@@ -372,6 +372,17 @@ namespace PSXPrev.Common
             throw new IndexOutOfRangeException(nameof(axis) + " must be between 0 and 2");
         }
 
+        // Double is used for precision, since Math.Round already returns a double.
+        public static float Snap(float x, double step)
+        {
+            return (float)(Math.Round(x / step) * step);
+        }
+
+        public static Vector3 Snap(Vector3 vector, double step)
+        {
+            return new Vector3(Snap(vector.X, step), Snap(vector.Y, step), Snap(vector.Z, step));
+        }
+
         public static int PositiveModulus(int x, int m)
         {
             var r = x % m;

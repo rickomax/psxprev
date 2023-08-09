@@ -16,7 +16,9 @@ namespace PSXPrev.Common
         Subdivision       = (1 << 6),
         AutomaticDivision = (1 << 7),
 
+        VibRibbon         = (1 << 16),
 
+        // Not PlayStation render flags
         NoAmbient         = (1 << 28),
 
         // Bits 29-31 are reserved for MixtureRate.
@@ -38,7 +40,8 @@ namespace PSXPrev.Common
     {
         // Use this mask when separating meshes by render info.
         public const RenderFlags SupportedFlags = RenderFlags.DoubleSided | RenderFlags.Unlit |
-                                                  RenderFlags.SemiTransparent | RenderFlags.Textured;
+                                                  RenderFlags.SemiTransparent | RenderFlags.Textured |
+                                                  RenderFlags.VibRibbon;
 
         public uint TexturePage { get; }
         public RenderFlags RenderFlags { get; }

@@ -69,6 +69,8 @@ namespace PSXPrev.Forms
         private Vector3 _pickedPosition;
         private bool _playing;
         private Timer _redrawTimer;
+        private Timer _modelPropertyGridRefreshTimer; // Timer for refreshing property grid if the current model's properties have updated
+        private bool _modelPropertyGridNeedsRefresh;
         private readonly Scene _scene;
         private Tuple<ModelEntity, Triangle> _selectedTriangle;
         private ModelEntity _selectedModelEntity;
@@ -183,16 +185,15 @@ namespace PSXPrev.Forms
             animationsTreeView.EndUpdate();
         }
 
-        public void AddRootEntities(List<RootEntity> entities)
+        public void AddRootEntities(List<RootEntity> rootEntities)
         {
             if (IsDisposed || _closing)
             {
                 return;
             }
-            foreach (var entity in entities)
+            foreach (var rootEntity in rootEntities)
             {
-                _rootEntities.Add(entity);
-                EntityAdded(entity, _rootEntities.Count - 1);
+                AddRootEntity(rootEntity);
             }
         }
 
@@ -204,8 +205,7 @@ namespace PSXPrev.Forms
             }
             foreach (var texture in textures)
             {
-                _textures.Add(texture);
-                TextureAdded(texture, _textures.Count - 1);
+                AddTexture(texture);
             }
         }
 
@@ -217,10 +217,53 @@ namespace PSXPrev.Forms
             }
             foreach (var animation in animations)
             {
-                _animations.Add(animation);
-                AnimationAdded(animation, _animations.Count - 1);
+                AddAnimation(animation);
             }
         }
+
+        // Helper functions primarily intended for debugging models made by MeshBuilders.
+        private void AddRootEntities(params RootEntity[] rootEntities)
+        {
+            foreach (var rootEntity in rootEntities)
+            {
+                AddRootEntity(rootEntity);
+            }
+        }
+
+        private void AddTextures(params Texture[] textures)
+        {
+            foreach (var texture in textures)
+            {
+                AddTexture(texture);
+            }
+        }
+
+        private void AddAnimations(params Animation[] animations)
+        {
+            foreach (var animation in animations)
+            {
+                AddAnimation(animation);
+            }
+        }
+
+        private void AddRootEntity(RootEntity rootEntity)
+        {
+            _rootEntities.Add(rootEntity);
+            EntityAdded(rootEntity, _rootEntities.Count - 1);
+        }
+
+        private void AddTexture(Texture texture)
+        {
+            _textures.Add(texture);
+            TextureAdded(texture, _textures.Count - 1);
+        }
+
+        private void AddAnimation(Animation animation)
+        {
+            _animations.Add(animation);
+            AnimationAdded(animation, _animations.Count - 1);
+        }
+
 
         public void ScanFinished(bool drawAllToVRAM)
         {
@@ -473,12 +516,19 @@ namespace PSXPrev.Forms
             // Setup timers
             _redrawTimer = new Timer();
             _redrawTimer.Interval = 1f / 60f;
-            _redrawTimer.Elapsed += _redrawTimer_Elapsed;
             _redrawTimer.SynchronizingObject = this;
+            _redrawTimer.Elapsed += _redrawTimer_Elapsed;
             _redrawTimer.Start();
+
+            _modelPropertyGridRefreshTimer = new Timer();
+            _modelPropertyGridRefreshTimer.Interval = 50f; // 50 milliseconds
+            _modelPropertyGridRefreshTimer.SynchronizingObject = this;
+            _modelPropertyGridRefreshTimer.Elapsed += _modelPropertyGridRefreshTimer_Elapsed;
+            _modelPropertyGridRefreshTimer.Start();
+
             _animateTimer = new Timer();
-            _animateTimer.Elapsed += _animateTimer_Elapsed;
             _animateTimer.SynchronizingObject = this;
+            _animateTimer.Elapsed += _animateTimer_Elapsed;
 
             // Set window title to format: PSXPrev #.#.#.#
             var assembly = Assembly.GetExecutingAssembly();
@@ -503,6 +553,15 @@ namespace PSXPrev.Forms
             toolTip.SetToolTip(lightPitchNumericUpDown, "Pitch");
 
             ReadSettings(Settings.Instance);
+        }
+
+        private void _modelPropertyGridRefreshTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            if (_modelPropertyGridNeedsRefresh)
+            {
+                _modelPropertyGridNeedsRefresh = false;
+                modelPropertyGrid.SelectedObject = modelPropertyGrid.SelectedObject;
+            }
         }
 
         private void previewForm_Shown(object sender, EventArgs e)
@@ -960,6 +1019,13 @@ namespace PSXPrev.Forms
                 _selectedTriangle = triangle;
                 UpdateSelectedTriangle();
                 UpdateModelPropertyGrid();
+                // Fix it so that when a triangle is unselected, the cached list
+                // (for selecting each triangle under the mouse) is reset.
+                // Otherwise we end up picking the next triangle when the user isn't expecting it.
+                if (_selectedTriangle == null)
+                {
+                    _scene.ClearTriangleUnderMouseList();
+                }
             }
         }
 
@@ -1051,13 +1117,7 @@ namespace PSXPrev.Forms
                 case GizmoId.XMover when !_inAnimationTab:
                     if (mouseLeft && eventType == MouseEventType.Move && selectedEntityBase != null)
                     {
-                        var pickedPosition = _scene.GetPickedPosition(-_scene.CameraDirection);
-                        var projectedOffset = (pickedPosition - _pickedPosition).ProjectOnNormal(Vector3.UnitX);
-                        selectedEntityBase.PositionX += projectedOffset.X;
-                        selectedEntityBase.PositionY += projectedOffset.Y;
-                        selectedEntityBase.PositionZ += projectedOffset.Z;
-                        _pickedPosition = pickedPosition;
-                        UpdateSelectedEntity(false);
+                        UpdateMover(selectedEntityBase, Vector3.UnitX);
                     }
                     else
                     {
@@ -1068,13 +1128,7 @@ namespace PSXPrev.Forms
                 case GizmoId.YMover when !_inAnimationTab:
                     if (mouseLeft && eventType == MouseEventType.Move && selectedEntityBase != null)
                     {
-                        var pickedPosition = _scene.GetPickedPosition(-_scene.CameraDirection);
-                        var projectedOffset = (pickedPosition - _pickedPosition).ProjectOnNormal(Vector3.UnitY);
-                        selectedEntityBase.PositionX += projectedOffset.X;
-                        selectedEntityBase.PositionY += projectedOffset.Y;
-                        selectedEntityBase.PositionZ += projectedOffset.Z;
-                        _pickedPosition = pickedPosition;
-                        UpdateSelectedEntity(false);
+                        UpdateMover(selectedEntityBase, Vector3.UnitY);
                     }
                     else
                     {
@@ -1085,13 +1139,7 @@ namespace PSXPrev.Forms
                 case GizmoId.ZMover when !_inAnimationTab:
                     if (mouseLeft && eventType == MouseEventType.Move && selectedEntityBase != null)
                     {
-                        var pickedPosition = _scene.GetPickedPosition(-_scene.CameraDirection);
-                        var projectedOffset = (pickedPosition - _pickedPosition).ProjectOnNormal(Vector3.UnitZ);
-                        selectedEntityBase.PositionX += projectedOffset.X;
-                        selectedEntityBase.PositionY += projectedOffset.Y;
-                        selectedEntityBase.PositionZ += projectedOffset.Z;
-                        _pickedPosition = pickedPosition;
-                        UpdateSelectedEntity(false);
+                        UpdateMover(selectedEntityBase, Vector3.UnitZ);
                     }
                     else
                     {
@@ -1108,13 +1156,43 @@ namespace PSXPrev.Forms
             _lastMouseY = e.Y;
         }
 
+        private void UpdateMover(EntityBase selectedEntityBase, Vector3 axis)
+        {
+            // Make sure to scale translation by that of parent entity.
+            // We also want to invert rotation, so that we still move along the global axis.
+            // todo: This doens't handle rotation with non-uniform scale correctly.
+            var scale = Vector3.One;
+            if (selectedEntityBase.ParentEntity != null)
+            {
+                var parentWorldMatrix = selectedEntityBase.ParentEntity.WorldMatrix;
+
+                scale = parentWorldMatrix.ExtractScale();
+
+                // The larger the scale, the less we want to move to preserve the same world translation.
+                // No division operator with RHS Vector3, so we need to inverse here.
+                scale.X = scale.X != 0f ? (1f / scale.X) : 0f;
+                scale.Y = scale.Y != 0f ? (1f / scale.Y) : 0f;
+                scale.Z = scale.Z != 0f ? (1f / scale.Z) : 0f;
+
+                Matrix4.Invert(ref parentWorldMatrix, out var invParentWorldMatrix);
+                var rotation = invParentWorldMatrix.ExtractRotationSafe();
+
+                axis = rotation * axis;
+            }
+
+            var pickedPosition = _scene.GetPickedPosition(-_scene.CameraDirection);
+            var projectedOffset = (pickedPosition - _pickedPosition).ProjectOnNormal(axis);
+            selectedEntityBase.Translation += projectedOffset * scale;
+            _pickedPosition = pickedPosition;
+
+            UpdateSelectedEntity(false, forceUpdatePropertyGrid: false); // Delay updating property grid to reduce lag
+        }
+
         private void AlignSelectedEntityToGrid(EntityBase selectedEntityBase)
         {
             if (selectedEntityBase != null)
             {
-                selectedEntityBase.PositionX = AlignToGrid(selectedEntityBase.PositionX);
-                selectedEntityBase.PositionY = AlignToGrid(selectedEntityBase.PositionY);
-                selectedEntityBase.PositionZ = AlignToGrid(selectedEntityBase.PositionZ);
+                selectedEntityBase.Translation = SnapToGrid(selectedEntityBase.Translation);
                 UpdateSelectedEntity(false);
             }
         }
@@ -1162,7 +1240,7 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void UpdateSelectedEntity(bool updateMeshData = true)
+        private void UpdateSelectedEntity(bool updateMeshData = true, bool forceUpdatePropertyGrid = true)
         {
             _scene.BoundsBatch.Reset(1);
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
@@ -1190,7 +1268,7 @@ namespace PSXPrev.Forms
                 _scene.DebugIntersectionsBatch.Reset(1);
             }
             UpdateSelectedTriangle();
-            UpdateModelPropertyGrid();
+            UpdateModelPropertyGrid(forceUpdatePropertyGrid);
             UpdateGizmos(_selectedGizmo, _hoveredGizmo);
             _selectionSource = EntitySelectionSource.None;
         }
@@ -1204,11 +1282,20 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void UpdateModelPropertyGrid()
+        private void UpdateModelPropertyGrid(bool force = false)
         {
             var propertyObject = _selectedTriangle?.Item2 ?? _selectedRootEntity ?? (object)_selectedModelEntity;
 
-            modelPropertyGrid.SelectedObject = propertyObject;
+            if (force || modelPropertyGrid.SelectedObject != propertyObject)
+            {
+                _modelPropertyGridNeedsRefresh = false;
+                modelPropertyGrid.SelectedObject = propertyObject;
+            }
+            else
+            {
+                // Delay updating the property grid to reduce lag.
+                _modelPropertyGridNeedsRefresh = true;
+            }
         }
 
         private void UpdateSelectedAnimation(bool play = false)
@@ -1312,22 +1399,31 @@ namespace PSXPrev.Forms
             if (selectedEntityBase != null)
             {
                 selectedNode.Text = selectedEntityBase.EntityName;
-                selectedEntityBase.PositionX = AlignToGrid(selectedEntityBase.PositionX);
-                selectedEntityBase.PositionY = AlignToGrid(selectedEntityBase.PositionY);
-                selectedEntityBase.PositionZ = AlignToGrid(selectedEntityBase.PositionZ);
+                selectedEntityBase.Translation = SnapToGrid(selectedEntityBase.Translation);
             }
             UpdateSelectedEntity(false);
         }
 
-        private float AlignToGrid(float value)
+        private float SnapToGrid(float value)
         {
-            var gridSize = (double)gridSizeNumericUpDown.Value;
-            if (gridSize == 0)
+            var step = (double)gridSizeNumericUpDown.Value;
+            if (step == 0)
             {
                 // Grid size of zero should not align at all. Also we want to avoid divide-by-zero.
                 return value;
             }
-            return (float)(Math.Floor(value / gridSize) * gridSize);
+            return GeomMath.Snap(value, step);
+        }
+
+        private Vector3 SnapToGrid(Vector3 vector)
+        {
+            var step = (double)gridSizeNumericUpDown.Value;
+            if (step == 0)
+            {
+                // Grid size of zero should not align at all. Also we want to avoid divide-by-zero.
+                return vector;
+            }
+            return GeomMath.Snap(vector, step);
         }
 
         private void texturePropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
@@ -1870,6 +1966,7 @@ namespace PSXPrev.Forms
         private void lineRendererToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _scene.VibRibbonWireframe = lineRendererToolStripMenuItem.Checked;
+            UpdateSelectedEntity(); // Update mesh data, since vib ribbon redefines how mesh data is built.
         }
 
         private void resetWholeModelToolStripMenuItem_Click(object sender, EventArgs e)

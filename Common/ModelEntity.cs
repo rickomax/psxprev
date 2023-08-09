@@ -19,6 +19,14 @@ namespace PSXPrev.Common
         [DisplayName("Mixture Rate")]
         public MixtureRate MixtureRate { get; set; }
 
+        public bool Visible { get; set; } = true;
+
+        // Debug render settings for testing, not for use with PlayStation models.
+        // Note: DebugMeshRenderInfo's TexturePage, RenderFlags, MixtureRate, and Visible are ignored.
+        [Browsable(false)]
+        public Renderer.MeshRenderInfo DebugMeshRenderInfo { get; set; }
+
+
         [DisplayName("Triangles"), ReadOnly(true)]
         public int TrianglesCount => Triangles.Length;
 
@@ -101,10 +109,8 @@ namespace PSXPrev.Common
         //[ReadOnly(true)]
         //public uint PrimitiveIndex { get; set; }
 
-        [Browsable(false)]
-        public int MeshIndex { get; set; }
-
-        public bool Visible { get; set; } = true;
+        //[Browsable(false)]
+        //public int MeshIndex { get; set; }
 
         [Browsable(false)]
         public float Interpolator { get; set; }
@@ -200,6 +206,18 @@ namespace PSXPrev.Common
                 vertex = Vector3.TransformPosition(vertex, TempWorldMatrix.Inverted());
             }
             return vertex;
+        }
+
+        private Vector3 ConnectNormal(EntityBase subModel, Vector3 normal)
+        {
+            // We only need to transform the vertex if it's not attached to the same model.
+            if (subModel != this)
+            {
+                // todo: Is the first normalize needed for if the first scale is non-uniform?
+                normal = GeomMath.TransformNormalNormalized(normal, subModel.TempWorldMatrix);
+                normal = GeomMath.TransformNormalNormalized(normal, TempWorldMatrix.Inverted());
+            }
+            return normal;
         }
 
         public override void FixConnections()
