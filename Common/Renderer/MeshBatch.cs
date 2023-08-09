@@ -43,7 +43,11 @@ namespace PSXPrev.Common.Renderer
         public bool TexturesEnabled { get; set; }
         public bool SemiTransparencyEnabled { get; set; } = true;
         public bool ForceDoubleSided { get; set; }
-        public Color SolidColor { get; set; }
+        public Vector3? LightDirection { get; set; } // Overrides Scene's light direction
+        public float? LightIntensity { get; set; } // Overrides Scene's light intensity
+        public Color AmbientColor { get; set; } // Overrides Scene's ambient color
+        public Color SolidColor { get; set; } // Overrides Mesh's vertex colors
+        public bool Visible { get; set; } = true;
 
         public MeshBatch(Scene scene)
         {
@@ -70,9 +74,9 @@ namespace PSXPrev.Common.Renderer
             {
                 return;
             }
-            var bounds = focus ? new BoundingBox() : null;
-
             selectedRootEntity = selectedRootEntity ?? selectedModelEntity.GetRootEntity();
+
+            var bounds = focus ? new BoundingBox() : null;
 
             //count the selected entity
             var modelCount = 1;
@@ -83,7 +87,7 @@ namespace PSXPrev.Common.Renderer
                 {
                     if (checkedEntity == selectedRootEntity)
                     {
-                        continue;
+                        continue; // We'll count models and add bounds for selectedRootEntity later on in the function.
                     }
                     modelCount += checkedEntity.ChildEntities.Length;
                     if (focus)
@@ -119,11 +123,13 @@ namespace PSXPrev.Common.Renderer
                 {
                     if (entity == selectedRootEntity)
                     {
-                        continue;
+                        continue; // We'll bind selectedRootEntity later on in the function.
                     }
                     foreach (ModelEntity modelEntity in entity.ChildEntities)
                     {
-                        BindModelMesh(modelEntity, modelEntity.TempWorldMatrix, updateMeshData, modelEntity.InitialVertices, modelEntity.InitialNormals, modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
+                        BindModelMesh(modelEntity, modelEntity.TempWorldMatrix, updateMeshData,
+                            modelEntity.InitialVertices, modelEntity.InitialNormals,
+                            modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
                     }
                 }
             }
@@ -135,7 +141,9 @@ namespace PSXPrev.Common.Renderer
             {
                 foreach (ModelEntity modelEntity in selectedRootEntity.ChildEntities)
                 {
-                    BindModelMesh(modelEntity, selectedRootEntity.TempMatrix * modelEntity.TempWorldMatrix, updateMeshData, modelEntity.InitialVertices, modelEntity.InitialNormals, modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
+                    BindModelMesh(modelEntity, selectedRootEntity.TempMatrix * modelEntity.TempWorldMatrix, updateMeshData,
+                        modelEntity.InitialVertices, modelEntity.InitialNormals,
+                        modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
                 }
             }
             //}
@@ -146,9 +154,12 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        public void BindModelBatch(ModelEntity modelEntity, Matrix4 matrix, Vector3[] initialVertices = null, Vector3[] initialNormals = null, Vector3[] finalVertices = null, Vector3[] finalNormals = null, float? interpolator = null)
+        public void BindModelBatch(ModelEntity modelEntity, Matrix4 matrix, Vector3[] initialVertices = null, Vector3[] initialNormals = null,
+                                   Vector3[] finalVertices = null, Vector3[] finalNormals = null, float interpolator = 0f)
         {
-            BindModelMesh(modelEntity, matrix, finalVertices != null || finalNormals != null, initialVertices, initialNormals, finalVertices, finalNormals, interpolator);
+            var updateMeshData = finalVertices != null || finalNormals != null;
+            BindModelMesh(modelEntity, matrix, updateMeshData,
+                initialVertices, initialNormals, finalVertices, finalNormals, interpolator);
         }
 
 
@@ -165,7 +176,7 @@ namespace PSXPrev.Common.Renderer
             };
             if (updateMeshData)
             {
-                lineBuilder.AddBounds(entity.Bounds3D);
+                lineBuilder.AddBoundsOutline(entity.Bounds3D);
             }
             BindLineMesh(lineBuilder, null, updateMeshData);
         }
@@ -198,7 +209,7 @@ namespace PSXPrev.Common.Renderer
             }
             var normalLength = (totalLength / 3) / 2;
             //var normalLength = maxLength / 2;
-            lineBuilder.Lines.Clear();
+            lineBuilder.Clear();
             lineBuilder.Thickness = 6f;
             lineBuilder.SolidColor = Color.Red;
             for (var j = 0; j < 3; j++)
@@ -211,7 +222,9 @@ namespace PSXPrev.Common.Renderer
         }
 
 
-        private void BindModelMesh(ModelEntity modelEntity, Matrix4? matrix = null, bool updateMeshData = true, Vector3[] initialVertices = null, Vector3[] initialNormals = null, Vector3[] finalVertices = null, Vector3[] finalNormals = null, float? interpolator = null)
+        private void BindModelMesh(ModelEntity modelEntity, Matrix4? matrix = null, bool updateMeshData = true,
+                                   Vector3[] initialVertices = null, Vector3[] initialNormals = null,
+                                   Vector3[] finalVertices = null, Vector3[] finalNormals = null, float interpolator = 0f)
         {
             if (!modelEntity.Visible)
             {
@@ -223,173 +236,35 @@ namespace PSXPrev.Common.Renderer
                 return;
             }
 
-            // Copy render info.
-            mesh.RenderFlags = modelEntity.RenderFlags;
-            mesh.MixtureRate = modelEntity.MixtureRate;
-
-            //var rootEntity = modelEntity.ParentEntity as RootEntity; //todo
-            mesh.WorldMatrix = matrix ?? modelEntity.WorldMatrix;
+            CopyRenderInfo(mesh, modelEntity, ref matrix);
 
             if (updateMeshData)
             {
-                var numTriangles = modelEntity.Triangles.Length;
-                var numElements = numTriangles * 3;
-                var baseIndex = 0;
-                var positionList  = new float[numElements * 3]; // Vector3
-                var normalList    = new float[numElements * 3]; // Vector3
-                var colorList     = new float[numElements * 3]; // Vector3 (Color)
-                var uvList        = new float[numElements * 2]; // Vector2
-                var tiledAreaList = new float[numElements * 4]; // Vector4
-                for (var t = 0; t < numTriangles; t++)
-                {
-                    var lastVertex    = Vector3.Zero;
-                    var lastNormal    = Vector3.Zero;
-                    var lastColor     = Color.White;
-                    var lastUv        = Vector2.Zero;
-                    var lastTiledArea = Vector4.Zero;
-                    var triangle = modelEntity.Triangles[t];
-                    for (var i = 0; i < 3; i++)
-                    {
-                        var index2d = baseIndex * 2;
-                        var index3d = baseIndex * 3;
-                        var index4d = baseIndex * 4;
-                        baseIndex++;
-
-                        var sourceVertex = triangle.Vertices[i];
-                        if (triangle.AttachedIndices != null)
-                        {
-                            var attachedIndex = triangle.AttachedIndices[i];
-                            if (attachedIndex != Triangle.NoAttachment)
-                            {
-                                if (!_scene.AutoAttach)
-                                {
-                                    sourceVertex = new Vector3(DiscardValue, DiscardValue, DiscardValue);
-                                }
-                            }
-                        }
-
-                        Vector3 vertex;
-                        if (_scene.VibRibbonWireframe && i == 2)
-                        {
-                            vertex = lastVertex;
-                        }
-                        else
-                        {
-                            if (initialVertices != null && finalVertices != null && triangle.OriginalVertexIndices[i] < finalVertices.Length)
-                            {
-                                var initialVertex = sourceVertex + initialVertices[triangle.OriginalVertexIndices[i]];
-                                var finalVertex = sourceVertex + finalVertices[triangle.OriginalVertexIndices[i]];
-                                vertex = Vector3.Lerp(initialVertex, finalVertex, interpolator.GetValueOrDefault());
-                            }
-                            else
-                            {
-                                vertex = sourceVertex;
-                            }
-                        }
-
-                        positionList[index3d + 0] = vertex.X;
-                        positionList[index3d + 1] = vertex.Y;
-                        positionList[index3d + 2] = vertex.Z;
-
-                        Vector3 normal;
-                        if (_scene.VibRibbonWireframe && i == 2)
-                        {
-                            normal = lastNormal;
-                        }
-                        else
-                        {
-                            if (initialNormals != null && finalNormals != null && triangle.OriginalNormalIndices[i] < finalNormals.Length)
-                            {
-                                var initialNormal = triangle.Normals[i] + initialNormals[triangle.OriginalNormalIndices[i]] / 4096f;
-                                var finalNormal = triangle.Normals[i] + finalNormals[triangle.OriginalNormalIndices[i]] / 4096f;
-                                normal = Vector3.Lerp(initialNormal, finalNormal, interpolator.GetValueOrDefault());
-                            }
-                            else
-                            {
-                                normal = triangle.Normals[i];
-                            }
-                        }
-
-                        normalList[index3d + 0] = normal.X;
-                        normalList[index3d + 1] = normal.Y;
-                        normalList[index3d + 2] = normal.Z;
-
-                        Color color;
-                        if (_scene.VibRibbonWireframe && i == 2)
-                        {
-                            color = lastColor;
-                        }
-                        else
-                        {
-                            color = triangle.Colors[i];
-                        }
-                        colorList[index3d + 0] = color.R;
-                        colorList[index3d + 1] = color.G;
-                        colorList[index3d + 2] = color.B;
-
-                        Vector2 uv;
-                        if (_scene.VibRibbonWireframe && i == 2)
-                        {
-                            uv = lastUv;
-                        }
-                        else
-                        {
-                            // If we're tiled, then the shader needs the base UV, not the converted UV.
-                            uv = triangle.TiledUv?.BaseUv[i] ?? triangle.Uv[i];
-                        }
-                        uvList[index2d + 0] = uv.X;
-                        uvList[index2d + 1] = uv.Y;
-
-                        Vector4 tiledArea;
-                        if (_scene.VibRibbonWireframe && i == 2)
-                        {
-                            tiledArea = lastTiledArea;
-                        }
-                        else
-                        {
-                            tiledArea = triangle.TiledUv?.Area ?? Vector4.Zero;
-                        }
-                        tiledAreaList[index4d + 0] = tiledArea.X; // U offset
-                        tiledAreaList[index4d + 1] = tiledArea.Y; // V offset
-                        tiledAreaList[index4d + 2] = tiledArea.Z; // U wrap
-                        tiledAreaList[index4d + 3] = tiledArea.W; // V wrap
-
-
-                        lastVertex = vertex;
-                        lastNormal = normal;
-                        lastColor = color;
-                        lastUv = uv;
-                        lastTiledArea = tiledArea;
-                    }
-                }
-                mesh.SetData(MeshDataType.Triangle, numElements, positionList, normalList, colorList, uvList, tiledAreaList);
-            }
-
-            if (TextureBinder != null && modelEntity.HasTexture)
-            {
-                mesh.Texture = TextureBinder.GetTexture((int)modelEntity.TexturePage);
-            }
-            else
-            {
-                mesh.Texture = 0;
+                var isLines = _scene.VibRibbonWireframe || mesh.RenderFlags.HasFlag(RenderFlags.VibRibbon);
+                UpdateTriangleMeshData(mesh, modelEntity.Triangles, isLines,
+                    initialVertices, initialNormals, finalVertices, finalNormals, interpolator);
             }
         }
 
-        private void CopyRenderInfo(Mesh mesh, MeshRenderInfo renderInfo, Matrix4? matrix = null)
+        private void CopyRenderInfo(Mesh mesh, ModelEntity modelEntity, ref Matrix4? matrix)
         {
-            mesh.TexturePage = renderInfo.TexturePage; // Debug information only
+            mesh.CopyFrom(modelEntity);
+            mesh.WorldMatrix = matrix ?? modelEntity.WorldMatrix;
+            CopyTextureBinderTexture(mesh);
+        }
 
-            mesh.RenderFlags = renderInfo.RenderFlags;
-            mesh.MixtureRate = renderInfo.MixtureRate;
-            mesh.Alpha = renderInfo.Alpha;
-            mesh.Thickness = renderInfo.Thickness;
-            mesh.SolidColor = renderInfo.SolidColor;
-            mesh.Visible = renderInfo.Visible;
+        private void CopyRenderInfo(Mesh mesh, MeshRenderInfo renderInfo, ref Matrix4? matrix)
+        {
+            mesh.CopyFrom(renderInfo);
             mesh.WorldMatrix = matrix ?? Matrix4.Identity;
+            CopyTextureBinderTexture(mesh);
+        }
 
-            if (TextureBinder != null && renderInfo.RenderFlags.HasFlag(RenderFlags.Textured))
+        private void CopyTextureBinderTexture(Mesh mesh)
+        {
+            if (TextureBinder != null && mesh.IsTextured)
             {
-                mesh.Texture = TextureBinder.GetTexture((int)renderInfo.TexturePage);
+                mesh.Texture = TextureBinder.GetTexture((int)mesh.TexturePage);
             }
             else
             {
@@ -406,7 +281,7 @@ namespace PSXPrev.Common.Renderer
                 return;
             }
 
-            CopyRenderInfo(mesh, renderInfo, matrix);
+            CopyRenderInfo(mesh, renderInfo, ref matrix);
         }
 
         public void BindTriangleMesh(TriangleMeshBuilder triangleBuilder, Matrix4? matrix = null, bool updateMeshData = true)
@@ -417,56 +292,12 @@ namespace PSXPrev.Common.Renderer
                 return;
             }
 
-            CopyRenderInfo(mesh, triangleBuilder, matrix);
+            CopyRenderInfo(mesh, triangleBuilder, ref matrix);
 
             if (updateMeshData)
             {
-                var triangles = triangleBuilder.Triangles;
-                var numTriangles = triangles.Count;
-                var numElements = numTriangles * 3;
-                var baseIndex = 0;
-                var positionList  = new float[numElements * 3]; // Vector3
-                var normalList    = new float[numElements * 3]; // Vector3
-                var colorList     = new float[numElements * 3]; // Vector3 (Color)
-                var uvList        = new float[numElements * 2]; // Vector2
-                var tiledAreaList = new float[numElements * 4]; // Vector4
-                for (var t = 0; t < numTriangles; t++)
-                {
-                    var triangle = triangles[t];
-                    for (var i = 0; i < 3; i++)
-                    {
-                        var index2d = baseIndex * 2;
-                        var index3d = baseIndex * 3;
-                        var index4d = baseIndex * 4;
-                        baseIndex++;
-
-                        var vertex = triangle.Vertices[i];
-                        positionList[index3d + 0] = vertex.X;
-                        positionList[index3d + 1] = vertex.Y;
-                        positionList[index3d + 2] = vertex.Z;
-
-                        var normal = triangle.Normals[i];
-                        normalList[index3d + 0] = normal.X;
-                        normalList[index3d + 1] = normal.Y;
-                        normalList[index3d + 2] = normal.Z;
-
-                        var color = triangle.Colors[i];
-                        colorList[index3d + 0] = color.R;
-                        colorList[index3d + 1] = color.G;
-                        colorList[index3d + 2] = color.B;
-
-                        var uv = triangle.TiledUv?.BaseUv[i] ?? triangle.Uv[i];
-                        uvList[index2d + 0] = uv.X;
-                        uvList[index2d + 1] = uv.Y;
-
-                        var tiledArea = triangle.TiledUv?.Area ?? Vector4.Zero;
-                        tiledAreaList[index4d + 0] = tiledArea.X; // U offset
-                        tiledAreaList[index4d + 1] = tiledArea.Y; // V offset
-                        tiledAreaList[index4d + 2] = tiledArea.Z; // U wrap
-                        tiledAreaList[index4d + 3] = tiledArea.W; // V wrap
-                    }
-                }
-                mesh.SetData(MeshDataType.Triangle, numElements, positionList, normalList, colorList, uvList, tiledAreaList);
+                var isLines = mesh.RenderFlags.HasFlag(RenderFlags.VibRibbon);
+                UpdateTriangleMeshData(mesh, triangleBuilder.Triangles, isLines);
             }
         }
 
@@ -478,8 +309,9 @@ namespace PSXPrev.Common.Renderer
                 return;
             }
 
-            CopyRenderInfo(mesh, lineBuilder, matrix);
-            mesh.RenderFlags |= RenderFlags.Unlit | RenderFlags.DoubleSided; // Enforced flags
+            CopyRenderInfo(mesh, lineBuilder, ref matrix);
+            // Enforced certain flags for lines
+            mesh.RenderFlags |= RenderFlags.Unlit | RenderFlags.DoubleSided;
             mesh.RenderFlags &= ~RenderFlags.Textured;
 
             if (updateMeshData)
@@ -515,6 +347,79 @@ namespace PSXPrev.Common.Renderer
                 }
                 mesh.SetData(MeshDataType.Line, numElements, positionList, null, colorList, null);
             }
+        }
+
+        private void UpdateTriangleMeshData(Mesh mesh, IReadOnlyList<Triangle> triangles, bool isLines,
+                                            Vector3[] initialVertices = null, Vector3[] initialNormals = null,
+                                            Vector3[] finalVertices = null, Vector3[] finalNormals = null, float interpolator = 0f)
+        {
+            var verticesPerElement = isLines ? 2 : 3;
+
+            var numTriangles = triangles.Count;
+            var numElements = numTriangles * verticesPerElement;
+            var baseIndex = 0;
+            var positionList  = new float[numElements * 3]; // Vector3
+            var normalList    = new float[numElements * 3]; // Vector3
+            var colorList     = new float[numElements * 3]; // Vector3 (Color)
+            var uvList        = new float[numElements * 2]; // Vector2
+            var tiledAreaList = new float[numElements * 4]; // Vector4
+            foreach (var triangle in triangles)
+            {
+                var tiledArea = triangle.TiledUv?.Area ?? Vector4.Zero;
+                for (var i = 0; i < verticesPerElement; i++)
+                {
+                    var index2d = baseIndex * 2;
+                    var index3d = baseIndex * 3;
+                    var index4d = baseIndex * 4;
+                    baseIndex++;
+
+                    var vertex = triangle.Vertices[i];
+                    if (!_scene.AutoAttach && triangle.AttachedIndices != null && triangle.AttachedIndices[i] != Triangle.NoAttachment)
+                    {
+                        vertex = new Vector3(DiscardValue);
+                    }
+                    else if (initialVertices != null && finalVertices != null && triangle.OriginalVertexIndices[i] < finalVertices.Length)
+                    {
+                        var initialVertex = vertex + initialVertices[triangle.OriginalVertexIndices[i]];
+                        var finalVertex = vertex + finalVertices[triangle.OriginalVertexIndices[i]];
+                        vertex = Vector3.Lerp(initialVertex, finalVertex, interpolator);
+                    }
+
+                    positionList[index3d + 0] = vertex.X;
+                    positionList[index3d + 1] = vertex.Y;
+                    positionList[index3d + 2] = vertex.Z;
+
+                    var normal = triangle.Normals[i];
+                    if (initialNormals != null && finalNormals != null && triangle.OriginalNormalIndices[i] < finalNormals.Length)
+                    {
+                        var initialNormal = normal + initialNormals[triangle.OriginalNormalIndices[i]] / 4096f;
+                        var finalNormal = normal + finalNormals[triangle.OriginalNormalIndices[i]] / 4096f;
+                        normal = Vector3.Lerp(initialNormal, finalNormal, interpolator);
+                    }
+
+                    normalList[index3d + 0] = normal.X;
+                    normalList[index3d + 1] = normal.Y;
+                    normalList[index3d + 2] = normal.Z;
+
+                    var color = triangle.Colors[i];
+                    colorList[index3d + 0] = color.R;
+                    colorList[index3d + 1] = color.G;
+                    colorList[index3d + 2] = color.B;
+
+                    // If we're tiled, then the shader needs the base UV, not the converted UV.
+                    var uv = triangle.TiledUv?.BaseUv[i] ?? triangle.Uv[i];
+                    uvList[index2d + 0] = uv.X;
+                    uvList[index2d + 1] = uv.Y;
+
+                    tiledAreaList[index4d + 0] = tiledArea.X; // U offset
+                    tiledAreaList[index4d + 1] = tiledArea.Y; // V offset
+                    tiledAreaList[index4d + 2] = tiledArea.Z; // U wrap
+                    tiledAreaList[index4d + 3] = tiledArea.W; // V wrap
+                }
+            }
+
+            var dataType = isLines ? MeshDataType.Line : MeshDataType.Triangle;
+            mesh.SetData(dataType, numElements, positionList, normalList, colorList, uvList, tiledAreaList);
         }
 
 
@@ -599,7 +504,7 @@ namespace PSXPrev.Common.Renderer
 
         public void DrawPass(RenderPass renderPass, Matrix4 viewMatrix, Matrix4 projectionMatrix)
         {
-            if (!IsValid)
+            if (!IsValid || !Visible)
             {
                 return;
             }
@@ -644,7 +549,7 @@ namespace PSXPrev.Common.Renderer
                         {
                             continue; // Not a semi-transparent mesh
                         }
-                        if (!mesh.RenderFlags.HasFlag(RenderFlags.Textured))
+                        if (!mesh.IsTextured)
                         {
                             continue; // Untextured surfaces always have stp bit SET.
                         }
@@ -732,6 +637,16 @@ namespace PSXPrev.Common.Renderer
             else
             {
                 GL.Uniform1(Scene.UniformLightMode, 3); // Disable ambient, disable directional light
+            }
+
+            if (ambient)
+            {
+                GL.Uniform3(Scene.UniformAmbientColor, (Vector3)(mesh.AmbientColor ?? AmbientColor ?? (Color)_scene.AmbientColor));
+            }
+            if (light)
+            {
+                GL.Uniform3(Scene.UniformLightDirection, (mesh.LightDirection ?? LightDirection ?? _scene.LightDirection));
+                GL.Uniform1(Scene.UniformLightIntensity, (mesh.LightIntensity ?? LightIntensity ?? _scene.LightIntensity));
             }
 
             if (SolidColor == null)

@@ -21,5 +21,18 @@ namespace PSXPrev.Common
             //Uv = EmptyUv;
             Colors = new[] { color0, color1 ?? color0 };
         }
+
+
+        public Triangle ToTriangle()
+        {
+            return new Triangle
+            {
+                Vertices = new[] { Vertices[0], Vertices[1], Vertices[1] },
+                Normals = Triangle.EmptyNormals,
+                Uv = Triangle.EmptyUv,
+                Colors = new[] { Colors[0], Colors[1], Colors[1] },
+                AttachableIndices = Triangle.EmptyAttachableIndices,
+            };
+        }
     }
 }
