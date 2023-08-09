@@ -165,7 +165,7 @@ namespace PSXPrev.Common.Renderer
             };
             if (updateMeshData)
             {
-                lineBuilder.AddEntityBounds(entity);
+                lineBuilder.AddBounds(entity.Bounds3D);
             }
             BindLineMesh(lineBuilder, null, updateMeshData);
         }
@@ -184,6 +184,28 @@ namespace PSXPrev.Common.Renderer
             if (updateMeshData)
             {
                 lineBuilder.AddTriangleOutline(triangle);
+            }
+            BindLineMesh(lineBuilder, matrix, updateMeshData);
+
+            // Draw normals for triangle
+            var maxLength = 0f;
+            var totalLength = 0f;
+            for (var j = 0; j < 3; j++)
+            {
+                var edgeLength = (triangle.Vertices[(j + 1) % 3] - triangle.Vertices[j]).Length;
+                maxLength = Math.Max(maxLength, edgeLength);
+                totalLength += edgeLength;
+            }
+            var normalLength = (totalLength / 3) / 2;
+            //var normalLength = maxLength / 2;
+            lineBuilder.Lines.Clear();
+            lineBuilder.Thickness = 6f;
+            lineBuilder.SolidColor = Color.Red;
+            for (var j = 0; j < 3; j++)
+            {
+                var center = triangle.Vertices[j];
+                var normal = center + triangle.Normals[j] * normalLength;
+                lineBuilder.AddLine(center, normal);
             }
             BindLineMesh(lineBuilder, matrix, updateMeshData);
         }
@@ -375,6 +397,7 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
+        // Used to just update render info if we know we aren't updating mesh data.
         public void BindRenderInfo(MeshRenderInfo renderInfo, Matrix4? matrix = null)
         {
             var mesh = GetMesh(MeshIndex++);
@@ -457,6 +480,7 @@ namespace PSXPrev.Common.Renderer
 
             CopyRenderInfo(mesh, lineBuilder, matrix);
             mesh.RenderFlags |= RenderFlags.Unlit | RenderFlags.DoubleSided; // Enforced flags
+            mesh.RenderFlags &= ~RenderFlags.Textured;
 
             if (updateMeshData)
             {
@@ -587,7 +611,7 @@ namespace PSXPrev.Common.Renderer
             if (SolidColor != null)
             {
                 GL.Uniform1(Scene.UniformColorMode, 1); // Use solid color
-                GL.Uniform3(Scene.UniformSolidColor, SolidColor.Vector);
+                GL.Uniform3(Scene.UniformSolidColor, (Vector3)SolidColor);
             }
 
             switch (renderPass)
@@ -598,7 +622,7 @@ namespace PSXPrev.Common.Renderer
                     GL.Disable(EnableCap.Blend);
                     GL.Uniform1(Scene.UniformSemiTransparentPass, 0);
 
-                    foreach (var mesh in GetMeshes())
+                    foreach (var mesh in GetVisibleMeshes())
                     {
                         if (SemiTransparencyEnabled && !mesh.IsOpaque)
                         {
@@ -614,7 +638,7 @@ namespace PSXPrev.Common.Renderer
                     GL.Disable(EnableCap.Blend);
                     GL.Uniform1(Scene.UniformSemiTransparentPass, 1);
 
-                    foreach (var mesh in GetMeshes())
+                    foreach (var mesh in GetVisibleMeshes())
                     {
                         if (!mesh.IsSemiTransparent)
                         {
@@ -634,7 +658,7 @@ namespace PSXPrev.Common.Renderer
                     GL.Enable(EnableCap.Blend);
                     GL.Uniform1(Scene.UniformSemiTransparentPass, 2);
 
-                    foreach (var mesh in GetMeshes())
+                    foreach (var mesh in GetVisibleMeshes())
                     {
                         if (!mesh.IsSemiTransparent)
                         {
@@ -678,7 +702,7 @@ namespace PSXPrev.Common.Renderer
             GL.Disable(EnableCap.CullFace);
         }
 
-        private IEnumerable<Mesh> GetMeshes()
+        private IEnumerable<Mesh> GetVisibleMeshes()
         {
             foreach (var mesh in _meshes)
             {
@@ -720,7 +744,7 @@ namespace PSXPrev.Common.Renderer
                 else
                 {
                     GL.Uniform1(Scene.UniformColorMode, 1); // Use solid color
-                    GL.Uniform3(Scene.UniformSolidColor, (SolidColor ?? mesh.SolidColor).Vector);
+                    GL.Uniform3(Scene.UniformSolidColor, (Vector3)mesh.SolidColor);
                 }
             }
 
@@ -744,9 +768,14 @@ namespace PSXPrev.Common.Renderer
             }
 
             var modelMatrix = mesh.WorldMatrix;
+            var normalMatrix = new Matrix3(modelMatrix);
+            normalMatrix.Invert();
+            normalMatrix.Transpose();
             var mvpMatrix = modelMatrix * viewMatrix * projectionMatrix;
+            GL.UniformMatrix3(Scene.UniformNormalMatrix, false, ref normalMatrix);
             GL.UniformMatrix4(Scene.UniformModelMatrix, false, ref modelMatrix);
             GL.UniformMatrix4(Scene.UniformMVPMatrix, false, ref mvpMatrix);
+
             mesh.Draw(TextureBinder, ShowWireframe, ShowVertices, WireframeSize, VertexSize);
         }
 

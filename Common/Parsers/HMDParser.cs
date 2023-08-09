@@ -59,10 +59,7 @@ namespace PSXPrev.Common.Parsers
             if (modelEntities.Count > 0)
             {
                 rootEntity = new RootEntity();
-                foreach (var modelEntity in modelEntities)
-                {
-                    modelEntity.ParentEntity = rootEntity;
-                }
+                rootEntity.ChildEntities = modelEntities.ToArray();
                 if (TextureResults.Count > 0)
                 {
                     foreach (var texture in TextureResults)
@@ -79,7 +76,6 @@ namespace PSXPrev.Common.Parsers
                     }
                     rootEntity.OwnedAnimations.AddRange(AnimationResults);
                 }
-                rootEntity.ChildEntities = modelEntities.ToArray();
                 rootEntity.ComputeBounds();
             }
             else
@@ -1057,7 +1053,7 @@ namespace PSXPrev.Common.Parsers
 
                 var coordID = reader.ReadUInt16();
                 var numDiffs = reader.ReadUInt16();
-                if (numDiffs > Program.MaxHMDMIMEeDiffs)
+                if (numDiffs > Program.MaxHMDMIMeDiffs)
                 {
                     return null;
                 }
@@ -1156,11 +1152,11 @@ namespace PSXPrev.Common.Parsers
 
                 var numOriginals = reader.ReadUInt16();
                 var numDiffs = reader.ReadUInt16();
-                if (numDiffs > Program.MaxHMDMIMEeDiffs)
+                if (numDiffs > Program.MaxHMDMIMeDiffs)
                 {
                     return null;
                 }
-                if (numOriginals > Program.MaxHMDMIMEeOriginals)
+                if (numOriginals > Program.MaxHMDMIMeOriginals)
                 {
                     return null;
                 }
