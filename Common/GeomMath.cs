@@ -34,6 +34,66 @@ namespace PSXPrev.Common
         //    return (float)Math.Sqrt((x * x) + (y * y) + (z * z));
         //}
 
+        public static Vector3 ToVector3(this System.Drawing.Color color)
+        {
+            return new Vector3(color.R / 255f, color.G / 255f, color.B / 255f);
+        }
+
+        public static Vector4 ToVector4(this System.Drawing.Color color)
+        {
+            return new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
+        }
+
+
+        public static Vector3 TransformNormalNormalized(Vector3 normal, Matrix4 matrix)
+        {
+            TransformNormalNormalized(ref normal, ref matrix, out var result);
+            return result;
+        }
+
+        public static void TransformNormalNormalized(ref Vector3 normal, ref Matrix4 matrix, out Vector3 result)
+        {
+            Matrix4.Invert(ref matrix, out var invMatrix);
+            TransformNormalInverseNormalized(ref normal, ref invMatrix, out result);
+        }
+
+        public static Vector3 TransformNormalInverseNormalized(Vector3 normal, Matrix4 invMatrix)
+        {
+            TransformNormalInverseNormalized(ref normal, ref invMatrix, out var result);
+            return result;
+        }
+
+        public static void TransformNormalInverseNormalized(ref Vector3 normal, ref Matrix4 invMatrix, out Vector3 result)
+        {
+            Vector3.TransformPosition(Vector3.Zero, Matrix4.Zero);
+            Vector3.TransformNormalInverse(ref normal, ref invMatrix, out result);
+            if (!result.IsZero())
+            {
+                result.Normalize();
+            }
+        }
+
+
+        // One-liners for help assigning to the same value, while avoiding a struct copy of Matrix4.
+        public static Vector3 TransformNormalNormalized(ref Vector3 normal, ref Matrix4 matrix)
+        {
+            Matrix4.Invert(ref matrix, out var invMatrix);
+            return TransformNormalInverseNormalized(ref normal, ref invMatrix);
+        }
+
+        public static Vector3 TransformNormalInverseNormalized(ref Vector3 normal, ref Matrix4 invMatrix)
+        {
+            TransformNormalInverseNormalized(ref normal, ref invMatrix, out var result);
+            return result;
+        }
+
+        public static Vector3 TransformPosition(ref Vector3 position, ref Matrix4 matrix)
+        {
+            Vector3.TransformPosition(ref position, ref matrix, out var result);
+            return result;
+        }
+
+
         public static Matrix4 SetRotation(this Matrix4 matrix, Quaternion rotation)
         {
             matrix = matrix.ClearRotation();
@@ -113,14 +173,17 @@ namespace PSXPrev.Common
 
         public static Vector3 UnProject(this Vector3 position, Matrix4 projection, Matrix4 view, float width, float height)
         {
+            // Not entirely sure if the -1 in `height - 1f - position.Y` should be there or not.
+            // For now, intersections with the gizmo seem slightly more accurate with the -1.
+
             // OpenTK version:
             //var viewProjInv = Matrix4.Invert(view * projection);
-            //position.Y = height - position.Y;
+            //position.Y = height - 1f - position.Y;
             //return Vector3.Unproject(position, 0f, 0f, width, height, 0f, 1f, viewProjInv);
 
             Vector4 vec;
             vec.X = 2.0f * position.X / width - 1;
-            vec.Y = 2.0f * (height - position.Y) / height - 1;
+            vec.Y = 2.0f * (height - 1f - position.Y) / height - 1;
             vec.Z = 2.0f * position.Z - 1; // 2.0f * position.Z / depth - 1; // Where depth=1
             vec.W = 1.0f;
             var viewInv = Matrix4.Invert(view);
@@ -138,12 +201,29 @@ namespace PSXPrev.Common
 
         public static Vector3 ProjectOnNormal(this Vector3 vector, Vector3 normal)
         {
-            var num = Vector3.Dot(normal, normal);
-            if (num < float.Epsilon)
+            var num = normal.LengthSquared;
+            if (num < float.Epsilon) // The same as num <= 0f
             {
                 return Vector3.Zero;
             }
             return normal * Vector3.Dot(vector, normal) / num;
+        }
+
+        // Useful for BoxIntersect so that we can still operate on an axis-aligned box.
+        public static void TransformRay(Vector3 rayOrigin, Vector3 rayDirection, Matrix4 matrix, out Vector3 resultOrigin, out Vector3 resultDirection)
+        {
+            var invMatrix = Matrix4.Invert(matrix);
+            TransformRayInverse(rayOrigin, rayDirection, invMatrix, out resultOrigin, out resultDirection);
+        }
+
+        public static void TransformRayInverse(Vector3 rayOrigin, Vector3 rayDirection, Matrix4 invMatrix, out Vector3 resultOrigin, out Vector3 resultDirection)
+        {
+            Vector3.TransformPosition(ref rayOrigin, ref invMatrix, out resultOrigin);
+            TransformNormalInverseNormalized(ref rayDirection, ref invMatrix, out resultDirection);
+            if (!resultDirection.IsZero())
+            {
+                resultDirection.Normalize();
+            }
         }
 
         public static float BoxIntersect(Vector3 rayOrigin, Vector3 rayDirection, Vector3 boxMin, Vector3 boxMax)
@@ -239,8 +319,9 @@ namespace PSXPrev.Common
             var max = new Vector3(center.X + size.X, center.Y + size.Y, center.Z + size.Z);
             if (matrix.HasValue)
             {
-                outMin = Vector3.TransformPosition(min, matrix.Value);
-                outMax = Vector3.TransformPosition(max, matrix.Value);
+                var matrixValue = matrix.Value;
+                Vector3.TransformPosition(ref min, ref matrixValue, out outMin);
+                Vector3.TransformPosition(ref max, ref matrixValue, out outMax);
             }
             else
             {
@@ -257,12 +338,38 @@ namespace PSXPrev.Common
 
         public static Vector3 CalculateNormal(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2)
         {
-            var cross = Vector3.Cross(vertex1 - vertex0, vertex2 - vertex0);
+            var cross = Vector3.Cross(vertex2 - vertex0, vertex1 - vertex0);
             if (!cross.IsZero())
             {
                 cross.Normalize();
             }
             return cross;
+        }
+
+        // Shift the components of vector by axis amount.
+        // When axis = 0 (X): vector is unchanged.
+        // When axis = 1 (Y): vector.X -> Y, vector.Y -> Z, vector.Z -> X.
+        // When axis = 2 (Z): vector.X -> Z, vector.Y -> X, vector.Z -> Y.
+        public static Vector3 SwapAxes(int axis, Vector3 vector)
+        {
+            switch (axis)
+            {
+                case 0: return vector;
+                case 1: return new Vector3(vector.Z, vector.X, vector.Y);
+                case 2: return new Vector3(vector.Y, vector.Z, vector.X);
+            }
+            throw new IndexOutOfRangeException(nameof(axis) + " must be between 0 and 2");
+        }
+
+        public static Vector3 SwapAxes(int axis, float x, float y, float z)
+        {
+            switch (axis)
+            {
+                case 0: return new Vector3(x, y, z);
+                case 1: return new Vector3(z, x, y);
+                case 2: return new Vector3(y, z, x);
+            }
+            throw new IndexOutOfRangeException(nameof(axis) + " must be between 0 and 2");
         }
 
         public static int PositiveModulus(int x, int m)

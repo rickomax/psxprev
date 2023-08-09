@@ -92,8 +92,8 @@ namespace PSXPrev
         public static ulong MaxHMDAnimSequenceSize = 20000;
         public static ulong MaxHMDAnimSequenceCount = 1024;
         public static ulong MaxHMDAnimInstructions = ushort.MaxValue + 1; // Hard cap
-        public static ulong MaxHMDMIMEeDiffs = 100;
-        public static ulong MaxHMDMIMEeOriginals = 100;
+        public static ulong MaxHMDMIMeDiffs = 100;
+        public static ulong MaxHMDMIMeOriginals = 100;
         public static ulong MaxHMDVertices = 5000;
         public static ulong MaxMODModels = 1000;
         public static ulong MaxMODVertices = 10000;
@@ -998,7 +998,7 @@ namespace PSXPrev
         private static bool ProcessFile(string file, List<Func<FileOffsetScanner>> parsers)
         {
             ResetFileProgress();
-            if (_options.AsyncFileScan)
+            if (_options.AsyncFileScan && parsers.Count > 1)
             {
                 if (WaitOnScanState())
                 {

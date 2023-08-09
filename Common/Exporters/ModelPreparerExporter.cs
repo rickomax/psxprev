@@ -413,6 +413,33 @@ namespace PSXPrev.Common.Exporters
             _rootEntityModels.Clear();
         }
 
+        // Order by:
+        // 1. Texture pages:
+        //     i. Page:   lowest to highest
+        // 2. Loose textures:
+        //     i. Width:  highest to lowest
+        //    ii. Height: highest to lowest
+        //   iii. Page:   lowest to highest
+        private static int CompareTextures(Texture a, Texture b)
+        {
+            if (!a.IsVRAMPage || !b.IsVRAMPage)
+            {
+                if (a.IsVRAMPage != b.IsVRAMPage)
+                {
+                    return -a.IsVRAMPage.CompareTo(b.IsVRAMPage);
+                }
+                else if (a.Width != b.Width)
+                {
+                    return -a.Width.CompareTo(b.Width);
+                }
+                else if (a.Height != b.Height)
+                {
+                    return -a.Height.CompareTo(b.Height);
+                }
+            }
+            return a.TexturePage.CompareTo(b.TexturePage);
+        }
+
 
         private class SingleTextureInfo : IDisposable
         {
@@ -466,24 +493,7 @@ namespace PSXPrev.Common.Exporters
                     //     i. Width:  highest to lowest
                     //    ii. Height: highest to lowest
                     //   iii. Page:   lowest to highest
-                    OriginalTextures.Sort((a, b) => {
-                        if (!a.IsVRAMPage || !b.IsVRAMPage)
-                        {
-                            if (a.IsVRAMPage != b.IsVRAMPage)
-                            {
-                                return -a.IsVRAMPage.CompareTo(b.IsVRAMPage);
-                            }
-                            else if (a.Width != b.Width)
-                            {
-                                return -a.Width.CompareTo(b.Width);
-                            }
-                            else if (a.Height != b.Height)
-                            {
-                                return -a.Height.CompareTo(b.Height);
-                            }
-                        }
-                        return a.TexturePage.CompareTo(b.TexturePage);
-                    });
+                    OriginalTextures.Sort(CompareTextures);
                 }
 
                 // Pack multiple loose textures into single cells to reduce required space.

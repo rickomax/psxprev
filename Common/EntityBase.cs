@@ -137,6 +137,34 @@ namespace PSXPrev.Common
             set => Scale = new Vector3(Scale.X, Scale.Y, value);
         }
 
+        [DisplayName("Rotation X")]
+        public float RotationX
+        {
+            get => Rotation.X;
+            set => Rotation = new Quaternion(value, Rotation.Y, Rotation.Z, Rotation.W);
+        }
+
+        [DisplayName("Rotation Y")]
+        public float RotationY
+        {
+            get => Rotation.Y;
+            set => Rotation = new Quaternion(Rotation.X, value, Rotation.Z, Rotation.W);
+        }
+
+        [DisplayName("Rotation Z")]
+        public float RotationZ
+        {
+            get => Rotation.Z;
+            set => Rotation = new Quaternion(Rotation.X, Rotation.Y, value, Rotation.W);
+        }
+
+        [DisplayName("Rotation W")]
+        public float RotationW
+        {
+            get => Rotation.W;
+            set => Rotation = new Quaternion(Rotation.X, Rotation.Y, Rotation.Z, value);
+        }
+
         [ReadOnly(true), DisplayName("Sub-Models")]
         public string ChildCount => ChildEntities == null ? "0" : ChildEntities.Length.ToString(NumberFormatInfo.InvariantInfo);
 
@@ -149,6 +177,7 @@ namespace PSXPrev.Common
                 for (var i = 0; i < value.Length; i++)
                 {
                     value[i].EntityName = "Sub-Model " + i;
+                    value[i].ParentEntity = this;
                 }
                 _childEntities = value;
             }

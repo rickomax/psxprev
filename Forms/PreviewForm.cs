@@ -381,13 +381,14 @@ namespace PSXPrev.Forms
         private void _openTkControl_Resize(object sender, EventArgs e)
         {
             _openTkControl.MakeCurrent();
+            // Make sure to use ClientSize to exclude size added by the borders.
             if (_scene.Initialized)
             {
-                _scene.Resize(_openTkControl.Size.Width, _openTkControl.Size.Height);
+                _scene.Resize(_openTkControl.ClientSize.Width, _openTkControl.ClientSize.Height);
             }
             else
             {
-                _scene.Initialize(_openTkControl.Size.Width, _openTkControl.Size.Height);
+                _scene.Initialize(_openTkControl.ClientSize.Width, _openTkControl.ClientSize.Height);
             }
         }
 
@@ -649,7 +650,7 @@ namespace PSXPrev.Forms
                 // Reset scene batches
                 _scene.MeshBatch.Reset(0);
                 _scene.BoundsBatch.Reset(1);
-                _scene.TriangleOutlineBatch.Reset(1);
+                _scene.TriangleOutlineBatch.Reset(2);
                 _scene.DebugIntersectionsBatch.Reset(1);
                 _scene.SetDebugPickingRay(false);
 
@@ -1196,7 +1197,7 @@ namespace PSXPrev.Forms
 
         private void UpdateSelectedTriangle(bool updateMeshData = true)
         {
-            _scene.TriangleOutlineBatch.Reset(1);
+            _scene.TriangleOutlineBatch.Reset(2);
             if (_selectedTriangle != null)
             {
                 _scene.TriangleOutlineBatch.BindTriangleOutline(_selectedTriangle.Item1.WorldMatrix, _selectedTriangle.Item2);

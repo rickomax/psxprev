@@ -341,12 +341,12 @@ namespace PSXPrev.Common.Exporters
                             }
 
                             // Color
-                            if (!_options.VertexIndexReuse || !colorIndices.TryGetValue(color.Vector, out var colorIndex))
+                            if (!_options.VertexIndexReuse || !colorIndices.TryGetValue((Vector3)color, out var colorIndex))
                             {
                                 if (_options.VertexIndexReuse)
                                 {
                                     colorIndex = colorIndices.Count;
-                                    colorIndices.Add(color.Vector, colorIndex);
+                                    colorIndices.Add((Vector3)color, colorIndex);
                                 }
                                 else
                                 {

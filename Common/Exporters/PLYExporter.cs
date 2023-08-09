@@ -154,12 +154,13 @@ namespace PSXPrev.Common.Exporters
                     var materialIndex = 0; // Only one material is defined
 
                     var worldMatrix = model.WorldMatrix;
+                    Matrix4.Invert(ref worldMatrix, out var invWorldMatrix);
                     foreach (var triangle in model.Triangles)
                     {
                         for (var j = 2; j >= 0; j--)
                         {
                             WriteVertex(triangle.Vertices[j], triangle.Normals[j], triangle.Uv[j], triangle.Colors[j],
-                                        materialIndex, ref worldMatrix);
+                                        materialIndex, ref worldMatrix, ref invWorldMatrix);
                         }
                     }
                 }
@@ -179,10 +180,10 @@ namespace PSXPrev.Common.Exporters
             _writer = null;
         }
 
-        private void WriteVertex(Vector3 localVertex, Vector3 localNormal, Vector2 uv, Color color, int materialIndex, ref Matrix4 worldMatrix)
+        private void WriteVertex(Vector3 localVertex, Vector3 localNormal, Vector2 uv, Color color, int materialIndex, ref Matrix4 worldMatrix, ref Matrix4 invWorldMatrix)
         {
             Vector3.TransformPosition(ref localVertex, ref worldMatrix, out var vertex);
-            Vector3.TransformNormal(ref localNormal, ref worldMatrix, out var normal);
+            GeomMath.TransformNormalInverseNormalized(ref localNormal, ref invWorldMatrix, out var normal);
 
             // Output UV (6 and 7) twice, since we're supporting two different names for it.
             // vertex X Y Z, normal X Y Z, uv U V S T, color R G B, material index

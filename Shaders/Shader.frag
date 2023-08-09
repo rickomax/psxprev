@@ -10,6 +10,7 @@ in float discardPixel;
 
 out vec4 out_Color;
 
+uniform mat3 normalMatrix;
 uniform mat4 modelMatrix;
 uniform mat4 mvpMatrix;
 uniform vec3 lightDirection;

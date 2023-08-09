@@ -450,10 +450,6 @@ namespace PSXPrev.Common.Parsers
             if (models.Count > 0)
             {
                 var entity = new RootEntity();
-                foreach (var model in models)
-                {
-                    model.ParentEntity = entity;
-                }
                 entity.ChildEntities = models.ToArray();
                 entity.ComputeBounds();
                 return entity;

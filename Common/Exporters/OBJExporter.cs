@@ -124,6 +124,7 @@ namespace PSXPrev.Common.Exporters
             }
 
             var worldMatrix = model.WorldMatrix;
+            Matrix4.Invert(ref worldMatrix, out var invWorldMatrix);
             // Write vertex positions (and colors if experimental)
             foreach (var triangle in model.Triangles)
             {
@@ -138,7 +139,7 @@ namespace PSXPrev.Common.Exporters
             {
                 for (var j = 2; j >= 0; j--)
                 {
-                    WriteNormal(triangle.Normals[j], ref worldMatrix);
+                    WriteNormal(triangle.Normals[j], ref invWorldMatrix);
                 }
             }
 
@@ -160,7 +161,7 @@ namespace PSXPrev.Common.Exporters
             Vector3.TransformPosition(ref localVertex, ref worldMatrix, out var vertex);
             if (_options.VertexIndexReuse)
             {
-                var colorVec = _options.ExperimentalOBJVertexColor ? color.Vector : Vector3.Zero;
+                var colorVec = _options.ExperimentalOBJVertexColor ? (Vector3)color : Vector3.Zero;
                 var tuple = new Tuple<Vector3, Vector3>(vertex, colorVec);
                 if (_positionIndices.ContainsKey(tuple))
                 {
@@ -176,9 +177,9 @@ namespace PSXPrev.Common.Exporters
             _writer.WriteLine("v {0} {1} {2}{3}", F(vertex.X), F(-vertex.Y), F(-vertex.Z), vertexColor);
         }
 
-        private void WriteNormal(Vector3 localNormal, ref Matrix4 worldMatrix)
+        private void WriteNormal(Vector3 localNormal, ref Matrix4 invWorldMatrix)
         {
-            Vector3.TransformNormal(ref localNormal, ref worldMatrix, out var normal);
+            GeomMath.TransformNormalInverseNormalized(ref localNormal, ref invWorldMatrix, out var normal);
             if (_options.VertexIndexReuse)
             {
                 if (_normalIndices.ContainsKey(normal))
@@ -206,6 +207,7 @@ namespace PSXPrev.Common.Exporters
         private void WriteGroup(int groupIndex, ref int vertexIndex, ref int uvIndex, ModelEntity model)
         {
             var worldMatrix = model.WorldMatrix;
+            Matrix4.Invert(ref worldMatrix, out var invWorldMatrix);
             var needsTexture = NeedsTexture(model);
             var materialName = _mtlExporter.GetMaterialName(_options.ExportTextures ? model.Texture : null);
 
@@ -222,7 +224,7 @@ namespace PSXPrev.Common.Exporters
                     {
                         // We're using ref parameters as local variables here, the ref aspect isn't important for VertexIndexReuse.
                         vertexIndex = GetVertexPosition(triangle.Vertices[j], triangle.Colors[j], ref worldMatrix);
-                        var normalIndex = GetNormal(triangle.Normals[j], ref worldMatrix);
+                        var normalIndex = GetNormal(triangle.Normals[j], ref invWorldMatrix);
                         if (needsTexture)
                         {
                             uvIndex = GetUV(triangle.Uv[j]);
@@ -255,13 +257,13 @@ namespace PSXPrev.Common.Exporters
         private int GetVertexPosition(Vector3 localVertex, Color color, ref Matrix4 worldMatrix)
         {
             Vector3.TransformPosition(ref localVertex, ref worldMatrix, out var vertex);
-            var colorVec = _options.ExperimentalOBJVertexColor ? color.Vector : Vector3.Zero;
+            var colorVec = _options.ExperimentalOBJVertexColor ? (Vector3)color : Vector3.Zero;
             return _positionIndices[new Tuple<Vector3, Vector3>(vertex, colorVec)];
         }
 
-        private int GetNormal(Vector3 localNormal, ref Matrix4 worldMatrix)
+        private int GetNormal(Vector3 localNormal, ref Matrix4 invWorldMatrix)
         {
-            Vector3.TransformNormal(ref localNormal, ref worldMatrix, out var normal);
+            GeomMath.TransformNormalInverseNormalized(ref localNormal, ref invWorldMatrix, out var normal);
             return _normalIndices[normal];
         }
 

@@ -5,11 +5,13 @@ namespace PSXPrev.Common
 {
     public class BoundingBox
     {
+        public const int CornerCount = 8;
+
         public Vector3 Min;
         public Vector3 Max;
         public bool IsSet { get; private set; } // True if at least one point has been added.
 
-        private readonly Vector3[] _corners = new Vector3[8];
+        private readonly Vector3[] _corners = new Vector3[CornerCount];
         public Vector3[] Corners
         {
             get

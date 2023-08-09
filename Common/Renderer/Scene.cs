@@ -77,6 +77,7 @@ namespace PSXPrev.Common.Renderer
         public static int AttributeIndexTiledArea = 4;
         public static int AttributeIndexTexture = 5;
 
+        public static int UniformNormalMatrix;
         public static int UniformModelMatrix;
         public static int UniformMVPMatrix;
         public static int UniformLightDirection;
@@ -96,9 +97,10 @@ namespace PSXPrev.Common.Renderer
         public const string AttributeNameTiledArea = "in_TiledArea";
         public const string AttributeNameTexture = "mainTex";
 
-        public const string UniformNameModel = "modelMatrix";
-        public const string UniformNameMVPMatrix = "mvpMatrix";
-        public const string UniformNameLightDirection = "lightDirection";
+        public const string UniformNormalMatrixName = "normalMatrix";
+        public const string UniformModelMatrixName = "modelMatrix";
+        public const string UniformMVPMatrixName = "mvpMatrix";
+        public const string UniformLightDirectionName = "lightDirection";
         public const string UniformMaskColorName = "maskColor";
         public const string UniformAmbientColorName = "ambientColor";
         public const string UniformSolidColorName = "solidColor";
@@ -444,9 +446,10 @@ namespace PSXPrev.Common.Renderer
             {
                 throw new Exception(GetInfoLog());
             }
-            UniformModelMatrix = GL.GetUniformLocation(_shaderProgram, UniformNameModel);
-            UniformMVPMatrix = GL.GetUniformLocation(_shaderProgram, UniformNameMVPMatrix);
-            UniformLightDirection = GL.GetUniformLocation(_shaderProgram, UniformNameLightDirection);
+            UniformNormalMatrix = GL.GetUniformLocation(_shaderProgram, UniformNormalMatrixName);
+            UniformModelMatrix = GL.GetUniformLocation(_shaderProgram, UniformModelMatrixName);
+            UniformMVPMatrix = GL.GetUniformLocation(_shaderProgram, UniformMVPMatrixName);
+            UniformLightDirection = GL.GetUniformLocation(_shaderProgram, UniformLightDirectionName);
             UniformMaskColor = GL.GetUniformLocation(_shaderProgram, UniformMaskColorName);
             UniformAmbientColor = GL.GetUniformLocation(_shaderProgram, UniformAmbientColorName);
             UniformSolidColor = GL.GetUniformLocation(_shaderProgram, UniformSolidColorName);
@@ -524,9 +527,9 @@ namespace PSXPrev.Common.Renderer
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
             GL.UseProgram(_shaderProgram);
 
+            GL.Uniform3(UniformMaskColor, MaskColor.ToVector3());
+            GL.Uniform3(UniformAmbientColor, AmbientColor.ToVector3());
             GL.Uniform3(UniformLightDirection, _transformedLight);
-            GL.Uniform3(UniformMaskColor, MaskColor.R / 255f, MaskColor.G / 255f, MaskColor.B / 255f);
-            GL.Uniform3(UniformAmbientColor, AmbientColor.R / 255f, AmbientColor.G / 255f, AmbientColor.B / 255f);
             GL.Uniform1(UniformLightIntensity, LightIntensity);
 
 
@@ -609,7 +612,7 @@ namespace PSXPrev.Common.Renderer
         {
             _time += seconds;
             _timeDelta = seconds;
-            if (seconds != 0)
+            if (Initialized && seconds != 0)
             {
                 TimeChanged?.Invoke(this, EventArgs.Empty);
             }
@@ -688,6 +691,7 @@ namespace PSXPrev.Common.Renderer
             var blend = 1f;
             if (_lightRayVisible && _lightRayTimer >= LightRotationRayDelayTime)
             {
+                // Make things look ~fancy~ by fading out after the delay.
                 var fadeTime = _lightRayTimer - LightRotationRayDelayTime;
                 if (fadeTime >= LightRotationRayFadeTime)
                 {
@@ -1030,9 +1034,14 @@ namespace PSXPrev.Common.Renderer
             return distance * _cameraDistanceScalar;
         }
 
+        private float GetGizmoScale(Vector3 position)
+        {
+            return CameraDistanceFrom(position);
+        }
+
         public Matrix4 GetGizmoScaleMatrix(Vector3 position)
         {
-            return Matrix4.CreateScale(CameraDistanceFrom(position));
+            return Matrix4.CreateScale(GetGizmoScale(position));
         }
 
         public void ResetIntersection()
