@@ -683,8 +683,8 @@ namespace PSXPrev.Common.Renderer
             }
 
             var modelMatrix = mesh.WorldMatrix;
-            var normalMatrix = new Matrix3(modelMatrix);
-            normalMatrix.Invert();
+            // Use Inverted() since it checks determinant to avoid singular matrix exception.
+            var normalMatrix = new Matrix3(modelMatrix).Inverted();
             normalMatrix.Transpose();
             var mvpMatrix = modelMatrix * viewMatrix * projectionMatrix;
             GL.UniformMatrix3(Scene.UniformNormalMatrix, false, ref normalMatrix);

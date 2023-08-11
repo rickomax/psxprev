@@ -53,7 +53,7 @@ namespace PSXPrev.Common
 
         public static void TransformNormalNormalized(ref Vector3 normal, ref Matrix4 matrix, out Vector3 result)
         {
-            Matrix4.Invert(ref matrix, out var invMatrix);
+            InvertSafe(ref matrix, out var invMatrix);
             TransformNormalInverseNormalized(ref normal, ref invMatrix, out result);
         }
 
@@ -77,7 +77,7 @@ namespace PSXPrev.Common
         // One-liners for help assigning to the same value, while avoiding a struct copy of Matrix4.
         public static Vector3 TransformNormalNormalized(ref Vector3 normal, ref Matrix4 matrix)
         {
-            Matrix4.Invert(ref matrix, out var invMatrix);
+            InvertSafe(ref matrix, out var invMatrix);
             return TransformNormalInverseNormalized(ref normal, ref invMatrix);
         }
 
@@ -171,13 +171,47 @@ namespace PSXPrev.Common
             return float.IsNaN(rotation.X) ? Quaternion.Identity : rotation;
         }
 
+        public static Matrix3 InvertSafe(Matrix3 matrix)
+        {
+            return matrix.Inverted(); // This is the only function where Determinant is checked
+        }
+
+        public static Matrix4 InvertSafe(Matrix4 matrix)
+        {
+            return matrix.Inverted(); // This is the only function where Determinant is checked
+        }
+
+        public static bool InvertSafe(ref Matrix3 matrix, out Matrix3 result)
+        {
+            if (matrix.Determinant != 0f)
+            {
+                Matrix3.Invert(ref matrix, out result);
+                return true;
+            }
+            // Can't invert singular matrix
+            result = matrix;
+            return false;
+        }
+
+        public static bool InvertSafe(ref Matrix4 matrix, out Matrix4 result)
+        {
+            if (matrix.Determinant != 0f)
+            {
+                Matrix4.Invert(ref matrix, out result);
+                return true;
+            }
+            // Can't invert singular matrix
+            result = matrix;
+            return false;
+        }
+
         public static Vector3 UnProject(this Vector3 position, Matrix4 projection, Matrix4 view, float width, float height)
         {
             // Not entirely sure if the -1 in `height - 1f - position.Y` should be there or not.
             // For now, intersections with the gizmo seem slightly more accurate with the -1.
 
             // OpenTK version:
-            //var viewProjInv = Matrix4.Invert(view * projection);
+            //var viewProjInv = (view * projection).Inverted();
             //position.Y = height - 1f - position.Y;
             //return Vector3.Unproject(position, 0f, 0f, width, height, 0f, 1f, viewProjInv);
 
@@ -186,8 +220,8 @@ namespace PSXPrev.Common
             vec.Y = 2.0f * (height - 1f - position.Y) / height - 1;
             vec.Z = 2.0f * position.Z - 1; // 2.0f * position.Z / depth - 1; // Where depth=1
             vec.W = 1.0f;
-            var viewInv = Matrix4.Invert(view);
-            var projInv = Matrix4.Invert(projection);
+            InvertSafe(ref view, out var viewInv);
+            InvertSafe(ref projection, out var projInv);
             Vector4.Transform(ref vec, ref projInv, out vec);
             Vector4.Transform(ref vec, ref viewInv, out vec);
             if (Math.Abs(vec.W) > 0.0000000001f) //0.000001f)
@@ -212,14 +246,9 @@ namespace PSXPrev.Common
         // Useful for BoxIntersect so that we can still operate on an axis-aligned box.
         public static void TransformRay(Vector3 rayOrigin, Vector3 rayDirection, Matrix4 matrix, out Vector3 resultOrigin, out Vector3 resultDirection)
         {
-            var invMatrix = Matrix4.Invert(matrix);
-            TransformRayInverse(rayOrigin, rayDirection, invMatrix, out resultOrigin, out resultDirection);
-        }
-
-        public static void TransformRayInverse(Vector3 rayOrigin, Vector3 rayDirection, Matrix4 invMatrix, out Vector3 resultOrigin, out Vector3 resultDirection)
-        {
+            InvertSafe(ref matrix, out var invMatrix);
             Vector3.TransformPosition(ref rayOrigin, ref invMatrix, out resultOrigin);
-            TransformNormalInverseNormalized(ref rayDirection, ref invMatrix, out resultDirection);
+            TransformNormalInverseNormalized(ref rayDirection, ref matrix, out resultDirection);
             if (!resultDirection.IsZero())
             {
                 resultDirection.Normalize();
@@ -254,63 +283,284 @@ namespace PSXPrev.Common
             return t9;
         }
 
-        public static Vector3 PlaneIntersect(Vector3 rayOrigin, Vector3 rayDirection, Vector3 planeOrigin, Vector3 planeNormal)
+        public static float BoxIntersect2(Vector3 rayOrigin, Vector3 rayDirection, Vector3 center, Vector3 size)
         {
-            var diff = rayOrigin - planeOrigin;
-            var prod1 = Vector3.Dot(diff, planeNormal);
-            var prod2 = Vector3.Dot(rayDirection, planeNormal);
-            var intersectionDistance = -prod1 / prod2;
-            return rayOrigin + rayDirection * intersectionDistance;
+            var boxMin = center - size;
+            var boxMax = center + size;
+            return BoxIntersect(rayOrigin, rayDirection, boxMin, boxMax);
         }
 
-        public static float TriangleIntersect(Vector3 rayOrigin, Vector3 rayDirection, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, bool front = true, bool back = true)
+        public static float PlaneIntersect(Vector3 rayOrigin, Vector3 rayDirection, Vector3 planeOrigin, Vector3 planeNormal,
+                                           out Vector3 intersection, bool front = true, bool back = true)
         {
-            // Find plane normal, intersection, and intersection distance.
-            // We don't need to normalize this.
-            var planeNormal = Vector3.Cross((vertex1 - vertex0), (vertex2 - vertex0));
-
-            // Find distance to intersection.
-            var diff = rayOrigin - vertex0;
-            var prod1 = Vector3.Dot(diff, planeNormal);
+            var diff = rayOrigin - planeOrigin;
+            var prod1 = -Vector3.Dot(diff, planeNormal);
             var prod2 = Vector3.Dot(rayDirection, planeNormal);
             if (Math.Abs(prod2) <= 0.0000000001f) //0.000001f)
             {
+                intersection = Vector3.Zero;
                 return -1f; // Ray and plane are parallel.
             }
             if ((!front && prod2 > 0f) || (!back && prod2 < 0f))
             {
+                intersection = Vector3.Zero;
                 return -1f; // Ray intersects from a side we don't want to intersect with.
             }
-            var intersectionDistance = -prod1 / prod2;
-            if (intersectionDistance < 0f)
+            var distance = prod1 / prod2;
+
+            intersection = rayOrigin + rayDirection * distance;
+            return distance;
+        }
+
+        public static float DiscIntersect(Vector3 rayOrigin, Vector3 rayDirection, Vector3 planeOrigin, Vector3 planeNormal,
+                                          float radius, out Vector3 intersection, bool front = true, bool back = true)
+        {
+            var distance = PlaneIntersect(rayOrigin, rayDirection, planeOrigin, planeNormal,
+                                          out intersection, front, back);
+            var o = intersection - planeOrigin;
+            if (o.LengthSquared >= (radius * radius))
+            {
+                return -1f;
+            }
+            return distance;
+        }
+
+        // Untested
+        public static float SphereIntersect(Vector3 rayOrigin, Vector3 rayDirection, Vector3 center, float radius)//, out Vector3 intersection)
+        {
+            // Source: <https://iquilezles.org/articles/intersectors/>
+            var oc = rayOrigin - center;
+            var b = Vector3.Dot(oc, rayDirection);
+            var c = oc.LengthSquared - (radius * radius);
+            var h = (b * b) - c;
+            if (h < 0f)
+            {
+                //intersection = Vector3.Zero;
+                return -1f;
+            }
+            //intersection = new Vector2(-b - h, -b + h); // ???
+            return (float)Math.Sqrt(h);
+        }
+
+        // Untested
+        public static float ConeIntersect(Vector3 rayOrigin, Vector3 rayDirection, Vector3 top, Vector3 bottom, float radius)//, out Vector3 intersection)
+        {
+            return CappedConeIntersect(rayOrigin, rayDirection, top, bottom, 0f, radius);//out intersection);
+        }
+
+        // Untested
+        public static float CappedConeIntersect(Vector3 rayOrigin, Vector3 rayDirection, Vector3 top, Vector3 bottom,
+                                                float topRadius, float bottomRadius)//, out Vector3 intersection)
+        {
+            // Source: <https://iquilezles.org/articles/intersectors/>
+            var ba = bottom - top;
+            var oa = rayOrigin - top;
+            var ob = rayOrigin - bottom;
+            var m0 = ba.LengthSquared;
+            var m1 = Vector3.Dot(oa, ba);
+            var m2 = Vector3.Dot(rayDirection, ba);
+            var m3 = Vector3.Dot(rayDirection, oa);
+            var m5 = oa.LengthSquared;
+            var m9 = Vector3.Dot(ob, ba);
+
+            // Caps
+            if (m1 < 0f)
+            {
+                if (((oa * m2) - (rayDirection * m1)).LengthSquared < (topRadius * topRadius * m2 * m2))
+                {
+                    //intersection = -ba / (float)Math.Sqrt(m0);
+                    return -m1 / m2;
+                }
+            }
+            else if (m9 > 0f)
+            {
+                if ((ob + (rayDirection * -m9 / m2)).LengthSquared < (bottomRadius * bottomRadius))
+                {
+                    //intersection = ba / (float)Math.Sqrt(m0);
+                    return -m9 / m2;
+                }
+            }
+
+            // Body
+            var rr = topRadius - bottomRadius;
+            var hy = m0 + (rr * rr);
+            var k2 = (m0 * m0) - (m2 * m2 * hy);
+            var k1 = (m0 * m0 * m3) - (m1 * m2 * hy) + (m0 * topRadius * (rr * m2 * 1f));
+            var k0 = (m0 * m0 * m5) - (m1 * m1 * hy) + (m0 * topRadius * ((rr * m1 * 2f) - (m0 * topRadius)));
+            var h = (k1 * k1) - (k2 * k0);
+            if (h < 0f)
+            {
+                //intersection = Vector3.Zero;
+                return -1f;
+            }
+            var t = (-k1 - (float)Math.Sqrt(h)) / k2;
+            var y = m1 + (t * m2);
+            if (y < 0f || y > m0)
+            {
+                //intersection = Vector3.Zero;
+                return -1f;
+            }
+            //intersection = (m0 * (m0 * (oa + rayDirection * t) + (rr * ba * topRadius)) - (ba * hy * y)).Normalized(); // ???
+            return t;
+        }
+
+        // Untested
+        // Height refers to the distance from the center to the top or bottom.
+        public static float CylinderIntersect(Vector3 rayOrigin, Vector3 rayDirection, Vector3 center, Vector3 normal,
+                                              float height, float radius, out Vector3 intersection)
+        {
+            var top    = center + normal * height;
+            var bottom = center - normal * height;
+            return CylinderIntersect(rayOrigin, rayDirection, top, bottom, radius, out intersection);
+        }
+
+        // Untested
+        public static float CylinderIntersect(Vector3 rayOrigin, Vector3 rayDirection, Vector3 top, Vector3 bottom,
+                                              float radius, out Vector3 intersection)
+        {
+            // Source: <https://iquilezles.org/articles/intersectors/>
+            var ba = bottom - top;
+            var oc = rayOrigin - top;
+            var baba = ba.LengthSquared;
+            var bard = Vector3.Dot(ba, rayDirection);
+            var baoc = Vector3.Dot(ba, oc);
+
+            var k2 = baba - (bard * bard);
+            var k1 = baba * Vector3.Dot(oc, rayDirection) - (baoc * bard);
+            var k0 = baba * oc.LengthSquared - (baoc * baoc) - (radius * radius * baba);
+
+            var h = (k1 * k1) - (k2 * k0);
+            if (h < 0f)
+            {
+                intersection = Vector3.Zero;
+                return -1f;
+            }
+
+            h = (float)Math.Sqrt(h);
+            var distance = (-k1 - h) / k2;
+
+            // Test intersection with body
+            var y = baoc + (distance * bard);
+            if (y > 0f && y < baba)
+            {
+                intersection = ((oc + rayDirection * distance) - (ba * y / baba)) / radius;
+                return distance;
+            }
+
+            // Test intersection with caps
+            distance = ((y < 0f ? 0f : baba) - baoc) / bard;
+            if (Math.Abs(k1 + (k2 * distance)) < h)
+            {
+                intersection = ba * Math.Sign(y) / (float)Math.Sqrt(baba);
+                return distance;
+            }
+
+            intersection = Vector3.Zero;
+            return -1f;
+        }
+
+        // Returns the intersection of a cylinder with a hole in it.
+        // Height refers to the distance from the center to the top or bottom.
+        // Note: The returned intersection distance and point only refer to the result of CylinderIntersect.
+        public static float RingIntersect(Vector3 rayOrigin, Vector3 rayDirection, Vector3 center, Vector3 normal, float height,
+                                          float outerRadius, float innerRadius, out Vector3 intersection)
+        {
+            var top = center + normal * height;
+            var bottom = center - normal * height;
+            var distance = CylinderIntersect(rayOrigin, rayDirection, top, bottom, outerRadius, out intersection);
+            if (distance < 0f)
+            {
+                return -1f;
+            }
+            // We're intersecting with the cylinder, now make sure we aren't intersecting with both
+            // the top and bottom discs of the inside of the ring. Intersecting with only zero or one
+            // disc means we're still intersecting with the ring, but both means we aren't.
+            if (DiscIntersect(rayOrigin, rayDirection, top, normal, innerRadius, out _) < 0f)
+            {
+                return distance;
+            }
+            if (DiscIntersect(rayOrigin, rayDirection, bottom, normal, innerRadius, out _) < 0f)
+            {
+                return distance;
+            }
+            return -1f;
+        }
+
+        public static float TriangleIntersect(Vector3 rayOrigin, Vector3 rayDirection, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
+                                              out Vector3 intersection, bool front = true, bool back = true)
+        {
+            // Find plane normal, intersection, and intersection distance.
+            // We don't need to normalize this.
+            var planeNormal = Vector3.Cross(vertex1 - vertex0, vertex2 - vertex0);
+
+            // Find distance to intersection and intersection point.
+            var distance = PlaneIntersect(rayOrigin, rayDirection, vertex0, planeNormal,
+                                          out intersection, front, back);
+            if (distance < 0f)
             {
                 return -1f; // Triangle is behind the ray.
             }
-            
-            var planeIntersection = rayOrigin + rayDirection * intersectionDistance;
 
-
-            // Perform inside-outside test. Dot product is less than 0 if planeIntersection lies outside of the edge.
+            // Perform inside-outside test. Dot product is less than 0 if intersection lies outside of the edge.
             var edge0 = vertex1 - vertex0;
-            var C0 = planeIntersection - vertex0;
+            var C0 = intersection - vertex0;
             if (Vector3.Dot(Vector3.Cross(edge0, C0), planeNormal) < 0f)
             {
                 return -1f;
             }
             var edge1 = vertex2 - vertex1;
-            var C1 = planeIntersection - vertex1;
+            var C1 = intersection - vertex1;
             if (Vector3.Dot(Vector3.Cross(edge1, C1), planeNormal) < 0f)
             {
                 return -1f;
             }
             var edge2 = vertex0 - vertex2;
-            var C2 = planeIntersection - vertex2;
+            var C2 = intersection - vertex2;
             if (Vector3.Dot(Vector3.Cross(edge2, C2), planeNormal) < 0f)
             {
                 return -1f;
             }
 
-            return intersectionDistance;
+            return distance;
+        }
+
+        // Assumes all vertices are on the same plane.
+        public static float PolygonIntersect(Vector3 rayOrigin, Vector3 rayDirection, Vector3[] vertices,
+                                             out Vector3 intersection, bool front = true, bool back = true)
+        {
+            if (vertices.Length < 3)
+            {
+                throw new ArgumentException(nameof(vertices) + " length must be greater than or equal to 3", nameof(vertices));
+            }
+
+            // Find plane normal, intersection, and intersection distance.
+            // We don't need to normalize this.
+            var planeNormal = Vector3.Cross(vertices[1] - vertices[0], vertices[2] - vertices[0]);
+
+            // Find distance to intersection and intersection point.
+            var distance = PlaneIntersect(rayOrigin, rayDirection, vertices[0], planeNormal,
+                                          out intersection, front, back);
+            if (distance < 0f)
+            {
+                return -1f; // Polygon is behind the ray.
+            }
+
+            // Perform inside-outside test. Dot product is less than 0 if intersection lies outside of the edge.
+            var length = vertices.Length;
+            var vertexLast = vertices[length - 1];
+            for (var i = 0; i < length; i++)
+            {
+                var vertex = vertices[i];
+                var edge = vertex - vertexLast;
+                var Ci = intersection - vertexLast;
+                if (Vector3.Dot(Vector3.Cross(edge, Ci), planeNormal) < 0f)
+                {
+                    return -1f;
+                }
+                vertexLast = vertex;
+            }
+
+            return distance;
         }
 
         public static void GetBoxMinMax(Vector3 center, Vector3 size, out Vector3 outMin, out Vector3 outMax, Matrix4? matrix = null)
@@ -328,6 +578,12 @@ namespace PSXPrev.Common
                 outMin = min;
                 outMax = max;
             }
+        }
+
+        public static bool IsZero(this Vector2 v)
+        {
+            return (v.X == 0f && v.Y == 0f);
+            // Or just: return v == Vector2.Zero;
         }
 
         public static bool IsZero(this Vector3 v)

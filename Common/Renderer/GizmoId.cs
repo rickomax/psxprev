@@ -1,10 +1,19 @@
 ﻿namespace PSXPrev.Common.Renderer
 {
+    public enum GizmoType
+    {
+        None,
+        Translate,
+        Rotate,
+        Scale,
+    }
+
     public enum GizmoId
     {
         None,
-        XMover,
-        YMover,
-        ZMover
+        AxisX,
+        AxisY,
+        AxisZ,
+        Uniform, // For Scale only
     }
 }

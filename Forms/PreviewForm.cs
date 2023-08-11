@@ -58,15 +58,12 @@ namespace PSXPrev.Forms
         private Animation _curAnimation;
         private AnimationFrame _curAnimationFrameObj;
         private AnimationObject _curAnimationObject;
-        private GizmoId _hoveredGizmo;
-        private GizmoId _selectedGizmo;
         private bool _inAnimationTab;
         private float _lastMouseX;
         private float _lastMouseY;
         private bool _shiftKeyDown;
         private bool _controlKeyDown;
         private GLControl _openTkControl;
-        private Vector3 _pickedPosition;
         private bool _playing;
         private Timer _redrawTimer;
         private Timer _modelPropertyGridRefreshTimer; // Timer for refreshing property grid if the current model's properties have updated
@@ -76,7 +73,7 @@ namespace PSXPrev.Forms
         private ModelEntity _selectedModelEntity;
         private RootEntity _selectedRootEntity;
         private EntitySelectionSource _selectionSource;
-        private bool _showUv = true;
+        private bool _showUv;
         private readonly VRAM _vram;
         private int _vramSelectedPage = -1; // Used because combo box SelectedIndex can be -1 while typing.
         private Bitmap _maskColorBitmap;
@@ -89,6 +86,19 @@ namespace PSXPrev.Forms
         private bool _autoPlayAnimations;
         private bool _closing;
         private bool _inDialog; // Prevent timers from performing updates while true
+
+        private GizmoType _gizmoType = GizmoType.Translate;
+        private GizmoId _hoveredGizmo;
+        private GizmoId _selectedGizmo;
+        private Vector3 _gizmoAxis;
+        private Vector3 _gizmoOrigin;
+        private Vector3 _gizmoInitialTranslation;
+        private Quaternion _gizmoInitialRotation;
+        private Vector3 _gizmoInitialScale;
+        private float _gizmoRotateAngle;
+        private Vector2 _gizmoRotateStartDirection;
+        private float _gizmoScaleStartDistance;
+
 
         public PreviewForm(Action<PreviewForm> refreshAction)
         {
@@ -1057,14 +1067,12 @@ namespace PSXPrev.Forms
             var mouseRight = e.Button == MouseButtons.Right;
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
             _scene.UpdatePicking(e.Location.X, e.Location.Y);
-            var hoveredGizmo = _scene.GetGizmoUnderPosition(selectedEntityBase);
-            var selectedGizmo = _selectedGizmo;
+            var hoveredGizmo = _scene.GetGizmoUnderPosition(selectedEntityBase, _gizmoType);
             switch (_selectedGizmo)
             {
                 case GizmoId.None:
                     if (!_inAnimationTab && mouseLeft && eventType == MouseEventType.Down)
                     {
-                        _pickedPosition = _scene.GetPickedPosition(-_scene.CameraDirection);
                         if (hoveredGizmo == GizmoId.None)
                         {
                             var checkedEntities = GetCheckedEntities();
@@ -1096,7 +1104,7 @@ namespace PSXPrev.Forms
                         }
                         else
                         {
-                            selectedGizmo = hoveredGizmo;
+                            StartGizmoAction(hoveredGizmo, e.Location.X, e.Location.Y);
                             _scene.ResetIntersection();
                         }
                     }
@@ -1113,54 +1121,150 @@ namespace PSXPrev.Forms
                                                                  deltaY * MouseSensivity * _scene.CameraPanIncrement);
                         }
                     }
+                    // Gizmos are already updated by Action methods when selected.
+                    if (_selectedGizmo == GizmoId.None && hoveredGizmo != _hoveredGizmo)
+                    {
+                        UpdateGizmoVisualAndState(_selectedGizmo, hoveredGizmo);
+                    }
                     break;
-                case GizmoId.XMover when !_inAnimationTab:
+                case GizmoId.AxisX when !_inAnimationTab:
+                case GizmoId.AxisY when !_inAnimationTab:
+                case GizmoId.AxisZ when !_inAnimationTab:
+                case GizmoId.Uniform when !_inAnimationTab:
                     if (mouseLeft && eventType == MouseEventType.Move && selectedEntityBase != null)
                     {
-                        UpdateMover(selectedEntityBase, Vector3.UnitX);
+                        UpdateGizmoAction(e.Location.X, e.Location.Y);
+                    }
+                    else if (mouseRight && eventType == MouseEventType.Down)
+                    {
+                        CancelGizmoAction();
                     }
                     else
                     {
-                        AlignSelectedEntityToGrid(selectedEntityBase);
-                        selectedGizmo = GizmoId.None;
+                        FinishGizmoAction();
                     }
                     break;
-                case GizmoId.YMover when !_inAnimationTab:
-                    if (mouseLeft && eventType == MouseEventType.Move && selectedEntityBase != null)
-                    {
-                        UpdateMover(selectedEntityBase, Vector3.UnitY);
-                    }
-                    else
-                    {
-                        AlignSelectedEntityToGrid(selectedEntityBase);
-                        selectedGizmo = GizmoId.None;
-                    }
-                    break;
-                case GizmoId.ZMover when !_inAnimationTab:
-                    if (mouseLeft && eventType == MouseEventType.Move && selectedEntityBase != null)
-                    {
-                        UpdateMover(selectedEntityBase, Vector3.UnitZ);
-                    }
-                    else
-                    {
-                        AlignSelectedEntityToGrid(selectedEntityBase);
-                        selectedGizmo = GizmoId.None;
-                    }
-                    break;
-            }
-            if (selectedGizmo != _selectedGizmo || hoveredGizmo != _hoveredGizmo)
-            {
-                UpdateGizmos(selectedGizmo, hoveredGizmo);
             }
             _lastMouseX = e.X;
             _lastMouseY = e.Y;
         }
 
-        private void UpdateMover(EntityBase selectedEntityBase, Vector3 axis)
+        private void StartGizmoAction(GizmoId hoveredGizmo, int x, int y)
+        {
+            if (_selectedGizmo != GizmoId.None || _gizmoType == GizmoType.None)
+            {
+                return;
+            }
+            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+
+            switch (hoveredGizmo)
+            {
+                case GizmoId.AxisX: _gizmoAxis = Vector3.UnitX; break;
+                case GizmoId.AxisY: _gizmoAxis = Vector3.UnitY; break;
+                case GizmoId.AxisZ: _gizmoAxis = Vector3.UnitZ; break;
+                case GizmoId.Uniform: _gizmoAxis = Vector3.One; break;
+            }
+            switch (_gizmoType)
+            {
+                case GizmoType.Translate:
+                    _gizmoOrigin = _scene.GetPickedPosition();
+                    _gizmoInitialTranslation = selectedEntityBase.Translation;
+                    break;
+                case GizmoType.Rotate:
+                    _gizmoOrigin = selectedEntityBase.WorldOrigin;
+                    // Must assign _gizmoOrigin before calling CalculateGizmoRotationDirection.
+                    _gizmoRotateStartDirection = CalculateGizmoRotateDirection(x, y);
+                    _gizmoInitialRotation = selectedEntityBase.Rotation;
+                    break;
+                case GizmoType.Scale:
+                    _gizmoOrigin = selectedEntityBase.WorldOrigin;
+                    // Must assign _gizmoOrigin before calling CalculateGizmoScaleDistance.
+                    _gizmoScaleStartDistance = Math.Max(CalculateGizmoScaleDistance(x, y), 1f);
+                    _gizmoInitialScale = selectedEntityBase.Scale;
+                    break;
+            }
+            UpdateGizmoVisualAndState(hoveredGizmo, hoveredGizmo);
+        }
+
+        private void UpdateGizmoAction(int x, int y)
+        {
+            if (_selectedGizmo == GizmoId.None)
+            {
+                return;
+            }
+            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+
+            switch (_gizmoType)
+            {
+                case GizmoType.Translate:
+                    UpdateGizmoTranslate(selectedEntityBase);
+                    break;
+                case GizmoType.Rotate:
+                    UpdateGizmoRotate(selectedEntityBase, x, y);
+                    break;
+                case GizmoType.Scale:
+                    UpdateGizmoScale(selectedEntityBase, x, y);
+                    break;
+            }
+
+            UpdateSelectedEntity(false, forceUpdatePropertyGrid: false); // Delay updating property grid to reduce lag
+        }
+
+        private void FinishGizmoAction()
+        {
+            if (_selectedGizmo == GizmoId.None)
+            {
+                return;
+            }
+            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+
+            switch (_gizmoType)
+            {
+                case GizmoType.Translate:
+                    AlignSelectedEntityToGrid(selectedEntityBase);
+                    break;
+                case GizmoType.Rotate:
+                    AlignSelectedEntityGizmoRotation(selectedEntityBase);
+                    break;
+                case GizmoType.Scale:
+                    AlignSelectedEntityScale(selectedEntityBase);
+                    break;
+            }
+            // UpdateSelectedEntity is already called by align functions.
+            // Recalculate hovered gizmo, since the gizmo position/rotation may have changed after alignment.
+            var hoveredGizmo = _scene.GetGizmoUnderPosition(selectedEntityBase, _gizmoType);
+            UpdateGizmoVisualAndState(GizmoId.None, hoveredGizmo);
+        }
+
+        private void CancelGizmoAction()
+        {
+            if (_selectedGizmo == GizmoId.None)
+            {
+                return;
+            }
+            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+
+            switch (_gizmoType)
+            {
+                case GizmoType.Translate:
+                    selectedEntityBase.Translation = _gizmoInitialTranslation;
+                    break;
+                case GizmoType.Rotate:
+                    selectedEntityBase.Rotation = _gizmoInitialRotation;
+                    break;
+                case GizmoType.Scale:
+                    selectedEntityBase.Scale = _gizmoInitialScale;
+                    break;
+            }
+            UpdateSelectedEntity(false);
+            // Recalculate hovered gizmo, since the gizmo position/rotation may have changed after alignment.
+            var hoveredGizmo = _scene.GetGizmoUnderPosition(selectedEntityBase, _gizmoType);
+            UpdateGizmoVisualAndState(GizmoId.None, hoveredGizmo);
+        }
+
+        private void UpdateGizmoTranslate(EntityBase selectedEntityBase)
         {
             // Make sure to scale translation by that of parent entity.
-            // We also want to invert rotation, so that we still move along the global axis.
-            // todo: This doens't handle rotation with non-uniform scale correctly.
             var scale = Vector3.One;
             if (selectedEntityBase.ParentEntity != null)
             {
@@ -1173,19 +1277,90 @@ namespace PSXPrev.Forms
                 scale.X = scale.X != 0f ? (1f / scale.X) : 0f;
                 scale.Y = scale.Y != 0f ? (1f / scale.Y) : 0f;
                 scale.Z = scale.Z != 0f ? (1f / scale.Z) : 0f;
-
-                Matrix4.Invert(ref parentWorldMatrix, out var invParentWorldMatrix);
-                var rotation = invParentWorldMatrix.ExtractRotationSafe();
-
-                axis = rotation * axis;
             }
 
-            var pickedPosition = _scene.GetPickedPosition(-_scene.CameraDirection);
-            var projectedOffset = (pickedPosition - _pickedPosition).ProjectOnNormal(axis);
-            selectedEntityBase.Translation += projectedOffset * scale;
-            _pickedPosition = pickedPosition;
+            var pickedPosition = _scene.GetPickedPosition();
+            var projectedOffset = (pickedPosition - _gizmoOrigin).ProjectOnNormal(_gizmoAxis);
 
-            UpdateSelectedEntity(false, forceUpdatePropertyGrid: false); // Delay updating property grid to reduce lag
+            if (selectedEntityBase.ParentEntity != null)
+            {
+                var parentWorldRotation = selectedEntityBase.ParentEntity.WorldMatrix.ExtractRotationSafe();//.Inverted();
+                if (Vector3.Dot(parentWorldRotation * _gizmoAxis, _gizmoAxis) < 0f)
+                {
+                    // Axis is not "forward", reverse offset so that we move in the same direction as the mouse.
+                    projectedOffset = -projectedOffset;
+                }
+            }
+            selectedEntityBase.Translation = _gizmoInitialTranslation + projectedOffset * scale;
+        }
+
+        private void UpdateGizmoRotate(EntityBase selectedEntityBase, int x, int y)
+        {
+            var direction = CalculateGizmoRotateDirection(x, y);
+
+            //var z = Vector3.Cross(new Vector3(direction), new Vector3(_gizmoRotateStartDirection)).Z;
+            var z = direction.X * _gizmoRotateStartDirection.Y - direction.Y * _gizmoRotateStartDirection.X;
+            var angle = (float)Math.Asin(GeomMath.Clamp(z, -1f, 1f));
+            // Math.Asin only returns angles in the range 90deg to -90deg. For angles beyond
+            // that, we need to check if direction is opposite of _gizmoRotateStartDirection.
+            if (Vector2.Dot(direction, _gizmoRotateStartDirection) < 0f)
+            {
+                angle = (float)Math.PI - angle;
+            }
+
+            var worldRotation = selectedEntityBase.WorldMatrix.ExtractRotationSafe();
+            if (Vector3.Dot(worldRotation * _gizmoAxis, _scene.CameraDirection) < 0f)
+            {
+                angle = -angle; // Camera view of axis is not "forward", reverse angle
+            }
+
+            // This isn't necessary, since angle isn't going to be compounded and end up as multiples of 360deg.
+            //angle = GeomMath.PositiveModulus(angle, (float)(Math.PI * 2d));
+
+            // Add axis rotation based on the current axis rotations.
+            // Basically, if you rotate one axis, then that will change
+            // the angle of rotation applied when using other axes.
+            _gizmoRotateAngle = angle;
+            var newRotation = _gizmoInitialRotation * Quaternion.FromAxisAngle(_gizmoAxis, _gizmoRotateAngle);
+
+            selectedEntityBase.Rotation = newRotation;
+        }
+
+        private void UpdateGizmoScale(EntityBase selectedEntityBase, int x, int y)
+        {
+            var distance = CalculateGizmoScaleDistance(x, y);
+            var amount = distance / _gizmoScaleStartDistance;
+
+            if (_selectedGizmo == GizmoId.Uniform)
+            {
+                selectedEntityBase.Scale = _gizmoInitialScale * amount;
+            }
+            else
+            {
+                var newScaleMult = Vector3.One + _gizmoAxis * (amount - 1f);
+                selectedEntityBase.Scale = _gizmoInitialScale * newScaleMult;
+            }
+        }
+
+        private Vector2 CalculateGizmoRotateDirection(int x, int y)
+        {
+            // Get the center of the gizmo as seen on the screen.
+            var screen = _scene.WorldToScreenPoint(_gizmoOrigin).Xy;
+            var diff = new Vector2(x - screen.X, y - screen.Y);
+            if (diff.IsZero())
+            {
+                // Choose some arbitrary default 2D unit vector in-case the user selected the
+                // rotation gizmo right on the same world coordinates as the model's origin.
+                return Vector2.UnitX;
+            }
+            return diff.Normalized();
+        }
+
+        private float CalculateGizmoScaleDistance(int x, int y)
+        {
+            var screen = _scene.WorldToScreenPoint(_gizmoOrigin).Xy;
+            var diff = new Vector2(x - screen.X, y - screen.Y);
+            return diff.Length;
         }
 
         private void AlignSelectedEntityToGrid(EntityBase selectedEntityBase)
@@ -1193,6 +1368,26 @@ namespace PSXPrev.Forms
             if (selectedEntityBase != null)
             {
                 selectedEntityBase.Translation = SnapToGrid(selectedEntityBase.Translation);
+                UpdateSelectedEntity(false);
+            }
+        }
+
+        private void AlignSelectedEntityGizmoRotation(EntityBase selectedEntityBase)
+        {
+            if (selectedEntityBase != null)
+            {
+                var angle = SnapToGrid(_gizmoRotateAngle, (Math.PI * 2d) / 360d); // Grid size is in units of 1 degree.
+                var newRotation = _gizmoInitialRotation * Quaternion.FromAxisAngle(_gizmoAxis, angle);
+                selectedEntityBase.Rotation = newRotation;
+                UpdateSelectedEntity(false);
+            }
+        }
+
+        private void AlignSelectedEntityScale(EntityBase selectedEntityBase)
+        {
+            if (selectedEntityBase != null)
+            {
+                selectedEntityBase.Scale = SnapToGrid(selectedEntityBase.Scale, 0.05d);
                 UpdateSelectedEntity(false);
             }
         }
@@ -1229,10 +1424,10 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void UpdateGizmos(GizmoId selectedGizmo, GizmoId hoveredGizmo)
+        private void UpdateGizmoVisualAndState(GizmoId selectedGizmo, GizmoId hoveredGizmo)
         {
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
-            _scene.UpdateGizmos(selectedEntityBase, hoveredGizmo, selectedGizmo);
+            _scene.UpdateGizmoVisual(selectedEntityBase, _gizmoType, hoveredGizmo, selectedGizmo);
             if (selectedEntityBase != null)
             {
                 _selectedGizmo = selectedGizmo;
@@ -1269,7 +1464,7 @@ namespace PSXPrev.Forms
             }
             UpdateSelectedTriangle();
             UpdateModelPropertyGrid(forceUpdatePropertyGrid);
-            UpdateGizmos(_selectedGizmo, _hoveredGizmo);
+            UpdateGizmoVisualAndState(_selectedGizmo, _hoveredGizmo);
             _selectionSource = EntitySelectionSource.None;
         }
 
@@ -1404,9 +1599,9 @@ namespace PSXPrev.Forms
             UpdateSelectedEntity(false);
         }
 
-        private float SnapToGrid(float value)
+        private float SnapToGrid(float value, double stepMult = 1d)
         {
-            var step = (double)gridSizeNumericUpDown.Value;
+            var step = (double)gridSizeNumericUpDown.Value * stepMult;
             if (step == 0)
             {
                 // Grid size of zero should not align at all. Also we want to avoid divide-by-zero.
@@ -1415,9 +1610,9 @@ namespace PSXPrev.Forms
             return GeomMath.Snap(value, step);
         }
 
-        private Vector3 SnapToGrid(Vector3 vector)
+        private Vector3 SnapToGrid(Vector3 vector, double stepMult = 1d)
         {
-            var step = (double)gridSizeNumericUpDown.Value;
+            var step = (double)gridSizeNumericUpDown.Value * stepMult;
             if (step == 0)
             {
                 // Grid size of zero should not align at all. Also we want to avoid divide-by-zero.
@@ -1870,7 +2065,7 @@ namespace PSXPrev.Forms
             _scene.ShowBounds = showBoundsToolStripMenuItem.Checked;
         }
 
-        private void showUVToolStripMenuItem_Click(object sender, EventArgs e)
+        private void showUVToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _showUv = showUVToolStripMenuItem.Checked;
             vramPagePictureBox.Refresh();
@@ -2218,6 +2413,31 @@ namespace PSXPrev.Forms
                                 {
                                     _scene.GetEntityUnderMouse(checkedEntities, rootEntity, (int)_lastMouseX, (int)_lastMouseY);
                                 }
+                                e.Handled = true;
+                            }
+                        }
+                        break;
+                    case Keys.G when state:
+                        if (_openTkControl.Focused && _scene.ShowGizmos)
+                        {
+                            if (_controlKeyDown) // Ctrl+G (Switch gizmo type)
+                            {
+                                FinishGizmoAction();
+                                switch (_gizmoType)
+                                {
+                                    case GizmoType.Translate:
+                                        _gizmoType = GizmoType.Rotate;
+                                        break;
+                                    case GizmoType.Rotate:
+                                        _gizmoType = GizmoType.Scale;
+                                        break;
+                                    case GizmoType.Scale:
+                                    default:
+                                        _gizmoType = GizmoType.Translate;
+                                        break;
+                                }
+                                Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                                UpdateGizmoVisualAndState(_selectedGizmo, _hoveredGizmo);
                                 e.Handled = true;
                             }
                         }

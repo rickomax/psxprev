@@ -1448,7 +1448,7 @@ namespace PSXPrev.Forms
             this.showUVToolStripMenuItem.Name = "showUVToolStripMenuItem";
             this.showUVToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.showUVToolStripMenuItem.Text = "Show UV";
-            this.showUVToolStripMenuItem.Click += new System.EventHandler(this.showUVToolStripMenuItem_Click);
+            this.showUVToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showUVToolStripMenuItem_CheckedChanged);
             // 
             // animationsToolStripMenuItem
             // 
