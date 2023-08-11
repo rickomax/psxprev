@@ -64,6 +64,9 @@ namespace PSXPrev.Common
         }
 
         [Browsable(false)]
+        public Vector3 WorldOrigin => WorldMatrix.ExtractTranslation();
+
+        [Browsable(false)]
         public Matrix4 WorldMatrix
         {
             get

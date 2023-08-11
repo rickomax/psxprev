@@ -37,35 +37,101 @@ namespace PSXPrev.Common.Renderer
 
         private const float GizmoHeight = 0.075f;
         private const float GizmoWidth = 0.005f;
+        private const float GizmoRadiusDiff = GizmoWidth * 1.5f;
+        private const float GizmoOuterRadius = GizmoHeight * 2f * 0.75f;
+        private const float GizmoInnerRadius = GizmoOuterRadius - GizmoWidth * 3f;
+        private const float GizmoRingHeight = GizmoWidth * 1.5f;
+        private const float GizmoEndBoxSize = GizmoWidth * 4f;
+        private const float GizmoUniformBoxSize = GizmoWidth * 6f;
+        private const float GizmoLengthBoxHeight = GizmoHeight - (GizmoUniformBoxSize + GizmoEndBoxSize) / 2f;
+        private const float GizmoEndBoxCenter = GizmoUniformBoxSize + GizmoEndBoxSize + GizmoLengthBoxHeight * 2f;
 
         private static readonly Color SelectedGizmoColor = Color.White;
 
         private class GizmoInfo
         {
-            public Vector3 Center { get; set; }
-            public Vector3 Size { get; set; }
+            // Translate boxes
+            public Vector3 TranslateCenter { get; set; }
+            public Vector3 TranslateSize { get; set; }
+            // Rotate rings
+            public float RotateOuterRadius { get; set; }
+            public float RotateInnerRadius { get; set; }
+            public float RotateHeight { get; set; }
+            // Scale boxes
+            public Vector3 ScaleLengthCenter { get; set; }
+            public Vector3 ScaleLengthSize { get; set; }
+            public Vector3 ScaleEndCenter { get; set; }
+            public Vector3 ScaleEndSize { get; set; }
+            // Shared
             public Color Color { get; set; }
+            public int AxisIndex { get; set; }
+            public Vector3 AxisVector { get; set; }
         }
 
         private static readonly Dictionary<GizmoId, GizmoInfo> GizmoInfos = new Dictionary<GizmoId, GizmoInfo>
         {
-            { GizmoId.XMover, new GizmoInfo
+            { GizmoId.AxisX, new GizmoInfo
             {
-                Center = new Vector3(GizmoHeight, GizmoWidth, GizmoWidth), // X gizmo occupies the center
-                Size   = new Vector3(GizmoHeight, GizmoWidth, GizmoWidth),
+                TranslateCenter = new Vector3(GizmoHeight - GizmoWidth, 0f, 0f), // X gizmo occupies the center
+                TranslateSize   = new Vector3(GizmoHeight, GizmoWidth, GizmoWidth),
+
+                RotateOuterRadius = GizmoOuterRadius - GizmoRadiusDiff * 0, // Outermost ring
+                RotateInnerRadius = GizmoInnerRadius - GizmoRadiusDiff * 0,
+                RotateHeight      = GizmoRingHeight,
+
+                ScaleLengthCenter = new Vector3((GizmoUniformBoxSize + GizmoLengthBoxHeight), 0f, 0f),
+                ScaleLengthSize   = new Vector3(GizmoLengthBoxHeight, GizmoWidth, GizmoWidth),
+                ScaleEndCenter    = new Vector3(GizmoEndBoxCenter, 0f, 0f),
+                ScaleEndSize      = new Vector3(GizmoEndBoxSize),
+
                 Color = Color.Red,
+                AxisIndex = 0,
+                AxisVector = Vector3.UnitX,
             } },
-            { GizmoId.YMover, new GizmoInfo
+            { GizmoId.AxisY, new GizmoInfo
             {
-                Center = new Vector3(GizmoWidth, -GizmoHeight + GizmoWidth, GizmoWidth), // Y center is inverted
-                Size   = new Vector3(GizmoWidth, GizmoHeight - GizmoWidth, GizmoWidth),
+                TranslateCenter = new Vector3(0f, -GizmoHeight, 0f), // Y center is inverted
+                TranslateSize   = new Vector3(GizmoWidth, GizmoHeight - GizmoWidth, GizmoWidth),
+
+                RotateOuterRadius = GizmoOuterRadius - GizmoRadiusDiff * 1, // Middle ring
+                RotateInnerRadius = GizmoInnerRadius - GizmoRadiusDiff * 1,
+                RotateHeight      = GizmoRingHeight,
+
+                ScaleLengthCenter = new Vector3(0f, -(GizmoUniformBoxSize + GizmoLengthBoxHeight), 0f),
+                ScaleLengthSize   = new Vector3(GizmoWidth, GizmoLengthBoxHeight, GizmoWidth),
+                ScaleEndCenter    = new Vector3(0f, -GizmoEndBoxCenter, 0f),
+                ScaleEndSize      = new Vector3(GizmoEndBoxSize),
+
                 Color = Color.Green,
+                AxisIndex = 1,
+                AxisVector = Vector3.UnitY, // todo: Should we negate this?
             } },
-            { GizmoId.ZMover, new GizmoInfo
+            { GizmoId.AxisZ, new GizmoInfo
             {
-                Center = new Vector3(GizmoWidth, GizmoWidth, GizmoHeight + GizmoWidth),
-                Size   = new Vector3(GizmoWidth, GizmoWidth, GizmoHeight - GizmoWidth),
+                TranslateCenter = new Vector3(0f, 0f, GizmoHeight),
+                TranslateSize   = new Vector3(GizmoWidth, GizmoWidth, GizmoHeight - GizmoWidth),
+
+                RotateOuterRadius = GizmoOuterRadius - GizmoRadiusDiff * 2, // Innermost ring
+                RotateInnerRadius = GizmoInnerRadius - GizmoRadiusDiff * 2,
+                RotateHeight      = GizmoRingHeight,
+
+                ScaleLengthCenter = new Vector3(0f, 0f, (GizmoUniformBoxSize + GizmoLengthBoxHeight)),
+                ScaleLengthSize   = new Vector3(GizmoWidth, GizmoWidth, GizmoLengthBoxHeight),
+                ScaleEndCenter    = new Vector3(0f, 0f, GizmoEndBoxCenter),
+                ScaleEndSize      = new Vector3(GizmoEndBoxSize),
+
                 Color = Color.Blue,
+                AxisIndex = 2,
+                AxisVector = Vector3.UnitZ,
+            } },
+            { GizmoId.Uniform, new GizmoInfo
+            {
+                ScaleEndCenter = Vector3.Zero,
+                ScaleEndSize   = new Vector3(GizmoUniformBoxSize),
+
+                Color = Color.Yellow,
+                AxisIndex = 3,
+                AxisVector = Vector3.One,
             } },
         };
 
@@ -135,7 +201,7 @@ namespace PSXPrev.Common.Renderer
         private int _shaderProgram;
         private Vector3 _rayOrigin;
         private Vector3 _rayTarget;
-        private Vector3 _rayDirection;
+        private Vector3 _rayDirection = -Vector3.UnitZ; // Some arbitrary default value
         private Vector3? _intersected;
         private List<EntityBase> _lastPickedEntities;
         private List<Tuple<ModelEntity, Triangle>> _lastPickedTriangles;
@@ -154,6 +220,7 @@ namespace PSXPrev.Common.Renderer
 
         private bool _gizmoVisible;
         private EntityBase _gizmoEntity;
+        private GizmoType _currentGizmoType;
         private GizmoId _selectedGizmo;
         private GizmoId _hoveredGizmo;
 
@@ -368,13 +435,11 @@ namespace PSXPrev.Common.Renderer
             };
             GizmosMeshBatch = new MeshBatch(this)
             {
-                AmbientEnabled = false,
-                LightEnabled = false,
-                //AmbientEnabled = true,
-                //AmbientColor = MeshRenderInfo.DefaultAmbientColor,
-                //LightEnabled = true,
-                //LightIntensity = 1f,
-                //LightDirection = new Vector3(1f, -1f, 1f).Normalized(),
+                AmbientEnabled = true,
+                AmbientColor = MeshRenderInfo.DefaultAmbientColor,
+                LightEnabled = true,
+                LightIntensity = 1f,
+                LightDirection = new Vector3(1f, -1f, 1f).Normalized(),
             };
             BoundsBatch = new MeshBatch(this);
             TriangleOutlineBatch = new MeshBatch(this);
@@ -421,7 +486,7 @@ namespace PSXPrev.Common.Renderer
                 {
                     UpdateLightRotationRay();
                     UpdateDebugPickingRay();
-                    UpdateGizmos(_gizmoEntity, _hoveredGizmo, _selectedGizmo);
+                    UpdateGizmoVisual(_gizmoEntity, _currentGizmoType, _hoveredGizmo, _selectedGizmo);
                 }
             };
         }
@@ -645,9 +710,10 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        public void UpdateGizmos(EntityBase selectedEntityBase, GizmoId hoveredGizmo, GizmoId selectedGizmo)
+        public void UpdateGizmoVisual(EntityBase selectedEntityBase, GizmoType currentType, GizmoId hoveredGizmo, GizmoId selectedGizmo)
         {
             _gizmoEntity = selectedEntityBase;
+            _currentGizmoType = currentType;
             _hoveredGizmo = hoveredGizmo;
             _selectedGizmo = selectedGizmo;
             if (selectedEntityBase == null)
@@ -663,7 +729,7 @@ namespace PSXPrev.Common.Renderer
             GizmosMeshBatch.ResetMeshIndex();
             if (updateMeshData)
             {
-                GizmosMeshBatch.Reset(3);
+                GizmosMeshBatch.Reset(3 + 3 + (3 + 1)); // Translate + Rotate + (Scale + Uniform)
             }
 
             if (selectedGizmo != GizmoId.None)
@@ -671,26 +737,49 @@ namespace PSXPrev.Common.Renderer
                 hoveredGizmo = GizmoId.None; // Don't highlight hovered gizmo while selecting
             }
 
-            var center = selectedEntityBase.Bounds3D.Center;
-            var matrix = Matrix4.CreateTranslation(center);
-            var scaleMatrix = GetGizmoScaleMatrix(center);
-            var finalMatrix = scaleMatrix * matrix;
+            var matrix = GetGizmoMatrix(selectedEntityBase, currentType);
 
             var triangleBuilder = new TriangleMeshBuilder();
-            for (var gizmo = GizmoId.XMover; gizmo <= GizmoId.ZMover; gizmo++)
+            for (var type = GizmoType.Translate; type <= GizmoType.Scale; type++)
             {
-                var gizmoInfo = GizmoInfos[gizmo];
-                var selected = hoveredGizmo == gizmo || selectedGizmo == gizmo;
-                var color = selected ? SelectedGizmoColor : gizmoInfo.Color;
-
-                triangleBuilder.SolidColor = color;
-                if (updateMeshData)
+                for (var gizmo = GizmoId.AxisX; gizmo <= GizmoId.Uniform; gizmo++)
                 {
-                    triangleBuilder.Clear();
-                    triangleBuilder.AddCube(gizmoInfo.Center, gizmoInfo.Size);
-                }
+                    var gizmoInfo = GizmoInfos[gizmo];
+                    var selected = hoveredGizmo == gizmo || selectedGizmo == gizmo;
+                    var color = selected ? SelectedGizmoColor : gizmoInfo.Color;
+                    
+                    if (type != GizmoType.Scale && gizmo == GizmoId.Uniform)
+                    {
+                        continue;
+                    }
 
-                GizmosMeshBatch.BindTriangleMesh(triangleBuilder, finalMatrix, updateMeshData);
+                    triangleBuilder.Visible = currentType == type;
+                    triangleBuilder.SolidColor = color;
+                    if (updateMeshData)
+                    {
+                        triangleBuilder.Clear();
+                        switch (type)
+                        {
+                            case GizmoType.Translate when gizmo != GizmoId.Uniform:
+                                triangleBuilder.AddCube(gizmoInfo.TranslateCenter, gizmoInfo.TranslateSize);
+                                break;
+
+                            case GizmoType.Rotate when gizmo != GizmoId.Uniform:
+                                triangleBuilder.AddRing(gizmoInfo.AxisIndex, Vector3.Zero, gizmoInfo.RotateHeight,
+                                                        gizmoInfo.RotateOuterRadius, gizmoInfo.RotateInnerRadius, 32);
+                                break;
+
+                            case GizmoType.Scale when gizmo != GizmoId.Uniform:
+                                triangleBuilder.AddCube(gizmoInfo.ScaleLengthCenter, gizmoInfo.ScaleLengthSize);
+                                goto case GizmoType.Scale;
+                            case GizmoType.Scale:
+                                triangleBuilder.AddCube(gizmoInfo.ScaleEndCenter, gizmoInfo.ScaleEndSize);
+                                break;
+                        }
+                    }
+
+                    GizmosMeshBatch.BindTriangleMesh(triangleBuilder, matrix, updateMeshData);
+                }
             }
         }
 
@@ -795,7 +884,7 @@ namespace PSXPrev.Common.Renderer
             var matrix = Matrix4.CreateTranslation(rayOrigin);
             var rotationMatrix = Matrix4.CreateFromQuaternion(rayRotation);
             var lineScaleMatrix = Matrix4.CreateScale(1f, 1f, (1f / _cameraDistanceScalar));
-            var originScaleMatrix = GetGizmoScaleMatrix(rayOrigin);
+            var originScaleMatrix = Matrix4.CreateScale(GetGizmoScale(rayOrigin));
             var lineMatrix = lineScaleMatrix * rotationMatrix * matrix;
             var originMatrix = originScaleMatrix * rotationMatrix * matrix;
 
@@ -957,8 +1046,7 @@ namespace PSXPrev.Common.Renderer
 
         private void CheckEntity(EntityBase entity, List<EntityBase> pickedEntities)
         {
-            GeomMath.GetBoxMinMax(entity.Bounds3D.Center, entity.Bounds3D.Extents, out var boxMin, out var boxMax);
-            var intersectionDistance = GeomMath.BoxIntersect(_rayOrigin, _rayDirection, boxMin, boxMax);
+            var intersectionDistance = GeomMath.BoxIntersect2(_rayOrigin, _rayDirection, entity.Bounds3D.Center, entity.Bounds3D.Extents);
             if (intersectionDistance > 0f)
             {
                 entity.IntersectionDistance = intersectionDistance;
@@ -973,11 +1061,11 @@ namespace PSXPrev.Common.Renderer
                 var worldMatrix = modelEntity.WorldMatrix;
                 foreach (var triangle in modelEntity.Triangles)
                 {
-                    var vertex0 = Vector3.TransformPosition(triangle.Vertices[0], worldMatrix);
-                    var vertex1 = Vector3.TransformPosition(triangle.Vertices[1], worldMatrix);
-                    var vertex2 = Vector3.TransformPosition(triangle.Vertices[2], worldMatrix);
+                    Vector3.TransformPosition(ref triangle.Vertices[0], ref worldMatrix, out var vertex0);
+                    Vector3.TransformPosition(ref triangle.Vertices[1], ref worldMatrix, out var vertex1);
+                    Vector3.TransformPosition(ref triangle.Vertices[2], ref worldMatrix, out var vertex2);
 
-                    var intersectionDistance = GeomMath.TriangleIntersect(_rayOrigin, _rayDirection, vertex0, vertex1, vertex2);
+                    var intersectionDistance = GeomMath.TriangleIntersect(_rayOrigin, _rayDirection, vertex0, vertex1, vertex2, out _);
                     if (intersectionDistance > 0f)
                     {
                         triangle.IntersectionDistance = intersectionDistance;
@@ -1014,7 +1102,7 @@ namespace PSXPrev.Common.Renderer
             return (radius / (float)Math.Sin(60f * GeomMath.Deg2Rad / 2f)) + 0.1f;
         }
 
-        public GizmoId GetGizmoUnderPosition(EntityBase selectedEntityBase)
+        public GizmoId GetGizmoUnderPosition(EntityBase selectedEntityBase, GizmoType currentType)
         {
             if (!ShowVisuals || !ShowGizmos)
             {
@@ -1022,20 +1110,53 @@ namespace PSXPrev.Common.Renderer
             }
             if (selectedEntityBase != null)
             {
-                var center = selectedEntityBase.Bounds3D.Center;
-                var matrix = Matrix4.CreateTranslation(center);
-                var scaleMatrix = GetGizmoScaleMatrix(center);
-                var finalMatrix = scaleMatrix * matrix;
+                var matrix = GetGizmoMatrix(selectedEntityBase, currentType);
 
                 // Find the closest gizmo that's intersected
                 var minIntersectionGizmo = GizmoId.None;
                 var minIntersectionDistance = float.MaxValue;
-                for (var gizmo = GizmoId.XMover; gizmo <= GizmoId.ZMover; gizmo++)
+                GeomMath.TransformRay(_rayOrigin, _rayDirection, matrix, out var rayOrigin, out var rayDirection);
+                for (var gizmo = GizmoId.AxisX; gizmo <= GizmoId.Uniform; gizmo++)
                 {
-                    var gizmoInfo = GizmoInfos[gizmo];
-                    GeomMath.GetBoxMinMax(gizmoInfo.Center, gizmoInfo.Size, out var boxMin, out var boxMax, finalMatrix);
+                    if (currentType != GizmoType.Scale && gizmo == GizmoId.Uniform)
+                    {
+                        continue;
+                    }
 
-                    var intersectionDistance = GeomMath.BoxIntersect(_rayOrigin, _rayDirection, boxMin, boxMax);
+                    var gizmoInfo = GizmoInfos[gizmo];
+                    var intersectionDistance = -1f;
+                    Vector3 boxMin, boxMax;
+                    switch (currentType)
+                    {
+                        case GizmoType.Translate when gizmo != GizmoId.Uniform:
+                            intersectionDistance = GeomMath.BoxIntersect2(rayOrigin, rayDirection, gizmoInfo.TranslateCenter, gizmoInfo.TranslateSize);
+                            break;
+
+                        case GizmoType.Rotate when gizmo != GizmoId.Uniform:
+                            intersectionDistance = GeomMath.RingIntersect(rayOrigin, rayDirection, Vector3.Zero, gizmoInfo.AxisVector,
+                                                        gizmoInfo.RotateHeight, gizmoInfo.RotateOuterRadius, gizmoInfo.RotateInnerRadius, out _);
+                            break;
+
+                        case GizmoType.Scale when gizmo != GizmoId.Uniform:
+                            intersectionDistance = GeomMath.BoxIntersect2(rayOrigin, rayDirection, gizmoInfo.ScaleLengthCenter, gizmoInfo.ScaleLengthSize);
+                            if (intersectionDistance > 0f)
+                            {
+                                break;
+                            }
+                            goto case GizmoType.Scale;
+
+                        case GizmoType.Scale:
+                            var intersectionDistance2 = GeomMath.BoxIntersect2(rayOrigin, rayDirection, gizmoInfo.ScaleEndCenter, gizmoInfo.ScaleEndSize);
+                            if (intersectionDistance > 0f && intersectionDistance2 > 0f)
+                            {
+                                intersectionDistance = Math.Min(intersectionDistance, intersectionDistance2);
+                            }
+                            else if (intersectionDistance2 > 0f)
+                            {
+                                intersectionDistance = intersectionDistance2;
+                            }
+                            break;
+                    }
                     if (intersectionDistance > 0f && intersectionDistance < minIntersectionDistance)
                     {
                         minIntersectionDistance = intersectionDistance;
@@ -1047,9 +1168,19 @@ namespace PSXPrev.Common.Renderer
             return GizmoId.None;
         }
 
-        public Vector3 GetPickedPosition(Vector3 onNormal)
+        public Vector3 GetPickedPosition()
         {
-            return GeomMath.PlaneIntersect(_rayOrigin, _rayDirection, Vector3.Zero, onNormal);
+            GeomMath.PlaneIntersect(_rayOrigin, _rayDirection, Vector3.Zero, -CameraDirection, out var intersection);
+            return intersection;
+        }
+
+        public Vector3? GetPickedPosition(Vector3 onNormal)
+        {
+            if (GeomMath.PlaneIntersect(_rayOrigin, _rayDirection, Vector3.Zero, onNormal, out var intersection) > 0f)
+            {
+                return intersection;
+            }
+            return null;
         }
 
         public void UpdatePicking(int x, int y)
@@ -1067,25 +1198,73 @@ namespace PSXPrev.Common.Renderer
             _rayDirection = (_rayTarget - _rayOrigin).Normalized();
         }
 
-        private float CameraDistanceFrom(Vector3 point)
+        public float CameraDistanceFrom(Vector3 point)
         {
             var distance = (_viewMatrix.Inverted().ExtractTranslation() - point).Length;
             return distance * _cameraDistanceScalar;
         }
 
-        private float GetGizmoScale(Vector3 position)
+        public float GetGizmoScale(Vector3 position)
         {
             return CameraDistanceFrom(position);
         }
 
-        public Matrix4 GetGizmoScaleMatrix(Vector3 position)
+        public Vector3 GetGizmoOrigin(EntityBase selectedEntityBase, GizmoType currentType)
         {
-            return Matrix4.CreateScale(GetGizmoScale(position));
+            switch (currentType)
+            {
+                case GizmoType.Translate:
+                    return selectedEntityBase.Bounds3D.Center;
+                case GizmoType.Rotate:
+                case GizmoType.Scale:
+                default:
+                    return selectedEntityBase.WorldOrigin;
+            }
+        }
+
+        private Matrix4 GetGizmoMatrix(EntityBase selectedEntityBase, GizmoType currentType)
+        {
+            var center = GetGizmoOrigin(selectedEntityBase, currentType);
+            var translationMatrix = Matrix4.CreateTranslation(center);
+            var scaleMatrix = Matrix4.CreateScale(GetGizmoScale(center));
+            var rotationMatrix = Matrix4.Identity;
+            switch (currentType)
+            {
+                case GizmoType.Translate:
+                    if (selectedEntityBase.ParentEntity != null)
+                    {
+                        var parentWorldMatrix = selectedEntityBase.ParentEntity.WorldMatrix;
+                        rotationMatrix = Matrix4.CreateFromQuaternion(parentWorldMatrix.ExtractRotationSafe());
+                    }
+                    break;
+                case GizmoType.Rotate:
+                case GizmoType.Scale:
+                default:
+                    {
+                        var worldMatrix = selectedEntityBase.WorldMatrix;
+                        rotationMatrix = Matrix4.CreateFromQuaternion(worldMatrix.ExtractRotationSafe());
+                    }
+                    break;
+            }
+
+            return scaleMatrix * rotationMatrix * translationMatrix;
         }
 
         public void ResetIntersection()
         {
             _intersected = null;
+        }
+
+        public Vector3 WorldToScreenPoint(Vector3 position)
+        {
+            var screen = Vector3.Project(position, 0, 0, ViewportWidth, ViewportHeight, 0f, 1f, _viewMatrix * _projectionMatrix);
+            screen.Y = ViewportHeight - 1f - screen.Y;
+            return screen;
+        }
+
+        public Vector3 ScreenToWorldPoint(Vector3 screen)
+        {
+            return screen.UnProject(_projectionMatrix, _viewMatrix, ViewportWidth, ViewportHeight);
         }
 
 

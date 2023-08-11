@@ -124,7 +124,7 @@ namespace PSXPrev.Common.Exporters
             }
 
             var worldMatrix = model.WorldMatrix;
-            Matrix4.Invert(ref worldMatrix, out var invWorldMatrix);
+            GeomMath.InvertSafe(ref worldMatrix, out var invWorldMatrix);
             // Write vertex positions (and colors if experimental)
             foreach (var triangle in model.Triangles)
             {
@@ -207,7 +207,7 @@ namespace PSXPrev.Common.Exporters
         private void WriteGroup(int groupIndex, ref int vertexIndex, ref int uvIndex, ModelEntity model)
         {
             var worldMatrix = model.WorldMatrix;
-            Matrix4.Invert(ref worldMatrix, out var invWorldMatrix);
+            GeomMath.InvertSafe(ref worldMatrix, out var invWorldMatrix);
             var needsTexture = NeedsTexture(model);
             var materialName = _mtlExporter.GetMaterialName(_options.ExportTextures ? model.Texture : null);
 

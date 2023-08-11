@@ -154,7 +154,7 @@ namespace PSXPrev.Common.Exporters
                     var materialIndex = 0; // Only one material is defined
 
                     var worldMatrix = model.WorldMatrix;
-                    Matrix4.Invert(ref worldMatrix, out var invWorldMatrix);
+                    GeomMath.InvertSafe(ref worldMatrix, out var invWorldMatrix);
                     foreach (var triangle in model.Triangles)
                     {
                         for (var j = 2; j >= 0; j--)

@@ -208,7 +208,7 @@ namespace PSXPrev.Common.Renderer
             if (matrix.HasValue)
             {
                 var matrixValue = matrix.Value;
-                Matrix4.Invert(ref matrixValue, out var invMatrixValue);
+                GeomMath.InvertSafe(ref matrixValue, out var invMatrixValue);
 
                 vertex0 = GeomMath.TransformPosition(ref vertex0, ref matrixValue);
                 vertex1 = GeomMath.TransformPosition(ref vertex1, ref matrixValue);
@@ -224,7 +224,7 @@ namespace PSXPrev.Common.Renderer
             if (matrix.HasValue)
             {
                 var matrixValue = matrix.Value;
-                Matrix4.Invert(ref matrixValue, out var invMatrixValue);
+                GeomMath.InvertSafe(ref matrixValue, out var invMatrixValue);
 
                 vertex0 = GeomMath.TransformPosition(ref vertex0, ref matrixValue);
                 vertex1 = GeomMath.TransformPosition(ref vertex1, ref matrixValue);
@@ -269,7 +269,7 @@ namespace PSXPrev.Common.Renderer
             if (matrix.HasValue)
             {
                 var matrixValue = matrix.Value;
-                Matrix4.Invert(ref matrixValue, out var invMatrixValue);
+                GeomMath.InvertSafe(ref matrixValue, out var invMatrixValue);
 
                 vertex0 = GeomMath.TransformPosition(ref vertex0, ref matrixValue);
                 vertex1 = GeomMath.TransformPosition(ref vertex1, ref matrixValue);
@@ -317,7 +317,7 @@ namespace PSXPrev.Common.Renderer
             if (matrix.HasValue)
             {
                 var matrixValue = matrix.Value;
-                Matrix4.Invert(ref matrixValue, out var invMatrixValue);
+                GeomMath.InvertSafe(ref matrixValue, out var invMatrixValue);
 
                 var newCorners = new Vector3[BoundingBox.CornerCount];
                 var newNormals = new Vector3[BoundingBox.CornerCount];
@@ -392,7 +392,7 @@ namespace PSXPrev.Common.Renderer
             if (matrix.HasValue)
             {
                 var matrixValue = matrix.Value;
-                Matrix4.Invert(ref matrixValue, out var invMatrixValue);
+                GeomMath.InvertSafe(ref matrixValue, out var invMatrixValue);
 
                 topBottomVertices[0] = GeomMath.TransformPosition(ref topBottomVertices[0], ref matrixValue);
                 topBottomVertices[1] = GeomMath.TransformPosition(ref topBottomVertices[1], ref matrixValue);
@@ -485,7 +485,7 @@ namespace PSXPrev.Common.Renderer
             if (matrix.HasValue)
             {
                 var matrixValue = matrix.Value;
-                Matrix4.Invert(ref matrixValue, out var invMatrixValue);
+                GeomMath.InvertSafe(ref matrixValue, out var invMatrixValue);
 
                 for (var top = 0; top < 2; top++)
                 {
@@ -603,7 +603,7 @@ namespace PSXPrev.Common.Renderer
             if (matrix.HasValue)
             {
                 var matrixValue = matrix.Value;
-                Matrix4.Invert(ref matrixValue, out var invMatrixValue);
+                GeomMath.InvertSafe(ref matrixValue, out var invMatrixValue);
 
                 for (var face = 0; face < 8; face++)
                 {
@@ -719,7 +719,7 @@ namespace PSXPrev.Common.Renderer
             if (matrix.HasValue)
             {
                 var matrixValue = matrix.Value;
-                Matrix4.Invert(ref matrixValue, out var invMatrixValue);
+                GeomMath.InvertSafe(ref matrixValue, out var invMatrixValue);
 
                 for (var h = 0; h <= stacks; h++)
                 {
@@ -798,7 +798,7 @@ namespace PSXPrev.Common.Renderer
             if (matrix.HasValue)
             {
                 matrixValue = matrix.Value;
-                Matrix4.Invert(ref matrixValue, out invMatrixValue);
+                GeomMath.InvertSafe(ref matrixValue, out invMatrixValue);
 
                 vertexTop = GeomMath.TransformPosition(ref vertexTop, ref matrixValue);
                 vertexBottom = GeomMath.TransformPosition(ref vertexBottom, ref matrixValue);
