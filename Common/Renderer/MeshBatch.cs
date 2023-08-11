@@ -34,10 +34,21 @@ namespace PSXPrev.Common.Renderer
         public int MeshIndex { get; set; } // Manually set this index to handle which mesh to bind
 
         public TextureBinder TextureBinder { get; set; }
-        public bool ShowWireframe { get; set; }
-        public bool ShowVertices { get; set; }
-        public float WireframeSize { get; set; } = 1f;
-        public float VertexSize { get; set; } = 1f;
+        public bool DrawFaces { get; set; } = true;
+        public bool DrawWireframe { get; set; }
+        public bool DrawVertices { get; set; }
+        private float _wireframeSize = 1f;
+        public float WireframeSize
+        {
+            get => _wireframeSize;
+            set => _wireframeSize = Math.Max(0f, value);
+        }
+        private float _vertexSize = 1f;
+        public float VertexSize
+        {
+            get => _vertexSize;
+            set => _vertexSize = Math.Max(0f, value);
+        }
         public bool AmbientEnabled { get; set; }
         public bool LightEnabled { get; set; }
         public bool TexturesEnabled { get; set; }
@@ -691,7 +702,7 @@ namespace PSXPrev.Common.Renderer
             GL.UniformMatrix4(Scene.UniformModelMatrix, false, ref modelMatrix);
             GL.UniformMatrix4(Scene.UniformMVPMatrix, false, ref mvpMatrix);
 
-            mesh.Draw(TextureBinder, ShowWireframe, ShowVertices, WireframeSize, VertexSize);
+            mesh.Draw(TextureBinder, DrawFaces, DrawWireframe, DrawVertices, WireframeSize, VertexSize);
         }
 
 

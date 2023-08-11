@@ -26,6 +26,12 @@ namespace PSXPrev
         [JsonProperty("gridSnap")]
         public float GridSnap { get; set; } = 1f;
 
+        [JsonProperty("angleSnap")]
+        public float AngleSnap { get; set; } = 1f;
+
+        [JsonProperty("scaleSnap")]
+        public float ScaleSnap { get; set; } = 0.05f;
+
         [JsonProperty("cameraFOV")]
         public float CameraFOV { get; set; } = 60f;
 
@@ -62,11 +68,17 @@ namespace PSXPrev
         [JsonProperty("autoAttachLimbs")]
         public bool AutoAttachLimbs { get; set; } = true;
 
-        [JsonProperty("showWireframe")]
-        public bool ShowWireframe { get; set; } = false;
+        [JsonProperty("drawModeFaces")]
+        public bool DrawFaces { get; set; } = true;
 
-        [JsonProperty("showVertices")]
-        public bool ShowVertices { get; set; } = false;
+        [JsonProperty("drawModeWireframe")]
+        public bool DrawWireframe { get; set; } = false;
+
+        [JsonProperty("drawModeVertices")]
+        public bool DrawVertices { get; set; } = false;
+
+        [JsonProperty("drawModeSolidWireframeAndVertices")]
+        public bool DrawSolidWireframeVertices { get; set; } = true;
 
         [JsonProperty("wireframeSize")]
         public float WireframeSize { get; set; } = 1f;
@@ -74,8 +86,8 @@ namespace PSXPrev
         [JsonProperty("vertexSize")]
         public float VertexSize { get; set; } = 2f;
 
-        [JsonProperty("showGizmos")]
-        public bool ShowGizmos { get; set; } = true;
+        [JsonProperty("gizmoTool"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
+        public GizmoType GizmoType { get; set; } = GizmoType.Translate;
 
         [JsonProperty("showBounds")]
         public bool ShowBounds { get; set; } = true;
@@ -100,6 +112,9 @@ namespace PSXPrev
 
         [JsonProperty("maskColor"), JsonConverter(typeof(JsonStringColorConverter))]
         public System.Drawing.Color MaskColor { get; set; } = System.Drawing.Color.Black;
+
+        [JsonProperty("solidWireframeAndVerticesColor"), JsonConverter(typeof(JsonStringColorConverter))]
+        public System.Drawing.Color SolidWireframeVerticesColor { get; set; } = System.Drawing.Color.Gray;
 
         [JsonProperty("showUVsInVRAM")]
         public bool ShowUVsInVRAM { get; set; } = true;
