@@ -144,6 +144,50 @@ namespace PSXPrev.Common
                 // When this happens with the alignment fix, the UV line is right on the pixel boundary.
                 // Incrementing any one of the 3 U/V coordinates will fix 1D UV tearing.
 
+                var uvs = TiledUv?.BaseUv ?? Uv;
+
+#if true
+                // Current Solution B:
+                // This works by offsetting every UV coordinate slightly if its on a pixel boundary.
+                // If the offsetted UV coordinate is the max, then the offset will be subtracted,
+                // otherwise the offset will be added. If the min and max component are equal, then the
+                // coordinate will be offset to the center of the pixel.
+                // This is preferred over Solution A, because it also solves Wireframe/Vertices fighting.
+                // The downside is it will become less accurate if you export a model with a very large single texture.
+                var uvMin = uvs[0];
+                var uvMax = uvMin;
+                for (var i = 1; i < 3; i++)
+                {
+                    var uv = uvs[i];
+                    uvMin = Vector2.ComponentMin(uvMin, uv);
+                    uvMax = Vector2.ComponentMax(uvMax, uv);
+                }
+
+                var uvScalar = GeomMath.UVScalar;
+                var inc = 0.001f / uvScalar; // Offset UV coordinates by 1/1000th of a pixel
+                var half = 0.5f / uvScalar;  // Offset UV coordinates to the center of the pixel
+                for (var i = 0; i < 3; i++)
+                {
+                    var uv = uvs[i];
+                    // Check if this coordinate is on a pixel boundary
+                    if ((float)Math.Floor(uv.X * uvScalar) == (uv.X * uvScalar))
+                    {
+                        uv.X += (uvMin.X == uvMax.X) ? half : ((uv.X < uvMax.X) ? inc : -inc);
+                        //uv.X += (uv.X < uvMax.X || uvMin.X == uvMax.X) ? inc : -inc;
+                        //uv.X += (uv.X < 1f) ? inc : -inc;
+                    }
+                    if ((float)Math.Floor(uv.Y * uvScalar) == (uv.Y * uvScalar))
+                    {
+                        uv.Y += (uvMin.Y == uvMax.Y) ? half : ((uv.Y < uvMax.Y) ? inc : -inc);
+                        //uv.Y += (uv.Y < uvMax.Y || uvMin.Y == uvMax.Y) ? inc : -inc;
+                        //uv.Y += (uv.Y < 1f) ? inc : -inc;
+                    }
+                    uvs[i] = uv;
+                }
+#else
+                // Old Solution A:
+                // This works well, until you try to use textures with Wireframe/Vertices draw mode.
+
                 // The reason it's safe to increment by one, is because the area covered by the UV will still only be one pixel.
                 // Before:
                 // |
@@ -163,6 +207,7 @@ namespace PSXPrev.Common
                 {
                     uvs[2].Y += 1f / GeomMath.UVScalar;
                 }
+#endif
             }
         }
     }
