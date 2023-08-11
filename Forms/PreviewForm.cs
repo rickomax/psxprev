@@ -59,8 +59,8 @@ namespace PSXPrev.Forms
         private AnimationFrame _curAnimationFrameObj;
         private AnimationObject _curAnimationObject;
         private bool _inAnimationTab;
-        private float _lastMouseX;
-        private float _lastMouseY;
+        private int _lastMouseX;
+        private int _lastMouseY;
         private bool _shiftKeyDown;
         private bool _controlKeyDown;
         private GLControl _openTkControl;
@@ -79,6 +79,7 @@ namespace PSXPrev.Forms
         private Bitmap _maskColorBitmap;
         private Bitmap _ambientColorBitmap;
         private Bitmap _backgroundColorBitmap;
+        private Bitmap _solidWireframeVerticesColorBitmap;
         private float _texturePreviewScale = 1f;
         private float _vramPageScale = 1f;
         private bool _autoDrawModelTextures;
@@ -87,7 +88,7 @@ namespace PSXPrev.Forms
         private bool _closing;
         private bool _inDialog; // Prevent timers from performing updates while true
 
-        private GizmoType _gizmoType = GizmoType.Translate;
+        private GizmoType _gizmoType;
         private GizmoId _hoveredGizmo;
         private GizmoId _selectedGizmo;
         private Vector3 _gizmoAxis;
@@ -474,6 +475,7 @@ namespace PSXPrev.Forms
             SetMaskColor(Color.Black);
             SetAmbientColor(Color.LightGray);
             SetBackgroundColor(Color.LightSkyBlue);
+            SetSolidWireframeVerticesColor(Color.Gray);
         }
 
         private void SetupEntities()
@@ -559,10 +561,55 @@ namespace PSXPrev.Forms
             texturesListView.Columns[1].Grouper  = grouper;
             texturesListView.Columns[1].Comparer = comparer;
 
-            toolTip.SetToolTip(lightYawNumericUpDown, "Yaw");
-            toolTip.SetToolTip(lightPitchNumericUpDown, "Pitch");
+            // Default to invisible until we have a gizmo type set
+            gizmoSnapFlowLayoutPanel.Visible = false;
+
+            // Default to invisible unless wireframe and/or vertices draw modes are enabled
+            wireframeVertexSizeFlowLayoutPanel.Visible = false;
+
+            // Ensure numeric up downs display the same value that they store internally
+            SetupNumericUpDownValidatingEvents();
 
             ReadSettings(Settings.Instance);
+        }
+
+        private void SetupNumericUpDownValidatingEvents()
+        {
+            // When a user manually enters in a value in a NumericUpDown,
+            // the value will be shown with the specified number of decimal places,
+            // BUT VALUE WILL NOT BE ROUNDED TO THE SPECIFIED NUMBER OF DECIMAL PLACES!
+
+            // Anyways, this fixes that by rounding the value during the validating event.
+            // We need to find all NumericUpDowns in the form, and register the event for those.
+            var queue = new Queue<Control>();
+            queue.Enqueue(this);
+
+            while (queue.Count > 0)
+            {
+                var container = queue.Dequeue();
+
+                foreach (Control control in container.Controls)
+                {
+                    if (control is NumericUpDown numericUpDown)
+                    {
+                        numericUpDown.Validating += allNumericUpDowns_Validating;
+                    }
+
+                    if (control.Controls.Count > 0)
+                    {
+                        queue.Enqueue(control);
+                    }
+                }
+            }
+        }
+
+        private void allNumericUpDowns_Validating(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            if (sender is NumericUpDown numericUpDown)
+            {
+                numericUpDown.Value = Math.Round(numericUpDown.Value, numericUpDown.DecimalPlaces,
+                                                 MidpointRounding.AwayFromZero);
+            }
         }
 
         private void _modelPropertyGridRefreshTimer_Elapsed(object sender, ElapsedEventArgs e)
@@ -1066,7 +1113,7 @@ namespace PSXPrev.Forms
             var mouseMiddle = e.Button == MouseButtons.Middle;
             var mouseRight = e.Button == MouseButtons.Right;
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
-            _scene.UpdatePicking(e.Location.X, e.Location.Y);
+            _scene.UpdatePicking(e.X, e.Y);
             var hoveredGizmo = _scene.GetGizmoUnderPosition(selectedEntityBase, _gizmoType);
             switch (_selectedGizmo)
             {
@@ -1079,7 +1126,7 @@ namespace PSXPrev.Forms
                             var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
                             if (IsTriangleSelectMode())
                             {
-                                var newSelectedTriangle = _scene.GetTriangleUnderMouse(checkedEntities, rootEntity, e.Location.X, e.Location.Y);
+                                var newSelectedTriangle = _scene.GetTriangleUnderMouse(checkedEntities, rootEntity, e.X, e.Y);
                                 if (newSelectedTriangle != null)
                                 {
                                     SelectTriangle(newSelectedTriangle);
@@ -1091,7 +1138,7 @@ namespace PSXPrev.Forms
                             }
                             else
                             {
-                                var newSelectedEntity = _scene.GetEntityUnderMouse(checkedEntities, rootEntity, e.Location.X, e.Location.Y);
+                                var newSelectedEntity = _scene.GetEntityUnderMouse(checkedEntities, rootEntity, e.X, e.Y);
                                 if (newSelectedEntity != null)
                                 {
                                     SelectEntity(newSelectedEntity, false);
@@ -1104,7 +1151,7 @@ namespace PSXPrev.Forms
                         }
                         else
                         {
-                            StartGizmoAction(hoveredGizmo, e.Location.X, e.Location.Y);
+                            StartGizmoAction(hoveredGizmo, e.X, e.Y);
                             _scene.ResetIntersection();
                         }
                     }
@@ -1133,7 +1180,7 @@ namespace PSXPrev.Forms
                 case GizmoId.Uniform when !_inAnimationTab:
                     if (mouseLeft && eventType == MouseEventType.Move && selectedEntityBase != null)
                     {
-                        UpdateGizmoAction(e.Location.X, e.Location.Y);
+                        UpdateGizmoAction(e.X, e.Y);
                     }
                     else if (mouseRight && eventType == MouseEventType.Down)
                     {
@@ -1376,7 +1423,7 @@ namespace PSXPrev.Forms
         {
             if (selectedEntityBase != null)
             {
-                var angle = SnapToGrid(_gizmoRotateAngle, (Math.PI * 2d) / 360d); // Grid size is in units of 1 degree.
+                var angle = SnapAngle(_gizmoRotateAngle); // Grid size is in units of 1 degree.
                 var newRotation = _gizmoInitialRotation * Quaternion.FromAxisAngle(_gizmoAxis, angle);
                 selectedEntityBase.Rotation = newRotation;
                 UpdateSelectedEntity(false);
@@ -1387,7 +1434,7 @@ namespace PSXPrev.Forms
         {
             if (selectedEntityBase != null)
             {
-                selectedEntityBase.Scale = SnapToGrid(selectedEntityBase.Scale, 0.05d);
+                selectedEntityBase.Scale = SnapScale(selectedEntityBase.Scale);
                 UpdateSelectedEntity(false);
             }
         }
@@ -1424,10 +1471,59 @@ namespace PSXPrev.Forms
             }
         }
 
+        private void SetGizmoType(GizmoType gizmoType, bool force = false)
+        {
+            if (_gizmoType != gizmoType || force)
+            {
+                FinishGizmoAction(); // Make sure to finish action before changing _gizmoType
+                _gizmoType = gizmoType;
+
+                gizmoToolNoneToolStripMenuItem.Checked = _gizmoType == GizmoType.None;
+                gizmoToolTranslateToolStripMenuItem.Checked = _gizmoType == GizmoType.Translate;
+                gizmoToolRotateToolStripMenuItem.Checked = _gizmoType == GizmoType.Rotate;
+                gizmoToolScaleToolStripMenuItem.Checked = _gizmoType == GizmoType.Scale;
+
+                // Suspend layout while changing visibility and text to avoid jittery movement of controls.
+                sceneControlsFlowLayoutPanel.SuspendLayout();
+
+                gizmoSnapFlowLayoutPanel.Visible = _gizmoType != GizmoType.None;
+                gridSnapUpDown.Visible = _gizmoType == GizmoType.Translate;
+                angleSnapUpDown.Visible = _gizmoType == GizmoType.Rotate;
+                scaleSnapUpDown.Visible = _gizmoType == GizmoType.Scale;
+
+                switch (_gizmoType)
+                {
+                    case GizmoType.Translate:
+                        gizmoSnapLabel.Text = "Grid Snap:";
+                        break;
+                    case GizmoType.Rotate:
+                        gizmoSnapLabel.Text = "Angle Snap:";
+                        break;
+                    case GizmoType.Scale:
+                        gizmoSnapLabel.Text = "Scale Snap:";
+                        break;
+                }
+
+                sceneControlsFlowLayoutPanel.ResumeLayout();
+
+                // Gizmo shape has changed, recalculate hovered.
+                var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+
+                _scene.UpdatePicking(_lastMouseX, _lastMouseY);
+                var hoveredGizmo = _scene.GetGizmoUnderPosition(selectedEntityBase, _gizmoType);
+
+                UpdateGizmoVisualAndState(_selectedGizmo, hoveredGizmo);
+            }
+        }
+
         private void UpdateGizmoVisualAndState(GizmoId selectedGizmo, GizmoId hoveredGizmo)
         {
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
-            _scene.UpdateGizmoVisual(selectedEntityBase, _gizmoType, hoveredGizmo, selectedGizmo);
+
+            // Don't highlight hovered gizmo while selecting
+            var highlightGizmo = selectedGizmo != GizmoId.None ? selectedGizmo : hoveredGizmo;
+            _scene.UpdateGizmoVisual(selectedEntityBase, _gizmoType, highlightGizmo);
+
             if (selectedEntityBase != null)
             {
                 _selectedGizmo = selectedGizmo;
@@ -1599,20 +1695,31 @@ namespace PSXPrev.Forms
             UpdateSelectedEntity(false);
         }
 
-        private float SnapToGrid(float value, double stepMult = 1d)
+        private Vector3 SnapToGrid(Vector3 vector)
         {
-            var step = (double)gridSizeNumericUpDown.Value * stepMult;
+            var step = (double)gridSnapUpDown.Value;
             if (step == 0)
             {
                 // Grid size of zero should not align at all. Also we want to avoid divide-by-zero.
+                return vector;
+            }
+            return GeomMath.Snap(vector, step);
+        }
+
+        private float SnapAngle(float value)
+        {
+            var step = (double)angleSnapUpDown.Value * ((Math.PI * 2d) / 360d); // In units of 1 degree.
+            if (step == 0)
+            {
+                // Snap of zero should not align at all. Also we want to avoid divide-by-zero.
                 return value;
             }
             return GeomMath.Snap(value, step);
         }
 
-        private Vector3 SnapToGrid(Vector3 vector, double stepMult = 1d)
+        private Vector3 SnapScale(Vector3 vector)
         {
-            var step = (double)gridSizeNumericUpDown.Value * stepMult;
+            var step = (double)scaleSnapUpDown.Value;
             if (step == 0)
             {
                 // Grid size of zero should not align at all. Also we want to avoid divide-by-zero.
@@ -1790,11 +1897,6 @@ namespace PSXPrev.Forms
             MessageBox.Show(this, "Results cleared");
         }
 
-        private void wireframeToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
-        {
-            _scene.ShowWireframe = wireframeToolStripMenuItem.Checked;
-        }
-
         private void clearAllPagesToolStripMenuItem_Click(object sender, EventArgs e)
         {
             _vram.ClearAllPages();
@@ -1852,6 +1954,20 @@ namespace PSXPrev.Forms
                 graphics.Clear(color);
             }
             setBackgroundColorToolStripMenuItem.Image = _backgroundColorBitmap;
+        }
+
+        private void SetSolidWireframeVerticesColor(Color color)
+        {
+            _scene.SolidWireframeVerticesColor = color;
+            if (_solidWireframeVerticesColorBitmap == null)
+            {
+                _solidWireframeVerticesColorBitmap = new Bitmap(16, 16);
+            }
+            using (var graphics = Graphics.FromImage(_solidWireframeVerticesColorBitmap))
+            {
+                graphics.Clear(color);
+            }
+            setSolidWireframeVerticesColorToolStripMenuItem.Image = _solidWireframeVerticesColorBitmap;
         }
 
         private void Redraw()
@@ -2055,11 +2171,6 @@ namespace PSXPrev.Forms
             UpdateSelectedEntity();
         }
 
-        private void showGizmosToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
-        {
-            _scene.ShowGizmos = showGizmosToolStripMenuItem.Checked;
-        }
-
         private void showBoundsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _scene.ShowBounds = showBoundsToolStripMenuItem.Checked;
@@ -2128,6 +2239,11 @@ namespace PSXPrev.Forms
             _scene.LightEnabled = enableLightToolStripMenuItem.Checked;
         }
 
+        private void enableTexturesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.TexturesEnabled = enableTexturesToolStripMenuItem.Checked;
+        }
+
         private void setMaskColorToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (PromptColor(_scene.MaskColor, out var color))
@@ -2149,6 +2265,14 @@ namespace PSXPrev.Forms
             if (PromptColor(_scene.ClearColor, out var color))
             {
                 SetBackgroundColor(color);
+            }
+        }
+
+        private void setSolidWireframeVerticesColorToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (PromptColor(_scene.SolidWireframeVerticesColor, out var color))
+            {
+                SetSolidWireframeVerticesColor(color);
             }
         }
 
@@ -2252,14 +2376,82 @@ namespace PSXPrev.Forms
             e.Graphics.PixelOffsetMode = PixelOffsetMode.Default;
         }
 
-        private void verticesOnlyToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        private void gizmoToolNoneToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            _scene.ShowVertices = verticesOnlyToolStripMenuItem.Checked;
+            SetGizmoType(GizmoType.None);
+        }
+
+        private void gizmoToolTranslateToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SetGizmoType(GizmoType.Translate);
+        }
+
+        private void gizmoToolRotateToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SetGizmoType(GizmoType.Rotate);
+        }
+
+        private void gizmoToolScaleToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SetGizmoType(GizmoType.Scale);
+        }
+
+        private void drawModeFacesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.DrawFaces = drawModeFacesToolStripMenuItem.Checked;
+        }
+
+        private void drawModeWireframeToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.DrawWireframe = drawModeWireframeToolStripMenuItem.Checked;
+            UpdateDrawModeWireframeVertices();
+        }
+
+        private void drawModeVerticesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.DrawVertices = drawModeVerticesToolStripMenuItem.Checked;
+            UpdateDrawModeWireframeVertices();
+        }
+
+        private void drawModeSolidWireframeVerticesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.DrawSolidWireframeVertices = drawModeSolidWireframeVerticesToolStripMenuItem.Checked;
+        }
+
+        private void UpdateDrawModeWireframeVertices()
+        {
+            // Suspend layout while changing visibility and text to avoid jittery movement of controls.
+            sceneControlsFlowLayoutPanel.SuspendLayout();
+
+            wireframeVertexSizeFlowLayoutPanel.Visible = _scene.DrawWireframe || _scene.DrawVertices;
+            wireframeSizeUpDown.Visible = _scene.DrawWireframe;
+            vertexSizeUpDown.Visible = _scene.DrawVertices;
+            if (_scene.DrawWireframe && _scene.DrawVertices)
+            {
+                wireframeVertexSizeLabel.Text = "Wireframe/Vertex Size:";
+            }
+            else if (_scene.DrawWireframe)
+            {
+                wireframeVertexSizeLabel.Text = "Wireframe Size:";
+            }
+            else if (_scene.DrawVertices)
+            {
+                wireframeVertexSizeLabel.Text = "Vertex Size:";
+            }
+
+            sceneControlsFlowLayoutPanel.ResumeLayout();
         }
 
         private void vertexSizeUpDown_ValueChanged(object sender, EventArgs e)
         {
             _scene.VertexSize = (float)vertexSizeUpDown.Value;
+            vertexSizeUpDown.Refresh(); // Too slow to refresh number normally if using the arrow keys
+        }
+
+        private void wireframeSizeUpDown_ValueChanged(object sender, EventArgs e)
+        {
+            _scene.WireframeSize = (float)wireframeSizeUpDown.Value;
+            wireframeSizeUpDown.Refresh(); // Too slow to refresh number normally if using the arrow keys
         }
 
         private void cameraFOVUpDown_ValueChanged(object sender, EventArgs e)
@@ -2325,6 +2517,7 @@ namespace PSXPrev.Forms
             if (eventType == KeyEventType.Down || eventType == KeyEventType.Up)
             {
                 var state = eventType == KeyEventType.Down;
+                var sceneFocused = _openTkControl.Focused;
                 switch (e.KeyCode)
                 {
                     case Keys.ShiftKey:
@@ -2366,34 +2559,62 @@ namespace PSXPrev.Forms
                         }
                         break;
 
-                        // Debugging keys for testing picking rays.
+                    // Gizmo tools
+                    // We can't set these shortcut keys in the designer because it
+                    // considers them "invalid" for not having modifier keys.
+                    case Keys.W when state && sceneFocused:
+                        if (_gizmoType != GizmoType.Translate)
+                        {
+                            SetGizmoType(GizmoType.Translate);
+                            //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                        }
+                        e.Handled = true;
+                        break;
+                    case Keys.E when state && sceneFocused:
+                        if (_gizmoType != GizmoType.Rotate)
+                        {
+                            SetGizmoType(GizmoType.Rotate);
+                            //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                        }
+                        e.Handled = true;
+                        break;
+                    case Keys.R when state && sceneFocused:
+                        if (_gizmoType != GizmoType.Scale)
+                        {
+                            SetGizmoType(GizmoType.Scale);
+                            //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                        }
+                        e.Handled = true;
+                        break;
+
+                    // Debugging keys for testing picking rays.
 #if true
-                    case Keys.D when state: // Ctrl+D: Toggle debug visuals)
-                        if (_openTkControl.Focused && _controlKeyDown)
+                    case Keys.D when state && sceneFocused:
+                        if (_controlKeyDown) // Ctrl+D: Toggle debug visuals)
                         {
                             _scene.ShowDebugVisuals = !_scene.ShowDebugVisuals;
                             Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugVisuals: {_scene.ShowDebugVisuals}");
                             e.Handled = true;
                         }
                         break;
-                    case Keys.R when state:
-                        if (_openTkControl.Focused && _scene.ShowDebugVisuals)
+                    case Keys.P when state && sceneFocused:
+                        if (_scene.ShowDebugVisuals)
                         {
-                            if (_controlKeyDown) // Ctrl+R (Toggle debug picking ray)
+                            if (_controlKeyDown) // Ctrl+P (Toggle debug picking ray)
                             {
                                 _scene.ShowDebugPickingRay = !_scene.ShowDebugPickingRay;
                                 Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugPickingRay: {_scene.ShowDebugPickingRay}");
                                 e.Handled = true;
                             }
-                            else if (_scene.ShowDebugPickingRay) // R (Set debug picking ray)
+                            else if (_scene.ShowDebugPickingRay) // P (Set debug picking ray)
                             {
                                 _scene.SetDebugPickingRay();
                                 e.Handled = true;
                             }
                         }
                         break;
-                    case Keys.I when state:
-                        if (_openTkControl.Focused && _scene.ShowDebugVisuals)
+                    case Keys.I when state && sceneFocused:
+                        if (_scene.ShowDebugVisuals)
                         {
                             if (_controlKeyDown) // Ctrl+I (Toggle debug intersections)
                             {
@@ -2407,37 +2628,12 @@ namespace PSXPrev.Forms
                                 var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
                                 if (IsTriangleSelectMode())
                                 {
-                                    _scene.GetTriangleUnderMouse(checkedEntities, rootEntity, (int)_lastMouseX, (int)_lastMouseY);
+                                    _scene.GetTriangleUnderMouse(checkedEntities, rootEntity, _lastMouseX, _lastMouseY);
                                 }
                                 else
                                 {
-                                    _scene.GetEntityUnderMouse(checkedEntities, rootEntity, (int)_lastMouseX, (int)_lastMouseY);
+                                    _scene.GetEntityUnderMouse(checkedEntities, rootEntity, _lastMouseX, _lastMouseY);
                                 }
-                                e.Handled = true;
-                            }
-                        }
-                        break;
-                    case Keys.G when state:
-                        if (_openTkControl.Focused && _scene.ShowGizmos)
-                        {
-                            if (_controlKeyDown) // Ctrl+G (Switch gizmo type)
-                            {
-                                FinishGizmoAction();
-                                switch (_gizmoType)
-                                {
-                                    case GizmoType.Translate:
-                                        _gizmoType = GizmoType.Rotate;
-                                        break;
-                                    case GizmoType.Rotate:
-                                        _gizmoType = GizmoType.Scale;
-                                        break;
-                                    case GizmoType.Scale:
-                                    default:
-                                        _gizmoType = GizmoType.Translate;
-                                        break;
-                                }
-                                Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
-                                UpdateGizmoVisualAndState(_selectedGizmo, _hoveredGizmo);
                                 e.Handled = true;
                             }
                         }
@@ -2557,25 +2753,31 @@ namespace PSXPrev.Forms
                 Program.Logger.ReadSettings(Settings.Instance);
             }
 
-            gridSizeNumericUpDown.Value = (decimal)settings.GridSnap;
+            gridSnapUpDown.Value = (decimal)settings.GridSnap;
+            angleSnapUpDown.Value = (decimal)settings.AngleSnap;
+            scaleSnapUpDown.Value = (decimal)settings.ScaleSnap;
             cameraFOVUpDown.Value = (decimal)settings.CameraFOV;
-            lightIntensityNumericUpDown.Value = (decimal)settings.LightIntensity;
-            // Prevent light rotation ray from showing up while reading settings.
-            // This is re-assigned later in the function.
-            _scene.ShowLightRotationRay = false;
-            lightYawNumericUpDown.Value = (decimal)settings.LightYaw;
-            lightPitchNumericUpDown.Value = (decimal)settings.LightPitch;
-            enableLightToolStripMenuItem.Checked = settings.LightEnabled;
+            {
+                // Prevent light rotation ray from showing up while reading settings.
+                // This is re-assigned later in the function.
+                _scene.ShowLightRotationRay = false;
+                lightIntensityNumericUpDown.Value = (decimal)settings.LightIntensity;
+                lightYawNumericUpDown.Value = (decimal)settings.LightYaw;
+                lightPitchNumericUpDown.Value = (decimal)settings.LightPitch;
+                enableLightToolStripMenuItem.Checked = settings.LightEnabled;
+            }
             _scene.AmbientEnabled = settings.AmbientEnabled;
-            _scene.TexturesEnabled = settings.TexturesEnabled;
+            enableTexturesToolStripMenuItem.Checked = settings.TexturesEnabled;
             enableSemiTransparencyToolStripMenuItem.Checked = settings.SemiTransparencyEnabled;
             forceDoubleSidedToolStripMenuItem.Checked = settings.ForceDoubleSided;
             autoAttachLimbsToolStripMenuItem.Checked = settings.AutoAttachLimbs;
-            wireframeToolStripMenuItem.Checked = settings.ShowWireframe;
-            verticesOnlyToolStripMenuItem.Checked = settings.ShowVertices;
-            _scene.WireframeSize = settings.WireframeSize;
+            drawModeFacesToolStripMenuItem.Checked = settings.DrawFaces;
+            drawModeWireframeToolStripMenuItem.Checked = settings.DrawWireframe;
+            drawModeVerticesToolStripMenuItem.Checked = settings.DrawVertices;
+            drawModeSolidWireframeVerticesToolStripMenuItem.Checked = settings.DrawSolidWireframeVertices;
+            wireframeSizeUpDown.Value = (decimal)settings.WireframeSize;
             vertexSizeUpDown.Value = (decimal)settings.VertexSize;
-            showGizmosToolStripMenuItem.Checked = settings.ShowGizmos;
+            SetGizmoType(settings.GizmoType, force: true);
             showBoundsToolStripMenuItem.Checked = settings.ShowBounds;
             _scene.ShowLightRotationRay = settings.ShowLightRotationRay;
             _scene.ShowDebugVisuals = settings.ShowDebugVisuals;
@@ -2584,6 +2786,7 @@ namespace PSXPrev.Forms
             SetBackgroundColor(settings.BackgroundColor);
             SetAmbientColor(settings.AmbientColor);
             SetMaskColor(settings.MaskColor);
+            SetSolidWireframeVerticesColor(settings.SolidWireframeVerticesColor);
             showUVToolStripMenuItem.Checked = settings.ShowUVsInVRAM;
             autoDrawModelTexturesToolStripMenuItem.Checked = settings.AutoDrawModelTextures;
             autoPlayAnimationsToolStripMenuItem.Checked = settings.AutoPlayAnimation;
@@ -2597,22 +2800,26 @@ namespace PSXPrev.Forms
         {
             Program.Logger.WriteSettings(Settings.Instance);
 
-            settings.GridSnap = (float)gridSizeNumericUpDown.Value;
+            settings.GridSnap = (float)gridSnapUpDown.Value;
+            settings.AngleSnap = (float)angleSnapUpDown.Value;
+            settings.ScaleSnap = (float)scaleSnapUpDown.Value;
             settings.CameraFOV = (float)cameraFOVUpDown.Value;
             settings.LightIntensity = (float)lightIntensityNumericUpDown.Value;
             settings.LightYaw = (float)lightYawNumericUpDown.Value;
             settings.LightPitch = (float)lightPitchNumericUpDown.Value;
             settings.LightEnabled = enableLightToolStripMenuItem.Checked;
             settings.AmbientEnabled = _scene.AmbientEnabled;
-            settings.TexturesEnabled = _scene.TexturesEnabled;
+            settings.TexturesEnabled = enableTexturesToolStripMenuItem.Checked;
             settings.SemiTransparencyEnabled = enableSemiTransparencyToolStripMenuItem.Checked;
             settings.ForceDoubleSided = forceDoubleSidedToolStripMenuItem.Checked;
             settings.AutoAttachLimbs = autoAttachLimbsToolStripMenuItem.Checked;
-            settings.ShowWireframe = wireframeToolStripMenuItem.Checked;
-            settings.ShowVertices = verticesOnlyToolStripMenuItem.Checked;
-            settings.WireframeSize = _scene.WireframeSize;
+            settings.DrawFaces = drawModeFacesToolStripMenuItem.Checked;
+            settings.DrawWireframe = drawModeWireframeToolStripMenuItem.Checked;
+            settings.DrawVertices = drawModeVerticesToolStripMenuItem.Checked;
+            settings.DrawSolidWireframeVertices = drawModeSolidWireframeVerticesToolStripMenuItem.Checked;
+            settings.WireframeSize = (float)wireframeSizeUpDown.Value;
             settings.VertexSize = (float)vertexSizeUpDown.Value;
-            settings.ShowGizmos = showGizmosToolStripMenuItem.Checked;
+            settings.GizmoType = _gizmoType;
             settings.ShowBounds = showBoundsToolStripMenuItem.Checked;
             settings.ShowLightRotationRay = _scene.ShowLightRotationRay;
             settings.ShowDebugVisuals = _scene.ShowDebugVisuals;
@@ -2621,6 +2828,7 @@ namespace PSXPrev.Forms
             settings.BackgroundColor =  _scene.ClearColor;
             settings.AmbientColor = _scene.AmbientColor;
             settings.MaskColor = _scene.MaskColor;
+            settings.SolidWireframeVerticesColor = _scene.SolidWireframeVerticesColor;
             settings.ShowUVsInVRAM = showUVToolStripMenuItem.Checked;
             settings.AutoDrawModelTextures = autoDrawModelTexturesToolStripMenuItem.Checked;
             settings.AutoPlayAnimation = autoPlayAnimationsToolStripMenuItem.Checked;
