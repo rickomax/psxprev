@@ -138,6 +138,72 @@ namespace PSXPrev.Common.Renderer
             Lines.Add(new Line(vertex0, vertex1, color0, color1));
         }
 
+        public void AddTriangleOutline(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Color color = null)
+        {
+            AddLine(vertex0, vertex1, color);
+            AddLine(vertex1, vertex2, color);
+            AddLine(vertex2, vertex0, color);
+        }
+
+        public void AddTriangleOutline(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Color color = null)
+        {
+            if (matrix.HasValue)
+            {
+                var matrixValue = matrix.Value;
+                vertex0 = GeomMath.TransformPosition(ref vertex0, ref matrixValue);
+                vertex1 = GeomMath.TransformPosition(ref vertex1, ref matrixValue);
+                vertex1 = GeomMath.TransformPosition(ref vertex2, ref matrixValue);
+            }
+            AddTriangleOutline(vertex0, vertex1, vertex2, color);
+        }
+
+        public void AddQuadOutline(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Color color = null)
+        {
+            AddLine(vertex0, vertex1, color);
+            AddLine(vertex1, vertex2, color);
+            AddLine(vertex2, vertex3, color);
+            AddLine(vertex3, vertex0, color);
+        }
+
+        public void AddQuadOutline(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Color color = null)
+        {
+            if (matrix.HasValue)
+            {
+                var matrixValue = matrix.Value;
+                vertex0 = GeomMath.TransformPosition(ref vertex0, ref matrixValue);
+                vertex1 = GeomMath.TransformPosition(ref vertex1, ref matrixValue);
+                vertex1 = GeomMath.TransformPosition(ref vertex2, ref matrixValue);
+                vertex3 = GeomMath.TransformPosition(ref vertex3, ref matrixValue);
+            }
+            AddQuadOutline(vertex0, vertex1, vertex2, vertex3, color);
+        }
+
+        public void AddPolygonOutline(Vector3[] vertices, Color color = null)
+        {
+            var vertexLast = vertices[vertices.Length - 1];
+            for (var i = 0; i < vertices.Length; i++)
+            {
+                var vertex = vertices[i];
+                AddLine(vertexLast, vertex, color);
+                vertexLast = vertex;
+            }
+        }
+
+        public void AddPolygonOutline(Matrix4? matrix, Vector3[] vertices, Color color = null)
+        {
+            if (matrix.HasValue)
+            {
+                var matrixValue = matrix.Value;
+                var newVertices = new Vector3[vertices.Length];
+                for (var i = 0; i < vertices.Length; i++)
+                {
+                    Vector3.TransformPosition(ref vertices[i], ref matrixValue, out newVertices[i]);
+                }
+                vertices = newVertices;
+            }
+            AddPolygonOutline(vertices, color);
+        }
+
         private void AddCorners(Vector3[] corners, Color color = null)
         {
             AddLine(corners[0], corners[2], color);

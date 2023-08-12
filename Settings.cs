@@ -15,10 +15,10 @@ namespace PSXPrev
     [JsonObject]
     public class Settings
     {
-        private static readonly Settings _defaults = new Settings();
-
         // Returns "<path>\\<exename>.settings.json"
-        private static string SettingsFilePath => Path.ChangeExtension(Application.ExecutablePath, ".settings.json");
+        public static string FilePath => Path.ChangeExtension(Application.ExecutablePath, ".settings.json");
+
+        public static readonly Settings Defaults = new Settings();
 
         public static Settings Instance { get; set; } = new Settings();
 
@@ -116,6 +116,9 @@ namespace PSXPrev
         [JsonProperty("solidWireframeAndVerticesColor"), JsonConverter(typeof(JsonStringColorConverter))]
         public System.Drawing.Color SolidWireframeVerticesColor { get; set; } = System.Drawing.Color.Gray;
 
+        [JsonProperty("colorDialogCustomColors", ItemConverterType = typeof(JsonStringColorConverter))]
+        private System.Drawing.Color[] ColorDialogCustomColors { get; set; } = new System.Drawing.Color[0];
+
         [JsonProperty("showUVsInVRAM")]
         public bool ShowUVsInVRAM { get; set; } = true;
 
@@ -159,25 +162,95 @@ namespace PSXPrev
         public ExportModelOptions ExportModelOptions { get; set; } = new ExportModelOptions();
 
 
+        // Assigns default color to the final index (15) if specified.
+        public int[] GetColorDialogCustomColors(System.Drawing.Color? defaultColor = null)
+        {
+            int ToBgr(System.Drawing.Color col)
+            {
+                return (int)((uint)col.R | ((uint)col.G << 8) | ((uint)col.B << 16));
+            }
+
+            var customBgrColors = new int[16];
+            for (var i = 0; i < customBgrColors.Length; i++)
+            {
+                customBgrColors[i] = ToBgr(System.Drawing.Color.White);
+            }
+            if (ColorDialogCustomColors != null)
+            {
+                for (var i = 0; i < Math.Min(customBgrColors.Length, ColorDialogCustomColors.Length); i++)
+                {
+                    customBgrColors[i] = ToBgr(ColorDialogCustomColors[i]);
+                }
+            }
+            // Reserve final slot for default color value
+            if (defaultColor.HasValue)
+            {
+                customBgrColors[customBgrColors.Length - 1] = ToBgr(defaultColor.Value);
+            }
+            return customBgrColors;
+        }
+
+        // Only includes up to 15 colors, index 15 is reserved for default colors, and is ignored.
+        public void SetColorDialogCustomColors(int[] customBgrColors)
+        {
+            System.Drawing.Color FromBgr(int bgr)
+            {
+                return System.Drawing.Color.FromArgb(bgr & 0xff, (bgr >> 8) & 0xff, (bgr >> 16) & 0xff);
+            }
+
+            if (customBgrColors == null)
+            {
+                ColorDialogCustomColors = new System.Drawing.Color[0];
+            }
+            else
+            {
+                // Don't fill the settings array with empty white colors.
+                // Use as many custom colors as there are until all remaining colors are white.
+                var white = System.Drawing.Color.White;
+                var customCount = Math.Min(15, customBgrColors.Length);
+                for (; customCount > 0; customCount--)
+                {
+                    // NEVER use System.Drawing.Color equality, because it also checks
+                    // stupid things like name, and we also ignore the alpha value.
+                    var color = FromBgr(customBgrColors[customCount - 1]);
+                    if (color.R != white.R || color.G != white.G || color.B != white.B)
+                    {
+                        break;
+                    }
+                }
+                ColorDialogCustomColors = new System.Drawing.Color[customCount];
+                for (var i = 0; i < customCount; i++)
+                {
+                    ColorDialogCustomColors[i] = FromBgr(customBgrColors[i]);
+                }
+            }
+        }
+
+
         public void Validate()
         {
-            GridSnap          = ValidateMax(  GridSnap,          _defaults.GridSnap, 0f);
-            CameraFOV         = ValidateClamp(CameraFOV,         _defaults.CameraFOV, Scene.CameraMinFOV, Scene.CameraMaxFOV);
-            LightIntensity    = ValidateMax(  LightIntensity,    _defaults.LightIntensity, 0f);
-            LightYaw          = ValidateAngle(LightYaw,          _defaults.LightYaw);
-            LightPitch        = ValidateAngle(LightPitch,        _defaults.LightPitch);
-            WireframeSize     = ValidateMax(  WireframeSize,     _defaults.WireframeSize, 1f);
-            VertexSize        = ValidateMax(  VertexSize,        _defaults.VertexSize,    1f);
-            BackgroundColor   = ValidateColor(BackgroundColor,   _defaults.BackgroundColor);
-            AmbientColor      = ValidateColor(AmbientColor,      _defaults.AmbientColor);
-            MaskColor         = ValidateColor(MaskColor,         _defaults.MaskColor);
-            AnimationLoopMode = ValidateEnum( AnimationLoopMode, _defaults.AnimationLoopMode);
-            AnimationSpeed    = ValidateClamp(AnimationSpeed,    _defaults.AnimationSpeed, 0.01f, 100f);
-            LogStandardColor        = ValidateEnum(LogStandardColor,        _defaults.LogStandardColor);
-            LogPositiveColor        = ValidateEnum(LogPositiveColor,        _defaults.LogPositiveColor);
-            LogWarningColor         = ValidateEnum(LogWarningColor,         _defaults.LogWarningColor);
-            LogErrorColor           = ValidateEnum(LogErrorColor,           _defaults.LogErrorColor);
-            LogExceptionPrefixColor = ValidateEnum(LogExceptionPrefixColor, _defaults.LogExceptionPrefixColor);
+            GridSnap          = ValidateMax(  GridSnap,          Defaults.GridSnap, 0f);
+            CameraFOV         = ValidateClamp(CameraFOV,         Defaults.CameraFOV, Scene.CameraMinFOV, Scene.CameraMaxFOV);
+            LightIntensity    = ValidateMax(  LightIntensity,    Defaults.LightIntensity, 0f);
+            LightYaw          = ValidateAngle(LightYaw,          Defaults.LightYaw);
+            LightPitch        = ValidateAngle(LightPitch,        Defaults.LightPitch);
+            WireframeSize     = ValidateMax(  WireframeSize,     Defaults.WireframeSize, 1f);
+            VertexSize        = ValidateMax(  VertexSize,        Defaults.VertexSize,    1f);
+            BackgroundColor   = ValidateColor(BackgroundColor,   Defaults.BackgroundColor);
+            AmbientColor      = ValidateColor(AmbientColor,      Defaults.AmbientColor);
+            MaskColor         = ValidateColor(MaskColor,         Defaults.MaskColor);
+            AnimationLoopMode = ValidateEnum( AnimationLoopMode, Defaults.AnimationLoopMode);
+            AnimationSpeed    = ValidateClamp(AnimationSpeed,    Defaults.AnimationSpeed, 0.01f, 100f);
+            LogStandardColor        = ValidateEnum(LogStandardColor,        Defaults.LogStandardColor);
+            LogPositiveColor        = ValidateEnum(LogPositiveColor,        Defaults.LogPositiveColor);
+            LogWarningColor         = ValidateEnum(LogWarningColor,         Defaults.LogWarningColor);
+            LogErrorColor           = ValidateEnum(LogErrorColor,           Defaults.LogErrorColor);
+            LogExceptionPrefixColor = ValidateEnum(LogExceptionPrefixColor, Defaults.LogExceptionPrefixColor);
+
+            if (ColorDialogCustomColors == null)
+            {
+                ColorDialogCustomColors = new System.Drawing.Color[0];
+            }
 
             if (ScanOptions == null)
             {
@@ -201,7 +274,7 @@ namespace PSXPrev
         {
             try
             {
-                File.WriteAllText(SettingsFilePath, JsonConvert.SerializeObject(this, Formatting.Indented));
+                File.WriteAllText(FilePath, JsonConvert.SerializeObject(this, Formatting.Indented));
             }
             catch
             {
@@ -213,11 +286,11 @@ namespace PSXPrev
         {
             try
             {
-                Instance = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(SettingsFilePath));
+                Instance = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(FilePath));
                 Instance.Validate();
 
                 // Create a settings file if one doesn't already exist.
-                if (!File.Exists(SettingsFilePath))
+                if (!File.Exists(FilePath))
                 {
                     Instance.Save();
                 }
@@ -231,10 +304,17 @@ namespace PSXPrev
 
         public static void LoadDefaults()
         {
+            var oldInstance = Instance;
             Instance = new Settings();
 
+            // There's no reason not to preserve color dialog custom colors when resetting settings.
+            if (oldInstance?.ColorDialogCustomColors != null)
+            {
+                Instance.ColorDialogCustomColors = (System.Drawing.Color[])oldInstance.ColorDialogCustomColors.Clone();
+            }
+
             // Create a settings file if one doesn't already exist.
-            if (!File.Exists(SettingsFilePath))
+            if (!File.Exists(FilePath))
             {
                 Instance.Save();
             }
