@@ -38,15 +38,17 @@ Treat this as an experimental release and use this tool at your own risk. Warnin
 
 **Links:** [Video tutorial](https://www.youtube.com/watch?v=hPDa8l3ZE6U) \| [Compatibility list](https://docs.google.com/spreadsheets/d/155pUzwl7CC14ssT0PJkaEA53CS1ijpOV04VitQCVBC4)
 
-**PSXPrev uses:**
-- [OpenTK](https://github.com/opentk/opentk)
-- [DiscUtils](https://github.com/DiscUtils/DiscUtils)
+**Credits:**
+- 3D rendering with [OpenTK](https://github.com/opentk/opentk)
+- ISO reading with [DiscUtils](https://github.com/DiscUtils/DiscUtils)
+- JSON reading/writing with [Newtonsoft.Json](https://www.newtonsoft.com/json)
 - Ozgur Ozcitak's [ImageListView](https://github.com/oozcitak/imagelistview)
 - Daniele de Santis's [Playstation Icons](https://www.behance.net/gallery/26021809/Playstation-icons-%28free-download%29)
+- Yusuke Kamiyamane's [Fugue Icons](https://p.yusukekamiyamane.com)
 
 <!-- Daniele de Santis's personal site: <http://www.danieledesantis.net/> -->
 
-**PSXPrev requirements ro run:**
+**Runtime Requirements:**
 - An OpenGL 3.0 compatible video card
 - .NET Framework 4.8
 

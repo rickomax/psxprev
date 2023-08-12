@@ -53,6 +53,10 @@ namespace PSXPrev.Common.Renderer
             // Translate boxes
             public Vector3 TranslateCenter { get; set; }
             public Vector3 TranslateSize { get; set; }
+            // Unused at the moment
+            public Vector3 TranslateConeBottom { get; set; }
+            public float TranslateConeRadius { get; set; }
+            public float TranslateConeHeight { get; set; }
             // Rotate rings
             public float RotateOuterRadius { get; set; }
             public float RotateInnerRadius { get; set; }
@@ -785,6 +789,8 @@ namespace PSXPrev.Common.Renderer
                         {
                             case GizmoType.Translate when gizmo != GizmoId.Uniform:
                                 triangleBuilder.AddCube(gizmoInfo.TranslateCenter, gizmoInfo.TranslateSize);
+                                //triangleBuilder.AddCone(gizmoInfo.AxisIndex, gizmoInfo.TranslateConeBottom, gizmoInfo.TranslateConeHeight,
+                                //                        gizmoInfo.TranslateConeRadius, 12, false, flip: gizmo == GizmoId.AxisY);
                                 break;
 
                             case GizmoType.Rotate when gizmo != GizmoId.Uniform:

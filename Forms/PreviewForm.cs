@@ -79,7 +79,7 @@ namespace PSXPrev.Forms
         private Bitmap _maskColorBitmap;
         private Bitmap _ambientColorBitmap;
         private Bitmap _backgroundColorBitmap;
-        private Bitmap _solidWireframeVerticesColorBitmap;
+        private Bitmap _wireframeVerticesColorBitmap;
         private float _texturePreviewScale = 1f;
         private float _vramPageScale = 1f;
         private bool _autoDrawModelTextures;
@@ -376,15 +376,19 @@ namespace PSXPrev.Forms
             _openTkControl = new GLControl { BackColor = Color.Black, Name = "openTKControl", TabIndex = 15, VSync = true };
             _openTkControl.BorderStyle = BorderStyle.FixedSingle;
             _openTkControl.Load += openTKControl_Load;
-            _openTkControl.MouseDown += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Down); };
-            _openTkControl.MouseUp += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Up); };
-            _openTkControl.MouseWheel += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Wheel); };
-            _openTkControl.MouseMove += delegate (object sender, MouseEventArgs e) { openTkControl_MouseEvent(e, MouseEventType.Move); };
+            _openTkControl.MouseDown += (sender, e) => openTkControl_MouseEvent(e, MouseEventType.Down);
+            _openTkControl.MouseUp += (sender, e) => openTkControl_MouseEvent(e, MouseEventType.Up);
+            _openTkControl.MouseWheel += (sender, e) => openTkControl_MouseEvent(e, MouseEventType.Wheel);
+            _openTkControl.MouseMove += (sender, e) => openTkControl_MouseEvent(e, MouseEventType.Move);
             _openTkControl.Paint += _openTkControl_Paint;
             _openTkControl.Resize += _openTkControl_Resize;
             _openTkControl.Dock = DockStyle.Fill;
             _openTkControl.Parent = modelsSplitContainer.Panel2;
             _openTkControl.Margin = Padding.Empty;
+
+            // Use this renderer because ToolStripSystemRenderer (the default) is garbage.
+            // This one also handles checkmarks with images correctly.
+            mainMenuStrip.Renderer = new ToolStripProfessionalRenderer();
 
             texturePanel.MouseWheel += TexturePanelOnMouseWheel;
             vramPanel.MouseWheel += VramPanelOnMouseWheel;
@@ -407,7 +411,7 @@ namespace PSXPrev.Forms
             _vramPageScale = GeomMath.Clamp(_vramPageScale, 0.25f, 8.0f);
             vramPagePictureBox.Width = (int)(VRAM.PageSize * _vramPageScale);
             vramPagePictureBox.Height = (int)(VRAM.PageSize * _vramPageScale);
-            vramZoomLabel.Text = string.Format("{0:P0}", _vramPageScale);
+            vramZoomLabel.Text = $"{_vramPageScale:P0}"; // Percent format
         }
 
         private void TexturePanelOnMouseWheel(object sender, MouseEventArgs e)
@@ -429,7 +433,7 @@ namespace PSXPrev.Forms
             }
             texturePreviewPictureBox.Width = (int)(texture.Width * _texturePreviewScale);
             texturePreviewPictureBox.Height = (int)(texture.Height * _texturePreviewScale);
-            texturesZoomLabel.Text = string.Format("{0:P0}", _texturePreviewScale);
+            texturesZoomLabel.Text = $"{_texturePreviewScale:P0}"; // Percent format
         }
 
         private void _openTkControl_Resize(object sender, EventArgs e)
@@ -860,7 +864,7 @@ namespace PSXPrev.Forms
             }
         }
 
-        private bool PromptColor(Color? defaultColor, out Color color)
+        private bool PromptColor(Color? initialColor, Color? defaultColor, out Color color)
         {
             _inDialog = true;
             try
@@ -868,15 +872,23 @@ namespace PSXPrev.Forms
                 using (var colorDialog = new ColorDialog())
                 {
                     colorDialog.FullOpen = true;
-                    if (defaultColor.HasValue)
+                    // Use dialog custom colors chosen by the user
+                    colorDialog.CustomColors = Settings.Instance.GetColorDialogCustomColors(defaultColor);
+                    if (initialColor.HasValue)
                     {
-                        colorDialog.Color = defaultColor.Value;
+                        colorDialog.Color = initialColor.Value;
                     }
+
                     if (colorDialog.ShowDialog(this) == DialogResult.OK)
                     {
+                        // Remember dialog custom colors chosen by the user
+                        Settings.Instance.SetColorDialogCustomColors(colorDialog.CustomColors);
+
                         color = colorDialog.Color;
                         return true;
                     }
+                    // todo: Should we still update custom colors when cancelled?
+                    Settings.Instance.SetColorDialogCustomColors(colorDialog.CustomColors);
                 }
                 color = Color.Black;
                 return false;
@@ -1914,60 +1926,75 @@ namespace PSXPrev.Forms
             SetupAnimations();
         }
 
+        private Bitmap DrawColorIcon(ref Bitmap bitmap, Color color)
+        {
+            if (bitmap == null)
+            {
+                bitmap = new Bitmap(16, 16);
+            }
+            using (var graphics = Graphics.FromImage(bitmap))
+            {
+#if false
+                // Simple method just draws a solid 16x16 rectangle with color.
+                graphics.Clear(color);
+#else
+                // Fancy method uses a bitmap with a shadow, and draws a 14x14 rectangle,
+                // with a darkened outline, and the solid color within a 12x12 rectangle.
+                graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+
+                graphics.Clear(Color.Transparent);
+
+                // Draw the background image that casts a shadow
+                graphics.DrawImage(Properties.Resources.ColorBackground, 0, 0);
+
+                // Draw the solid color box
+                using (var brush = new SolidBrush(color))
+                {
+                    graphics.FillRectangle(brush, 2, 2, 12, 12);
+                }
+
+                // Draw the darkened color border (color is brightened if maximum channel is less than threshold)
+                const float inc = 80f;
+                const int threshold = 40;
+                var brighten = Math.Max(color.R, Math.Max(color.G, color.B)) <= threshold;
+                int BorderChannel(byte channel)
+                {
+                    var c = channel + (brighten ? (inc * 1.25f) : -inc);
+                    return GeomMath.Clamp((int)c, 0, 255);
+                }
+                var borderColor = Color.FromArgb(BorderChannel(color.R), BorderChannel(color.G), BorderChannel(color.B));
+                using (var borderPen = new Pen(borderColor))
+                {
+                    graphics.DrawRectangle(borderPen, 1, 1, 14 - 1, 14 - 1); // -1 because size is inclusive for outlines
+                }
+#endif
+            }
+            return bitmap;
+        }
+
         private void SetMaskColor(Color color)
         {
             _scene.MaskColor = color;
-            if (_maskColorBitmap == null)
-            {
-                _maskColorBitmap = new Bitmap(16, 16);
-            }
-            using (var graphics = Graphics.FromImage(_maskColorBitmap))
-            {
-                graphics.Clear(color);
-            }
-            setMaskColorToolStripMenuItem.Image = _maskColorBitmap;
+            setMaskColorToolStripMenuItem.Image = DrawColorIcon(ref _maskColorBitmap, color);
         }
 
         private void SetAmbientColor(Color color)
         {
             _scene.AmbientColor = color;
-            if (_ambientColorBitmap == null)
-            {
-                _ambientColorBitmap = new Bitmap(16, 16);
-            }
-            using (var graphics = Graphics.FromImage(_ambientColorBitmap))
-            {
-                graphics.Clear(color);
-            }
-            setAmbientColorToolStripMenuItem.Image = _ambientColorBitmap;
+            setAmbientColorToolStripMenuItem.Image = DrawColorIcon(ref _ambientColorBitmap, color);
         }
 
         private void SetBackgroundColor(Color color)
         {
             _scene.ClearColor = color;
-            if (_backgroundColorBitmap == null)
-            {
-                _backgroundColorBitmap = new Bitmap(16, 16);
-            }
-            using (var graphics = Graphics.FromImage(_backgroundColorBitmap))
-            {
-                graphics.Clear(color);
-            }
-            setBackgroundColorToolStripMenuItem.Image = _backgroundColorBitmap;
+            setBackgroundColorToolStripMenuItem.Image = DrawColorIcon(ref _backgroundColorBitmap, color);
         }
 
         private void SetSolidWireframeVerticesColor(Color color)
         {
             _scene.SolidWireframeVerticesColor = color;
-            if (_solidWireframeVerticesColorBitmap == null)
-            {
-                _solidWireframeVerticesColorBitmap = new Bitmap(16, 16);
-            }
-            using (var graphics = Graphics.FromImage(_solidWireframeVerticesColorBitmap))
-            {
-                graphics.Clear(color);
-            }
-            setSolidWireframeVerticesColorToolStripMenuItem.Image = _solidWireframeVerticesColorBitmap;
+            setWireframeVerticesColorToolStripMenuItem.Image = DrawColorIcon(ref _wireframeVerticesColorBitmap, color);
         }
 
         private void Redraw()
@@ -2246,7 +2273,7 @@ namespace PSXPrev.Forms
 
         private void setMaskColorToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (PromptColor(_scene.MaskColor, out var color))
+            if (PromptColor(_scene.MaskColor, Settings.Defaults.MaskColor, out var color))
             {
                 SetMaskColor(color);
             }
@@ -2254,7 +2281,7 @@ namespace PSXPrev.Forms
 
         private void setAmbientColorToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (PromptColor(_scene.AmbientColor, out var color))
+            if (PromptColor(_scene.AmbientColor, Settings.Defaults.AmbientColor, out var color))
             {
                 SetAmbientColor(color);
             }
@@ -2262,7 +2289,7 @@ namespace PSXPrev.Forms
 
         private void setBackgroundColorToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (PromptColor(_scene.ClearColor, out var color))
+            if (PromptColor(_scene.ClearColor, Settings.Defaults.BackgroundColor, out var color))
             {
                 SetBackgroundColor(color);
             }
@@ -2270,7 +2297,7 @@ namespace PSXPrev.Forms
 
         private void setSolidWireframeVerticesColorToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (PromptColor(_scene.SolidWireframeVerticesColor, out var color))
+            if (PromptColor(_scene.SolidWireframeVerticesColor, Settings.Defaults.SolidWireframeVerticesColor, out var color))
             {
                 SetSolidWireframeVerticesColor(color);
             }
@@ -2563,28 +2590,37 @@ namespace PSXPrev.Forms
                     // We can't set these shortcut keys in the designer because it
                     // considers them "invalid" for not having modifier keys.
                     case Keys.W when state && sceneFocused:
-                        if (_gizmoType != GizmoType.Translate)
+                        if (!_controlKeyDown)
                         {
-                            SetGizmoType(GizmoType.Translate);
-                            //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                            if (_gizmoType != GizmoType.Translate)
+                            {
+                                SetGizmoType(GizmoType.Translate);
+                                //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                            }
+                            e.Handled = true;
                         }
-                        e.Handled = true;
                         break;
                     case Keys.E when state && sceneFocused:
-                        if (_gizmoType != GizmoType.Rotate)
+                        if (!_controlKeyDown)
                         {
-                            SetGizmoType(GizmoType.Rotate);
-                            //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                            if (_gizmoType != GizmoType.Rotate)
+                            {
+                                SetGizmoType(GizmoType.Rotate);
+                                //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                            }
+                            e.Handled = true;
                         }
-                        e.Handled = true;
                         break;
                     case Keys.R when state && sceneFocused:
-                        if (_gizmoType != GizmoType.Scale)
+                        if (!_controlKeyDown)
                         {
-                            SetGizmoType(GizmoType.Scale);
-                            //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                            if (_gizmoType != GizmoType.Scale)
+                            {
+                                SetGizmoType(GizmoType.Scale);
+                                //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                            }
+                            e.Handled = true;
                         }
-                        e.Handled = true;
                         break;
 
                     // Debugging keys for testing picking rays.
@@ -2636,6 +2672,24 @@ namespace PSXPrev.Forms
                                 }
                                 e.Handled = true;
                             }
+                        }
+                        break;
+#endif
+
+                    // Debugging: Print information to help hardcode scene setup when taking screenshots of models.
+#if DEBUG
+                    case Keys.C when state && sceneFocused:
+                        if (_scene.ShowDebugVisuals && !_controlKeyDown)
+                        {
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"CameraFOV      = {_scene.CameraFOV:R};");
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"CameraDistance = {_scene.CameraDistance:R};");
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraX       = {_scene.CameraX:R};");
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraY       = {_scene.CameraY:R};");
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraPitch   = {_scene.CameraPitch:R};");
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraYaw     = {_scene.CameraYaw:R};");
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"LightIntensity = {_scene.LightIntensity:R};");
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"LightPitchYaw  = new Vector2({_scene.LightPitch:R}, {_scene.LightYaw:R});");
+                            e.Handled = true;
                         }
                         break;
 #endif
@@ -2860,7 +2914,14 @@ namespace PSXPrev.Forms
 
         private void clearScanResultsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            ClearResults();
+            if (_rootEntities.Count > 0 || _textures.Count > 0 || _animations.Count > 0)
+            {
+                var result = MessageBox.Show(this, "Are you sure you want to clear scan results?", "Clear Scan Results", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                if (result == DialogResult.Yes)
+                {
+                    ClearResults();
+                }
+            }
         }
     }
 }

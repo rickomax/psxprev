@@ -34,6 +34,11 @@ namespace PSXPrev.Common.Renderer
 
         public bool CalculateNormals { get; set; }
 
+        // When non-null, lines will be added to this builder to outline polygons created with
+        // Add shape functions (excluding Triangle and Quad). This is different from using Wireframe,
+        // because this excludes triangles that are split up from larger polygons.
+        public LineMeshBuilder OutlineBuilder { get; set; }
+
         public List<Triangle> Triangles { get; }
 
         public int Count => Triangles.Count;
@@ -304,6 +309,7 @@ namespace PSXPrev.Common.Renderer
                 return;
             }
             AddCorners(bounds.Corners, CubeNormals, color);
+            OutlineBuilder?.AddBoundsOutline(bounds);
         }
 
         public void AddBounds(Matrix4? matrix, BoundingBox bounds, Color color = null)
@@ -330,6 +336,7 @@ namespace PSXPrev.Common.Renderer
                 normals = newNormals;
             }
             AddCorners(corners, normals, color);
+            OutlineBuilder?.AddBoundsOutline(matrix, bounds);
         }
 
         // Size refers to the distance from the center to the corners.
@@ -350,12 +357,12 @@ namespace PSXPrev.Common.Renderer
         }
 
         // Height refers to the distance from the center to the top or bottom.
-        public void AddCylinder(int axis, Vector3 center, float height, float radius, int sides, Color color = null)
+        public void AddCylinder(int axis, Vector3 center, float height, float radius, int sides, bool gouraud = true, Color color = null)
         {
-            AddCylinder(null, axis, center, height, radius, sides, color);
+            AddCylinder(null, axis, center, height, radius, sides, gouraud, color);
         }
 
-        public void AddCylinder(Matrix4? matrix, int axis, Vector3 center, float height, float radius, int sides, Color color = null)
+        public void AddCylinder(Matrix4? matrix, int axis, Vector3 center, float height, float radius, int sides, bool gouraud = true, Color color = null)
         {
             if (sides < 3)
             {
@@ -439,18 +446,25 @@ namespace PSXPrev.Common.Renderer
                 var v3 = vertices[1, i];
                 var n0 = normals[i2];
                 var n1 = normals[i];
+                if (!gouraud)
+                {
+                    n0 = n1 = (n0 + n1).Normalized();
+                }
                 AddTriangle(v0, v1, v2, n0, n0, n1, color);
                 AddTriangle(v1, v3, v2, n0, n1, n1, color);
+                OutlineBuilder?.AddLine(v0, v2);
+                OutlineBuilder?.AddLine(v2, v3);
+                OutlineBuilder?.AddLine(v3, v1);
             }
         }
 
         // Height refers to the distance from the center to the top or bottom.
-        public void AddRing(int axis, Vector3 center, float height, float outerRadius, float innerRadius, int sides, Color color = null)
+        public void AddRing(int axis, Vector3 center, float height, float outerRadius, float innerRadius, int sides, bool gouraud = true, Color color = null)
         {
-            AddRing(null, axis, center, height, outerRadius, innerRadius, sides, color);
+            AddRing(null, axis, center, height, outerRadius, innerRadius, sides, gouraud, color);
         }
 
-        public void AddRing(Matrix4? matrix, int axis, Vector3 center, float height, float outerRadius, float innerRadius, int sides, Color color = null)
+        public void AddRing(Matrix4? matrix, int axis, Vector3 center, float height, float outerRadius, float innerRadius, int sides, bool gouraud = true, Color color = null)
         {
             if (sides < 3)
             {
@@ -537,8 +551,15 @@ namespace PSXPrev.Common.Renderer
                             n0 = -n0;
                             n1 = -n1;
                         }
+                        if (!gouraud)
+                        {
+                            n0 = n1 = (n0 + n1).Normalized();
+                        }
                         AddTriangle(v0, v1, v2, n0, n0, n1, color);
                         AddTriangle(v1, v3, v2, n0, n1, n1, color);
+                        OutlineBuilder?.AddLine(v0, v2);
+                        OutlineBuilder?.AddLine(v2, v3);
+                        OutlineBuilder?.AddLine(v3, v1);
                     }
                 }
             }
@@ -546,12 +567,12 @@ namespace PSXPrev.Common.Renderer
 
         // Build a sphere by subdividing faces of an octahedron into smaller triangles.
         // Triangles are least dense at the center of each face, and most dense near the corners (but not by much).
-        public void AddOctaSphere(Vector3 center, float radius, int subdivision, Color color = null)
+        public void AddOctaSphere(Vector3 center, float radius, int subdivision, bool gouraud = true, Color color = null)
         {
-            AddOctaSphere(null, center, radius, subdivision, color);
+            AddOctaSphere(null, center, radius, subdivision, gouraud, color);
         }
 
-        public void AddOctaSphere(Matrix4? matrix, Vector3 center, float radius, int subdivision, Color color = null)
+        public void AddOctaSphere(Matrix4? matrix, Vector3 center, float radius, int subdivision, bool gouraud = true, Color color = null)
         {
             if (subdivision < 1)
             {
@@ -635,13 +656,31 @@ namespace PSXPrev.Common.Renderer
                         var n0 = normals[face, h - 1, w - 1];
                         var n1 = normals[face, h, w1];
                         var n2 = normals[face, h, w2];
-                        AddTriangle(v0, v1, v2, n0, n1, n2, color);
+                        if (gouraud)
+                        {
+                            AddTriangle(v0, v1, v2, n0, n1, n2, color);
+                        }
+                        else
+                        {
+                            var n = (n0 + n1 + n2).Normalized();
+                            AddTriangle(v0, v1, v2, n, color);
+                        }
+                        OutlineBuilder?.AddTriangleOutline(v0, v1, v2);
 
                         if (h < subdivision) // There are no second triangles to draw on the last loop of h
                         {
                             var v3 = vertices[face, h + 1, w];
                             var n3 = normals[face, h + 1, w];
-                            AddTriangle(v1, v3, v2, n1, n3, n2, color);
+                            if (gouraud)
+                            {
+                                AddTriangle(v1, v3, v2, n1, n3, n2, color);
+                            }
+                            else
+                            {
+                                var n = (n1 + n3 + n2).Normalized();
+                                AddTriangle(v1, v3, v2, n, color);
+                            }
+                            OutlineBuilder?.AddTriangleOutline(v1, v3, v2);
                         }
                     }
                 }
@@ -652,12 +691,12 @@ namespace PSXPrev.Common.Renderer
         // into sectors (number of horizontal sides from 0deg to 360deg)
         // and stacks (number of vertical sides from 90deg to -90deg).
         // Triangles are most dense near the top and bottom, and least dense near the equator.
-        public void AddSphere(Vector3 center, float radius, int sectors, int stacks, Color color = null)
+        public void AddSphere(Vector3 center, float radius, int sectors, int stacks, bool gouraud = true, Color color = null)
         {
-            AddSphere(null, center, radius, sectors, stacks, color);
+            AddSphere(null, center, radius, sectors, stacks, gouraud, color);
         }
 
-        public void AddSphere(Matrix4? matrix, Vector3 center, float radius, int sectors, int stacks, Color color = null)
+        public void AddSphere(Matrix4? matrix, Vector3 center, float radius, int sectors, int stacks, bool gouraud = true, Color color = null)
         {
             if (sectors < 3)
             {
@@ -684,13 +723,16 @@ namespace PSXPrev.Common.Renderer
             // Convert cosine/sine angles into directions, and convert
             // directions into translated and scaled (center + direction * radius) points.
             // We only need to calculate half of the stacks and sectors. We can just negate the other half.
-            void CalcPoint(int h, int w, float sectorCos, float sectorSin, float stackCos, float stackSin)
+            void CalcPoint(int h, int w, float sectorCos, float sectorSin, float stackCos, float stackSin, bool normalOnly = false)
             {
                 var y = stackSin;
                 var x = sectorCos * stackCos;
                 var z = sectorSin * stackCos;
                 normals[h, w] = new Vector3(x, y, z);
-                vertices[h, w] = center + normals[h, w] * radius;
+                if (!normalOnly)
+                {
+                    vertices[h, w] = center + normals[h, w] * radius;
+                }
             }
             for (var h = 0; h <= (stacks / 2); h++)
             {
@@ -752,6 +794,10 @@ namespace PSXPrev.Common.Renderer
                     var n1 = normals[h + 1, w];
                     var n2 = normals[h,     w2];
                     var n3 = normals[h + 1, w2];
+                    if (!gouraud)
+                    {
+                        n0 = n1 = n2 = n3 = (n0 + n1 + n2 + n3).Normalized();
+                    }
                     if (!top)
                     {
                         AddTriangle(v0, v1, v2, n0, n1, n2, color);
@@ -759,6 +805,21 @@ namespace PSXPrev.Common.Renderer
                     if (!bottom)
                     {
                         AddTriangle(v1, v3, v2, n1, n3, n2, color);
+                    }
+                    if (OutlineBuilder != null)
+                    {
+                        if (!top && !bottom)
+                        {
+                            OutlineBuilder.AddQuadOutline(v0, v1, v2, v3);
+                        }
+                        else if (!top)
+                        {
+                            OutlineBuilder.AddTriangleOutline(v0, v1, v2);
+                        }
+                        else if (!bottom)
+                        {
+                            OutlineBuilder.AddTriangleOutline(v1, v3, v2);
+                        }
                     }
                 }
             }
@@ -768,12 +829,13 @@ namespace PSXPrev.Common.Renderer
         // If smoothTop is true, then the normals for the tip of the cone will all point upwards. This fixes the fact
         // that gouraud shading cannot represent smooth normals on a cone, but the normals will not be entirely correct.
         // If flip is true, then the tip of the cone will point towards the negative direction of the axis.
-        public void AddCone(int axis, Vector3 center, float height, float radius, int sides, bool smoothTop, bool flip = false, Color color = null)
+        // If gouraud is false, then smoothTop is ignored.
+        public void AddCone(int axis, Vector3 center, float height, float radius, int sides, bool smoothTop, bool flip = false, bool gouraud = true, Color color = null)
         {
-            AddCone(null, axis, center, height, radius, sides, smoothTop, flip, color);
+            AddCone(null, axis, center, height, radius, sides, smoothTop, flip, gouraud, color);
         }
 
-        public void AddCone(Matrix4? matrix, int axis, Vector3 bottom, float height, float radius, int sides, bool smoothTop, bool flip = false, Color color = null)
+        public void AddCone(Matrix4? matrix, int axis, Vector3 bottom, float height, float radius, int sides, bool smoothTop, bool flip = false, bool gouraud = true, Color color = null)
         {
             // Compared to other drawing functions with an axis argument, cones
             // are a lot messier since the up/down direction of axis is important.
@@ -804,7 +866,7 @@ namespace PSXPrev.Common.Renderer
                 vertexBottom = GeomMath.TransformPosition(ref vertexBottom, ref matrixValue);
                 vertexLast = GeomMath.TransformPosition(ref vertexLast, ref matrixValue);
 
-                if (smoothTop)
+                if (smoothTop && gouraud)
                 {
                     normalTop = GeomMath.TransformNormalInverseNormalized(ref normalTop, ref invMatrixValue);
                 }
@@ -820,7 +882,7 @@ namespace PSXPrev.Common.Renderer
             for (var i = 1; i <= sides; i++)
             {
                 // Use X = 1f to preserve vertical component in normal calculation.
-                if (!smoothTop) // We're not reusing the same normal for all top vertices
+                if (!smoothTop || !gouraud) // We're not reusing the same normal for all top vertices
                 {
                     var halfTheta = (Math.PI * 2d) * (((double)i - 0.5d) / sides);
                     normalDirection = GeomMath.SwapAxes(axis, 1f, (float)Math.Cos(halfTheta), (float)Math.Sin(halfTheta));
@@ -836,7 +898,7 @@ namespace PSXPrev.Common.Renderer
                 {
                     vertex = GeomMath.TransformPosition(ref vertex, ref matrixValue);
 
-                    if (!smoothTop)
+                    if (!smoothTop || !gouraud)
                     {
                         normalTop = GeomMath.TransformNormalInverseNormalized(ref normalTop, ref invMatrixValue);
                     }
@@ -844,6 +906,10 @@ namespace PSXPrev.Common.Renderer
                 }
 
                 // Add body and bottom triangles
+                if (!gouraud)
+                {
+                    normalLast = normal = normalTop;
+                }
                 if (!flip)
                 {
                     AddTriangle(vertex, vertexLast, vertexTop, normal, normalLast, normalTop, color);
@@ -854,6 +920,8 @@ namespace PSXPrev.Common.Renderer
                     AddTriangle(vertexLast, vertex, vertexTop, normalLast, normal, normalTop, color);
                     AddTriangle(vertex, vertexLast, vertexBottom, normalBottom, color);
                 }
+                OutlineBuilder?.AddLine(vertexLast, vertex);
+                OutlineBuilder?.AddLine(vertexLast, vertexTop);
 
                 vertexLast = vertex;
                 normalLast = normal;
