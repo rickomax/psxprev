@@ -164,7 +164,9 @@ namespace PSXPrev.Forms
             this.toolStripSeparator5 = new System.Windows.Forms.ToolStripSeparator();
             this.aboutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
-            this.messageToolStripLabel = new System.Windows.Forms.ToolStripStatusLabel();
+            this.statusTotalFilesProgressBar = new System.Windows.Forms.ToolStripProgressBar();
+            this.statusCurrentFileProgressBar = new System.Windows.Forms.ToolStripProgressBar();
+            this.statusMessageLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.sceneControlsFlowLayoutPanel = new System.Windows.Forms.FlowLayoutPanel();
             this.lightRotationFlowLayoutPanel = new System.Windows.Forms.FlowLayoutPanel();
             this.label1 = new System.Windows.Forms.Label();
@@ -660,7 +662,7 @@ namespace PSXPrev.Forms
             this.gotoPageButton.TabIndex = 13;
             this.gotoPageButton.Text = "Go to Page";
             this.gotoPageButton.UseVisualStyleBackColor = true;
-            this.gotoPageButton.Click += new System.EventHandler(this.gotoPageButton_Click);
+            this.gotoPageButton.Click += new System.EventHandler(this.gotoVRAMPageButton_Click);
             // 
             // btnClearPage
             // 
@@ -672,7 +674,7 @@ namespace PSXPrev.Forms
             this.btnClearPage.TabIndex = 12;
             this.btnClearPage.Text = "Clear Page";
             this.btnClearPage.UseVisualStyleBackColor = true;
-            this.btnClearPage.Click += new System.EventHandler(this.btnClearPage_Click);
+            this.btnClearPage.Click += new System.EventHandler(this.clearVRAMPage_Click);
             // 
             // vramZoomLabel
             // 
@@ -1200,7 +1202,7 @@ namespace PSXPrev.Forms
             // gizmoToolNoneToolStripMenuItem
             // 
             this.gizmoToolNoneToolStripMenuItem.Name = "gizmoToolNoneToolStripMenuItem";
-            this.gizmoToolNoneToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.gizmoToolNoneToolStripMenuItem.Size = new System.Drawing.Size(138, 22);
             this.gizmoToolNoneToolStripMenuItem.Text = "None";
             this.gizmoToolNoneToolStripMenuItem.Click += new System.EventHandler(this.gizmoToolNoneToolStripMenuItem_Click);
             // 
@@ -1209,7 +1211,7 @@ namespace PSXPrev.Forms
             this.gizmoToolTranslateToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Gizmo_Translate;
             this.gizmoToolTranslateToolStripMenuItem.Name = "gizmoToolTranslateToolStripMenuItem";
             this.gizmoToolTranslateToolStripMenuItem.ShortcutKeyDisplayString = "W";
-            this.gizmoToolTranslateToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.gizmoToolTranslateToolStripMenuItem.Size = new System.Drawing.Size(138, 22);
             this.gizmoToolTranslateToolStripMenuItem.Text = "Translate";
             this.gizmoToolTranslateToolStripMenuItem.Click += new System.EventHandler(this.gizmoToolTranslateToolStripMenuItem_Click);
             // 
@@ -1218,7 +1220,7 @@ namespace PSXPrev.Forms
             this.gizmoToolRotateToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Gizmo_Rotate;
             this.gizmoToolRotateToolStripMenuItem.Name = "gizmoToolRotateToolStripMenuItem";
             this.gizmoToolRotateToolStripMenuItem.ShortcutKeyDisplayString = "E";
-            this.gizmoToolRotateToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.gizmoToolRotateToolStripMenuItem.Size = new System.Drawing.Size(138, 22);
             this.gizmoToolRotateToolStripMenuItem.Text = "Rotate";
             this.gizmoToolRotateToolStripMenuItem.Click += new System.EventHandler(this.gizmoToolRotateToolStripMenuItem_Click);
             // 
@@ -1227,7 +1229,7 @@ namespace PSXPrev.Forms
             this.gizmoToolScaleToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Gizmo_Scale;
             this.gizmoToolScaleToolStripMenuItem.Name = "gizmoToolScaleToolStripMenuItem";
             this.gizmoToolScaleToolStripMenuItem.ShortcutKeyDisplayString = "R";
-            this.gizmoToolScaleToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.gizmoToolScaleToolStripMenuItem.Size = new System.Drawing.Size(138, 22);
             this.gizmoToolScaleToolStripMenuItem.Text = "Scale";
             this.gizmoToolScaleToolStripMenuItem.Click += new System.EventHandler(this.gizmoToolScaleToolStripMenuItem_Click);
             // 
@@ -1344,7 +1346,7 @@ namespace PSXPrev.Forms
             this.enableSemiTransparencyToolStripMenuItem.Name = "enableSemiTransparencyToolStripMenuItem";
             this.enableSemiTransparencyToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
             this.enableSemiTransparencyToolStripMenuItem.Text = "Enable Semi-Transparency";
-            this.enableSemiTransparencyToolStripMenuItem.CheckedChanged += new System.EventHandler(this.enableTransparencyToolStripMenuItem_CheckedChanged);
+            this.enableSemiTransparencyToolStripMenuItem.CheckedChanged += new System.EventHandler(this.enableSemiTransparencyToolStripMenuItem_CheckedChanged);
             // 
             // forceDoubleSidedToolStripMenuItem
             // 
@@ -1474,7 +1476,7 @@ namespace PSXPrev.Forms
             this.findByPageToolStripMenuItem.Name = "findByPageToolStripMenuItem";
             this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
             this.findByPageToolStripMenuItem.Text = "Find by Page";
-            this.findByPageToolStripMenuItem.Click += new System.EventHandler(this.findByPageToolStripMenuItem_Click);
+            this.findByPageToolStripMenuItem.Click += new System.EventHandler(this.findTextureByVRAMPage_Click);
             // 
             // clearSearchToolStripMenuItem
             // 
@@ -1482,7 +1484,7 @@ namespace PSXPrev.Forms
             this.clearSearchToolStripMenuItem.Name = "clearSearchToolStripMenuItem";
             this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
             this.clearSearchToolStripMenuItem.Text = "Clear Find Results";
-            this.clearSearchToolStripMenuItem.Click += new System.EventHandler(this.clearSearchToolStripMenuItem_Click);
+            this.clearSearchToolStripMenuItem.Click += new System.EventHandler(this.clearTextureFindResults_Click);
             // 
             // toolStripSeparator1
             // 
@@ -1570,7 +1572,7 @@ namespace PSXPrev.Forms
             this.clearPageToolStripMenuItem.Name = "clearPageToolStripMenuItem";
             this.clearPageToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.clearPageToolStripMenuItem.Text = "Clear Page";
-            this.clearPageToolStripMenuItem.Click += new System.EventHandler(this.btnClearPage_Click);
+            this.clearPageToolStripMenuItem.Click += new System.EventHandler(this.clearVRAMPage_Click);
             // 
             // clearAllPagesToolStripMenuItem
             // 
@@ -1578,7 +1580,7 @@ namespace PSXPrev.Forms
             this.clearAllPagesToolStripMenuItem.Name = "clearAllPagesToolStripMenuItem";
             this.clearAllPagesToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.clearAllPagesToolStripMenuItem.Text = "Clear All Pages";
-            this.clearAllPagesToolStripMenuItem.Click += new System.EventHandler(this.clearAllPagesToolStripMenuItem_Click);
+            this.clearAllPagesToolStripMenuItem.Click += new System.EventHandler(this.clearAllVRAMPages_Click);
             // 
             // toolStripSeparator4
             // 
@@ -1688,22 +1690,35 @@ namespace PSXPrev.Forms
             // statusStrip1
             // 
             this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.messageToolStripLabel});
+            this.statusTotalFilesProgressBar,
+            this.statusCurrentFileProgressBar,
+            this.statusMessageLabel});
             this.statusStrip1.Location = new System.Drawing.Point(0, 649);
             this.statusStrip1.Name = "statusStrip1";
+            this.statusStrip1.ShowItemToolTips = true;
             this.statusStrip1.Size = new System.Drawing.Size(1008, 22);
             this.statusStrip1.TabIndex = 10;
-            this.statusStrip1.Text = "statusStrip1";
-            this.statusStrip1.Resize += new System.EventHandler(this.statusStrip1_Resize);
+            this.statusStrip1.Text = "statusStrip";
             // 
-            // messageToolStripLabel
+            // statusTotalFilesProgressBar
             // 
-            this.messageToolStripLabel.AutoSize = false;
-            this.messageToolStripLabel.Margin = new System.Windows.Forms.Padding(3, 3, 0, 2);
-            this.messageToolStripLabel.Name = "messageToolStripLabel";
-            this.messageToolStripLabel.Size = new System.Drawing.Size(200, 17);
-            this.messageToolStripLabel.Text = "Waiting";
-            this.messageToolStripLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.statusTotalFilesProgressBar.Name = "statusTotalFilesProgressBar";
+            this.statusTotalFilesProgressBar.Size = new System.Drawing.Size(100, 16);
+            this.statusTotalFilesProgressBar.ToolTipText = "Total Files";
+            // 
+            // statusCurrentFileProgressBar
+            // 
+            this.statusCurrentFileProgressBar.Name = "statusCurrentFileProgressBar";
+            this.statusCurrentFileProgressBar.Size = new System.Drawing.Size(100, 16);
+            this.statusCurrentFileProgressBar.ToolTipText = "Current File";
+            // 
+            // statusMessageLabel
+            // 
+            this.statusMessageLabel.Margin = new System.Windows.Forms.Padding(3, 3, 0, 2);
+            this.statusMessageLabel.Name = "statusMessageLabel";
+            this.statusMessageLabel.Size = new System.Drawing.Size(48, 17);
+            this.statusMessageLabel.Text = "Waiting";
+            this.statusMessageLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // sceneControlsFlowLayoutPanel
             // 
@@ -1873,10 +1888,10 @@ namespace PSXPrev.Forms
             this.gizmoSnapFlowLayoutPanel.Controls.Add(this.angleSnapUpDown);
             this.gizmoSnapFlowLayoutPanel.Controls.Add(this.scaleSnapUpDown);
             this.gizmoSnapFlowLayoutPanel.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.gizmoSnapFlowLayoutPanel.Location = new System.Drawing.Point(371, 0);
+            this.gizmoSnapFlowLayoutPanel.Location = new System.Drawing.Point(403, 0);
             this.gizmoSnapFlowLayoutPanel.Margin = new System.Windows.Forms.Padding(0);
             this.gizmoSnapFlowLayoutPanel.Name = "gizmoSnapFlowLayoutPanel";
-            this.gizmoSnapFlowLayoutPanel.Size = new System.Drawing.Size(241, 26);
+            this.gizmoSnapFlowLayoutPanel.Size = new System.Drawing.Size(209, 26);
             this.gizmoSnapFlowLayoutPanel.TabIndex = 33;
             // 
             // gizmoSnapLabel
@@ -1885,15 +1900,15 @@ namespace PSXPrev.Forms
             this.gizmoSnapLabel.Dock = System.Windows.Forms.DockStyle.Left;
             this.gizmoSnapLabel.Location = new System.Drawing.Point(3, 0);
             this.gizmoSnapLabel.Name = "gizmoSnapLabel";
-            this.gizmoSnapLabel.Size = new System.Drawing.Size(67, 26);
+            this.gizmoSnapLabel.Size = new System.Drawing.Size(35, 26);
             this.gizmoSnapLabel.TabIndex = 17;
-            this.gizmoSnapLabel.Text = "Gizmo Snap:";
+            this.gizmoSnapLabel.Text = "Snap:";
             this.gizmoSnapLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // gridSnapUpDown
             // 
             this.gridSnapUpDown.DecimalPlaces = 1;
-            this.gridSnapUpDown.Location = new System.Drawing.Point(76, 3);
+            this.gridSnapUpDown.Location = new System.Drawing.Point(44, 3);
             this.gridSnapUpDown.Name = "gridSnapUpDown";
             this.gridSnapUpDown.Size = new System.Drawing.Size(50, 20);
             this.gridSnapUpDown.TabIndex = 18;
@@ -1901,7 +1916,7 @@ namespace PSXPrev.Forms
             // angleSnapUpDown
             // 
             this.angleSnapUpDown.DecimalPlaces = 1;
-            this.angleSnapUpDown.Location = new System.Drawing.Point(132, 3);
+            this.angleSnapUpDown.Location = new System.Drawing.Point(100, 3);
             this.angleSnapUpDown.Name = "angleSnapUpDown";
             this.angleSnapUpDown.Size = new System.Drawing.Size(50, 20);
             this.angleSnapUpDown.TabIndex = 19;
@@ -1915,7 +1930,7 @@ namespace PSXPrev.Forms
             0,
             0,
             131072});
-            this.scaleSnapUpDown.Location = new System.Drawing.Point(188, 3);
+            this.scaleSnapUpDown.Location = new System.Drawing.Point(156, 3);
             this.scaleSnapUpDown.Name = "scaleSnapUpDown";
             this.scaleSnapUpDown.Size = new System.Drawing.Size(50, 20);
             this.scaleSnapUpDown.TabIndex = 20;
@@ -1927,10 +1942,10 @@ namespace PSXPrev.Forms
             this.wireframeVertexSizeFlowLayoutPanel.Controls.Add(this.wireframeSizeUpDown);
             this.wireframeVertexSizeFlowLayoutPanel.Controls.Add(this.vertexSizeUpDown);
             this.wireframeVertexSizeFlowLayoutPanel.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.wireframeVertexSizeFlowLayoutPanel.Location = new System.Drawing.Point(157, 0);
+            this.wireframeVertexSizeFlowLayoutPanel.Location = new System.Drawing.Point(249, 0);
             this.wireframeVertexSizeFlowLayoutPanel.Margin = new System.Windows.Forms.Padding(0);
             this.wireframeVertexSizeFlowLayoutPanel.Name = "wireframeVertexSizeFlowLayoutPanel";
-            this.wireframeVertexSizeFlowLayoutPanel.Size = new System.Drawing.Size(214, 26);
+            this.wireframeVertexSizeFlowLayoutPanel.Size = new System.Drawing.Size(154, 26);
             this.wireframeVertexSizeFlowLayoutPanel.TabIndex = 36;
             // 
             // wireframeVertexSizeLabel
@@ -1939,14 +1954,14 @@ namespace PSXPrev.Forms
             this.wireframeVertexSizeLabel.Dock = System.Windows.Forms.DockStyle.Left;
             this.wireframeVertexSizeLabel.Location = new System.Drawing.Point(3, 0);
             this.wireframeVertexSizeLabel.Name = "wireframeVertexSizeLabel";
-            this.wireframeVertexSizeLabel.Size = new System.Drawing.Size(116, 26);
+            this.wireframeVertexSizeLabel.Size = new System.Drawing.Size(56, 26);
             this.wireframeVertexSizeLabel.TabIndex = 21;
-            this.wireframeVertexSizeLabel.Text = "Wireframe/Vertex Size:";
+            this.wireframeVertexSizeLabel.Text = "W/V Size:";
             this.wireframeVertexSizeLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // wireframeSizeUpDown
             // 
-            this.wireframeSizeUpDown.Location = new System.Drawing.Point(125, 3);
+            this.wireframeSizeUpDown.Location = new System.Drawing.Point(65, 3);
             this.wireframeSizeUpDown.Name = "wireframeSizeUpDown";
             this.wireframeSizeUpDown.Size = new System.Drawing.Size(40, 20);
             this.wireframeSizeUpDown.TabIndex = 23;
@@ -1955,7 +1970,7 @@ namespace PSXPrev.Forms
             // 
             // vertexSizeUpDown
             // 
-            this.vertexSizeUpDown.Location = new System.Drawing.Point(171, 3);
+            this.vertexSizeUpDown.Location = new System.Drawing.Point(111, 3);
             this.vertexSizeUpDown.Name = "vertexSizeUpDown";
             this.vertexSizeUpDown.Size = new System.Drawing.Size(40, 20);
             this.vertexSizeUpDown.TabIndex = 24;
@@ -2104,7 +2119,7 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.TreeView animationsTreeView;
         private System.Windows.Forms.Button animationPlayButtonx;
         private System.Windows.Forms.StatusStrip statusStrip1;
-        private System.Windows.Forms.ToolStripStatusLabel messageToolStripLabel;
+        private System.Windows.Forms.ToolStripStatusLabel statusMessageLabel;
         private System.Windows.Forms.ToolStripMenuItem showBoundsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem showUVToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
@@ -2225,5 +2240,7 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.NumericUpDown angleSnapUpDown;
         private System.Windows.Forms.NumericUpDown scaleSnapUpDown;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator12;
+        private System.Windows.Forms.ToolStripProgressBar statusTotalFilesProgressBar;
+        private System.Windows.Forms.ToolStripProgressBar statusCurrentFileProgressBar;
     }
 }

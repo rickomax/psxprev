@@ -39,8 +39,10 @@ namespace PSXPrev
 
         // Lock for _currentFileLength and _largestCurrentFilePosition, because longs can't be volatile.
         private static readonly object _fileProgressLock = new object();
+        private static long _currentFilePosition; // Farthest position of all the active parsers
         private static long _currentFileLength;
-        private static long _largestCurrentFilePosition;
+        private static int _currentFileIndex;
+        private static int _totalFiles;
         private static ScanOptions _options = new ScanOptions();
         private static ScanOptions _commandLineOptions;
 
@@ -169,10 +171,10 @@ namespace PSXPrev
             Console.WriteLine();
             Console.WriteLine("log options:");
             Console.WriteLine("  -log       : write output to log file");
-            Console.WriteLine("  -noverbose : don't write output to console");
             Console.WriteLine("  -debug     : output file format details and other information");
             Console.WriteLine("  -error     : show error (exception) messages when reading files");
             Console.WriteLine("  -nocolor   : disable colored console output");
+            Console.WriteLine("  -noverbose/-quiet : don't write output to console");
             Console.WriteLine();
             Console.WriteLine("program options:");
             //Console.WriteLine("  -help        : show this help message"); // It's redundant to display this
@@ -317,6 +319,7 @@ namespace PSXPrev
                     options.LogToFile = true;
                     break;
                 case "-noverbose":
+                case "-quiet":
                     options.LogToConsole = false;
                     break;
                 case "-debug":
@@ -610,6 +613,8 @@ namespace PSXPrev
             _scanning = true;
             _pauseRequested = false;
             _cancelRequested = false;
+            _currentFileIndex = 0;
+            _totalFiles = 0;
 
             _addedEntities.Clear();
             _addedTextures.Clear();
@@ -632,6 +637,8 @@ namespace PSXPrev
         {
             try
             {
+                PreviewForm.ScanStarted();
+
                 //Program.Logger.WriteLine();
                 Program.Logger.WriteLine("Scan begin {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
                 var watch = Stopwatch.StartNew();
@@ -646,15 +653,8 @@ namespace PSXPrev
                 Program.Logger.WritePositiveLine("Found {0} Textures", _allTextures.Count);
                 Program.Logger.WritePositiveLine("Found {0} Animations", _allAnimations.Count);
 
-                PreviewForm.UpdateProgress(0, 0, true, $"{_allEntities.Count} Models, {_allTextures.Count} Textures, {_allAnimations.Count} Animations Found");
-
                 // Scan finished, perform end-of-scan actions specified by the user.
                 PreviewForm.ScanFinished(_options.DrawAllToVRAM);
-                //PreviewForm.SelectFirstEntity(); // Select something if the user hasn't already done so.
-                //if (_options.DrawAllToVRAM)
-                //{
-                //    PreviewForm.DrawAllTexturesToVRAM();
-                //}
             }
             catch (Exception exp)
             {
@@ -670,7 +670,7 @@ namespace PSXPrev
         {
             lock (_fileProgressLock)
             {
-                _largestCurrentFilePosition = 0;
+                _currentFilePosition = 0;
                 _currentFileLength = 0;
             }
             if (!nextParser)
@@ -681,20 +681,15 @@ namespace PSXPrev
 
         private static void UpdateFileProgress(long filePos, string message)
         {
-            var percent = 1d;
             lock (_fileProgressLock)
             {
-                if (filePos > _largestCurrentFilePosition)
+                if (filePos > _currentFilePosition)
                 {
-                    _largestCurrentFilePosition = filePos;
-                }
-                // Avoid divide-by-zero when scanning a file that's 0 bytes in size.
-                if (_currentFileLength > 0)
-                {
-                    percent = (double)_largestCurrentFilePosition / _currentFileLength;
+                    _currentFilePosition = filePos;
                 }
             }
-            PreviewForm.UpdateProgress((int)(percent * 100), 100, false, message);
+            var reloadItems = true; // ReloadItems in the same invoke call as ScanUpdated
+            PreviewForm.ScanUpdated(_currentFilePosition, _currentFileLength, _currentFileIndex, _totalFiles, message, reloadItems);
         }
 
         private static void AddEntity(RootEntity entity, long fp)
@@ -705,7 +700,6 @@ namespace PSXPrev
                 _addedEntities.Add(entity);
             }
             UpdateFileProgress(fp, $"Found Model with {entity.ChildCount} objects");
-            PreviewForm.ReloadItems();
         }
 
         private static void AddTexture(Texture texture, long fp)
@@ -716,7 +710,6 @@ namespace PSXPrev
                 _addedTextures.Add(texture);
             }
             UpdateFileProgress(fp, $"Found Texture {texture.Width}x{texture.Height} {texture.Bpp}bpp");
-            PreviewForm.ReloadItems();
         }
 
         private static void AddAnimation(Animation animation, long fp)
@@ -727,7 +720,6 @@ namespace PSXPrev
                 _addedAnimations.Add(animation);
             }
             UpdateFileProgress(fp, $"Found Animation with {animation.ObjectCount} objects and {animation.FrameCount} frames");
-            PreviewForm.ReloadItems();
         }
 
         internal static bool PauseScan(bool paused)
@@ -856,6 +848,7 @@ namespace PSXPrev
             using (var cdReader = new CDReader(isoStream, true))
             {
                 var files = cdReader.GetFiles("", filter, SearchOption.AllDirectories);
+                var fileInfoList = new List<DiscFileInfo>();
                 foreach (var file in files)
                 {
                     var fileInfo = cdReader.GetFileInfo(file);
@@ -864,6 +857,12 @@ namespace PSXPrev
                     {
                         continue;
                     }
+                    fileInfoList.Add(fileInfo);
+                }
+
+                _totalFiles += fileInfoList.Count;
+                foreach (var fileInfo in fileInfoList)
+                {
                     ResetFileProgress();
 
                     foreach (var parser in parsers)
@@ -875,15 +874,17 @@ namespace PSXPrev
                         }
                         using (var fs = fileInfo.OpenRead())
                         {
-                            ScanFile(fs, file, parser);
+                            ScanFile(fs, fileInfo.FullName, parser);
                         }
                     }
+                    _currentFileIndex++;
                 }
 
                 // Implementation to support depth-last file search in ISO files.
 #if false
                 // Avoid recursion and just use a stack/queue for directories to process. This will give cleaner stack traces.
                 var directoryList = new List<string> { "" };
+                var fileInfoList = new List<DiscFileInfo>();
 
                 while (directoryList.Count > 0)
                 {
@@ -903,20 +904,7 @@ namespace PSXPrev
                         {
                             continue;
                         }
-                        ResetFileProgress();
-
-                        foreach (var parser in parsers)
-                        {
-                            ResetFileProgress(true);
-                            if (WaitOnScanState())
-                            {
-                                return true; // Canceled
-                            }
-                            using (var stream = fileInfo.OpenRead())
-                            {
-                                ScanFile(stream, file, parser);
-                            }
-                        }
+                        fileInfoList.Add(fileInfo);
                     }
 
                     if (WaitOnScanState())
@@ -937,6 +925,26 @@ namespace PSXPrev
                         }
                     }
                 }
+
+                _totalFiles = fileInfoList.Count;
+                foreach (var fileInfo in fileInfoList)
+                {
+                    ResetFileProgress();
+
+                    foreach (var parser in parsers)
+                    {
+                        ResetFileProgress(true);
+                        if (WaitOnScanState())
+                        {
+                            return true; // Canceled
+                        }
+                        using (var stream = fileInfo.OpenRead())
+                        {
+                            ScanFile(stream, fileInfo.FullName, parser);
+                        }
+                    }
+                    _currentFileIndex++;
+                }
 #endif
             }
             return false;
@@ -951,6 +959,7 @@ namespace PSXPrev
             // Avoid recursion and just use a stack/queue for directories to process.
             // This will give cleaner stack traces, and make it easier to cancel the scan.
             var directoryList = new List<string> { basePath };
+            var fileList = new List<string>();
 
             while (directoryList.Count > 0)
             {
@@ -963,18 +972,7 @@ namespace PSXPrev
                     {
                         continue;
                     }
-                    // If we want, we could add support to process ISOs in directories.
-                    /*if (HasISOExtension(file))
-                    {
-                        if (ProcessISO(file, filter, parsers))
-                        {
-                            return true; // Canceled
-                        }
-                    }
-                    else*/ if (ProcessFile(file, parsers))
-                    {
-                        return true; // Canceled
-                    }
+                    fileList.Add(file);
                 }
 
                 if (WaitOnScanState())
@@ -991,6 +989,25 @@ namespace PSXPrev
                 {
                     directoryList.AddRange(directories);
                 }
+            }
+
+            _totalFiles += fileList.Count;
+            foreach (var file in fileList)
+            {
+                // If we want, we could add support to process ISOs in directories.
+                /*if (HasISOExtension(file))
+                {
+                    if (ProcessISO(file, filter, parsers))
+                    {
+                        return true; // Canceled
+                    }
+                }
+                else*/
+                if (ProcessFile(file, parsers))
+                {
+                    return true; // Canceled
+                }
+                _currentFileIndex++;
             }
             return false;
         }

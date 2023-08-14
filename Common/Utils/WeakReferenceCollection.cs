@@ -37,7 +37,29 @@ namespace PSXPrev.Common.Utils
         // ICollection<T> implementation:
 
         // Not accessible because Count can change whenever dead references are automatically removed.
-        int ICollection<T>.Count => _references.Count;
+        // But we should make it accessible in-case the user wants to check if the list is "non-empty".
+        public int Count
+        {
+            get
+            {
+                var count = 0;
+                for (var i = 0; i < _references.Count; i++)
+                {
+                    if (_references[i].TryGetTarget(out var value))
+                    {
+                        count++;
+                    }
+#if WEAKREFCOLLECTION_AUTO_CLEANUP_DEAD
+                    else
+                    {
+                        _references.RemoveAt(i); // Remove dead references from the list.
+                        i--;
+                    }
+#endif
+                }
+                return count;
+            }
+        }
 
         bool ICollection<T>.IsReadOnly => false;
 
