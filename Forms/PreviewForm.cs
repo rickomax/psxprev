@@ -36,8 +36,7 @@ namespace PSXPrev.Forms
         private readonly Action<PreviewForm> _refreshAction;
         private readonly Scene _scene;
         private readonly VRAM _vram;
-        // todo: AnimationBatch doesn't need to be in scene
-        //private readonly AnimationBatch _animationBatch;
+        private readonly AnimationBatch _animationBatch;
 
         private Timer _animateTimer;
         private Animation _curAnimation;
@@ -89,6 +88,7 @@ namespace PSXPrev.Forms
             _refreshAction = refreshAction;
             _scene = new Scene();
             _vram = new VRAM(_scene);
+            _animationBatch = new AnimationBatch(_scene);
             Toolkit.Init();
             InitializeComponent();
             SetupControls();
@@ -105,9 +105,9 @@ namespace PSXPrev.Forms
                     _animateTimer.Enabled = value;
 
                     // Make sure we restart the animation if it was finished.
-                    if (!value && _scene.AnimationBatch.IsFinished)
+                    if (!value && _animationBatch.IsFinished)
                     {
-                        _scene.AnimationBatch.Restart();
+                        _animationBatch.Restart();
                     }
                     // Refresh to make sure the button text updates quickly.
                     animationPlayButtonx.Text = value ? "Pause Animation" : "Play Animation";
@@ -276,7 +276,7 @@ namespace PSXPrev.Forms
                         RedrawTextures = true,
                         ExportAnimations = true,
                     };
-                    ExportModelsForm.Export(options, new[] { _rootEntities[0] }, new[] { _animations[0] }, _scene.AnimationBatch);
+                    ExportModelsForm.Export(options, new[] { _rootEntities[0] }, new[] { _animations[0] }, _animationBatch);
                     Close();
                 }*/
             }
@@ -598,7 +598,7 @@ namespace PSXPrev.Forms
                 _inAnimationTab = false;
                 // Restart to force animation state update next time we're in the animation tab.
                 // Reset animation when leaving the tab.
-                _scene.AnimationBatch.Restart();
+                _animationBatch.Restart();
                 Playing = false;
                 UpdateAnimationProgressLabel();
                 // Update selected entity to invalidate the animation changes to the model.
@@ -808,32 +808,32 @@ namespace PSXPrev.Forms
                         // Debugging keys for testing AnimationBatch settings while they still don't have UI controls.
 #if false
                     case Keys.A when state:
-                        var loopMode = _scene.AnimationBatch.LoopMode + 1;
+                        var loopMode = _animationBatch.LoopMode + 1;
                         if (loopMode > AnimationLoopMode.MirrorLoop)
                         {
                             loopMode = AnimationLoopMode.Once;
                         }
-                        _scene.AnimationBatch.LoopMode = loopMode;
+                        _animationBatch.LoopMode = loopMode;
                         UpdateAnimationProgressLabel();
-                        Program.Logger.WriteLine($"LoopMode={_scene.AnimationBatch.LoopMode,-10} Reverse={_scene.AnimationBatch.Reverse}");
+                        Program.Logger.WriteLine($"LoopMode={_animationBatch.LoopMode,-10} Reverse={_animationBatch.Reverse}");
                         break;
                     case Keys.S when state:
-                        _scene.AnimationBatch.Reverse = !_scene.AnimationBatch.Reverse;
+                        _animationBatch.Reverse = !_animationBatch.Reverse;
                         UpdateAnimationProgressLabel();
-                        Program.Logger.WriteLine($"LoopMode={_scene.AnimationBatch.LoopMode,-10} Reverse={_scene.AnimationBatch.Reverse}");
+                        Program.Logger.WriteLine($"LoopMode={_animationBatch.LoopMode,-10} Reverse={_animationBatch.Reverse}");
                         break;
                     case Keys.D when state:
-                        _scene.AnimationBatch.Restart();
+                        _animationBatch.Restart();
                         UpdateAnimationProgressLabel();
                         Program.Logger.WriteLine("Restarted");
                         break;
                     case Keys.F when state:
-                        _scene.AnimationBatch.LoopDelayTime += 0.5;
-                        Program.Logger.WriteLine($"LoopDelayTime={_scene.AnimationBatch.LoopDelayTime}");
+                        _animationBatch.LoopDelayTime += 0.5;
+                        Program.Logger.WriteLine($"LoopDelayTime={_animationBatch.LoopDelayTime}");
                         break;
                     case Keys.G when state:
-                        _scene.AnimationBatch.LoopDelayTime -= 0.5;
-                        Program.Logger.WriteLine($"LoopDelayTime={_scene.AnimationBatch.LoopDelayTime}");
+                        _animationBatch.LoopDelayTime -= 0.5;
+                        Program.Logger.WriteLine($"LoopDelayTime={_animationBatch.LoopDelayTime}");
                         break;
 #endif
                 }
@@ -868,7 +868,7 @@ namespace PSXPrev.Forms
             if (_inAnimationTab && _curAnimation != null)
             {
                 var checkedEntities = GetCheckedEntities();
-                if (_scene.AnimationBatch.SetupAnimationFrame(checkedEntities, _selectedRootEntity, _selectedModelEntity, true))
+                if (_animationBatch.SetupAnimationFrame(checkedEntities, _selectedRootEntity, _selectedModelEntity, true))
                 {
                     // Animation has been processed. Update attached limbs while animating.
                     (_selectedRootEntity ?? _selectedModelEntity?.GetRootEntity())?.FixConnections();
@@ -1044,13 +1044,13 @@ namespace PSXPrev.Forms
             // todo: Or allow animations to play in other tabs, in-which case other checks for _inAnimationTab need to be removed.
             if (!_inDialog && !IsDisposed && !_closing && _inAnimationTab)
             {
-                if (Playing && _scene.AnimationBatch.IsFinished)
+                if (Playing && _animationBatch.IsFinished)
                 {
                     Playing = false; // LoopMode is a Once type, and the animation has finished. Stop playing.
                 }
                 else
                 {
-                    _scene.AnimationBatch.AddTime(_animateTimer.Interval);
+                    _animationBatch.AddTime(_animateTimer.Interval);
                 }
                 UpdateAnimationProgressLabel();
             }
@@ -1128,15 +1128,8 @@ namespace PSXPrev.Forms
 
         private void EntityAdded(RootEntity entity, int index)
         {
-            foreach (var entityBase in entity.ChildEntities)
-            {
-                var model = (ModelEntity)entityBase;
-                model.TexturePage = VRAM.ClampTexturePage(model.TexturePage);
-                if (model.IsTextured)
-                {
-                    model.Texture = _vram[model.TexturePage];
-                }
-            }
+            _vram.AssignModelTextures(entity);
+
             entitiesTreeView.BeginUpdate();
             var entityNode = entitiesTreeView.Nodes.Add(entity.EntityName);
             entityNode.Tag = entity;
@@ -1697,7 +1690,7 @@ namespace PSXPrev.Forms
             _inDialog = true;
             try
             {
-                if (ExportModelsForm.Show(this, entities, animations, _scene.AnimationBatch))
+                if (ExportModelsForm.Show(this, entities, animations, _animationBatch))
                 {
                     MessageBox.Show(this, $"{entities.Length} models exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
@@ -2106,11 +2099,7 @@ namespace PSXPrev.Forms
             }
             if (_selectedModelEntity != null)
             {
-                _selectedModelEntity.TexturePage = VRAM.ClampTexturePage(_selectedModelEntity.TexturePage);
-                if (_selectedModelEntity.IsTextured)
-                {
-                    _selectedModelEntity.Texture = _vram[_selectedModelEntity.TexturePage];
-                }
+                _vram.AssignModelTextures(_selectedModelEntity);
             }
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
             if (selectedEntityBase != null)
@@ -2686,15 +2675,15 @@ namespace PSXPrev.Forms
             Playing = play;
 
             animationPropertyGrid.SelectedObject = propertyObject;
-            _scene.AnimationBatch.SetupAnimationBatch(_curAnimation);
+            _animationBatch.SetupAnimationBatch(_curAnimation);
 
             UpdateAnimationProgressLabel();
         }
 
         private void UpdateAnimationProgressLabel()
         {
-            animationFrameTrackBar.Maximum = Math.Max(1, (int)_scene.AnimationBatch.FrameCount);
-            animationFrameTrackBar.Value = (int)_scene.AnimationBatch.CurrentFrameTime;
+            animationFrameTrackBar.Maximum = Math.Max(1, (int)_animationBatch.FrameCount);
+            animationFrameTrackBar.Value = (int)_animationBatch.CurrentFrameTime;
             animationProgressLabel.Text = $"{animationFrameTrackBar.Value}/{animationFrameTrackBar.Maximum}";
             animationFrameTrackBar.Refresh();
         }
@@ -2740,7 +2729,7 @@ namespace PSXPrev.Forms
 
             if (_curAnimationFrameObj != null)
             {
-                _scene.AnimationBatch.SetTimeToFrame(_curAnimationFrameObj);
+                _animationBatch.SetTimeToFrame(_curAnimationFrameObj);
                 UpdateAnimationProgressLabel();
             }
 
@@ -2753,7 +2742,7 @@ namespace PSXPrev.Forms
         private void animationPropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
         {
             // Restart animation to force invalidate.
-            _scene.AnimationBatch.Restart();
+            _animationBatch.Restart();
             UpdateSelectedEntity();
             UpdateSelectedAnimation();
         }
@@ -2767,7 +2756,7 @@ namespace PSXPrev.Forms
         {
             if (_inAnimationTab && !Playing)
             {
-                _scene.AnimationBatch.FrameTime = animationFrameTrackBar.Value;
+                _animationBatch.FrameTime = animationFrameTrackBar.Value;
                 UpdateAnimationProgressLabel();
             }
         }
@@ -2782,13 +2771,13 @@ namespace PSXPrev.Forms
             var index = animationLoopModeComboBox.SelectedIndex;
             if (index > -1)
             {
-                _scene.AnimationBatch.LoopMode = (AnimationLoopMode)index;
+                _animationBatch.LoopMode = (AnimationLoopMode)index;
             }
         }
 
         private void animationReverseCheckBox_CheckedChanged(object sender, EventArgs e)
         {
-            _scene.AnimationBatch.Reverse = animationReverseCheckBox.Checked;
+            _animationBatch.Reverse = animationReverseCheckBox.Checked;
         }
 
         private void autoPlayAnimationsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
