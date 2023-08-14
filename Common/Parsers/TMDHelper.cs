@@ -223,11 +223,11 @@ namespace PSXPrev.Common.Parsers
                 // For now, don't check the lower bounds of meshLength.
                 // It's possible that 0 is treated as 1 because its not accounted for.
                 // And note that SetMeshLength already ensures length is at least 1.
-                //if (meshLength < Program.MinHMDStripMeshLength)
+                //if (meshLength < Limits.MinHMDStripMeshLength)
                 //{
                 //    return null;
                 //}
-                if (meshLength > Program.MaxHMDStripMeshLength)
+                if (meshLength > Limits.MaxHMDStripMeshLength)
                 {
                     return null;
                 }

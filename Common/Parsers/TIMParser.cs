@@ -21,7 +21,7 @@ namespace PSXPrev.Common.Parsers
             if (id == 0x10)
             {
                 var version = reader.ReadUInt16();
-                if (Program.IgnoreTimVersion || version == 0x00)
+                if (Limits.IgnoreTIMVersion || version == 0x00)
                 {
                     var texture = ParseTim(reader);
                     if (texture != null)
@@ -149,7 +149,7 @@ namespace PSXPrev.Common.Parsers
             Bitmap bitmap = null;
             Bitmap semiTransparentMap = null;
 
-            if (imgWidth == 0 || imgHeight == 0 || imgWidth > Program.MaxTIMResolution || imgHeight > Program.MaxTIMResolution)
+            if (imgWidth == 0 || imgHeight == 0 || imgWidth > Limits.MaxTIMResolution || imgHeight > Limits.MaxTIMResolution)
             {
                 return null;
             }

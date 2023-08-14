@@ -298,7 +298,7 @@ namespace PSXPrev.Common.Parsers
             reader.BaseStream.Seek(offset + ctrlTop, SeekOrigin.Begin);
 
             var instructionCount = (paramTop - ctrlTop) / 4;
-            if (instructionCount > Program.MaxHMDAnimInstructions)
+            if (instructionCount > Limits.MaxHMDAnimInstructions)
             {
                 return;
             }

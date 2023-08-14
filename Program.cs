@@ -59,9 +59,6 @@ namespace PSXPrev
         public static bool HasTextureResults => _allTextures.Count > 0;
         public static bool HasAnimationResults => _allAnimations.Count > 0;
 
-        public static bool IgnoreHmdVersion => _options.IgnoreHMDVersion;
-        public static bool IgnoreTimVersion => _options.IgnoreTIMVersion;
-        public static bool IgnoreTmdVersion => _options.IgnoreTMDVersion;
         public static bool FixUVAlignment => _options.FixUVAlignment;
 
         public static bool Debug => _options.Debug;
@@ -70,38 +67,6 @@ namespace PSXPrev
 
         private static readonly string[] InvalidFileExtensions = { ".str", ".str;1", ".xa", ".xa;1", ".vb", ".vb;1" };
         private static readonly string[] ISOFileExtensions = { ".iso" };
-
-        // Sanity check values
-        public static ulong MaxTODPackets = 10000;
-        public static ulong MaxTODFrames = 10000;
-        public static ulong MaxTMDPrimitives = 10000;
-        public static ulong MaxTMDObjects = 10000;
-        public static ulong MaxTIMResolution = 1024;
-        public static ulong MinVDFFrames = 3;
-        public static ulong MaxVDFFrames = 512;
-        public static ulong MaxVDFVertices = 1024;
-        public static ulong MaxVDFObjects = 512;
-        public static ulong MaxPSXObjectCount = 1024;
-        public static ulong MaxHMDBlockCount = 1024;
-        public static ulong MaxHMDCoordCount = 1024; // Same as BlockCount, because they're related
-        public static ulong MaxHMDTypeCount = 1024;
-        public static ulong MaxHMDDataSize = 20000;
-        public static ulong MaxHMDDataCount = 5000;
-        public static ulong MaxHMDPrimitiveChainLength = 512;
-        public static ulong MaxHMDHeaderLength = 100;
-        public static ulong MinHMDStripMeshLength = 1;
-        public static ulong MaxHMDStripMeshLength = 1024;
-        public static ulong MaxHMDAnimSequenceSize = 20000;
-        public static ulong MaxHMDAnimSequenceCount = 1024;
-        public static ulong MaxHMDAnimInstructions = ushort.MaxValue + 1; // Hard cap
-        public static ulong MaxHMDMIMeDiffs = 100;
-        public static ulong MaxHMDMIMeOriginals = 100;
-        public static ulong MaxHMDVertices = 5000;
-        public static ulong MaxMODModels = 1000;
-        public static ulong MaxMODVertices = 10000;
-        public static ulong MaxMODFaces = 10000;
-        public static uint MaxANJoints = 512;
-        public static uint MaxANFrames = 5000;
 
 
         // This attribute is necessary since PreviewForm now runs on the main thread.
@@ -608,6 +573,11 @@ namespace PSXPrev
                 Program.Logger.WriteErrorLine($"Directory/File not found: {options.Path}");
                 return false;
             }
+
+            // Assign parser settings that are no longer stored in Program
+            Limits.IgnoreHMDVersion = options.IgnoreHMDVersion;
+            Limits.IgnoreTIMVersion = options.IgnoreTIMVersion;
+            Limits.IgnoreTMDVersion = options.IgnoreTMDVersion;
 
             _options = options;
             _scanning = true;

@@ -21,7 +21,7 @@ namespace PSXPrev.Common.Parsers
         protected override void Parse(BinaryReader reader)
         {
             var version = reader.ReadUInt32();
-            if (Program.IgnoreHmdVersion || version == 0x00000050)
+            if (Limits.IgnoreHMDVersion || version == 0x00000050)
             {
                 var rootEntity = ParseHMD(reader);
                 if (rootEntity != null)
@@ -36,7 +36,7 @@ namespace PSXPrev.Common.Parsers
             var mapFlag = reader.ReadUInt32();
             var primitiveHeaderTop = reader.ReadUInt32() * 4;
             var blockCount = reader.ReadUInt32();
-            if (blockCount == 0 || blockCount > Program.MaxHMDBlockCount)
+            if (blockCount == 0 || blockCount > Limits.MaxHMDBlockCount)
             {
                 return null;
             }
@@ -89,7 +89,7 @@ namespace PSXPrev.Common.Parsers
             {
                 // Coord units start after the first (pre-process) block and end before the last (post-process) block.
                 // We need to allow at least blockCount - 2 coords, so only check the max cap if we're over that.
-                if (coordCount > Program.MaxHMDCoordCount)
+                if (coordCount > Limits.MaxHMDCoordCount)
                 {
                     return null;
                 }
@@ -224,7 +224,7 @@ namespace PSXPrev.Common.Parsers
             uint chainLength = 0;
             while (true)
             {
-                if (++chainLength > Program.MaxHMDPrimitiveChainLength)
+                if (++chainLength > Limits.MaxHMDPrimitiveChainLength)
                 {
                     return;
                 }
@@ -234,7 +234,7 @@ namespace PSXPrev.Common.Parsers
                 var primitiveHeaderPointer = reader.ReadUInt32() * 4;
                 ReadMappedValue(reader, out var typeCountMapped, out var typeCount);
                 // Note: typeCount==0 is valid.
-                if (typeCount > Program.MaxHMDTypeCount)
+                if (typeCount > Limits.MaxHMDTypeCount)
                 {
                     return;
                 }
@@ -259,11 +259,11 @@ namespace PSXPrev.Common.Parsers
                     ReadMappedValue16(reader, out var dataCountMapped, out var dataCount);
                     dataSize *= 4;
 
-                    if (dataSize == 0 || dataSize > Program.MaxHMDDataSize)
+                    if (dataSize == 0 || dataSize > Limits.MaxHMDDataSize)
                     {
                         return;
                     }
-                    if (dataCount > Program.MaxHMDDataCount)
+                    if (dataCount > Limits.MaxHMDDataCount)
                     {
                         return;
                     }
@@ -806,11 +806,11 @@ namespace PSXPrev.Common.Parsers
                 ReadMappedValue16(reader, out _, out var sequenceCount);
                 sequenceSize *= 4;
 
-                if (sequenceSize == 0 || sequenceSize > Program.MaxHMDAnimSequenceSize)
+                if (sequenceSize == 0 || sequenceSize > Limits.MaxHMDAnimSequenceSize)
                 {
                     return null;
                 }
-                if (sequenceCount > Program.MaxHMDAnimSequenceCount)
+                if (sequenceCount > Limits.MaxHMDAnimSequenceCount)
                 {
                     return null;
                 }
@@ -1053,7 +1053,7 @@ namespace PSXPrev.Common.Parsers
 
                 var coordID = reader.ReadUInt16();
                 var numDiffs = reader.ReadUInt16();
-                if (numDiffs > Program.MaxHMDMIMeDiffs)
+                if (numDiffs > Limits.MaxHMDMIMeDiffs)
                 {
                     return null;
                 }
@@ -1152,11 +1152,11 @@ namespace PSXPrev.Common.Parsers
 
                 var numOriginals = reader.ReadUInt16();
                 var numDiffs = reader.ReadUInt16();
-                if (numDiffs > Program.MaxHMDMIMeDiffs)
+                if (numDiffs > Limits.MaxHMDMIMeDiffs)
                 {
                     return null;
                 }
-                if (numOriginals > Program.MaxHMDMIMeOriginals)
+                if (numOriginals > Limits.MaxHMDMIMeOriginals)
                 {
                     return null;
                 }
@@ -1180,7 +1180,7 @@ namespace PSXPrev.Common.Parsers
                     var vertexStart = reader.ReadUInt32();
                     reader.ReadUInt16(); //reserved
                     var vertexCount = reader.ReadUInt16();
-                    if (vertexCount + vertexStart == 0 || vertexCount + vertexStart >= Program.MaxHMDVertices)
+                    if (vertexCount + vertexStart == 0 || vertexCount + vertexStart >= Limits.MaxHMDVertices)
                     {
                         return null;
                     }
@@ -1577,10 +1577,10 @@ namespace PSXPrev.Common.Parsers
 
             var headerSize = reader.ReadUInt32();
             var animHeaderSize = reader.ReadUInt32();
-            if (animHeaderSize > Program.MaxHMDHeaderLength)
+            if (animHeaderSize > Limits.MaxHMDHeaderLength)
             {
                 // todo: We aren't setup to signal failure in this function, so just correct the issue.
-                animHeaderSize = (uint)Program.MaxHMDHeaderLength;
+                animHeaderSize = (uint)Limits.MaxHMDHeaderLength;
             }
             if (animHeaderSize > headerSize)
             {

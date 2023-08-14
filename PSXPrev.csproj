@@ -94,6 +94,7 @@
     <Compile Include="Common\Parsers\FileOffsetStream.cs" />
     <Compile Include="Common\Parsers\HMDHelper.cs" />
     <Compile Include="Common\Parsers\HMDParser.cs" />
+    <Compile Include="Common\Parsers\Limits.cs" />
     <Compile Include="Common\Parsers\MODParser.cs" />
     <Compile Include="Common\Parsers\PMDParser.cs" />
     <Compile Include="Common\Parsers\PrimitiveData.cs" />

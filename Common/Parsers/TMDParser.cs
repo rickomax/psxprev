@@ -17,7 +17,7 @@ namespace PSXPrev.Common.Parsers
         protected override void Parse(BinaryReader reader)
         {
             var version = reader.ReadUInt32();
-            if (Program.IgnoreTmdVersion || version == 0x00000041)
+            if (Limits.IgnoreTMDVersion || version == 0x00000041)
             {
                 var rootEntity = ParseTmd(reader);
                 if (rootEntity != null)
@@ -36,7 +36,7 @@ namespace PSXPrev.Common.Parsers
             }
 
             var nObj = reader.ReadUInt32();
-            if (nObj == 0 || nObj > Program.MaxTMDObjects)
+            if (nObj == 0 || nObj > Limits.MaxTMDObjects)
             {
                 return null;
             }
@@ -64,7 +64,7 @@ namespace PSXPrev.Common.Parsers
                     primitiveTop += objTop;
                 }
 
-                if (nPrimitive > Program.MaxTMDPrimitives)
+                if (nPrimitive > Limits.MaxTMDPrimitives)
                 {
                     return null;
                 }
@@ -86,7 +86,7 @@ namespace PSXPrev.Common.Parsers
                 var objBlock = objBlocks[o];
 
                 var vertices = new Vector3[objBlock.NVert];
-                if (Program.IgnoreTmdVersion && (int)objBlock.VertTop < 0)
+                if (Limits.IgnoreTMDVersion && (int)objBlock.VertTop < 0)
                 {
                     return null;
                 }
@@ -114,7 +114,7 @@ namespace PSXPrev.Common.Parsers
                 }
 
                 var normals = new Vector3[objBlock.NNormal];
-                if (Program.IgnoreTmdVersion && (int)objBlock.NormalTop < 0)
+                if (Limits.IgnoreTMDVersion && (int)objBlock.NormalTop < 0)
                 {
                     return null;
                 }
@@ -143,7 +143,7 @@ namespace PSXPrev.Common.Parsers
 
                 var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
 
-                if (Program.IgnoreTmdVersion && (int)objBlock.PrimitiveTop < 0)
+                if (Limits.IgnoreTMDVersion && (int)objBlock.PrimitiveTop < 0)
                 {
                     return null;
                 }
@@ -172,7 +172,7 @@ namespace PSXPrev.Common.Parsers
                                     {
                                         if (index >= vertices.Length)
                                         {
-                                            if (Program.IgnoreTmdVersion)
+                                            if (Limits.IgnoreTMDVersion)
                                             {
                                                 return new Vector3(index, 0, 0);
                                             }
@@ -188,7 +188,7 @@ namespace PSXPrev.Common.Parsers
                                     {
                                         if (index >= normals.Length)
                                         {
-                                            if (Program.IgnoreTmdVersion)
+                                            if (Limits.IgnoreTMDVersion)
                                             {
                                                 return new Vector3(index, 0, 0);
                                             }
