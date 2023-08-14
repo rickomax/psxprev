@@ -15,18 +15,19 @@ namespace PSXPrev.Common.Renderer
 
 
         private readonly Scene _scene;
-        private readonly Texture[] _vramPages;
-        private readonly bool[] _modifiedPages; // Pages that that require a scene update.
-        private readonly bool[] _usedPages; // Pages that have textures drawn to them (not reset unless cleared).
+        private readonly Texture[] _vramPages = new Texture[PageCount];
+        // Pages that require a scene update.
+        private readonly bool[] _modifiedPages = new bool[PageCount];
+        // Pages that have textures drawn to them (not reset unless cleared).
+        private readonly bool[] _usedPages = new bool[PageCount];
 
         public System.Drawing.Color BackgroundColor { get; set; } = DefaultBackgroundColor;
+
+        public bool Initialized { get; private set; }
 
         public VRAM(Scene scene)
         {
             _scene = scene;
-            _vramPages = new Texture[PageCount];
-            _modifiedPages = new bool[PageCount];
-            _usedPages = new bool[PageCount];
         }
 
         public Texture this[uint index] => _vramPages[index];
@@ -57,8 +58,12 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        public void Setup(bool suppressUpdate = false)
+        public void Initialize(bool suppressUpdate = false)
         {
+            if (Initialized)
+            {
+                return;
+            }
             for (var i = 0; i < PageCount; i++)
             {
                 if (_vramPages[i] == null)
@@ -70,6 +75,7 @@ namespace PSXPrev.Common.Renderer
                     ClearPage(i, suppressUpdate);
                 }
             }
+            Initialized = true;
         }
 
         // Gets if a page has had at least one texture drawn to it.
@@ -89,23 +95,27 @@ namespace PSXPrev.Common.Renderer
         }
 
         // Update page textures in the scene.
-        public void UpdatePage(uint index, bool force = false) => UpdatePage((int)index, force);
+        public bool UpdatePage(uint index, bool force = false) => UpdatePage((int)index, force);
 
-        public void UpdatePage(int index, bool force = false)
+        public bool UpdatePage(int index, bool force = false)
         {
             if (force || _modifiedPages[index])
             {
                 _scene.UpdateTexture(_vramPages[index].Bitmap, index);
                 _modifiedPages[index] = false;
+                return true;
             }
+            return false;
         }
 
-        public void UpdateAllPages()
+        public bool UpdateAllPages()
         {
+            var anyUpdated = false;
             for (var i = 0; i < PageCount; i++)
             {
-                UpdatePage(i, false); // Only update page if modified.
+                anyUpdated |= UpdatePage(i, false); // Only update page if modified.
             }
+            return anyUpdated;
         }
 
         // Clear page textures to background color.
@@ -138,11 +148,11 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        public void ClearAllPages()
+        public void ClearAllPages(bool suppressUpdate = false)
         {
             for (var i = 0; i < PageCount; i++)
             {
-                ClearPage(i);
+                ClearPage(i, suppressUpdate);
             }
         }
 

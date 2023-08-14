@@ -24,35 +24,20 @@ namespace PSXPrev.Forms
 {
     public partial class PreviewForm : Form
     {
-        private class TexturesListViewTagInfo
-        {
-            //public Texture Texture { get; set; }
-            // We need to store index because ImageListViewItem.Index does not represent the original index.
-            public int Index { get; set; }
-            public bool Found { get; set; }
-        }
-
-        private class TexturesListViewGrouper : ImageListView.IGrouper
-        {
-            public ImageListView.GroupInfo GetGroupInfo(ImageListViewItem item)
-            {
-                var tagInfo = (TexturesListViewTagInfo)item.Tag;
-                var name = tagInfo.Found ? "Found" : "Textures"; // Name ID of group
-                var order = tagInfo.Found ? 0 : 1;               // Index of group
-                return new ImageListView.GroupInfo(name, order);
-            }
-        }
-
         private const float MouseSensivity = 0.0035f;
 
         private static readonly Pen Black3Px = new Pen(Color.Black, 3f);
         private static readonly Pen White1Px = new Pen(Color.White, 1f);
         private static readonly Pen Cyan1Px = new Pen(Color.Cyan, 1f);
 
-        private readonly List<RootEntity> _rootEntities;
-        private readonly List<Texture> _textures;
-        private readonly List<Animation> _animations;
+        private readonly List<RootEntity> _rootEntities = new List<RootEntity>();
+        private readonly List<Texture> _textures = new List<Texture>();
+        private readonly List<Animation> _animations = new List<Animation>();
         private readonly Action<PreviewForm> _refreshAction;
+        private readonly Scene _scene;
+        private readonly VRAM _vram;
+        // todo: AnimationBatch doesn't need to be in scene
+        //private readonly AnimationBatch _animationBatch;
 
         private Timer _animateTimer;
         private Animation _curAnimation;
@@ -68,13 +53,11 @@ namespace PSXPrev.Forms
         private Timer _redrawTimer;
         private Timer _modelPropertyGridRefreshTimer; // Timer for refreshing property grid if the current model's properties have updated
         private bool _modelPropertyGridNeedsRefresh;
-        private readonly Scene _scene;
         private Tuple<ModelEntity, Triangle> _selectedTriangle;
         private ModelEntity _selectedModelEntity;
         private RootEntity _selectedRootEntity;
         private EntitySelectionSource _selectionSource;
         private bool _showUv;
-        private readonly VRAM _vram;
         private int _vramSelectedPage = -1; // Used because combo box SelectedIndex can be -1 while typing.
         private Bitmap _maskColorBitmap;
         private Bitmap _ambientColorBitmap;
@@ -104,12 +87,8 @@ namespace PSXPrev.Forms
         public PreviewForm(Action<PreviewForm> refreshAction)
         {
             _refreshAction = refreshAction;
-            _animations = new List<Animation>();
-            _textures = new List<Texture>();
-            _rootEntities = new List<RootEntity>();
             _scene = new Scene();
             _vram = new VRAM(_scene);
-            refreshAction(this);
             Toolkit.Init();
             InitializeComponent();
             SetupControls();
@@ -123,158 +102,132 @@ namespace PSXPrev.Forms
                 if (_playing != value)
                 {
                     _playing = value;
-                    if (_playing)
-                    {
-                        animationPlayButtonx.Text = "Pause Animation";
-                        _animateTimer.Start();
-                    }
-                    else
-                    {
-                        animationPlayButtonx.Text = "Play Animation";
-                        _animateTimer.Stop();
+                    _animateTimer.Enabled = value;
 
-                        // Make sure we restart the animation if it was finished.
-                        if (_scene.AnimationBatch.IsFinished)
-                        {
-                            _scene.AnimationBatch.Restart();
-                        }
+                    // Make sure we restart the animation if it was finished.
+                    if (!value && _scene.AnimationBatch.IsFinished)
+                    {
+                        _scene.AnimationBatch.Restart();
                     }
                     // Refresh to make sure the button text updates quickly.
+                    animationPlayButtonx.Text = value ? "Pause Animation" : "Play Animation";
                     animationPlayButtonx.Refresh();
                 }
             }
         }
 
-        private void EntityAdded(RootEntity entity, int index)
-        {
-            foreach (var entityBase in entity.ChildEntities)
-            {
-                var model = (ModelEntity)entityBase;
-                model.TexturePage = VRAM.ClampTexturePage(model.TexturePage);
-                if (model.IsTextured)
-                {
-                    model.Texture = _vram[model.TexturePage];
-                }
-            }
-            entitiesTreeView.BeginUpdate();
-            var entityNode = entitiesTreeView.Nodes.Add(entity.EntityName);
-            entityNode.Tag = entity;
-            for (var m = 0; m < entity.ChildEntities.Length; m++)
-            {
-                var entityChildEntity = entity.ChildEntities[m];
-                var modelNode = new TreeNode(entityChildEntity.EntityName);
-                modelNode.Tag = entityChildEntity;
-                entityNode.Nodes.Add(modelNode);
-                modelNode.HideCheckBox();
-                modelNode.HideCheckBox();
-            }
-            entitiesTreeView.EndUpdate();
-        }
-
-        private void TextureAdded(Texture texture, int index)
-        {
-            texturesListView.Items.Add(new ImageListViewItem
-            {
-                //Text = index.ToString(), //debug
-                Text = texture.TextureName,
-                Tag = new TexturesListViewTagInfo
-                {
-                    //Texture = texture,
-                    Index = index,
-                    Found = false,
-                },
-            }, texture.Bitmap);
-        }
-
-        private void AnimationAdded(Animation animation, int index)
-        {
-            animationsTreeView.BeginUpdate();
-            var animationNode = new TreeNode(animation.AnimationName);
-            animationNode.Tag = animation;
-            animationsTreeView.Nodes.Add(animationNode);
-            AddAnimationObject(animation.RootAnimationObject, animationNode);
-            animationsTreeView.EndUpdate();
-        }
+        #region Scanning
 
         public void AddRootEntities(List<RootEntity> rootEntities)
         {
-            if (IsDisposed || _closing)
+            if (!IsDisposed && !_closing)
             {
-                return;
-            }
-            foreach (var rootEntity in rootEntities)
-            {
-                AddRootEntity(rootEntity);
+                foreach (var rootEntity in rootEntities)
+                {
+                    AddRootEntity(rootEntity);
+                }
             }
         }
 
         public void AddTextures(List<Texture> textures)
         {
-            if (IsDisposed || _closing)
+            if (!IsDisposed && !_closing)
             {
-                return;
-            }
-            foreach (var texture in textures)
-            {
-                AddTexture(texture);
+                foreach (var texture in textures)
+                {
+                    AddTexture(texture);
+                }
             }
         }
 
         public void AddAnimations(List<Animation> animations)
         {
+            if (!IsDisposed && !_closing)
+            {
+                foreach (var animation in animations)
+                {
+                    AddAnimation(animation);
+                }
+            }
+        }
+
+        public void ReloadItems()
+        {
             if (IsDisposed || _closing)
             {
                 return;
             }
-            foreach (var animation in animations)
+            if (InvokeRequired)
             {
-                AddAnimation(animation);
+                Invoke(new Action(ReloadItems));
+            }
+            else
+            {
+                _refreshAction(this);
             }
         }
 
-        // Helper functions primarily intended for debugging models made by MeshBuilders.
-        private void AddRootEntities(params RootEntity[] rootEntities)
+        public void ScanUpdated(long currentPosition, long currentLength, int currentFile, int totalFiles, string message, bool reloadItems)
         {
-            foreach (var rootEntity in rootEntities)
+            if (IsDisposed || _closing)
             {
-                AddRootEntity(rootEntity);
+                return;
+            }
+            if (InvokeRequired)
+            {
+                var invokeAction = new Action<long, long, int, int, string, bool>(ScanUpdated);
+                Invoke(invokeAction, currentPosition, currentLength, currentFile, totalFiles, message, reloadItems);
+            }
+            else
+            {
+                // Update major progress bar
+                statusTotalFilesProgressBar.Maximum = totalFiles;
+                statusTotalFilesProgressBar.Value = GeomMath.Clamp(currentFile, 0, totalFiles);
+
+                // Update minor progress bar
+                // Avoid divide-by-zero when scanning a file that's 0 bytes in size.
+                var percent = (currentLength > 0) ? ((double)currentPosition / currentLength) : 1d;
+                const int max = 100;
+                statusCurrentFileProgressBar.Maximum = max;
+                statusCurrentFileProgressBar.Value = GeomMath.Clamp((int)(percent * max), 0, max);
+
+                statusMessageLabel.Text = message;
+
+                if (reloadItems)
+                {
+                    _refreshAction(this);
+                    //ReloadItems();
+                }
             }
         }
 
-        private void AddTextures(params Texture[] textures)
+        public void ScanStarted()
         {
-            foreach (var texture in textures)
+            if (IsDisposed || _closing)
             {
-                AddTexture(texture);
+                return;
+            }
+            if (InvokeRequired)
+            {
+                Invoke(new Action(ScanStarted));
+            }
+            else
+            {
+                pauseScanningToolStripMenuItem.Checked = false;
+                pauseScanningToolStripMenuItem.Enabled = true;
+                stopScanningToolStripMenuItem.Enabled = true;
+                startScanToolStripMenuItem.Enabled = false;
+                clearScanResultsToolStripMenuItem.Enabled = false;
+
+                statusStrip1.SuspendLayout();
+
+                statusTotalFilesProgressBar.Visible = true;
+                statusCurrentFileProgressBar.Visible = true;
+
+                statusStrip1.ResumeLayout();
+                statusStrip1.Refresh();
             }
         }
-
-        private void AddAnimations(params Animation[] animations)
-        {
-            foreach (var animation in animations)
-            {
-                AddAnimation(animation);
-            }
-        }
-
-        private void AddRootEntity(RootEntity rootEntity)
-        {
-            _rootEntities.Add(rootEntity);
-            EntityAdded(rootEntity, _rootEntities.Count - 1);
-        }
-
-        private void AddTexture(Texture texture)
-        {
-            _textures.Add(texture);
-            TextureAdded(texture, _textures.Count - 1);
-        }
-
-        private void AddAnimation(Animation animation)
-        {
-            _animations.Add(animation);
-            AnimationAdded(animation, _animations.Count - 1);
-        }
-
 
         public void ScanFinished(bool drawAllToVRAM)
         {
@@ -292,7 +245,7 @@ namespace PSXPrev.Forms
                 SelectFirstEntity(); // Select something if the user hasn't already done so.
                 if (drawAllToVRAM)
                 {
-                    DrawAllTexturesToVRAM();
+                    DrawTexturesToVRAM(_textures);
                 }
 
                 pauseScanningToolStripMenuItem.Checked = false;
@@ -300,6 +253,16 @@ namespace PSXPrev.Forms
                 stopScanningToolStripMenuItem.Enabled = false;
                 startScanToolStripMenuItem.Enabled = true;
                 clearScanResultsToolStripMenuItem.Enabled = true;
+
+                statusStrip1.SuspendLayout();
+
+                statusTotalFilesProgressBar.Visible = false;
+                statusCurrentFileProgressBar.Visible = false;
+
+                statusMessageLabel.Text = $"Models: {_rootEntities.Count}, Textures: {_textures.Count}, Animations: {_animations.Count}";
+
+                statusStrip1.ResumeLayout();
+                statusStrip1.Refresh();
 
                 // Debugging: Quickly export models and animations on startup.
                 /*if (_rootEntities.Count >= 1 && _animations.Count >= 1)
@@ -319,62 +282,142 @@ namespace PSXPrev.Forms
             }
         }
 
-        public void SelectFirstEntity()
+        #endregion
+
+        #region Settings
+
+        public void LoadDefaultSettings()
         {
-            if (IsDisposed || _closing)
-            {
-                return;
-            }
-            if (InvokeRequired)
-            {
-                Invoke(new Action(SelectFirstEntity));
-            }
-            else
-            {
-                // Don't select the first model if we already have a selection.
-                // Doing that would interrupt the user.
-                if (entitiesTreeView.SelectedNode == null && _rootEntities.Count > 0)
-                {
-                    SelectEntity(_rootEntities[0], true); // Select and focus
-                }
-            }
+            Settings.LoadDefaults();
+            ReadSettings(Settings.Instance);
         }
 
-        public void DrawAllTexturesToVRAM()
+        public void LoadSettings()
         {
-            if (IsDisposed || _closing)
-            {
-                return;
-            }
-            if (InvokeRequired)
-            {
-                Invoke(new Action(DrawAllTexturesToVRAM));
-            }
-            else
-            {
-                foreach (var texture in _textures)
-                {
-                    _vram.DrawTexture(texture, true); // Suppress updates to scene until all textures are drawn.
-                }
-                _vram.UpdateAllPages();
-                UpdateVRAMComboBoxPageItems();
-            }
+            Settings.Load();
+            ReadSettings(Settings.Instance);
         }
 
-        public void DrawModelTexturesToVRAM(RootEntity rootEntity)
+        public void SaveSettings()
         {
-            // Note: We can't just use ModelEntity.Texture, since that just points to the VRAM page.
-            foreach (var texture in rootEntity.OwnedTextures)
-            {
-                _vram.DrawTexture(texture, true); // Suppress updates to scene until all textures are drawn.
-            }
-            _vram.UpdateAllPages();
+            WriteSettings(Settings.Instance);
+            Settings.Instance.Save();
         }
+
+        public void ReadSettings(Settings settings)
+        {
+            if (!Program.IsScanning)
+            {
+                Program.Logger.ReadSettings(Settings.Instance);
+            }
+
+            gridSnapUpDown.Value = (decimal)settings.GridSnap;
+            angleSnapUpDown.Value = (decimal)settings.AngleSnap;
+            scaleSnapUpDown.Value = (decimal)settings.ScaleSnap;
+            cameraFOVUpDown.Value = (decimal)settings.CameraFOV;
+            {
+                // Prevent light rotation ray from showing up while reading settings.
+                // This is re-assigned later in the function.
+                _scene.ShowLightRotationRay = false;
+                lightIntensityNumericUpDown.Value = (decimal)settings.LightIntensity;
+                lightYawNumericUpDown.Value = (decimal)settings.LightYaw;
+                lightPitchNumericUpDown.Value = (decimal)settings.LightPitch;
+                enableLightToolStripMenuItem.Checked = settings.LightEnabled;
+            }
+            _scene.AmbientEnabled = settings.AmbientEnabled;
+            enableTexturesToolStripMenuItem.Checked = settings.TexturesEnabled;
+            enableSemiTransparencyToolStripMenuItem.Checked = settings.SemiTransparencyEnabled;
+            forceDoubleSidedToolStripMenuItem.Checked = settings.ForceDoubleSided;
+            autoAttachLimbsToolStripMenuItem.Checked = settings.AutoAttachLimbs;
+            drawModeFacesToolStripMenuItem.Checked = settings.DrawFaces;
+            drawModeWireframeToolStripMenuItem.Checked = settings.DrawWireframe;
+            drawModeVerticesToolStripMenuItem.Checked = settings.DrawVertices;
+            drawModeSolidWireframeVerticesToolStripMenuItem.Checked = settings.DrawSolidWireframeVertices;
+            wireframeSizeUpDown.Value = (decimal)settings.WireframeSize;
+            vertexSizeUpDown.Value = (decimal)settings.VertexSize;
+            SetGizmoType(settings.GizmoType, force: true);
+            showBoundsToolStripMenuItem.Checked = settings.ShowBounds;
+            _scene.ShowLightRotationRay = settings.ShowLightRotationRay;
+            _scene.ShowDebugVisuals = settings.ShowDebugVisuals;
+            _scene.ShowDebugPickingRay = settings.ShowDebugPickingRay;
+            _scene.ShowDebugIntersections = settings.ShowDebugIntersections;
+            SetBackgroundColor(settings.BackgroundColor);
+            SetAmbientColor(settings.AmbientColor);
+            SetMaskColor(settings.MaskColor);
+            SetSolidWireframeVerticesColor(settings.SolidWireframeVerticesColor);
+            showUVToolStripMenuItem.Checked = settings.ShowUVsInVRAM;
+            autoDrawModelTexturesToolStripMenuItem.Checked = settings.AutoDrawModelTextures;
+            autoPlayAnimationsToolStripMenuItem.Checked = settings.AutoPlayAnimation;
+            autoSelectAnimationModelToolStripMenuItem.Checked = settings.AutoSelectAnimationModel;
+            animationLoopModeComboBox.SelectedIndex = (int)settings.AnimationLoopMode;
+            animationReverseCheckBox.Checked = settings.AnimationReverse;
+            animationSpeedNumericUpDown.Value = (decimal)settings.AnimationSpeed;
+        }
+
+        public void WriteSettings(Settings settings)
+        {
+            Program.Logger.WriteSettings(Settings.Instance);
+
+            settings.GridSnap = (float)gridSnapUpDown.Value;
+            settings.AngleSnap = (float)angleSnapUpDown.Value;
+            settings.ScaleSnap = (float)scaleSnapUpDown.Value;
+            settings.CameraFOV = (float)cameraFOVUpDown.Value;
+            settings.LightIntensity = (float)lightIntensityNumericUpDown.Value;
+            settings.LightYaw = (float)lightYawNumericUpDown.Value;
+            settings.LightPitch = (float)lightPitchNumericUpDown.Value;
+            settings.LightEnabled = enableLightToolStripMenuItem.Checked;
+            settings.AmbientEnabled = _scene.AmbientEnabled;
+            settings.TexturesEnabled = enableTexturesToolStripMenuItem.Checked;
+            settings.SemiTransparencyEnabled = enableSemiTransparencyToolStripMenuItem.Checked;
+            settings.ForceDoubleSided = forceDoubleSidedToolStripMenuItem.Checked;
+            settings.AutoAttachLimbs = autoAttachLimbsToolStripMenuItem.Checked;
+            settings.DrawFaces = drawModeFacesToolStripMenuItem.Checked;
+            settings.DrawWireframe = drawModeWireframeToolStripMenuItem.Checked;
+            settings.DrawVertices = drawModeVerticesToolStripMenuItem.Checked;
+            settings.DrawSolidWireframeVertices = drawModeSolidWireframeVerticesToolStripMenuItem.Checked;
+            settings.WireframeSize = (float)wireframeSizeUpDown.Value;
+            settings.VertexSize = (float)vertexSizeUpDown.Value;
+            settings.GizmoType = _gizmoType;
+            settings.ShowBounds = showBoundsToolStripMenuItem.Checked;
+            settings.ShowLightRotationRay = _scene.ShowLightRotationRay;
+            settings.ShowDebugVisuals = _scene.ShowDebugVisuals;
+            settings.ShowDebugPickingRay = _scene.ShowDebugPickingRay;
+            settings.ShowDebugIntersections = _scene.ShowDebugIntersections;
+            settings.BackgroundColor =  _scene.ClearColor;
+            settings.AmbientColor = _scene.AmbientColor;
+            settings.MaskColor = _scene.MaskColor;
+            settings.SolidWireframeVerticesColor = _scene.SolidWireframeVerticesColor;
+            settings.ShowUVsInVRAM = showUVToolStripMenuItem.Checked;
+            settings.AutoDrawModelTextures = autoDrawModelTexturesToolStripMenuItem.Checked;
+            settings.AutoPlayAnimation = autoPlayAnimationsToolStripMenuItem.Checked;
+            settings.AutoSelectAnimationModel = autoSelectAnimationModelToolStripMenuItem.Checked;
+            settings.AnimationLoopMode = (AnimationLoopMode)animationLoopModeComboBox.SelectedIndex;
+            settings.AnimationReverse = animationReverseCheckBox.Checked;
+            settings.AnimationSpeed = (float)animationSpeedNumericUpDown.Value;
+        }
+
+        #endregion
+
+
+        #region Main/GLControl
 
         private void SetupControls()
         {
-            _openTkControl = new GLControl { BackColor = Color.Black, Name = "openTKControl", TabIndex = 15, VSync = true };
+            // Set window title to format: PSXPrev #.#.#.#
+            var assembly = Assembly.GetExecutingAssembly();
+            var fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
+            Text = $"{Text} {fileVersionInfo.FileVersion}";
+
+
+            // Setup GLControl
+            _openTkControl = new GLControl { Name = "openTKControl", TabIndex = 15 };
+            _openTkControl.BackColor = Color.Black;
             _openTkControl.BorderStyle = BorderStyle.FixedSingle;
+            _openTkControl.Dock = DockStyle.Fill;
+            _openTkControl.Margin = Padding.Empty;
+            _openTkControl.Parent = modelsSplitContainer.Panel2;
+            _openTkControl.VSync = true;
+
             _openTkControl.Load += openTKControl_Load;
             _openTkControl.MouseDown += (sender, e) => openTkControl_MouseEvent(e, MouseEventType.Down);
             _openTkControl.MouseUp += (sender, e) => openTkControl_MouseEvent(e, MouseEventType.Up);
@@ -382,176 +425,57 @@ namespace PSXPrev.Forms
             _openTkControl.MouseMove += (sender, e) => openTkControl_MouseEvent(e, MouseEventType.Move);
             _openTkControl.Paint += _openTkControl_Paint;
             _openTkControl.Resize += _openTkControl_Resize;
-            _openTkControl.Dock = DockStyle.Fill;
-            _openTkControl.Parent = modelsSplitContainer.Panel2;
-            _openTkControl.Margin = Padding.Empty;
 
-            // Use this renderer because ToolStripSystemRenderer (the default) is garbage.
-            // This one also handles checkmarks with images correctly.
-            mainMenuStrip.Renderer = new ToolStripProfessionalRenderer();
 
-            texturePanel.MouseWheel += TexturePanelOnMouseWheel;
-            vramPanel.MouseWheel += VramPanelOnMouseWheel;
-
-            UpdateLightDirection();
-            ResizeToolStrip();
-        }
-
-        private void VramPanelOnMouseWheel(object sender, MouseEventArgs e)
-        {
-            ((HandledMouseEventArgs)e).Handled = true;
-            if (e.Delta > 0)
-            {
-                _vramPageScale *= 2f;
-            }
-            else
-            {
-                _vramPageScale /= 2f;
-            }
-            _vramPageScale = GeomMath.Clamp(_vramPageScale, 0.25f, 8.0f);
-            vramPagePictureBox.Width = (int)(VRAM.PageSize * _vramPageScale);
-            vramPagePictureBox.Height = (int)(VRAM.PageSize * _vramPageScale);
-            vramZoomLabel.Text = $"{_vramPageScale:P0}"; // Percent format
-        }
-
-        private void TexturePanelOnMouseWheel(object sender, MouseEventArgs e)
-        {
-            ((HandledMouseEventArgs)e).Handled = true;
-            if (e.Delta > 0)
-            {
-                _texturePreviewScale *= 2f;
-            }
-            else
-            {
-                _texturePreviewScale /= 2f;
-            }
-            _texturePreviewScale = GeomMath.Clamp(_texturePreviewScale, 0.25f, 8.0f);
-            var texture = GetSelectedTexture();
-            if (texture == null)
-            {
-                return;
-            }
-            texturePreviewPictureBox.Width = (int)(texture.Width * _texturePreviewScale);
-            texturePreviewPictureBox.Height = (int)(texture.Height * _texturePreviewScale);
-            texturesZoomLabel.Text = $"{_texturePreviewScale:P0}"; // Percent format
-        }
-
-        private void _openTkControl_Resize(object sender, EventArgs e)
-        {
-            _openTkControl.MakeCurrent();
-            // Make sure to use ClientSize to exclude size added by the borders.
-            if (_scene.Initialized)
-            {
-                _scene.Resize(_openTkControl.ClientSize.Width, _openTkControl.ClientSize.Height);
-            }
-            else
-            {
-                _scene.Initialize(_openTkControl.ClientSize.Width, _openTkControl.ClientSize.Height);
-            }
-        }
-
-        private void _openTkControl_Paint(object sender, PaintEventArgs e)
-        {
-            _openTkControl.MakeCurrent();
-            if (_inAnimationTab && _curAnimation != null)
-            {
-                var checkedEntities = GetCheckedEntities();
-                if (_scene.AnimationBatch.SetupAnimationFrame(checkedEntities, _selectedRootEntity, _selectedModelEntity, true))
-                {
-                    // Animation has been processed. Update attached limbs while animating.
-                    (_selectedRootEntity ?? _selectedModelEntity?.GetRootEntity())?.FixConnections();
-                }
-            }
-            _scene.Draw();
-            _openTkControl.SwapBuffers();
-        }
-
-        private void SetupScene()
-        {
-            _scene.Initialize(Width, Height);
-
-            animationLoopModeComboBox.SelectedIndex = (int)_scene.AnimationBatch.LoopMode;
-            animationReverseCheckBox.Checked = _scene.AnimationBatch.Reverse;
-        }
-
-        private void SetupColors()
-        {
-            SetMaskColor(Color.Black);
-            SetAmbientColor(Color.LightGray);
-            SetBackgroundColor(Color.LightSkyBlue);
-            SetSolidWireframeVerticesColor(Color.Gray);
-        }
-
-        private void SetupEntities()
-        {
-            for (var i = 0; i < _rootEntities.Count; i++)
-            {
-                var entity = _rootEntities[i];
-                EntityAdded(entity, i);
-            }
-        }
-
-        private void SetupTextures()
-        {
-            for (var i = 0; i < _textures.Count; i++)
-            {
-                var texture = _textures[i];
-                TextureAdded(texture, i);
-            }
-        }
-
-        private void SetupAnimations()
-        {
-            for (var i = 0; i < _animations.Count; i++)
-            {
-                var animation = _animations[i];
-                AnimationAdded(animation, i);
-            }
-        }
-
-        private void AddAnimationObject(AnimationObject parent, TreeNode parentNode)
-        {
-            var animationObjects = parent.Children;
-            for (var o = 0; o < animationObjects.Count; o++)
-            {
-                var animationObject = animationObjects[o];
-                var animationObjectNode = new TreeNode("Animation-Object " + o); // 0-indexed like Sub-Models
-                animationObjectNode.Tag = animationObject;
-                parentNode.Nodes.Add(animationObjectNode);
-                AddAnimationObject(animationObject, animationObjectNode);
-            }
-        }
-
-        private void SetupVRAM()
-        {
-            _vram.Setup();
-        }
-
-        private void previewForm_Load(object sender, EventArgs e)
-        {
-            // Setup timers
+            // Setup Timers
+            // Don't start timers until the Form is loaded
             _redrawTimer = new Timer();
             _redrawTimer.Interval = 1f / 60f;
             _redrawTimer.SynchronizingObject = this;
             _redrawTimer.Elapsed += _redrawTimer_Elapsed;
-            _redrawTimer.Start();
 
             _modelPropertyGridRefreshTimer = new Timer();
             _modelPropertyGridRefreshTimer.Interval = 50f; // 50 milliseconds
             _modelPropertyGridRefreshTimer.SynchronizingObject = this;
             _modelPropertyGridRefreshTimer.Elapsed += _modelPropertyGridRefreshTimer_Elapsed;
-            _modelPropertyGridRefreshTimer.Start();
 
             _animateTimer = new Timer();
+            _animateTimer.Interval = 1f / 60f;
             _animateTimer.SynchronizingObject = this;
             _animateTimer.Elapsed += _animateTimer_Elapsed;
 
-            // Set window title to format: PSXPrev #.#.#.#
-            var assembly = Assembly.GetExecutingAssembly();
-            var fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
-            Text = $"{Text} {fileVersionInfo.FileVersion}";
 
-            // Setup texturesListView
+            // Setup Events
+            // Add events that are marked as unbrowsable, and don't show up in the designer.
+            texturePanel.MouseWheel += TexturePanelOnMouseWheel;
+            vramPanel.MouseWheel += VramPanelOnMouseWheel;
+
+            // Ensure numeric up downs display the same value that they store internally
+            SetupNumericUpDownValidateEvents();
+
+
+            // Setup Enabled/Visible
+            // Hide certain controls by default (rather than hiding them in the designer and making them hard to edit).
+            // Default scanning state for controls
+            pauseScanningToolStripMenuItem.Enabled = false;
+            stopScanningToolStripMenuItem.Enabled = false;
+            statusTotalFilesProgressBar.Visible = false;
+            statusCurrentFileProgressBar.Visible = false;
+
+            // Default to invisible until we have a gizmo type set
+            gizmoSnapFlowLayoutPanel.Visible = false;
+
+            // Default to invisible unless wireframe and/or vertices draw modes are enabled
+            wireframeVertexSizeFlowLayoutPanel.Visible = false;
+
+
+            // Setup MainMenuStrip
+            // Use this renderer because ToolStripSystemRenderer (the default) is garbage.
+            // This one also handles checkmarks with images correctly.
+            mainMenuStrip.Renderer = new ToolStripProfessionalRenderer();
+
+
+            // Setup ImageListView for textures
             // Set renderer to use a sharp-cornered square box, and nameplate below the box.
             texturesListView.SetRenderer(new Manina.Windows.Forms.ImageListViewRenderers.XPRenderer());
 
@@ -564,168 +488,9 @@ namespace PSXPrev.Forms
             // Set grouper and comparer for "Textures" (everything else) group.
             texturesListView.Columns[1].Grouper  = grouper;
             texturesListView.Columns[1].Comparer = comparer;
-
-            // Default to invisible until we have a gizmo type set
-            gizmoSnapFlowLayoutPanel.Visible = false;
-
-            // Default to invisible unless wireframe and/or vertices draw modes are enabled
-            wireframeVertexSizeFlowLayoutPanel.Visible = false;
-
-            // Ensure numeric up downs display the same value that they store internally
-            SetupNumericUpDownValidatingEvents();
-
-            ReadSettings(Settings.Instance);
         }
 
-        private void SetupNumericUpDownValidatingEvents()
-        {
-            // When a user manually enters in a value in a NumericUpDown,
-            // the value will be shown with the specified number of decimal places,
-            // BUT VALUE WILL NOT BE ROUNDED TO THE SPECIFIED NUMBER OF DECIMAL PLACES!
-
-            // Anyways, this fixes that by rounding the value during the validating event.
-            // We need to find all NumericUpDowns in the form, and register the event for those.
-            var queue = new Queue<Control>();
-            queue.Enqueue(this);
-
-            while (queue.Count > 0)
-            {
-                var container = queue.Dequeue();
-
-                foreach (Control control in container.Controls)
-                {
-                    if (control is NumericUpDown numericUpDown)
-                    {
-                        numericUpDown.Validating += allNumericUpDowns_Validating;
-                    }
-
-                    if (control.Controls.Count > 0)
-                    {
-                        queue.Enqueue(control);
-                    }
-                }
-            }
-        }
-
-        private void allNumericUpDowns_Validating(object sender, System.ComponentModel.CancelEventArgs e)
-        {
-            if (sender is NumericUpDown numericUpDown)
-            {
-                numericUpDown.Value = Math.Round(numericUpDown.Value, numericUpDown.DecimalPlaces,
-                                                 MidpointRounding.AwayFromZero);
-            }
-        }
-
-        private void _modelPropertyGridRefreshTimer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            if (_modelPropertyGridNeedsRefresh)
-            {
-                _modelPropertyGridNeedsRefresh = false;
-                modelPropertyGrid.SelectedObject = modelPropertyGrid.SelectedObject;
-            }
-        }
-
-        private void previewForm_Shown(object sender, EventArgs e)
-        {
-            if (Program.HasCommandLineArguments)
-            {
-                Program.ScanCommandLineAsync();
-            }
-            else
-            {
-                PromptScan();
-            }
-        }
-
-        private void previewForm_FormClosing(object sender, FormClosingEventArgs e)
-        {
-            SaveSettings();
-
-            _closing = true;
-            _redrawTimer?.Stop();
-            _animateTimer?.Stop();
-            Program.CancelScan(); // Cancel the scan if one is active.
-        }
-
-        private void _animateTimer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            // Don't animate if we're not in the animation tab.
-            // todo: Or allow animations to play in other tabs, in-which case other checks for _inAnimationTab need to be removed.
-            if (!_inDialog && !IsDisposed && !_closing && _inAnimationTab)
-            {
-                if (Playing && _scene.AnimationBatch.IsFinished)
-                {
-                    Playing = false; // LoopMode is a Once type, and the animation has finished. Stop playing.
-                }
-                else
-                {
-                    _scene.AnimationBatch.AddTime(_animateTimer.Interval);
-                }
-                UpdateAnimationProgressLabel();
-            }
-        }
-
-        private void UpdateAnimationProgressLabel()
-        {
-            animationFrameTrackBar.Maximum = Math.Max(1, (int)_scene.AnimationBatch.FrameCount);
-            animationFrameTrackBar.Value = (int)_scene.AnimationBatch.CurrentFrameTime;
-            animationProgressLabel.Text = $"{animationFrameTrackBar.Value}/{animationFrameTrackBar.Maximum}";
-            animationFrameTrackBar.Refresh();
-        }
-
-        private void _redrawTimer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            if (!_inDialog && !IsDisposed && !_closing)
-            {
-                _scene.AddTime(_redrawTimer.Interval);
-                Redraw();
-            }
-        }
-
-        private RootEntity[] GetCheckedEntities(bool defaultToSelected = false)
-        {
-            var selectedEntities = new List<RootEntity>();
-            for (var i = 0; i < entitiesTreeView.Nodes.Count; i++)
-            {
-                var node = entitiesTreeView.Nodes[i];
-                if (node.Checked)
-                {
-                    selectedEntities.Add(_rootEntities[i]);
-                }
-            }
-            if (selectedEntities.Count == 0 && defaultToSelected)
-            {
-                var selectedRootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
-                if (selectedRootEntity != null)
-                {
-                    selectedEntities.Add(selectedRootEntity);
-                }
-            }
-            return selectedEntities.Count == 0 ? null : selectedEntities.ToArray();
-        }
-
-        private Animation[] GetCheckedAnimations(bool defaultToSelected = false)
-        {
-            var selectedAnimations = new List<Animation>();
-            for (var i = 0; i < animationsTreeView.Nodes.Count; i++)
-            {
-                var node = animationsTreeView.Nodes[i];
-                if (node.Checked && node.Tag is Animation animation)
-                {
-                    selectedAnimations.Add(animation);
-                }
-            }
-            if (selectedAnimations.Count == 0 && defaultToSelected)
-            {
-                if (_curAnimation != null)
-                {
-                    selectedAnimations.Add(_curAnimation);
-                }
-            }
-            return selectedAnimations.Count == 0 ? null : selectedAnimations.ToArray();
-        }
-
-        private void ClearResults()
+        private void ClearScanResults()
         {
             if (!Program.IsScanning)
             {
@@ -774,338 +539,343 @@ namespace PSXPrev.Forms
                 _scene.DebugIntersectionsBatch.Reset(1);
                 _scene.SetDebugPickingRay(false);
 
+                // Update display information
+                statusMessageLabel.Text = "Waiting";
+                UpdateVRAMComboBoxPageItems();
+                UpdateAnimationProgressLabel();
+
                 TMDBindingsForm.CloseTool();
             }
         }
 
-        private void PromptScan()
+        private void Redraw()
         {
-            if (!Program.IsScanning)
-            {
-                _inDialog = true;
-                try
-                {
-                    pauseScanningToolStripMenuItem.Checked = false;
-                    pauseScanningToolStripMenuItem.Enabled = true;
-                    stopScanningToolStripMenuItem.Enabled = true;
-                    startScanToolStripMenuItem.Enabled = false;
-                    clearScanResultsToolStripMenuItem.Enabled = false;
-                    if (!ScannerForm.Show(this))
-                    {
-                        pauseScanningToolStripMenuItem.Checked = false;
-                        pauseScanningToolStripMenuItem.Enabled = false;
-                        stopScanningToolStripMenuItem.Enabled = false;
-                        startScanToolStripMenuItem.Enabled = true;
-                        clearScanResultsToolStripMenuItem.Enabled = true;
-                    }
-                }
-                finally
-                {
-                    _inDialog = false;
-                }
-            }
+            _openTkControl.Invalidate();
         }
 
-        private void PromptOutputFolder(Action<string> pathCallback)
+        private void previewForm_Load(object sender, EventArgs e)
         {
-            // Use BeginInvoke so that dialog doesn't show up behind menu items...
-            BeginInvoke((Action)(() =>
-            {
-                _inDialog = true;
-                try
-                {
-                    // Don't use FolderBrowserDialog because it has the usability of a brick.
-                    using (var folderBrowserDialog = new Microsoft.WindowsAPICodePack.Dialogs.CommonOpenFileDialog())
-                    {
-                        folderBrowserDialog.IsFolderPicker = true;
-                        folderBrowserDialog.Title = "Select the output folder";
-                        // Parameter name used to avoid overload resolution with WPF Window, which we don't have a reference to.
-                        if (folderBrowserDialog.ShowDialog(ownerWindowHandle: Handle) == Microsoft.WindowsAPICodePack.Dialogs.CommonFileDialogResult.Ok)
-                        {
-                            pathCallback(folderBrowserDialog.FileName);
-                            return;
-                        }
-                    }
-                    pathCallback(null);
+            // Read and apply settings or default settings
+            ReadSettings(Settings.Instance);
 
-                    //var fbd = new FolderBrowserDialog { Description = "Select the output folder" };
-                    //var result = fbd.ShowDialog(this) == DialogResult.OK;
-                    //path = fbd.SelectedPath;
-                    //return result;
-                }
-                finally
-                {
-                    _inDialog = false;
-                }
-            }));
+            // Start timers that should always be running
+            _redrawTimer.Start();
+            _modelPropertyGridRefreshTimer.Start();
         }
 
-        private bool PromptVRAMPage(string title, int? defaultPage, out int pageIndex)
+        private void previewForm_Shown(object sender, EventArgs e)
         {
-            _inDialog = true;
-            try
+            if (Program.HasCommandLineArguments)
             {
-                pageIndex = 0;
-                var defaultText = (defaultPage.HasValue && defaultPage.Value != -1) ? defaultPage.ToString() : null;
-                var pageStr = InputDialog.Show(this, $"Please type in the VRAM Page index (0-{VRAM.PageCount-1})", title, defaultText);
-                if (pageStr != null)
-                {
-                    if (int.TryParse(pageStr, out pageIndex) && pageIndex >= 0 && pageIndex < VRAM.PageCount)
-                    {
-                        return true; // OK (valid page)
-                    }
-                    MessageBox.Show(this, $"Please type in a valid VRAM Page index between 0 and {VRAM.PageCount-1}", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
-                return false; // Canceled / OK (invalid page)
-            }
-            finally
-            {
-                _inDialog = false;
-            }
-        }
-
-        private bool PromptColor(Color? initialColor, Color? defaultColor, out Color color)
-        {
-            _inDialog = true;
-            try
-            {
-                using (var colorDialog = new ColorDialog())
-                {
-                    colorDialog.FullOpen = true;
-                    // Use dialog custom colors chosen by the user
-                    colorDialog.CustomColors = Settings.Instance.GetColorDialogCustomColors(defaultColor);
-                    if (initialColor.HasValue)
-                    {
-                        colorDialog.Color = initialColor.Value;
-                    }
-
-                    if (colorDialog.ShowDialog(this) == DialogResult.OK)
-                    {
-                        // Remember dialog custom colors chosen by the user
-                        Settings.Instance.SetColorDialogCustomColors(colorDialog.CustomColors);
-
-                        color = colorDialog.Color;
-                        return true;
-                    }
-                    // todo: Should we still update custom colors when cancelled?
-                    Settings.Instance.SetColorDialogCustomColors(colorDialog.CustomColors);
-                }
-                color = Color.Black;
-                return false;
-            }
-            finally
-            {
-                _inDialog = false;
-            }
-        }
-
-        private void PromptExportModels(bool all)
-        {
-            // Get all models, checked models, or selected model if nothing is checked.
-            var entities = all ? _rootEntities.ToArray() : GetCheckedEntities(true);
-
-            if (entities == null || entities.Length == 0)
-            {
-                var message = all ? "No models to export" : "No models checked or selected to export";
-                MessageBox.Show(this, message, "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            var animations = GetCheckedAnimations(true);
-
-            _inDialog = true;
-            try
-            {
-                if (ExportModelsForm.Show(this, entities, animations, _scene.AnimationBatch))
-                {
-                    MessageBox.Show(this, $"{entities.Length} models exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-            }
-            finally
-            {
-                _inDialog = false;
-            }
-        }
-
-        private void PromptExportTextures(bool all, bool vram, bool vramDrawnTo = false)
-        {
-            Texture[] textures;
-            if (vram)
-            {
-                if (all && vramDrawnTo)
-                {
-                    var drawnToTextures = new List<Texture>();
-                    for (var i = 0; i < _vram.Count; i++)
-                    {
-                        if (_vram.IsPageUsed(i))
-                        {
-                            drawnToTextures.Add(_vram[i]);
-                        }
-                    }
-                    textures = drawnToTextures.ToArray();
-                }
-                else if (all)
-                {
-                    textures = _vram.ToArray();
-                }
-                else
-                {
-                    textures = _vramSelectedPage != -1 ? new[] { _vram[_vramSelectedPage] } : null;
-                }
+                Program.ScanCommandLineAsync();
             }
             else
             {
-                if (all)
-                {
-                    textures = _textures.ToArray();
-                }
-                else
-                {
-                    var selectedItems = texturesListView.SelectedItems;
-                    textures = new Texture[selectedItems.Count];
-                    for (var i = 0; i < selectedItems.Count; i++)
+                PromptScan();
+            }
+        }
+
+        private void previewForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            _closing = true;
+
+            // Automatically save settings when closing the program.
+            // The user can still manually save settings with a menu item.
+            SaveSettings();
+
+            _redrawTimer?.Stop();
+            _modelPropertyGridRefreshTimer?.Stop();
+            _animateTimer?.Stop();
+
+            Program.CancelScan(); // Cancel the scan if one is active.
+        }
+
+        private void menusTabControl_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            // Handle leaving the animation tab.
+            if (_inAnimationTab && menusTabControl.SelectedTab.TabIndex != 3)
+            {
+                _inAnimationTab = false;
+                // Restart to force animation state update next time we're in the animation tab.
+                // Reset animation when leaving the tab.
+                _scene.AnimationBatch.Restart();
+                Playing = false;
+                UpdateAnimationProgressLabel();
+                // Update selected entity to invalidate the animation changes to the model.
+                UpdateSelectedEntity();
+            }
+            // Force-hide all visuals when in animation tab.
+            _scene.ShowVisuals = menusTabControl.SelectedTab.TabIndex != 3;
+
+            switch (menusTabControl.SelectedTab.TabIndex)
+            {
+                case 0: // Models
                     {
-                        var tagInfo = (TexturesListViewTagInfo)selectedItems[i].Tag;
-                        textures[i] = _textures[tagInfo.Index];
+                        animationsTreeView.SelectedNode = null;
+                        _openTkControl.Parent = modelsSplitContainer.Panel2;
+                        _openTkControl.Show();
+                        break;
                     }
-                }
-            }
-
-            if (textures == null || textures.Length == 0)
-            {
-                string message;
-                if (vram)
-                {
-                    message = all ? "No drawn-to VRAM pages to export" : "No VRAM page selected to export";
-                }
-                else
-                {
-                    message = all ? "No textures to export" : "No textures selected to export";
-                }
-                MessageBox.Show(this, message, "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            PromptOutputFolder(path =>
-            {
-                if (path != null)
-                {
-                    var pngExporter = new PNGExporter();
-                    if (vram)
+                case 2: // VRAM
                     {
-                        // Always number exported VRAM pages by their page number, not export index.
-                        foreach (var texture in textures)
+                        UpdateVRAMComboBoxPageItems();
+                        break;
+                    }
+                case 3: // Animations
+                    {
+                        _inAnimationTab = true;
+                        animationsTableLayoutPanel.Controls.Add(_openTkControl, 0, 0);
+                        _openTkControl.Show();
+                        UpdateSelectedAnimation();
+                        break;
+                    }
+                default:
+                    {
+                        _openTkControl.Parent = null;
+                        _openTkControl.Hide();
+                        break;
+                    }
+            }
+
+            menusTabControl.Refresh(); // Refresh so that controls don't take an undetermined amount of time to render
+        }
+
+        private void previewForm_KeyDown(object sender, KeyEventArgs e)
+        {
+            previewForm_KeyEvent(e, KeyEventType.Down);
+        }
+
+        private void previewForm_KeyUp(object sender, KeyEventArgs e)
+        {
+            previewForm_KeyEvent(e, KeyEventType.Up);
+        }
+
+        private void previewForm_KeyEvent(KeyEventArgs e, KeyEventType eventType)
+        {
+            if (eventType == KeyEventType.Down || eventType == KeyEventType.Up)
+            {
+                var state = eventType == KeyEventType.Down;
+                var sceneFocused = _openTkControl.Focused;
+                switch (e.KeyCode)
+                {
+                    case Keys.ShiftKey:
+                        _shiftKeyDown = state;
+                        break;
+                    case Keys.ControlKey:
+                        _controlKeyDown = state;
+                        break;
+                    case Keys.Enter when state:
+                        // Take focus away from numeric up/downs,
+                        // and give it the primary control of this tab.
+
+                        // Find the control with focus, but check the type to make sure we don't
+                        // go farther into the nested controls than what's publicly exposed.
+                        var focusedControl = ActiveControl;
+                        var focusedContainer = focusedControl as IContainerControl;
+                        while (focusedContainer != null && !(focusedControl is NumericUpDown))
                         {
-                            pngExporter.Export(texture, $"vram{texture.TexturePage}", path);
+                            focusedControl = focusedContainer.ActiveControl;
+                            focusedContainer = focusedControl as IContainerControl;
                         }
-                        MessageBox.Show(this, $"{textures.Length} VRAM pages exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                    else
-                    {
-                        pngExporter.Export(textures, path);
-                        MessageBox.Show(this, $"{textures.Length} textures exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
+                        if (!(focusedControl is NumericUpDown))
+                        {
+                            break;
+                        }
+
+                        switch (menusTabControl.SelectedTab.TabIndex)
+                        {
+                            case 0: // Models
+                            case 3: // Animations
+                                _openTkControl.Focus();
+                                break;
+                            case 1: // Textures
+                                texturePreviewPictureBox.Focus();
+                                break;
+                            case 2: // VRAM
+                                vramPagePictureBox.Focus();
+                                break;
+                        }
+                        break;
+
+                    // Gizmo tools
+                    // We can't set these shortcut keys in the designer because it
+                    // considers them "invalid" for not having modifier keys.
+                    case Keys.W when state && sceneFocused:
+                        if (!_controlKeyDown)
+                        {
+                            if (_gizmoType != GizmoType.Translate)
+                            {
+                                SetGizmoType(GizmoType.Translate);
+                                //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                            }
+                            e.Handled = true;
+                        }
+                        break;
+                    case Keys.E when state && sceneFocused:
+                        if (!_controlKeyDown)
+                        {
+                            if (_gizmoType != GizmoType.Rotate)
+                            {
+                                SetGizmoType(GizmoType.Rotate);
+                                //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                            }
+                            e.Handled = true;
+                        }
+                        break;
+                    case Keys.R when state && sceneFocused:
+                        if (!_controlKeyDown)
+                        {
+                            if (_gizmoType != GizmoType.Scale)
+                            {
+                                SetGizmoType(GizmoType.Scale);
+                                //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                            }
+                            e.Handled = true;
+                        }
+                        break;
+
+                    // Debugging keys for testing picking rays.
+#if true
+                    case Keys.D when state && sceneFocused:
+                        if (_controlKeyDown) // Ctrl+D: Toggle debug visuals)
+                        {
+                            _scene.ShowDebugVisuals = !_scene.ShowDebugVisuals;
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugVisuals: {_scene.ShowDebugVisuals}");
+                            e.Handled = true;
+                        }
+                        break;
+                    case Keys.P when state && sceneFocused:
+                        if (_scene.ShowDebugVisuals)
+                        {
+                            if (_controlKeyDown) // Ctrl+P (Toggle debug picking ray)
+                            {
+                                _scene.ShowDebugPickingRay = !_scene.ShowDebugPickingRay;
+                                Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugPickingRay: {_scene.ShowDebugPickingRay}");
+                                e.Handled = true;
+                            }
+                            else if (_scene.ShowDebugPickingRay) // P (Set debug picking ray)
+                            {
+                                _scene.SetDebugPickingRay();
+                                e.Handled = true;
+                            }
+                        }
+                        break;
+                    case Keys.I when state && sceneFocused:
+                        if (_scene.ShowDebugVisuals)
+                        {
+                            if (_controlKeyDown) // Ctrl+I (Toggle debug intersections)
+                            {
+                                _scene.ShowDebugIntersections = !_scene.ShowDebugIntersections;
+                                Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugIntersections: {_scene.ShowDebugIntersections}");
+                                e.Handled = true;
+                            }
+                            else if (_scene.ShowDebugIntersections) // Hold I/Hold Shift+I (Update debug intersections)
+                            {
+                                var checkedEntities = GetCheckedEntities();
+                                var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
+                                if (IsTriangleSelectMode())
+                                {
+                                    _scene.GetTriangleUnderMouse(checkedEntities, rootEntity, _lastMouseX, _lastMouseY);
+                                }
+                                else
+                                {
+                                    _scene.GetEntityUnderMouse(checkedEntities, rootEntity, _lastMouseX, _lastMouseY);
+                                }
+                                e.Handled = true;
+                            }
+                        }
+                        break;
+#endif
+
+                    // Debugging: Print information to help hardcode scene setup when taking screenshots of models.
+#if DEBUG
+                    case Keys.C when state && sceneFocused:
+                        if (_scene.ShowDebugVisuals && !_controlKeyDown)
+                        {
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"CameraFOV      = {_scene.CameraFOV:R};");
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"CameraDistance = {_scene.CameraDistance:R};");
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraX       = {_scene.CameraX:R};");
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraY       = {_scene.CameraY:R};");
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraPitch   = {_scene.CameraPitch:R};");
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraYaw     = {_scene.CameraYaw:R};");
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"LightIntensity = {_scene.LightIntensity:R};");
+                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"LightPitchYaw  = new Vector2({_scene.LightPitch:R}, {_scene.LightYaw:R});");
+                            e.Handled = true;
+                        }
+                        break;
+#endif
+
+                        // Debugging keys for testing AnimationBatch settings while they still don't have UI controls.
+#if false
+                    case Keys.A when state:
+                        var loopMode = _scene.AnimationBatch.LoopMode + 1;
+                        if (loopMode > AnimationLoopMode.MirrorLoop)
+                        {
+                            loopMode = AnimationLoopMode.Once;
+                        }
+                        _scene.AnimationBatch.LoopMode = loopMode;
+                        UpdateAnimationProgressLabel();
+                        Program.Logger.WriteLine($"LoopMode={_scene.AnimationBatch.LoopMode,-10} Reverse={_scene.AnimationBatch.Reverse}");
+                        break;
+                    case Keys.S when state:
+                        _scene.AnimationBatch.Reverse = !_scene.AnimationBatch.Reverse;
+                        UpdateAnimationProgressLabel();
+                        Program.Logger.WriteLine($"LoopMode={_scene.AnimationBatch.LoopMode,-10} Reverse={_scene.AnimationBatch.Reverse}");
+                        break;
+                    case Keys.D when state:
+                        _scene.AnimationBatch.Restart();
+                        UpdateAnimationProgressLabel();
+                        Program.Logger.WriteLine("Restarted");
+                        break;
+                    case Keys.F when state:
+                        _scene.AnimationBatch.LoopDelayTime += 0.5;
+                        Program.Logger.WriteLine($"LoopDelayTime={_scene.AnimationBatch.LoopDelayTime}");
+                        break;
+                    case Keys.G when state:
+                        _scene.AnimationBatch.LoopDelayTime -= 0.5;
+                        Program.Logger.WriteLine($"LoopDelayTime={_scene.AnimationBatch.LoopDelayTime}");
+                        break;
+#endif
                 }
-            });
-        }
-
-        private void exportSelectedModels_Click(object sender, EventArgs e)
-        {
-            PromptExportModels(false);
-        }
-
-        private void exportAllModels_Click(object sender, EventArgs e)
-        {
-            PromptExportModels(true);
-        }
-
-        private void exportSelectedTextures_Click(object sender, EventArgs e)
-        {
-            PromptExportTextures(false, false);
-        }
-
-        private void exportAllTextures_Click(object sender, EventArgs e)
-        {
-            PromptExportTextures(true, false);
-        }
-
-        private void exportSelectedVRAMPage_Click(object sender, EventArgs e)
-        {
-            PromptExportTextures(false, true);
-        }
-
-        private void exportDrawnToVRAMPages_Click(object sender, EventArgs e)
-        {
-            PromptExportTextures(true, true, vramDrawnTo: true);
-        }
-
-        private void exportAllVRAMPages_Click(object sender, EventArgs e)
-        {
-            PromptExportTextures(true, true);
-        }
-
-        private void SelectEntity(EntityBase entity, bool focus = false)
-        {
-            if (!focus)
-            {
-                _selectionSource = EntitySelectionSource.Click;
             }
-            TreeNode newNode = null;
-            if (entity is RootEntity rootEntity)
+        }
+
+        private void openTKControl_Load(object sender, EventArgs e)
+        {
+            _openTkControl.MakeCurrent();
+            // Setup classes that depend on OpenTK.
+            var width  = Math.Max(1, _openTkControl.ClientSize.Width);
+            var height = Math.Max(1, _openTkControl.ClientSize.Height);
+            _scene.Initialize(width, height);
+            _vram.Initialize();
+        }
+
+        private void _openTkControl_Resize(object sender, EventArgs e)
+        {
+            _openTkControl.MakeCurrent();
+            // Make sure to use ClientSize to exclude size added by the borders.
+            var width  = Math.Max(1, _openTkControl.ClientSize.Width);
+            var height = Math.Max(1, _openTkControl.ClientSize.Height);
+            if (_scene.Initialized)
             {
-                var rootIndex = _rootEntities.IndexOf(rootEntity);
-                newNode = entitiesTreeView.Nodes[rootIndex];
+                _scene.Resize(width, height);
             }
-            else if (entity != null)
+        }
+
+        private void _openTkControl_Paint(object sender, PaintEventArgs e)
+        {
+            _openTkControl.MakeCurrent();
+            if (_inAnimationTab && _curAnimation != null)
             {
-                if (entity.ParentEntity is RootEntity rootEntityFromSub)
+                var checkedEntities = GetCheckedEntities();
+                if (_scene.AnimationBatch.SetupAnimationFrame(checkedEntities, _selectedRootEntity, _selectedModelEntity, true))
                 {
-                    var rootIndex = _rootEntities.IndexOf(rootEntityFromSub);
-                    var rootNode = entitiesTreeView.Nodes[rootIndex];
-                    var subIndex = Array.IndexOf(rootEntityFromSub.ChildEntities, entity);
-                    newNode = rootNode.Nodes[subIndex];
+                    // Animation has been processed. Update attached limbs while animating.
+                    (_selectedRootEntity ?? _selectedModelEntity?.GetRootEntity())?.FixConnections();
                 }
             }
-            if (newNode != null && newNode == entitiesTreeView.SelectedNode)
-            {
-                // entitiesTreeView_AfterSelect won't be called. Reset the selection source.
-                _selectionSource = EntitySelectionSource.None;
-                if (entity != null)
-                {
-                    UnselectTriangle();
-                }
-            }
-            else
-            {
-                entitiesTreeView.SelectedNode = newNode;
-            }
-        }
-
-        private void SelectTriangle(Tuple<ModelEntity, Triangle> triangle)
-        {
-            if (_selectedTriangle?.Item2 != triangle?.Item2)
-            {
-                _selectedTriangle = triangle;
-                UpdateSelectedTriangle();
-                UpdateModelPropertyGrid();
-                // Fix it so that when a triangle is unselected, the cached list
-                // (for selecting each triangle under the mouse) is reset.
-                // Otherwise we end up picking the next triangle when the user isn't expecting it.
-                if (_selectedTriangle == null)
-                {
-                    _scene.ClearTriangleUnderMouseList();
-                }
-            }
-        }
-
-        private void UnselectTriangle()
-        {
-            SelectTriangle(null);
-        }
-
-        private bool IsTriangleSelectMode()
-        {
-            return _shiftKeyDown;
+            _scene.Draw();
+            _openTkControl.SwapBuffers();
         }
 
         private void openTkControl_MouseEvent(MouseEventArgs e, MouseEventType eventType)
@@ -1206,6 +976,325 @@ namespace PSXPrev.Forms
             }
             _lastMouseX = e.X;
             _lastMouseY = e.Y;
+        }
+
+        private void SetupNumericUpDownValidateEvents(Control parent = null)
+        {
+            // When a user manually enters in a value in a NumericUpDown,
+            // the value will be shown with the specified number of decimal places,
+            // BUT VALUE WILL NOT BE ROUNDED TO THE SPECIFIED NUMBER OF DECIMAL PLACES!
+
+            // Anyways, this fixes that by rounding the value during the validating event.
+            // We need to find all NumericUpDowns in the form, and register the event for those.
+            var queue = new Queue<Control>();
+            queue.Enqueue(parent ?? this);
+
+            while (queue.Count > 0)
+            {
+                var container = queue.Dequeue();
+
+                foreach (Control control in container.Controls)
+                {
+                    if (control is NumericUpDown numericUpDown)
+                    {
+                        // Use the ValueChanged event (instead of Validating)
+                        // so that values assigned from settings are also enforced.
+                        numericUpDown.ValueChanged += OnNumericUpDownValidateValueChanged;
+                    }
+
+                    if (control.Controls.Count > 0)
+                    {
+                        queue.Enqueue(control);
+                    }
+                }
+            }
+        }
+
+        private void OnNumericUpDownValidateValueChanged(object sender, EventArgs e)
+        {
+            if (sender is NumericUpDown numericUpDown)
+            {
+                numericUpDown.Value = Math.Round(numericUpDown.Value, numericUpDown.DecimalPlaces,
+                                                 MidpointRounding.AwayFromZero);
+            }
+        }
+
+        private void _modelPropertyGridRefreshTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            // Allow updating when _inDialog is true, since we'll only update once.
+            if (!IsDisposed && !_closing && _modelPropertyGridNeedsRefresh)
+            {
+                _modelPropertyGridNeedsRefresh = false;
+                modelPropertyGrid.SelectedObject = modelPropertyGrid.SelectedObject;
+            }
+        }
+
+        private void _redrawTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            if (!_inDialog && !IsDisposed && !_closing)
+            {
+                _scene.AddTime(_redrawTimer.Interval);
+                Redraw();
+            }
+        }
+
+        private void _animateTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            // Don't animate if we're not in the animation tab.
+            // todo: Or allow animations to play in other tabs, in-which case other checks for _inAnimationTab need to be removed.
+            if (!_inDialog && !IsDisposed && !_closing && _inAnimationTab)
+            {
+                if (Playing && _scene.AnimationBatch.IsFinished)
+                {
+                    Playing = false; // LoopMode is a Once type, and the animation has finished. Stop playing.
+                }
+                else
+                {
+                    _scene.AnimationBatch.AddTime(_animateTimer.Interval);
+                }
+                UpdateAnimationProgressLabel();
+            }
+        }
+
+        #endregion
+
+        #region GetChecked/AddResults
+
+        private RootEntity[] GetCheckedEntities(bool defaultToSelected = false)
+        {
+            var selectedEntities = new List<RootEntity>();
+            for (var i = 0; i < entitiesTreeView.Nodes.Count; i++)
+            {
+                var node = entitiesTreeView.Nodes[i];
+                if (node.Checked)
+                {
+                    selectedEntities.Add(_rootEntities[i]);
+                }
+            }
+            if (selectedEntities.Count == 0 && defaultToSelected)
+            {
+                var selectedRootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
+                if (selectedRootEntity != null)
+                {
+                    selectedEntities.Add(selectedRootEntity);
+                }
+            }
+            return selectedEntities.Count == 0 ? null : selectedEntities.ToArray();
+        }
+
+        private Animation[] GetCheckedAnimations(bool defaultToSelected = false)
+        {
+            var selectedAnimations = new List<Animation>();
+            for (var i = 0; i < animationsTreeView.Nodes.Count; i++)
+            {
+                var node = animationsTreeView.Nodes[i];
+                if (node.Checked && node.Tag is Animation animation)
+                {
+                    selectedAnimations.Add(animation);
+                }
+            }
+            if (selectedAnimations.Count == 0 && defaultToSelected)
+            {
+                if (_curAnimation != null)
+                {
+                    selectedAnimations.Add(_curAnimation);
+                }
+            }
+            return selectedAnimations.Count == 0 ? null : selectedAnimations.ToArray();
+        }
+
+        private Texture[] GetSelectedTextures()
+        {
+            var selectedItems = texturesListView.SelectedItems;
+            var textures = new Texture[selectedItems.Count];
+            for (var i = 0; i < selectedItems.Count; i++)
+            {
+                var tagInfo = (TexturesListViewTagInfo)selectedItems[i].Tag;
+                textures[i] = _textures[tagInfo.Index];
+            }
+            return textures;
+        }
+
+        private Texture GetSelectedTexture()
+        {
+            var selectedItems = texturesListView.SelectedItems;
+            if (selectedItems.Count == 0)
+            {
+                return null;
+            }
+            var tagInfo = (TexturesListViewTagInfo)selectedItems[0].Tag;
+            return _textures[tagInfo.Index];
+        }
+
+        private void EntityAdded(RootEntity entity, int index)
+        {
+            foreach (var entityBase in entity.ChildEntities)
+            {
+                var model = (ModelEntity)entityBase;
+                model.TexturePage = VRAM.ClampTexturePage(model.TexturePage);
+                if (model.IsTextured)
+                {
+                    model.Texture = _vram[model.TexturePage];
+                }
+            }
+            entitiesTreeView.BeginUpdate();
+            var entityNode = entitiesTreeView.Nodes.Add(entity.EntityName);
+            entityNode.Tag = entity;
+            for (var m = 0; m < entity.ChildEntities.Length; m++)
+            {
+                var entityChildEntity = entity.ChildEntities[m];
+                var modelNode = new TreeNode(entityChildEntity.EntityName);
+                modelNode.Tag = entityChildEntity;
+                entityNode.Nodes.Add(modelNode);
+                modelNode.HideCheckBox();
+                modelNode.HideCheckBox();
+            }
+            entitiesTreeView.EndUpdate();
+        }
+
+        private void TextureAdded(Texture texture, int index)
+        {
+            texturesListView.Items.Add(new ImageListViewItem
+            {
+                //Text = index.ToString(), //debug
+                Text = texture.TextureName,
+                Tag = new TexturesListViewTagInfo
+                {
+                    //Texture = texture,
+                    Index = index,
+                    Found = false,
+                },
+            }, texture.Bitmap);
+        }
+
+        private void AnimationAdded(Animation animation, int index)
+        {
+            animationsTreeView.BeginUpdate();
+            var animationNode = new TreeNode(animation.AnimationName);
+            animationNode.Tag = animation;
+            animationsTreeView.Nodes.Add(animationNode);
+            AddAnimationObject(animation.RootAnimationObject, animationNode);
+            animationsTreeView.EndUpdate();
+        }
+
+        private void AddAnimationObject(AnimationObject parent, TreeNode parentNode)
+        {
+            var animationObjects = parent.Children;
+            for (var o = 0; o < animationObjects.Count; o++)
+            {
+                var animationObject = animationObjects[o];
+                var animationObjectNode = new TreeNode("Animation-Object " + o); // 0-indexed like Sub-Models
+                animationObjectNode.Tag = animationObject;
+                parentNode.Nodes.Add(animationObjectNode);
+                AddAnimationObject(animationObject, animationObjectNode);
+            }
+        }
+
+        // Helper functions primarily intended for debugging models made by MeshBuilders.
+        private void AddRootEntities(params RootEntity[] rootEntities)
+        {
+            foreach (var rootEntity in rootEntities)
+            {
+                AddRootEntity(rootEntity);
+            }
+        }
+
+        private void AddTextures(params Texture[] textures)
+        {
+            foreach (var texture in textures)
+            {
+                AddTexture(texture);
+            }
+        }
+
+        private void AddAnimations(params Animation[] animations)
+        {
+            foreach (var animation in animations)
+            {
+                AddAnimation(animation);
+            }
+        }
+
+        private void AddRootEntity(RootEntity rootEntity)
+        {
+            _rootEntities.Add(rootEntity);
+            EntityAdded(rootEntity, _rootEntities.Count - 1);
+        }
+
+        private void AddTexture(Texture texture)
+        {
+            _textures.Add(texture);
+            TextureAdded(texture, _textures.Count - 1);
+        }
+
+        private void AddAnimation(Animation animation)
+        {
+            _animations.Add(animation);
+            AnimationAdded(animation, _animations.Count - 1);
+        }
+
+        #endregion
+
+        #region Gizmos
+
+        private void SetGizmoType(GizmoType gizmoType, bool force = false)
+        {
+            if (_gizmoType != gizmoType || force)
+            {
+                FinishGizmoAction(); // Make sure to finish action before changing _gizmoType
+                _gizmoType = gizmoType;
+
+                gizmoToolNoneToolStripMenuItem.Checked = _gizmoType == GizmoType.None;
+                gizmoToolTranslateToolStripMenuItem.Checked = _gizmoType == GizmoType.Translate;
+                gizmoToolRotateToolStripMenuItem.Checked = _gizmoType == GizmoType.Rotate;
+                gizmoToolScaleToolStripMenuItem.Checked = _gizmoType == GizmoType.Scale;
+
+                // Suspend layout while changing visibility and text to avoid jittery movement of controls.
+                sceneControlsFlowLayoutPanel.SuspendLayout();
+
+                gizmoSnapFlowLayoutPanel.Visible = _gizmoType != GizmoType.None;
+                gridSnapUpDown.Visible = _gizmoType == GizmoType.Translate;
+                angleSnapUpDown.Visible = _gizmoType == GizmoType.Rotate;
+                scaleSnapUpDown.Visible = _gizmoType == GizmoType.Scale;
+
+                switch (_gizmoType)
+                {
+                    case GizmoType.Translate:
+                        gizmoSnapLabel.Text = "Grid Snap:";
+                        break;
+                    case GizmoType.Rotate:
+                        gizmoSnapLabel.Text = "Angle Snap:";
+                        break;
+                    case GizmoType.Scale:
+                        gizmoSnapLabel.Text = "Scale Snap:";
+                        break;
+                }
+
+                sceneControlsFlowLayoutPanel.ResumeLayout();
+
+                // Gizmo shape has changed, recalculate hovered.
+                var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+
+                _scene.UpdatePicking(_lastMouseX, _lastMouseY);
+                var hoveredGizmo = _scene.GetGizmoUnderPosition(selectedEntityBase, _gizmoType);
+
+                UpdateGizmoVisualAndState(_selectedGizmo, hoveredGizmo);
+            }
+        }
+
+        private void UpdateGizmoVisualAndState(GizmoId selectedGizmo, GizmoId hoveredGizmo)
+        {
+            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+
+            // Don't highlight hovered gizmo while selecting
+            var highlightGizmo = selectedGizmo != GizmoId.None ? selectedGizmo : hoveredGizmo;
+            _scene.UpdateGizmoVisual(selectedEntityBase, _gizmoType, highlightGizmo);
+
+            if (selectedEntityBase != null)
+            {
+                _selectedGizmo = selectedGizmo;
+                _hoveredGizmo = hoveredGizmo;
+            }
         }
 
         private void StartGizmoAction(GizmoId hoveredGizmo, int x, int y)
@@ -1451,479 +1540,247 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void entitiesTreeView_AfterSelect(object sender, TreeViewEventArgs e)
+        private float SnapToGrid(float value)
         {
-            if (_selectionSource == EntitySelectionSource.None)
-            {
-                _selectionSource = EntitySelectionSource.TreeView;
-            }
-            var selectedNode = entitiesTreeView.SelectedNode;
-            if (selectedNode != null)
-            {
-                _selectedRootEntity = selectedNode.Tag as RootEntity;
-                _selectedModelEntity = selectedNode.Tag as ModelEntity;
-                UnselectTriangle();
-            }
-            var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
-            if (rootEntity != null && _autoDrawModelTextures)
-            {
-                DrawModelTexturesToVRAM(rootEntity);
-            }
-            UpdateSelectedEntity();
-        }
-
-        private void entitiesTreeView_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
-        {
-            // handle unselecting triangle when clicking on a node in the tree view if that node is already selected.
-            if (e.Node != null)
-            {
-                // Removed for now, because this also triggers when pressing
-                // the expand button (which doesn't perform selection).
-                //UnselectTriangle();
-            }
-        }
-
-        private void SetGizmoType(GizmoType gizmoType, bool force = false)
-        {
-            if (_gizmoType != gizmoType || force)
-            {
-                FinishGizmoAction(); // Make sure to finish action before changing _gizmoType
-                _gizmoType = gizmoType;
-
-                gizmoToolNoneToolStripMenuItem.Checked = _gizmoType == GizmoType.None;
-                gizmoToolTranslateToolStripMenuItem.Checked = _gizmoType == GizmoType.Translate;
-                gizmoToolRotateToolStripMenuItem.Checked = _gizmoType == GizmoType.Rotate;
-                gizmoToolScaleToolStripMenuItem.Checked = _gizmoType == GizmoType.Scale;
-
-                // Suspend layout while changing visibility and text to avoid jittery movement of controls.
-                sceneControlsFlowLayoutPanel.SuspendLayout();
-
-                gizmoSnapFlowLayoutPanel.Visible = _gizmoType != GizmoType.None;
-                gridSnapUpDown.Visible = _gizmoType == GizmoType.Translate;
-                angleSnapUpDown.Visible = _gizmoType == GizmoType.Rotate;
-                scaleSnapUpDown.Visible = _gizmoType == GizmoType.Scale;
-
-                switch (_gizmoType)
-                {
-                    case GizmoType.Translate:
-                        gizmoSnapLabel.Text = "Grid Snap:";
-                        break;
-                    case GizmoType.Rotate:
-                        gizmoSnapLabel.Text = "Angle Snap:";
-                        break;
-                    case GizmoType.Scale:
-                        gizmoSnapLabel.Text = "Scale Snap:";
-                        break;
-                }
-
-                sceneControlsFlowLayoutPanel.ResumeLayout();
-
-                // Gizmo shape has changed, recalculate hovered.
-                var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
-
-                _scene.UpdatePicking(_lastMouseX, _lastMouseY);
-                var hoveredGizmo = _scene.GetGizmoUnderPosition(selectedEntityBase, _gizmoType);
-
-                UpdateGizmoVisualAndState(_selectedGizmo, hoveredGizmo);
-            }
-        }
-
-        private void UpdateGizmoVisualAndState(GizmoId selectedGizmo, GizmoId hoveredGizmo)
-        {
-            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
-
-            // Don't highlight hovered gizmo while selecting
-            var highlightGizmo = selectedGizmo != GizmoId.None ? selectedGizmo : hoveredGizmo;
-            _scene.UpdateGizmoVisual(selectedEntityBase, _gizmoType, highlightGizmo);
-
-            if (selectedEntityBase != null)
-            {
-                _selectedGizmo = selectedGizmo;
-                _hoveredGizmo = hoveredGizmo;
-            }
-        }
-
-        private void UpdateSelectedEntity(bool updateMeshData = true, bool forceUpdatePropertyGrid = true)
-        {
-            _scene.BoundsBatch.Reset(1);
-            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
-            var rootEntity = selectedEntityBase?.GetRootEntity();
-            if (rootEntity != null)
-            {
-                rootEntity.ResetAnimationData();
-                rootEntity.FixConnections();
-            }
-            if (selectedEntityBase != null)
-            {
-                selectedEntityBase.ComputeBoundsRecursively();
-                var checkedEntities = GetCheckedEntities();
-                _scene.BoundsBatch.BindEntityBounds(selectedEntityBase);
-                _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, _selectedModelEntity, _selectedRootEntity, updateMeshData || _scene.AutoAttach, _selectionSource == EntitySelectionSource.TreeView && _selectedModelEntity == null);
-            }
-            else
-            {
-                _scene.MeshBatch.Reset(0);
-                _selectedGizmo = GizmoId.None;
-                _hoveredGizmo = GizmoId.None;
-            }
-            if (_selectionSource != EntitySelectionSource.Click)
-            {
-                _scene.DebugIntersectionsBatch.Reset(1);
-            }
-            UpdateSelectedTriangle();
-            UpdateModelPropertyGrid(forceUpdatePropertyGrid);
-            UpdateGizmoVisualAndState(_selectedGizmo, _hoveredGizmo);
-            _selectionSource = EntitySelectionSource.None;
-        }
-
-        private void UpdateSelectedTriangle(bool updateMeshData = true)
-        {
-            _scene.TriangleOutlineBatch.Reset(2);
-            if (_selectedTriangle != null)
-            {
-                _scene.TriangleOutlineBatch.BindTriangleOutline(_selectedTriangle.Item1.WorldMatrix, _selectedTriangle.Item2);
-            }
-        }
-
-        private void UpdateModelPropertyGrid(bool force = false)
-        {
-            var propertyObject = _selectedTriangle?.Item2 ?? _selectedRootEntity ?? (object)_selectedModelEntity;
-
-            if (force || modelPropertyGrid.SelectedObject != propertyObject)
-            {
-                _modelPropertyGridNeedsRefresh = false;
-                modelPropertyGrid.SelectedObject = propertyObject;
-            }
-            else
-            {
-                // Delay updating the property grid to reduce lag.
-                _modelPropertyGridNeedsRefresh = true;
-            }
-        }
-
-        private void UpdateSelectedAnimation(bool play = false)
-        {
-            var propertyObject = _curAnimationFrameObj ?? _curAnimationObject ?? (object)_curAnimation;
-
-            // Change Playing after Enabled, so that the call to Refresh in Playing will affect the enabled visual style too.
-            animationPlayButtonx.Enabled = (_curAnimation != null);
-            Playing = play;
-
-            animationPropertyGrid.SelectedObject = propertyObject;
-            _scene.AnimationBatch.SetupAnimationBatch(_curAnimation);
-
-            UpdateAnimationTimerSpeed();
-            UpdateAnimationProgressLabel();
-        }
-
-        private void UpdateAnimationTimerSpeed()
-        {
-            _animateTimer.Interval = 1f / 60f * (double)(animationSpeedNumericUpDown.Value);
-        }
-
-        private Texture GetSelectedTexture(int? index = null)
-        {
-            var selectedItems = texturesListView.SelectedItems;
-            if (!index.HasValue && selectedItems.Count == 0)
-            {
-                return null;
-            }
-            var textureIndex = index ?? ((TexturesListViewTagInfo)selectedItems[0].Tag).Index;
-            if (textureIndex < 0)
-            {
-                return null;
-            }
-            return _textures[textureIndex];
-        }
-
-        private void drawSelectedToVRAM_Click(object sender, EventArgs e)
-        {
-            var selectedItems = texturesListView.SelectedItems;
-            if (selectedItems.Count == 0)
-            {
-                MessageBox.Show(this, "Select the textures to draw to VRAM first");
-                return;
-            }
-            foreach (var item in selectedItems)
-            {
-                var tagInfo = (TexturesListViewTagInfo)item.Tag;
-                var texture = _textures[tagInfo.Index];
-                _vram.DrawTexture(texture, true); // Suppress updates to scene until all textures are drawn.
-            }
-            _vram.UpdateAllPages();
-            UpdateVRAMComboBoxPageItems();
-        }
-
-        private void drawAllToVRAM_Click(object sender, EventArgs e)
-        {
-            DrawAllTexturesToVRAM();
-        }
-
-        private void UpdateVRAMComboBoxPageItems()
-        {
-            // Mark page numbers that have had textures drawn to them.
-            // note: This assumes the combo box items are strings, which they currently are.
-            for (var i = 0; i < _vram.Count; i++)
-            {
-                var used = _vram.IsPageUsed(i);
-                vramListBox.Items[i] = $"{i}" + (used ? " (drawn to)" : string.Empty);
-            }
-        }
-
-        private void vramComboBox_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            var index = vramListBox.SelectedIndex;
-            if (index > -1)
-            {
-                _vramSelectedPage = index;
-                // We can't assign VRAM image because it would include the semi-transparency zone.
-                // The image is drawn manually instead.
-                //vramPagePictureBox.Image = _vram[_vramSelectedPage].Bitmap;
-                vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
-            }
-        }
-
-        private void modelPropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
-        {
-            var selectedNode = entitiesTreeView.SelectedNode;
-            if (selectedNode == null)
-            {
-                return;
-            }
-            if (_selectedModelEntity != null)
-            {
-                _selectedModelEntity.TexturePage = VRAM.ClampTexturePage(_selectedModelEntity.TexturePage);
-                if (_selectedModelEntity.IsTextured)
-                {
-                    _selectedModelEntity.Texture = _vram[_selectedModelEntity.TexturePage];
-                }
-            }
-            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
-            if (selectedEntityBase != null)
-            {
-                selectedNode.Text = selectedEntityBase.EntityName;
-                selectedEntityBase.Translation = SnapToGrid(selectedEntityBase.Translation);
-            }
-            UpdateSelectedEntity(false);
+            var step = (double)gridSnapUpDown.Value;
+            // Grid size of zero should not align at all. Also we want to avoid divide-by-zero.
+            return step == 0 ? value : GeomMath.Snap(value, step);
         }
 
         private Vector3 SnapToGrid(Vector3 vector)
         {
             var step = (double)gridSnapUpDown.Value;
-            if (step == 0)
-            {
-                // Grid size of zero should not align at all. Also we want to avoid divide-by-zero.
-                return vector;
-            }
-            return GeomMath.Snap(vector, step);
+            // Grid size of zero should not align at all. Also we want to avoid divide-by-zero.
+            return step == 0 ? vector : GeomMath.Snap(vector, step);
         }
 
         private float SnapAngle(float value)
         {
             var step = (double)angleSnapUpDown.Value * ((Math.PI * 2d) / 360d); // In units of 1 degree.
-            if (step == 0)
-            {
-                // Snap of zero should not align at all. Also we want to avoid divide-by-zero.
-                return value;
-            }
-            return GeomMath.Snap(value, step);
+            // Snap of zero should not align at all. Also we want to avoid divide-by-zero.
+            return step == 0 ? value : GeomMath.Snap(value, step);
         }
 
         private Vector3 SnapScale(Vector3 vector)
         {
             var step = (double)scaleSnapUpDown.Value;
-            if (step == 0)
-            {
-                // Grid size of zero should not align at all. Also we want to avoid divide-by-zero.
-                return vector;
-            }
-            return GeomMath.Snap(vector, step);
+            // Scale snap of zero should not align at all. Also we want to avoid divide-by-zero.
+            return step == 0 ? vector : GeomMath.Snap(vector, step);
         }
 
-        private void texturePropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
-        {
-            var selectedItems = texturesListView.SelectedItems;
-            if (selectedItems.Count == 0)
-            {
-                return;
-            }
-            var selectedItem = selectedItems[0];
-            if (selectedItem == null)
-            {
-                return;
-            }
-            var texture = GetSelectedTexture();
-            if (texture == null)
-            {
-                return;
-            }
-            // Validate changes to texture properties.
-            texture.X = VRAM.ClampTextureX(texture.X);
-            texture.Y = VRAM.ClampTextureY(texture.Y);
-            texture.TexturePage = VRAM.ClampTexturePage(texture.TexturePage);
-            // Update changes to TextureName property in ListViewItem.
-            selectedItem.Text = texture.TextureName;
-        }
+        #endregion
 
-        private void btnClearPage_Click(object sender, EventArgs e)
+        #region Prompts/SetColor
+
+        private void PromptScan()
         {
-            var index = _vramSelectedPage;
-            if (index <= -1)
+            if (!Program.IsScanning)
             {
-                MessageBox.Show(this, "Select a page first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-            ClearPage(index);
-            MessageBox.Show(this, "Page cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-
-        private void ClearPage(int index)
-        {
-            _vram.ClearPage(index);
-            vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
-            UpdateVRAMComboBoxPageItems();
-        }
-
-        private static int CompareTexturesListViewItems(ImageListViewItem a, ImageListViewItem b)
-        {
-            var tagInfoA = (TexturesListViewTagInfo)a.Tag;
-            var tagInfoB = (TexturesListViewTagInfo)b.Tag;
-            return tagInfoA.Index.CompareTo(tagInfoB.Index);
-        }
-
-        private void findByPageToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            if (PromptVRAMPage("Find by Page", null, out var pageIndex))
-            {
-                var found = 0;
-                foreach (var item in texturesListView.Items)
+                _inDialog = true;
+                try
                 {
-                    var tagInfo = (TexturesListViewTagInfo)item.Tag;
-                    tagInfo.Found = false;
-                    var texture = _textures[tagInfo.Index];
-                    if (texture.TexturePage == pageIndex)
-                    {
-                        tagInfo.Found = true; // Mark as found so the grouper will add it to the "Found" group
-                        found++;
-                    }
+                    ScannerForm.Show(this);
                 }
-                texturesListView.GroupColumn = found > 0 ? 0 : 1; // Set primary group to "Found" (only if any items were found)
-                texturesListView.Sort(); // Sort items added to "Found" group (is this necessary?)
-                MessageBox.Show(this, found > 0 ? $"Found {found} items" : "Nothing found", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-        }
-
-        private void texturesListView_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (texturesListView.SelectedItems.Count != 1)
-            {
-                // Only show a texture in the property grid if exactly one item is selected.
-                texturePropertyGrid.SelectedObject = null;
-                return;
-            }
-            var texture = GetSelectedTexture();
-            if (texture == null)
-            {
-                return;
-            }
-            _texturePreviewScale = 1f;
-            var bitmap = texture.Bitmap;
-            texturePreviewPictureBox.Image = bitmap;
-            texturePreviewPictureBox.Width = bitmap.Width;
-            texturePreviewPictureBox.Height = bitmap.Height;
-            texturePreviewPictureBox.Refresh();
-            texturePropertyGrid.SelectedObject = texture;
-        }
-
-        private void DrawUVLines(Graphics graphics, Pen pen, Vector2[] uvs)
-        {
-            var scalar = GeomMath.UVScalar * _vramPageScale;
-            for (var i = 0; i < uvs.Length; i++)
-            {
-                var i2 = (i + 1) % uvs.Length;
-                graphics.DrawLine(pen, uvs[i].X * scalar, uvs[i].Y * scalar, uvs[i2].X * scalar, uvs[i2].Y * scalar);
-            }
-        }
-
-        private void DrawTiledUVRectangle(Graphics graphics, Pen pen, TiledUV tiledUv)
-        {
-            var scalar = GeomMath.UVScalar * _vramPageScale;
-            graphics.DrawRectangle(pen, tiledUv.X * scalar, tiledUv.Y * scalar, tiledUv.Width * scalar, tiledUv.Height * scalar);
-        }
-
-        private void DrawUV(EntityBase entity, Graphics graphics)
-        {
-            if (entity == null)
-            {
-                return;
-            }
-            // Don't draw UVs for this model unless it uses the same texture page that we're on.
-            if (entity is ModelEntity model && model.IsTextured && model.TexturePage == _vramSelectedPage)
-            {
-                // Draw all black outlines before inner fill lines, so that black outline edges don't overlap fill lines.
-                foreach (var triangle in model.Triangles)
+                finally
                 {
-                    if (triangle.IsTiled)
+                    _inDialog = false;
+                }
+            }
+        }
+
+        private void PromptOutputFolder(Action<string> pathCallback)
+        {
+            // Use BeginInvoke so that dialog doesn't show up behind menu items...
+            BeginInvoke((Action)(() => {
+                _inDialog = true;
+                try
+                {
+                    // Don't use FolderBrowserDialog because it has the usability of a brick.
+                    using (var folderBrowserDialog = new Microsoft.WindowsAPICodePack.Dialogs.CommonOpenFileDialog())
                     {
-                        // Triangle.Uv is useless when tiled, so draw the TiledUv area instead.
-                        DrawTiledUVRectangle(graphics, Black3Px, triangle.TiledUv);
+                        folderBrowserDialog.IsFolderPicker = true;
+                        folderBrowserDialog.Title = "Select the output folder";
+                        // Parameter name used to avoid overload resolution with WPF Window, which we don't have a reference to.
+                        if (folderBrowserDialog.ShowDialog(ownerWindowHandle: Handle) == Microsoft.WindowsAPICodePack.Dialogs.CommonFileDialogResult.Ok)
+                        {
+                            pathCallback(folderBrowserDialog.FileName);
+                            return;
+                        }
+                    }
+                    pathCallback(null);
+
+                    //var fbd = new FolderBrowserDialog { Description = "Select the output folder" };
+                    //var result = fbd.ShowDialog(this) == DialogResult.OK;
+                    //path = fbd.SelectedPath;
+                    //return result;
+                }
+                finally
+                {
+                    _inDialog = false;
+                }
+            }));
+        }
+
+        private bool PromptVRAMPage(string title, int? initialPage, out int pageIndex)
+        {
+            _inDialog = true;
+            try
+            {
+                pageIndex = 0;
+                var defaultText = (initialPage.HasValue && initialPage.Value != -1) ? initialPage.ToString() : null;
+                var pageStr = InputDialog.Show(this, $"Please type in a VRAM Page index (0-{VRAM.PageCount-1})", title, defaultText);
+                if (pageStr != null)
+                {
+                    if (int.TryParse(pageStr, out pageIndex) && pageIndex >= 0 && pageIndex < VRAM.PageCount)
+                    {
+                        return true; // OK (valid page)
+                    }
+                    MessageBox.Show(this, $"Please type in a valid VRAM Page index between 0 and {VRAM.PageCount-1}", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                return false; // Canceled / OK (invalid page)
+            }
+            finally
+            {
+                _inDialog = false;
+            }
+        }
+
+        private bool PromptColor(Color? initialColor, Color? defaultColor, out Color color)
+        {
+            _inDialog = true;
+            try
+            {
+                using (var colorDialog = new ColorDialog())
+                {
+                    colorDialog.FullOpen = true;
+                    // Use dialog custom colors chosen by the user
+                    colorDialog.CustomColors = Settings.Instance.GetColorDialogCustomColors(defaultColor);
+                    if (initialColor.HasValue)
+                    {
+                        colorDialog.Color = initialColor.Value;
+                    }
+
+                    if (colorDialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        // Remember dialog custom colors chosen by the user
+                        Settings.Instance.SetColorDialogCustomColors(colorDialog.CustomColors);
+
+                        color = colorDialog.Color;
+                        return true;
+                    }
+                    // todo: Should we still update custom colors when cancelled?
+                    Settings.Instance.SetColorDialogCustomColors(colorDialog.CustomColors);
+                }
+                color = Color.Black;
+                return false;
+            }
+            finally
+            {
+                _inDialog = false;
+            }
+        }
+
+        private void PromptExportModels(bool all)
+        {
+            // Get all models, checked models, or selected model if nothing is checked.
+            var entities = all ? _rootEntities.ToArray() : GetCheckedEntities(true);
+
+            if (entities == null || entities.Length == 0)
+            {
+                var message = all ? "No models to export" : "No models checked or selected to export";
+                MessageBox.Show(this, message, "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var animations = GetCheckedAnimations(true);
+
+            _inDialog = true;
+            try
+            {
+                if (ExportModelsForm.Show(this, entities, animations, _scene.AnimationBatch))
+                {
+                    MessageBox.Show(this, $"{entities.Length} models exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            finally
+            {
+                _inDialog = false;
+            }
+        }
+
+        private void PromptExportTextures(bool all, bool vram, bool vramDrawnTo = false)
+        {
+            Texture[] textures;
+            if (vram)
+            {
+                if (all && vramDrawnTo)
+                {
+                    var drawnToTextures = new List<Texture>();
+                    for (var i = 0; i < _vram.Count; i++)
+                    {
+                        if (_vram.IsPageUsed(i))
+                        {
+                            drawnToTextures.Add(_vram[i]);
+                        }
+                    }
+                    textures = drawnToTextures.ToArray();
+                }
+                else if (all)
+                {
+                    textures = _vram.ToArray();
+                }
+                else
+                {
+                    textures = _vramSelectedPage != -1 ? new[] { _vram[_vramSelectedPage] } : null;
+                }
+            }
+            else
+            {
+                if (all)
+                {
+                    textures = _textures.ToArray();
+                }
+                else
+                {
+                    textures = GetSelectedTextures();
+                }
+            }
+
+            if (textures == null || textures.Length == 0)
+            {
+                string message;
+                if (vram)
+                {
+                    message = all ? "No drawn-to VRAM pages to export" : "No VRAM page selected to export";
+                }
+                else
+                {
+                    message = all ? "No textures to export" : "No textures selected to export";
+                }
+                MessageBox.Show(this, message, "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            PromptOutputFolder(path => {
+                if (path != null)
+                {
+                    var pngExporter = new PNGExporter();
+                    if (vram)
+                    {
+                        // Always number exported VRAM pages by their page number, not export index.
+                        foreach (var texture in textures)
+                        {
+                            pngExporter.Export(texture, $"vram{texture.TexturePage}", path);
+                        }
+                        MessageBox.Show(this, $"{textures.Length} VRAM pages exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                     else
                     {
-                        DrawUVLines(graphics, Black3Px, triangle.Uv);
+                        pngExporter.Export(textures, path);
+                        MessageBox.Show(this, $"{textures.Length} textures exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                 }
-
-                foreach (var triangle in model.Triangles)
-                {
-                    if (triangle.IsTiled)
-                    {
-                        // Different color for tiled area.
-                        DrawTiledUVRectangle(graphics, Cyan1Px, triangle.TiledUv);
-                    }
-                    else
-                    {
-                        DrawUVLines(graphics, White1Px, triangle.Uv);
-                    }
-                }
-            }
-            if (entity.ChildEntities == null)
-            {
-                return;
-            }
-            foreach (var subEntity in entity.ChildEntities)
-            {
-                DrawUV(subEntity, graphics);
-            }
-        }
-
-        private void clearSearchToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            foreach (var item in texturesListView.Items)
-            {
-                var tagInfo = (TexturesListViewTagInfo)item.Tag;
-                tagInfo.Found = false; // Unmark found so the grouper will return it to the "Textures" group
-            }
-            texturesListView.GroupColumn = 1; // Set primary group back to "Textures"
-            texturesListView.Sort(); // Re-sort now that "Found" group has been merged back with "Textures" group
-            MessageBox.Show(this, "Results cleared");
-        }
-
-        private void clearAllPagesToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            _vram.ClearAllPages();
-            UpdateVRAMComboBoxPageItems();
-            MessageBox.Show(this, "Pages cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-
-        private void openTKControl_Load(object sender, EventArgs e)
-        {
-            SetupScene();
-            SetupColors();
-            SetupVRAM();
-            SetupEntities();
-            SetupTextures();
-            SetupAnimations();
+            });
         }
 
         private Bitmap DrawColorIcon(ref Bitmap bitmap, Color color)
@@ -1973,12 +1830,6 @@ namespace PSXPrev.Forms
             return bitmap;
         }
 
-        private void SetMaskColor(Color color)
-        {
-            _scene.MaskColor = color;
-            setMaskColorToolStripMenuItem.Image = DrawColorIcon(ref _maskColorBitmap, color);
-        }
-
         private void SetAmbientColor(Color color)
         {
             _scene.AmbientColor = color;
@@ -1997,286 +1848,10 @@ namespace PSXPrev.Forms
             setWireframeVerticesColorToolStripMenuItem.Image = DrawColorIcon(ref _wireframeVerticesColorBitmap, color);
         }
 
-        private void Redraw()
+        private void SetMaskColor(Color color)
         {
-            _openTkControl.Invalidate();
-        }
-
-        private void menusTabControl_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            // Handle leaving the animation tab.
-            if (_inAnimationTab && menusTabControl.SelectedTab.TabIndex != 3)
-            {
-                _inAnimationTab = false;
-                // Restart to force animation state update next time we're in the animation tab.
-                // Reset animation when leaving the tab.
-                _scene.AnimationBatch.Restart();
-                Playing = false;
-                UpdateAnimationProgressLabel();
-                // Update selected entity to invalidate the animation changes to the model.
-                UpdateSelectedEntity();
-            }
-            // Force-hide all visuals when in animation tab.
-            _scene.ShowVisuals = menusTabControl.SelectedTab.TabIndex != 3;
-
-            switch (menusTabControl.SelectedTab.TabIndex)
-            {
-                case 0: // Models
-                    {
-                        animationsTreeView.SelectedNode = null;
-                        _openTkControl.Parent = modelsSplitContainer.Panel2;
-                        _openTkControl.Show();
-                        break;
-                    }
-                case 2: // VRAM
-                    {
-                        UpdateVRAMComboBoxPageItems();
-                        break;
-                    }
-                case 3: // Animations
-                    {
-                        _inAnimationTab = true;
-                        animationsTableLayoutPanel.Controls.Add(_openTkControl, 0, 0);
-                        _openTkControl.Show();
-                        UpdateSelectedAnimation();
-                        break;
-                    }
-                default:
-                    {
-                        _openTkControl.Parent = null;
-                        _openTkControl.Hide();
-                        break;
-                    }
-            }
-        }
-
-        private void animationsTreeView_AfterSelect(object sender, TreeViewEventArgs e)
-        {
-            var selectedNode = animationsTreeView.SelectedNode;
-            if (selectedNode == null)
-            {
-                UpdateSelectedEntity();
-                return;
-            }
-
-            if (selectedNode.Tag is Animation animation)
-            {
-                _curAnimation = animation;
-                _curAnimationObject = null;
-                _curAnimationFrameObj = null;
-            }
-            else if (selectedNode.Tag is AnimationObject animationObject)
-            {
-                _curAnimation = animationObject.Animation;
-                _curAnimationObject = animationObject;
-                _curAnimationFrameObj = null;
-            }
-            else if (selectedNode.Tag is AnimationFrame animationFrame)
-            {
-                _curAnimation = animationFrame.AnimationObject.Animation;
-                _curAnimationObject = animationFrame.AnimationObject;
-                _curAnimationFrameObj = animationFrame;
-                UpdateAnimationProgressLabel();
-            }
-
-            if (_autoSelectAnimationModel && _curAnimation.OwnerEntity != null)
-            {
-                SelectEntity(_curAnimation.OwnerEntity, true);
-            }
-            else
-            {
-                UpdateSelectedEntity();
-            }
-            UpdateSelectedAnimation(_autoPlayAnimations);
-
-            if (_curAnimationFrameObj != null)
-            {
-                _scene.AnimationBatch.SetTimeToFrame(_curAnimationFrameObj);
-                UpdateAnimationProgressLabel();
-            }
-
-            if (TMDBindingsForm.IsVisible && _curAnimation != null)
-            {
-                TMDBindingsForm.ShowTool(this, _curAnimation);
-            }
-        }
-
-        private void animationPropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
-        {
-            // Restart animation to force invalidate.
-            _scene.AnimationBatch.Restart();
-            UpdateSelectedEntity();
-            UpdateSelectedAnimation();
-        }
-
-        private void animationPlayButton_Click(object sender, EventArgs e)
-        {
-            Playing = !Playing;
-        }
-
-        public void UpdateProgress(int value, int max, bool complete, string message)
-        {
-            if (IsDisposed || _closing)
-            {
-                return;
-            }
-            if (InvokeRequired)
-            {
-                var invokeAction = new Action<int, int, bool, string>(UpdateProgress);
-                Invoke(invokeAction, value, max, complete, message);
-            }
-            else
-            {
-                messageToolStripLabel.Text = message;
-                if (complete)
-                {
-                }
-            }
-        }
-
-        public void ReloadItems()
-        {
-            if (InvokeRequired)
-            {
-                Invoke(new Action(ReloadItems));
-            }
-            else
-            {
-                _refreshAction(this);
-                Redraw();
-            }
-        }
-
-        private void vramPagePictureBox_Paint(object sender, PaintEventArgs e)
-        {
-            if (_vramSelectedPage == -1)
-            {
-                return;
-            }
-            var dstRect = new Rectangle(0, 0, vramPagePictureBox.Width, vramPagePictureBox.Height);
-            var srcRect = new Rectangle(0, 0, VRAM.PageSize, VRAM.PageSize);
-
-            e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-            // Despite what it sounds like, we want Half. Otherwise we end up drawing half a pixel back.
-            e.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
-            e.Graphics.DrawImage(
-                _vram[_vramSelectedPage].Bitmap, //vramPagePictureBox.Image,
-                dstRect,
-                srcRect,
-                GraphicsUnit.Pixel);
-
-            if (_showUv)
-            {
-                // todo: If we want smoother lines, then we can turn on Anti-aliasing.
-                // Note that PixelOffsetMode needs to be changed back to None first.
-                // Also note that diagonal lines will be a bit thicker than normal.
-                e.Graphics.PixelOffsetMode = PixelOffsetMode.None;
-                //e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                var checkedEntities = GetCheckedEntities();
-                if (checkedEntities != null)
-                {
-                    foreach (var checkedEntity in checkedEntities)
-                    {
-                        if (checkedEntity == _selectedRootEntity)
-                        {
-                            continue;
-                        }
-                        DrawUV(checkedEntity, e.Graphics);
-                    }
-                }
-                DrawUV((EntityBase)_selectedRootEntity ?? _selectedModelEntity, e.Graphics);
-            }
-
-            // Reset drawing mode back to default.
-            e.Graphics.InterpolationMode = InterpolationMode.Default;
-            e.Graphics.PixelOffsetMode = PixelOffsetMode.Default;
-            e.Graphics.SmoothingMode = SmoothingMode.Default;
-        }
-
-        private void entitiesTreeView_AfterCheck(object sender, TreeViewEventArgs e)
-        {
-            UpdateSelectedEntity();
-        }
-
-        private void showBoundsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
-        {
-            _scene.ShowBounds = showBoundsToolStripMenuItem.Checked;
-        }
-
-        private void showUVToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
-        {
-            _showUv = showUVToolStripMenuItem.Checked;
-            vramPagePictureBox.Refresh();
-        }
-
-
-        private void UpdateLightDirection()
-        {
-            _scene.LightPitchYaw = new Vector2((float)lightPitchNumericUpDown.Value * GeomMath.Deg2Rad,
-                                               (float)lightYawNumericUpDown.Value   * GeomMath.Deg2Rad);
-        }
-
-        private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            MessageBox.Show(this, "PSXPrev - PlayStation (PSX) Files Previewer/Extractor\n" + "(c) PSXPrev Contributors - 2020-2023", "About");
-        }
-
-        private void videoTutorialToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            Process.Start("https://www.youtube.com/watch?v=hPDa8l3ZE6U");
-        }
-
-        private void viewOnGitHubToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            Process.Start("https://github.com/rickomax/psxprev");
-        }
-
-        private void autoAttachLimbsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
-        {
-            _scene.AutoAttach = autoAttachLimbsToolStripMenuItem.Checked;
-            UpdateSelectedEntity();
-        }
-
-        private void compatibilityListToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            Process.Start("https://docs.google.com/spreadsheets/d/155pUzwl7CC14ssT0PJkaEA53CS1ijpOV04VitQCVBC4/edit?pli=1#gid=22642205");
-        }
-
-        private void exitToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            Application.Exit();
-        }
-
-        private void lightPitchNumericUpDown_ValueChanged(object sender, EventArgs e)
-        {
-            lightPitchNumericUpDown.Value = GeomMath.PositiveModulus(lightPitchNumericUpDown.Value, 360m);
-            UpdateLightDirection();
-            lightPitchNumericUpDown.Refresh();
-        }
-
-        private void lightYawNumericUpDown_ValueChanged(object sender, EventArgs e)
-        {
-            lightYawNumericUpDown.Value = GeomMath.PositiveModulus(lightYawNumericUpDown.Value, 360m);
-            UpdateLightDirection();
-            lightYawNumericUpDown.Refresh();
-        }
-
-        private void enableLightToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
-        {
-            _scene.LightEnabled = enableLightToolStripMenuItem.Checked;
-        }
-
-        private void enableTexturesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
-        {
-            _scene.TexturesEnabled = enableTexturesToolStripMenuItem.Checked;
-        }
-
-        private void setMaskColorToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            if (PromptColor(_scene.MaskColor, Settings.Defaults.MaskColor, out var color))
-            {
-                SetMaskColor(color);
-            }
+            _scene.MaskColor = color;
+            setMaskColorToolStripMenuItem.Image = DrawColorIcon(ref _maskColorBitmap, color);
         }
 
         private void setAmbientColorToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2303,16 +1878,247 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void lightIntensityNumericUpDown_ValueChanged(object sender, EventArgs e)
+        private void setMaskColorToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            _scene.LightIntensity = (float)lightIntensityNumericUpDown.Value / 100f;
-            lightIntensityNumericUpDown.Refresh();
+            if (PromptColor(_scene.MaskColor, Settings.Defaults.MaskColor, out var color))
+            {
+                SetMaskColor(color);
+            }
         }
 
-        private void lineRendererToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        private void exportSelectedModels_Click(object sender, EventArgs e)
         {
-            _scene.VibRibbonWireframe = lineRendererToolStripMenuItem.Checked;
-            UpdateSelectedEntity(); // Update mesh data, since vib ribbon redefines how mesh data is built.
+            PromptExportModels(false);
+        }
+
+        private void exportAllModels_Click(object sender, EventArgs e)
+        {
+            PromptExportModels(true);
+        }
+
+        private void exportSelectedTextures_Click(object sender, EventArgs e)
+        {
+            PromptExportTextures(false, false);
+        }
+
+        private void exportAllTextures_Click(object sender, EventArgs e)
+        {
+            PromptExportTextures(true, false);
+        }
+
+        private void exportSelectedVRAMPage_Click(object sender, EventArgs e)
+        {
+            PromptExportTextures(false, true);
+        }
+
+        private void exportDrawnToVRAMPages_Click(object sender, EventArgs e)
+        {
+            PromptExportTextures(true, true, vramDrawnTo: true);
+        }
+
+        private void exportAllVRAMPages_Click(object sender, EventArgs e)
+        {
+            PromptExportTextures(true, true);
+        }
+
+        #endregion
+
+        #region Models
+
+        private void SelectFirstEntity()
+        {
+            // Don't select the first model if we already have a selection.
+            // Doing that would interrupt the user.
+            if (entitiesTreeView.SelectedNode == null && _rootEntities.Count > 0)
+            {
+                SelectEntity(_rootEntities[0], true); // Select and focus
+            }
+        }
+
+        private void SelectEntity(EntityBase entity, bool focus = false)
+        {
+            if (!focus)
+            {
+                _selectionSource = EntitySelectionSource.Click;
+            }
+            TreeNode newNode = null;
+            if (entity is RootEntity rootEntity)
+            {
+                var rootIndex = _rootEntities.IndexOf(rootEntity);
+                newNode = entitiesTreeView.Nodes[rootIndex];
+            }
+            else if (entity != null)
+            {
+                if (entity.ParentEntity is RootEntity rootEntityFromSub)
+                {
+                    var rootIndex = _rootEntities.IndexOf(rootEntityFromSub);
+                    var rootNode = entitiesTreeView.Nodes[rootIndex];
+                    var subIndex = Array.IndexOf(rootEntityFromSub.ChildEntities, entity);
+                    newNode = rootNode.Nodes[subIndex];
+                }
+            }
+            if (newNode != null && newNode == entitiesTreeView.SelectedNode)
+            {
+                // entitiesTreeView_AfterSelect won't be called. Reset the selection source.
+                _selectionSource = EntitySelectionSource.None;
+                if (entity != null)
+                {
+                    UnselectTriangle();
+                }
+            }
+            else
+            {
+                entitiesTreeView.SelectedNode = newNode;
+            }
+        }
+
+        private void SelectTriangle(Tuple<ModelEntity, Triangle> triangle)
+        {
+            if (_selectedTriangle?.Item2 != triangle?.Item2)
+            {
+                _selectedTriangle = triangle;
+                UpdateSelectedTriangle();
+                UpdateModelPropertyGrid();
+                // Fix it so that when a triangle is unselected, the cached list
+                // (for selecting each triangle under the mouse) is reset.
+                // Otherwise we end up picking the next triangle when the user isn't expecting it.
+                if (_selectedTriangle == null)
+                {
+                    _scene.ClearTriangleUnderMouseList();
+                }
+            }
+        }
+
+        private void UnselectTriangle()
+        {
+            SelectTriangle(null);
+        }
+
+        private bool IsTriangleSelectMode()
+        {
+            return _shiftKeyDown;
+        }
+
+        private void UpdateSelectedEntity(bool updateMeshData = true, bool forceUpdatePropertyGrid = true)
+        {
+            _scene.BoundsBatch.Reset(1);
+            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+            var rootEntity = selectedEntityBase?.GetRootEntity();
+            if (rootEntity != null)
+            {
+                rootEntity.ResetAnimationData();
+                rootEntity.FixConnections();
+            }
+            if (selectedEntityBase != null)
+            {
+                selectedEntityBase.ComputeBoundsRecursively();
+                _scene.BoundsBatch.BindEntityBounds(selectedEntityBase);
+                updateMeshData |= _scene.AutoAttach;
+                // todo: Ensure we focus when switching to a different root entity, even if the selected entity is a sub-model.
+                var focus = _selectionSource == EntitySelectionSource.TreeView && _selectedModelEntity == null;
+                var checkedEntities = GetCheckedEntities();
+                _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, _selectedModelEntity, _selectedRootEntity, updateMeshData, focus);
+            }
+            else
+            {
+                _scene.MeshBatch.Reset(0);
+                _selectedGizmo = GizmoId.None;
+                _hoveredGizmo = GizmoId.None;
+            }
+            if (_selectionSource != EntitySelectionSource.Click)
+            {
+                _scene.DebugIntersectionsBatch.Reset(1);
+            }
+            UpdateSelectedTriangle();
+            UpdateModelPropertyGrid(forceUpdatePropertyGrid);
+            UpdateGizmoVisualAndState(_selectedGizmo, _hoveredGizmo);
+            _selectionSource = EntitySelectionSource.None;
+        }
+
+        private void UpdateSelectedTriangle(bool updateMeshData = true)
+        {
+            _scene.TriangleOutlineBatch.Reset(2);
+            if (_selectedTriangle != null)
+            {
+                _scene.TriangleOutlineBatch.BindTriangleOutline(_selectedTriangle.Item1.WorldMatrix, _selectedTriangle.Item2);
+            }
+        }
+
+        private void UpdateModelPropertyGrid(bool force = false)
+        {
+            var propertyObject = _selectedTriangle?.Item2 ?? _selectedRootEntity ?? (object)_selectedModelEntity;
+
+            if (force || modelPropertyGrid.SelectedObject != propertyObject)
+            {
+                _modelPropertyGridNeedsRefresh = false;
+                modelPropertyGrid.SelectedObject = propertyObject;
+            }
+            else
+            {
+                // Delay updating the property grid to reduce lag.
+                _modelPropertyGridNeedsRefresh = true;
+            }
+        }
+
+        private void entitiesTreeView_AfterSelect(object sender, TreeViewEventArgs e)
+        {
+            if (_selectionSource == EntitySelectionSource.None)
+            {
+                _selectionSource = EntitySelectionSource.TreeView;
+            }
+            var selectedNode = entitiesTreeView.SelectedNode;
+            if (selectedNode != null)
+            {
+                _selectedRootEntity = selectedNode.Tag as RootEntity;
+                _selectedModelEntity = selectedNode.Tag as ModelEntity;
+                UnselectTriangle();
+            }
+            var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
+            if (rootEntity != null && _autoDrawModelTextures)
+            {
+                DrawModelTexturesToVRAM(rootEntity);
+            }
+            UpdateSelectedEntity();
+        }
+
+        private void entitiesTreeView_AfterCheck(object sender, TreeViewEventArgs e)
+        {
+            UpdateSelectedEntity();
+        }
+
+        private void entitiesTreeView_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
+        {
+            // handle unselecting triangle when clicking on a node in the tree view if that node is already selected.
+            if (e.Node != null)
+            {
+                // Removed for now, because this also triggers when pressing
+                // the expand button (which doesn't perform selection).
+                //UnselectTriangle();
+            }
+        }
+
+        private void modelPropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
+        {
+            var selectedNode = entitiesTreeView.SelectedNode;
+            if (selectedNode == null)
+            {
+                return;
+            }
+            if (_selectedModelEntity != null)
+            {
+                _selectedModelEntity.TexturePage = VRAM.ClampTexturePage(_selectedModelEntity.TexturePage);
+                if (_selectedModelEntity.IsTextured)
+                {
+                    _selectedModelEntity.Texture = _vram[_selectedModelEntity.TexturePage];
+                }
+            }
+            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+            if (selectedEntityBase != null)
+            {
+                selectedNode.Text = selectedEntityBase.EntityName;
+                selectedEntityBase.Translation = SnapToGrid(selectedEntityBase.Translation);
+            }
+            UpdateSelectedEntity(false);
         }
 
         private void resetWholeModelToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2335,72 +2141,6 @@ namespace PSXPrev.Forms
                 selectedEntityBase.ResetTransform(false);
                 UpdateSelectedEntity();
             }
-        }
-
-        private enum MouseEventType
-        {
-            Down,
-            Up,
-            Move,
-            Wheel
-        }
-
-        private enum KeyEventType
-        {
-            Down,
-            Up,
-        }
-
-        private enum EntitySelectionSource
-        {
-            None,
-            TreeView,
-            Click
-        }
-
-        private void statusStrip1_Resize(object sender, EventArgs e)
-        {
-            ResizeToolStrip();
-        }
-
-        private void ResizeToolStrip()
-        {
-            messageToolStripLabel.Width = (int)(statusStrip1.Width * 0.35f);
-        }
-
-        private void enableTransparencyToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
-        {
-            _scene.SemiTransparencyEnabled = enableSemiTransparencyToolStripMenuItem.Checked;
-            Redraw();
-        }
-
-        private void forceDoubleSidedToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
-        {
-            _scene.ForceDoubleSided = forceDoubleSidedToolStripMenuItem.Checked;
-            Redraw();
-        }
-
-        private void texturePreviewPictureBox_Paint(object sender, PaintEventArgs e)
-        {
-            if (texturePreviewPictureBox.Image == null)
-            {
-                return;
-            }
-            var dstRect = new Rectangle(0, 0, texturePreviewPictureBox.Width, texturePreviewPictureBox.Height);
-            var srcRect = new Rectangle(0, 0, texturePreviewPictureBox.Image.Width, texturePreviewPictureBox.Image.Height);
-
-            e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-            // Despite what it sounds like, we want Half. Otherwise we end up drawing half a pixel back.
-            e.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
-            e.Graphics.DrawImage(
-                texturePreviewPictureBox.Image,
-                dstRect,
-                srcRect,
-                GraphicsUnit.Pixel);
-
-            // Reset drawing mode back to default.
-            e.Graphics.InterpolationMode = InterpolationMode.Default;
-            e.Graphics.PixelOffsetMode = PixelOffsetMode.Default;
         }
 
         private void gizmoToolNoneToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2469,6 +2209,74 @@ namespace PSXPrev.Forms
             sceneControlsFlowLayoutPanel.ResumeLayout();
         }
 
+        private void showBoundsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.ShowBounds = showBoundsToolStripMenuItem.Checked;
+            Redraw();
+        }
+
+        private void enableLightToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.LightEnabled = enableLightToolStripMenuItem.Checked;
+            Redraw();
+        }
+
+        private void enableTexturesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.TexturesEnabled = enableTexturesToolStripMenuItem.Checked;
+            Redraw();
+        }
+
+        private void enableSemiTransparencyToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.SemiTransparencyEnabled = enableSemiTransparencyToolStripMenuItem.Checked;
+            Redraw();
+        }
+
+        private void forceDoubleSidedToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.ForceDoubleSided = forceDoubleSidedToolStripMenuItem.Checked;
+            Redraw();
+        }
+
+        private void autoAttachLimbsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.AutoAttach = autoAttachLimbsToolStripMenuItem.Checked;
+            UpdateSelectedEntity(); // Update mesh data, since limb vertices may have changed
+        }
+
+        private void lineRendererToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.VibRibbonWireframe = lineRendererToolStripMenuItem.Checked;
+            UpdateSelectedEntity(); // Update mesh data, since vib ribbon redefines how mesh data is built.
+        }
+
+        private void UpdateLightDirection()
+        {
+            _scene.LightPitchYaw = new Vector2((float)lightPitchNumericUpDown.Value * GeomMath.Deg2Rad,
+                                               (float)lightYawNumericUpDown.Value   * GeomMath.Deg2Rad);
+        }
+
+        private void lightPitchNumericUpDown_ValueChanged(object sender, EventArgs e)
+        {
+            lightPitchNumericUpDown.Value = GeomMath.PositiveModulus(lightPitchNumericUpDown.Value, 360m);
+            UpdateLightDirection();
+            lightPitchNumericUpDown.Refresh(); // Too slow to refresh number normally if using the arrow keys
+        }
+
+        private void lightYawNumericUpDown_ValueChanged(object sender, EventArgs e)
+        {
+            lightYawNumericUpDown.Value = GeomMath.PositiveModulus(lightYawNumericUpDown.Value, 360m);
+            UpdateLightDirection();
+            lightYawNumericUpDown.Refresh(); // Too slow to refresh number normally if using the arrow keys
+        }
+
+        private void lightIntensityNumericUpDown_ValueChanged(object sender, EventArgs e)
+        {
+            _scene.LightIntensity = (float)lightIntensityNumericUpDown.Value / 100f;
+            lightIntensityNumericUpDown.Refresh(); // Too slow to refresh number normally if using the arrow keys
+        }
+
         private void vertexSizeUpDown_ValueChanged(object sender, EventArgs e)
         {
             _scene.VertexSize = (float)vertexSizeUpDown.Value;
@@ -2487,12 +2295,551 @@ namespace PSXPrev.Forms
             cameraFOVUpDown.Refresh(); // Too slow to refresh number normally if using the arrow keys
         }
 
+        #endregion
+
+        #region Textures/VRAM
+
+        private void DrawTexturesToVRAM(IEnumerable<Texture> textures)
+        {
+            foreach (var texture in textures)
+            {
+                _vram.DrawTexture(texture, true); // Suppress updates to scene until all textures are drawn.
+            }
+            if (_vram.UpdateAllPages()) // True if any pages needed to be updated (aka textures wasn't empty)
+            {
+                vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
+                UpdateVRAMComboBoxPageItems();
+            }
+        }
+
+        private void DrawModelTexturesToVRAM(RootEntity rootEntity)
+        {
+            // Note: We can't just use ModelEntity.Texture, since that just points to the VRAM page.
+            DrawTexturesToVRAM(rootEntity.OwnedTextures);
+        }
+
+        private void ClearVRAMPage(int index)
+        {
+            _vram.ClearPage(index);
+            vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
+            UpdateVRAMComboBoxPageItems();
+        }
+
+        private void ClearAllVRAMPages()
+        {
+            _vram.ClearAllPages();
+            vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
+            UpdateVRAMComboBoxPageItems();
+        }
+
+        private static int CompareTexturesListViewItems(ImageListViewItem a, ImageListViewItem b)
+        {
+            var tagInfoA = (TexturesListViewTagInfo)a.Tag;
+            var tagInfoB = (TexturesListViewTagInfo)b.Tag;
+            return tagInfoA.Index.CompareTo(tagInfoB.Index);
+        }
+
+        private void UpdateVRAMComboBoxPageItems()
+        {
+            // Mark page numbers that have had textures drawn to them.
+            // note: This assumes the combo box items are strings, which they currently are.
+            for (var i = 0; i < _vram.Count; i++)
+            {
+                var used = _vram.IsPageUsed(i);
+                vramListBox.Items[i] = $"{i}" + (used ? " (drawn to)" : string.Empty);
+            }
+        }
+
+        private void DrawUVLines(Graphics graphics, Pen pen, Vector2[] uvs)
+        {
+            var scalar = GeomMath.UVScalar * _vramPageScale;
+            for (var i = 0; i < uvs.Length; i++)
+            {
+                var i2 = (i + 1) % uvs.Length;
+                graphics.DrawLine(pen, uvs[i].X * scalar, uvs[i].Y * scalar, uvs[i2].X * scalar, uvs[i2].Y * scalar);
+            }
+        }
+
+        private void DrawTiledUVRectangle(Graphics graphics, Pen pen, TiledUV tiledUv)
+        {
+            var scalar = GeomMath.UVScalar * _vramPageScale;
+            graphics.DrawRectangle(pen, tiledUv.X * scalar, tiledUv.Y * scalar, tiledUv.Width * scalar, tiledUv.Height * scalar);
+        }
+
+        private void DrawUV(EntityBase entity, Graphics graphics)
+        {
+            if (entity == null)
+            {
+                return;
+            }
+            // Don't draw UVs for this model unless it uses the same texture page that we're on.
+            if (entity is ModelEntity model && model.IsTextured && model.TexturePage == _vramSelectedPage)
+            {
+                // Draw all black outlines before inner fill lines, so that black outline edges don't overlap fill lines.
+                foreach (var triangle in model.Triangles)
+                {
+                    if (triangle.IsTiled)
+                    {
+                        // Triangle.Uv is useless when tiled, so draw the TiledUv area instead.
+                        DrawTiledUVRectangle(graphics, Black3Px, triangle.TiledUv);
+                    }
+                    else
+                    {
+                        DrawUVLines(graphics, Black3Px, triangle.Uv);
+                    }
+                }
+
+                foreach (var triangle in model.Triangles)
+                {
+                    if (triangle.IsTiled)
+                    {
+                        // Different color for tiled area.
+                        DrawTiledUVRectangle(graphics, Cyan1Px, triangle.TiledUv);
+                    }
+                    else
+                    {
+                        DrawUVLines(graphics, White1Px, triangle.Uv);
+                    }
+                }
+            }
+            if (entity.ChildEntities == null)
+            {
+                return;
+            }
+            foreach (var subEntity in entity.ChildEntities)
+            {
+                DrawUV(subEntity, graphics);
+            }
+        }
+
+        private void texturePreviewPictureBox_Paint(object sender, PaintEventArgs e)
+        {
+            if (texturePreviewPictureBox.Image == null)
+            {
+                return;
+            }
+            var dstRect = new Rectangle(0, 0, texturePreviewPictureBox.Width, texturePreviewPictureBox.Height);
+            var srcRect = new Rectangle(0, 0, texturePreviewPictureBox.Image.Width, texturePreviewPictureBox.Image.Height);
+
+            e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+            // Despite what it sounds like, we want Half. Otherwise we end up drawing half a pixel back.
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
+            e.Graphics.DrawImage(
+                texturePreviewPictureBox.Image,
+                dstRect,
+                srcRect,
+                GraphicsUnit.Pixel);
+
+            // Reset drawing mode back to default.
+            e.Graphics.InterpolationMode = InterpolationMode.Default;
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.Default;
+        }
+
+        private void vramPagePictureBox_Paint(object sender, PaintEventArgs e)
+        {
+            if (_vramSelectedPage == -1)
+            {
+                return;
+            }
+            var dstRect = new Rectangle(0, 0, vramPagePictureBox.Width, vramPagePictureBox.Height);
+            var srcRect = new Rectangle(0, 0, VRAM.PageSize, VRAM.PageSize);
+
+            e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+            // Despite what it sounds like, we want Half. Otherwise we end up drawing half a pixel back.
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
+            e.Graphics.DrawImage(
+                _vram[_vramSelectedPage].Bitmap, //vramPagePictureBox.Image,
+                dstRect,
+                srcRect,
+                GraphicsUnit.Pixel);
+
+            if (_showUv)
+            {
+                // todo: If we want smoother lines, then we can turn on Anti-aliasing.
+                // Note that PixelOffsetMode needs to be changed back to None first.
+                // Also note that diagonal lines will be a bit thicker than normal.
+                e.Graphics.PixelOffsetMode = PixelOffsetMode.None;
+                //e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                var checkedEntities = GetCheckedEntities();
+                if (checkedEntities != null)
+                {
+                    foreach (var checkedEntity in checkedEntities)
+                    {
+                        if (checkedEntity == _selectedRootEntity)
+                        {
+                            continue;
+                        }
+                        DrawUV(checkedEntity, e.Graphics);
+                    }
+                }
+                DrawUV((EntityBase)_selectedRootEntity ?? _selectedModelEntity, e.Graphics);
+            }
+
+            // Reset drawing mode back to default.
+            e.Graphics.InterpolationMode = InterpolationMode.Default;
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.Default;
+            e.Graphics.SmoothingMode = SmoothingMode.Default;
+        }
+
+        private void TexturePanelOnMouseWheel(object sender, MouseEventArgs e)
+        {
+            ((HandledMouseEventArgs)e).Handled = true;
+            if (e.Delta > 0)
+            {
+                _texturePreviewScale *= 2f;
+            }
+            else
+            {
+                _texturePreviewScale /= 2f;
+            }
+            _texturePreviewScale = GeomMath.Clamp(_texturePreviewScale, 0.25f, 8.0f);
+            var texture = GetSelectedTexture();
+            if (texture == null)
+            {
+                return;
+            }
+            texturePreviewPictureBox.Width = (int)(texture.Width * _texturePreviewScale);
+            texturePreviewPictureBox.Height = (int)(texture.Height * _texturePreviewScale);
+            texturesZoomLabel.Text = $"{_texturePreviewScale:P0}"; // Percent format
+        }
+
+        private void VramPanelOnMouseWheel(object sender, MouseEventArgs e)
+        {
+            ((HandledMouseEventArgs)e).Handled = true;
+            if (e.Delta > 0)
+            {
+                _vramPageScale *= 2f;
+            }
+            else
+            {
+                _vramPageScale /= 2f;
+            }
+            _vramPageScale = GeomMath.Clamp(_vramPageScale, 0.25f, 8.0f);
+            vramPagePictureBox.Width = (int)(VRAM.PageSize * _vramPageScale);
+            vramPagePictureBox.Height = (int)(VRAM.PageSize * _vramPageScale);
+            vramZoomLabel.Text = $"{_vramPageScale:P0}"; // Percent format
+        }
+
+        private void texturesListView_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (texturesListView.SelectedItems.Count != 1)
+            {
+                // Only show a texture in the property grid if exactly one item is selected.
+                texturePropertyGrid.SelectedObject = null;
+                return;
+            }
+            var texture = GetSelectedTexture();
+            if (texture == null)
+            {
+                return;
+            }
+            _texturePreviewScale = 1f;
+            var bitmap = texture.Bitmap;
+            texturePreviewPictureBox.Image = bitmap;
+            texturePreviewPictureBox.Width = bitmap.Width;
+            texturePreviewPictureBox.Height = bitmap.Height;
+            texturePreviewPictureBox.Refresh();
+            texturePropertyGrid.SelectedObject = texture;
+        }
+
+        private void texturePropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
+        {
+            var selectedItems = texturesListView.SelectedItems;
+            if (selectedItems.Count == 0)
+            {
+                return;
+            }
+            var selectedItem = texturesListView.SelectedItems[0];
+            if (selectedItem == null)
+            {
+                return;
+            }
+            var texture = GetSelectedTexture();
+            if (texture == null)
+            {
+                return;
+            }
+            // Validate changes to texture properties.
+            texture.X = VRAM.ClampTextureX(texture.X);
+            texture.Y = VRAM.ClampTextureY(texture.Y);
+            texture.TexturePage = VRAM.ClampTexturePage(texture.TexturePage);
+            // Update changes to TextureName property in ListViewItem.
+            selectedItem.Text = texture.TextureName;
+        }
+
+        private void drawSelectedToVRAM_Click(object sender, EventArgs e)
+        {
+            var selectedItems = texturesListView.SelectedItems;
+            if (selectedItems.Count == 0)
+            {
+                MessageBox.Show(this, "Select textures to draw to VRAM first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            DrawTexturesToVRAM(GetSelectedTextures());
+        }
+
+        private void drawAllToVRAM_Click(object sender, EventArgs e)
+        {
+            DrawTexturesToVRAM(_textures);
+        }
+
+        private void findTextureByVRAMPage_Click(object sender, EventArgs e)
+        {
+            if (PromptVRAMPage("Find by Page", null, out var pageIndex))
+            {
+                var found = 0;
+                foreach (var item in texturesListView.Items)
+                {
+                    var tagInfo = (TexturesListViewTagInfo)item.Tag;
+                    tagInfo.Found = false;
+                    var texture = _textures[tagInfo.Index];
+                    if (texture.TexturePage == pageIndex)
+                    {
+                        tagInfo.Found = true; // Mark as found so the grouper will add it to the "Found" group
+                        found++;
+                    }
+                }
+                texturesListView.GroupColumn = found > 0 ? 0 : 1; // Set primary group to "Found" (only if any items were found)
+                texturesListView.Sort(); // Sort items added to "Found" group (is this necessary?)
+                MessageBox.Show(this, found > 0 ? $"Found {found} items" : "Nothing found", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void clearTextureFindResults_Click(object sender, EventArgs e)
+        {
+            foreach (var item in texturesListView.Items)
+            {
+                var tagInfo = (TexturesListViewTagInfo)item.Tag;
+                tagInfo.Found = false; // Unmark found so the grouper will return it to the "Textures" group
+            }
+            texturesListView.GroupColumn = 1; // Set primary group back to "Textures"
+            texturesListView.Sort(); // Re-sort now that "Found" group has been merged back with "Textures" group
+            MessageBox.Show(this, "Results cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void vramComboBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            var index = vramListBox.SelectedIndex;
+            if (index > -1 && index != _vramSelectedPage)
+            {
+                _vramSelectedPage = index;
+                // We can't assign VRAM image because it would include the semi-transparency zone.
+                // The image is drawn manually instead.
+                //vramPagePictureBox.Image = _vram[_vramSelectedPage].Bitmap;
+                vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
+            }
+        }
+
+        private void gotoVRAMPageButton_Click(object sender, EventArgs e)
+        {
+            if (PromptVRAMPage("Go to VRAM Page", _vramSelectedPage, out var pageIndex))
+            {
+                _vramSelectedPage = pageIndex;
+                // We can't assign VRAM image because it would include the semi-transparency zone.
+                // The image is drawn manually instead.
+                //vramPagePictureBox.Image = _vram[_vramSelectedPage].Bitmap;
+                vramListBox.SelectedIndex = pageIndex;
+                vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
+            }
+        }
+
+        private void clearVRAMPage_Click(object sender, EventArgs e)
+        {
+            var index = _vramSelectedPage;
+            if (index <= -1)
+            {
+                MessageBox.Show(this, "Select a page first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            ClearVRAMPage(index);
+            MessageBox.Show(this, "Page cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void clearAllVRAMPages_Click(object sender, EventArgs e)
+        {
+            ClearAllVRAMPages();
+            MessageBox.Show(this, "Pages cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void autoDrawModelTexturesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _autoDrawModelTextures = autoDrawModelTexturesToolStripMenuItem.Checked;
+        }
+
+        private void showUVToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _showUv = showUVToolStripMenuItem.Checked;
+            vramPagePictureBox.Refresh(); // Repaint to change shown UVs
+        }
+
+
+        #endregion
+
+        #region Animations
+
+        private void UpdateSelectedAnimation(bool play = false)
+        {
+            var propertyObject = _curAnimationFrameObj ?? _curAnimationObject ?? (object)_curAnimation;
+
+            // Change Playing after Enabled, so that the call to Refresh in Playing will affect the enabled visual style too.
+            animationPlayButtonx.Enabled = (_curAnimation != null);
+            Playing = play;
+
+            animationPropertyGrid.SelectedObject = propertyObject;
+            _scene.AnimationBatch.SetupAnimationBatch(_curAnimation);
+
+            UpdateAnimationProgressLabel();
+        }
+
+        private void UpdateAnimationProgressLabel()
+        {
+            animationFrameTrackBar.Maximum = Math.Max(1, (int)_scene.AnimationBatch.FrameCount);
+            animationFrameTrackBar.Value = (int)_scene.AnimationBatch.CurrentFrameTime;
+            animationProgressLabel.Text = $"{animationFrameTrackBar.Value}/{animationFrameTrackBar.Maximum}";
+            animationFrameTrackBar.Refresh();
+        }
+
+        private void animationsTreeView_AfterSelect(object sender, TreeViewEventArgs e)
+        {
+            var selectedNode = animationsTreeView.SelectedNode;
+            if (selectedNode == null)
+            {
+                UpdateSelectedEntity();
+                return;
+            }
+
+            if (selectedNode.Tag is Animation animation)
+            {
+                _curAnimation = animation;
+                _curAnimationObject = null;
+                _curAnimationFrameObj = null;
+            }
+            else if (selectedNode.Tag is AnimationObject animationObject)
+            {
+                _curAnimation = animationObject.Animation;
+                _curAnimationObject = animationObject;
+                _curAnimationFrameObj = null;
+            }
+            else if (selectedNode.Tag is AnimationFrame animationFrame)
+            {
+                _curAnimation = animationFrame.AnimationObject.Animation;
+                _curAnimationObject = animationFrame.AnimationObject;
+                _curAnimationFrameObj = animationFrame;
+                UpdateAnimationProgressLabel();
+            }
+
+            if (_autoSelectAnimationModel && _curAnimation.OwnerEntity != null)
+            {
+                SelectEntity(_curAnimation.OwnerEntity, true);
+            }
+            else
+            {
+                UpdateSelectedEntity();
+            }
+            UpdateSelectedAnimation(_autoPlayAnimations);
+
+            if (_curAnimationFrameObj != null)
+            {
+                _scene.AnimationBatch.SetTimeToFrame(_curAnimationFrameObj);
+                UpdateAnimationProgressLabel();
+            }
+
+            if (TMDBindingsForm.IsVisible && _curAnimation != null)
+            {
+                TMDBindingsForm.ShowTool(this, _curAnimation);
+            }
+        }
+
+        private void animationPropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
+        {
+            // Restart animation to force invalidate.
+            _scene.AnimationBatch.Restart();
+            UpdateSelectedEntity();
+            UpdateSelectedAnimation();
+        }
+
+        private void animationPlayButton_Click(object sender, EventArgs e)
+        {
+            Playing = !Playing;
+        }
+
+        private void animationFrameTrackBar_Scroll(object sender, EventArgs e)
+        {
+            if (_inAnimationTab && !Playing)
+            {
+                _scene.AnimationBatch.FrameTime = animationFrameTrackBar.Value;
+                UpdateAnimationProgressLabel();
+            }
+        }
+
+        private void animationSpeedNumericUpDown_ValueChanged(object sender, EventArgs e)
+        {
+            _animateTimer.Interval = 1f / 60f * (double)animationSpeedNumericUpDown.Value;
+        }
+
+        private void animationLoopModeComboBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            var index = animationLoopModeComboBox.SelectedIndex;
+            if (index > -1)
+            {
+                _scene.AnimationBatch.LoopMode = (AnimationLoopMode)index;
+            }
+        }
+
+        private void animationReverseCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.AnimationBatch.Reverse = animationReverseCheckBox.Checked;
+        }
+
+        private void autoPlayAnimationsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _autoPlayAnimations = autoPlayAnimationsToolStripMenuItem.Checked;
+        }
+
+        private void autoSelectAnimationModelToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _autoSelectAnimationModel = autoSelectAnimationModelToolStripMenuItem.Checked;
+        }
+
+        private void showTMDBindingsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (_curAnimation == null)
+            {
+                MessageBox.Show(this, "Please select an Animation first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            else
+            {
+                TMDBindingsForm.ShowTool(this, _curAnimation);
+            }
+        }
+
+        #endregion
+        
+        #region File/Help
+
+        private void startScanToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            PromptScan();
+        }
+
+        private void clearScanResultsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!Program.IsScanning && (_rootEntities.Count > 0 || _textures.Count > 0 || _animations.Count > 0))
+            {
+                var result = MessageBox.Show(this, "Are you sure you want to clear scan results?", "Clear Scan Results", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                if (result == DialogResult.Yes)
+                {
+                    ClearScanResults();
+                }
+            }
+        }
+
         private void pauseScanningToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             if (Program.IsScanning && !Program.IsScanCanceling)
             {
                 var paused = Program.PauseScan(pauseScanningToolStripMenuItem.Checked);
-                messageToolStripLabel.Text = "Scan " + (paused ? "Paused" : "Resumed");
+                statusMessageLabel.Text = "Scan " + (paused ? "Paused" : "Resumed");
             }
         }
 
@@ -2514,384 +2861,6 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void autoDrawModelTexturesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
-        {
-            _autoDrawModelTextures = autoDrawModelTexturesToolStripMenuItem.Checked;
-        }
-
-        private void autoSelectAnimationModelToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
-        {
-            _autoSelectAnimationModel = autoSelectAnimationModelToolStripMenuItem.Checked;
-        }
-
-        private void autoPlayAnimationsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
-        {
-            _autoPlayAnimations = autoPlayAnimationsToolStripMenuItem.Checked;
-        }
-
-        private void previewForm_KeyDown(object sender, KeyEventArgs e)
-        {
-            previewForm_KeyEvent(e, KeyEventType.Down);
-        }
-
-        private void previewForm_KeyUp(object sender, KeyEventArgs e)
-        {
-            previewForm_KeyEvent(e, KeyEventType.Up);
-        }
-
-        private void previewForm_KeyEvent(KeyEventArgs e, KeyEventType eventType)
-        {
-            if (eventType == KeyEventType.Down || eventType == KeyEventType.Up)
-            {
-                var state = eventType == KeyEventType.Down;
-                var sceneFocused = _openTkControl.Focused;
-                switch (e.KeyCode)
-                {
-                    case Keys.ShiftKey:
-                        _shiftKeyDown = state;
-                        break;
-                    case Keys.ControlKey:
-                        _controlKeyDown = state;
-                        break;
-                    case Keys.Enter when state:
-                        // Take focus away from numeric up/downs,
-                        // and give it the primary control of this tab.
-
-                        // Find the control with focus, but check the type to make sure we don't
-                        // go farther into the nested controls than what's publicly exposed.
-                        var focusedControl = ActiveControl;
-                        var focusedContainer = focusedControl as IContainerControl;
-                        while (focusedContainer != null && !(focusedControl is NumericUpDown))
-                        {
-                            focusedControl = focusedContainer.ActiveControl;
-                            focusedContainer = focusedControl as IContainerControl;
-                        }
-                        if (!(focusedControl is NumericUpDown))
-                        {
-                            break;
-                        }
-
-                        switch (menusTabControl.SelectedTab.TabIndex)
-                        {
-                            case 0: // Models
-                            case 3: // Animations
-                                _openTkControl.Focus();
-                                break;
-                            case 1: // Textures
-                                texturePreviewPictureBox.Focus();
-                                break;
-                            case 2: // VRAM
-                                vramPagePictureBox.Focus();
-                                break;
-                        }
-                        break;
-
-                    // Gizmo tools
-                    // We can't set these shortcut keys in the designer because it
-                    // considers them "invalid" for not having modifier keys.
-                    case Keys.W when state && sceneFocused:
-                        if (!_controlKeyDown)
-                        {
-                            if (_gizmoType != GizmoType.Translate)
-                            {
-                                SetGizmoType(GizmoType.Translate);
-                                //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
-                            }
-                            e.Handled = true;
-                        }
-                        break;
-                    case Keys.E when state && sceneFocused:
-                        if (!_controlKeyDown)
-                        {
-                            if (_gizmoType != GizmoType.Rotate)
-                            {
-                                SetGizmoType(GizmoType.Rotate);
-                                //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
-                            }
-                            e.Handled = true;
-                        }
-                        break;
-                    case Keys.R when state && sceneFocused:
-                        if (!_controlKeyDown)
-                        {
-                            if (_gizmoType != GizmoType.Scale)
-                            {
-                                SetGizmoType(GizmoType.Scale);
-                                //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
-                            }
-                            e.Handled = true;
-                        }
-                        break;
-
-                    // Debugging keys for testing picking rays.
-#if true
-                    case Keys.D when state && sceneFocused:
-                        if (_controlKeyDown) // Ctrl+D: Toggle debug visuals)
-                        {
-                            _scene.ShowDebugVisuals = !_scene.ShowDebugVisuals;
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugVisuals: {_scene.ShowDebugVisuals}");
-                            e.Handled = true;
-                        }
-                        break;
-                    case Keys.P when state && sceneFocused:
-                        if (_scene.ShowDebugVisuals)
-                        {
-                            if (_controlKeyDown) // Ctrl+P (Toggle debug picking ray)
-                            {
-                                _scene.ShowDebugPickingRay = !_scene.ShowDebugPickingRay;
-                                Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugPickingRay: {_scene.ShowDebugPickingRay}");
-                                e.Handled = true;
-                            }
-                            else if (_scene.ShowDebugPickingRay) // P (Set debug picking ray)
-                            {
-                                _scene.SetDebugPickingRay();
-                                e.Handled = true;
-                            }
-                        }
-                        break;
-                    case Keys.I when state && sceneFocused:
-                        if (_scene.ShowDebugVisuals)
-                        {
-                            if (_controlKeyDown) // Ctrl+I (Toggle debug intersections)
-                            {
-                                _scene.ShowDebugIntersections = !_scene.ShowDebugIntersections;
-                                Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugIntersections: {_scene.ShowDebugIntersections}");
-                                e.Handled = true;
-                            }
-                            else if (_scene.ShowDebugIntersections) // Hold I/Hold Shift+I (Update debug intersections)
-                            {
-                                var checkedEntities = GetCheckedEntities();
-                                var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
-                                if (IsTriangleSelectMode())
-                                {
-                                    _scene.GetTriangleUnderMouse(checkedEntities, rootEntity, _lastMouseX, _lastMouseY);
-                                }
-                                else
-                                {
-                                    _scene.GetEntityUnderMouse(checkedEntities, rootEntity, _lastMouseX, _lastMouseY);
-                                }
-                                e.Handled = true;
-                            }
-                        }
-                        break;
-#endif
-
-                    // Debugging: Print information to help hardcode scene setup when taking screenshots of models.
-#if DEBUG
-                    case Keys.C when state && sceneFocused:
-                        if (_scene.ShowDebugVisuals && !_controlKeyDown)
-                        {
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"CameraFOV      = {_scene.CameraFOV:R};");
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"CameraDistance = {_scene.CameraDistance:R};");
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraX       = {_scene.CameraX:R};");
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraY       = {_scene.CameraY:R};");
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraPitch   = {_scene.CameraPitch:R};");
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraYaw     = {_scene.CameraYaw:R};");
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"LightIntensity = {_scene.LightIntensity:R};");
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"LightPitchYaw  = new Vector2({_scene.LightPitch:R}, {_scene.LightYaw:R});");
-                            e.Handled = true;
-                        }
-                        break;
-#endif
-
-                        // Debugging keys for testing AnimationBatch settings while they still don't have UI controls.
-#if false
-                    case Keys.A when state:
-                        var loopMode = _scene.AnimationBatch.LoopMode + 1;
-                        if (loopMode > AnimationLoopMode.MirrorLoop)
-                        {
-                            loopMode = AnimationLoopMode.Once;
-                        }
-                        _scene.AnimationBatch.LoopMode = loopMode;
-                        UpdateAnimationProgressLabel();
-                        Program.Logger.WriteLine($"LoopMode={_scene.AnimationBatch.LoopMode,-10} Reverse={_scene.AnimationBatch.Reverse}");
-                        break;
-                    case Keys.S when state:
-                        _scene.AnimationBatch.Reverse = !_scene.AnimationBatch.Reverse;
-                        UpdateAnimationProgressLabel();
-                        Program.Logger.WriteLine($"LoopMode={_scene.AnimationBatch.LoopMode,-10} Reverse={_scene.AnimationBatch.Reverse}");
-                        break;
-                    case Keys.D when state:
-                        _scene.AnimationBatch.Restart();
-                        UpdateAnimationProgressLabel();
-                        Program.Logger.WriteLine("Restarted");
-                        break;
-                    case Keys.F when state:
-                        _scene.AnimationBatch.LoopDelayTime += 0.5;
-                        Program.Logger.WriteLine($"LoopDelayTime={_scene.AnimationBatch.LoopDelayTime}");
-                        break;
-                    case Keys.G when state:
-                        _scene.AnimationBatch.LoopDelayTime -= 0.5;
-                        Program.Logger.WriteLine($"LoopDelayTime={_scene.AnimationBatch.LoopDelayTime}");
-                        break;
-#endif
-                }
-            }
-        }
-
-        private void gotoPageButton_Click(object sender, EventArgs e)
-        {
-            if (PromptVRAMPage("Go to VRAM Page", _vramSelectedPage, out var pageIndex))
-            {
-                _vramSelectedPage = pageIndex;
-                // We can't assign VRAM image because it would include the semi-transparency zone.
-                // The image is drawn manually instead.
-                //vramPagePictureBox.Image = _vram[_vramSelectedPage].Bitmap;
-                vramListBox.SelectedIndex = pageIndex;
-                vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
-            }
-        }
-
-        private void animationSpeedNumericUpDown_ValueChanged(object sender, EventArgs e)
-        {
-            UpdateAnimationTimerSpeed();
-        }
-
-        private void animationFrameTrackBar_Scroll(object sender, EventArgs e)
-        {
-            if (_inAnimationTab && !Playing)
-            {
-                _scene.AnimationBatch.FrameTime = animationFrameTrackBar.Value;
-                UpdateAnimationProgressLabel();
-            }
-        }
-
-        private void showTMDBindingsToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            if (_curAnimation == null)
-            {
-                MessageBox.Show(this, "Please select an Animation first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-            else
-            {
-                TMDBindingsForm.ShowTool(this, _curAnimation);
-            }
-        }
-
-        private void animationLoopModeComboBox_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            var index = animationLoopModeComboBox.SelectedIndex;
-            if (index > -1)
-            {
-                _scene.AnimationBatch.LoopMode = (AnimationLoopMode)index;
-            }
-        }
-
-        private void animationReverseCheckBox_CheckedChanged(object sender, EventArgs e)
-        {
-            _scene.AnimationBatch.Reverse = animationReverseCheckBox.Checked;
-        }
-
-        public void LoadDefaultSettings()
-        {
-            Settings.LoadDefaults();
-            ReadSettings(Settings.Instance);
-        }
-
-        public void LoadSettings()
-        {
-            Settings.Load();
-            ReadSettings(Settings.Instance);
-        }
-
-        public void SaveSettings()
-        {
-            WriteSettings(Settings.Instance);
-            Settings.Instance.Save();
-        }
-
-        public void ReadSettings(Settings settings)
-        {
-            if (!Program.IsScanning)
-            {
-                Program.Logger.ReadSettings(Settings.Instance);
-            }
-
-            gridSnapUpDown.Value = (decimal)settings.GridSnap;
-            angleSnapUpDown.Value = (decimal)settings.AngleSnap;
-            scaleSnapUpDown.Value = (decimal)settings.ScaleSnap;
-            cameraFOVUpDown.Value = (decimal)settings.CameraFOV;
-            {
-                // Prevent light rotation ray from showing up while reading settings.
-                // This is re-assigned later in the function.
-                _scene.ShowLightRotationRay = false;
-                lightIntensityNumericUpDown.Value = (decimal)settings.LightIntensity;
-                lightYawNumericUpDown.Value = (decimal)settings.LightYaw;
-                lightPitchNumericUpDown.Value = (decimal)settings.LightPitch;
-                enableLightToolStripMenuItem.Checked = settings.LightEnabled;
-            }
-            _scene.AmbientEnabled = settings.AmbientEnabled;
-            enableTexturesToolStripMenuItem.Checked = settings.TexturesEnabled;
-            enableSemiTransparencyToolStripMenuItem.Checked = settings.SemiTransparencyEnabled;
-            forceDoubleSidedToolStripMenuItem.Checked = settings.ForceDoubleSided;
-            autoAttachLimbsToolStripMenuItem.Checked = settings.AutoAttachLimbs;
-            drawModeFacesToolStripMenuItem.Checked = settings.DrawFaces;
-            drawModeWireframeToolStripMenuItem.Checked = settings.DrawWireframe;
-            drawModeVerticesToolStripMenuItem.Checked = settings.DrawVertices;
-            drawModeSolidWireframeVerticesToolStripMenuItem.Checked = settings.DrawSolidWireframeVertices;
-            wireframeSizeUpDown.Value = (decimal)settings.WireframeSize;
-            vertexSizeUpDown.Value = (decimal)settings.VertexSize;
-            SetGizmoType(settings.GizmoType, force: true);
-            showBoundsToolStripMenuItem.Checked = settings.ShowBounds;
-            _scene.ShowLightRotationRay = settings.ShowLightRotationRay;
-            _scene.ShowDebugVisuals = settings.ShowDebugVisuals;
-            _scene.ShowDebugPickingRay = settings.ShowDebugPickingRay;
-            _scene.ShowDebugIntersections = settings.ShowDebugIntersections;
-            SetBackgroundColor(settings.BackgroundColor);
-            SetAmbientColor(settings.AmbientColor);
-            SetMaskColor(settings.MaskColor);
-            SetSolidWireframeVerticesColor(settings.SolidWireframeVerticesColor);
-            showUVToolStripMenuItem.Checked = settings.ShowUVsInVRAM;
-            autoDrawModelTexturesToolStripMenuItem.Checked = settings.AutoDrawModelTextures;
-            autoPlayAnimationsToolStripMenuItem.Checked = settings.AutoPlayAnimation;
-            autoSelectAnimationModelToolStripMenuItem.Checked = settings.AutoSelectAnimationModel;
-            animationLoopModeComboBox.SelectedIndex = (int)settings.AnimationLoopMode;
-            animationReverseCheckBox.Checked = settings.AnimationReverse;
-            animationSpeedNumericUpDown.Value = (decimal)settings.AnimationSpeed;
-        }
-
-        public void WriteSettings(Settings settings)
-        {
-            Program.Logger.WriteSettings(Settings.Instance);
-
-            settings.GridSnap = (float)gridSnapUpDown.Value;
-            settings.AngleSnap = (float)angleSnapUpDown.Value;
-            settings.ScaleSnap = (float)scaleSnapUpDown.Value;
-            settings.CameraFOV = (float)cameraFOVUpDown.Value;
-            settings.LightIntensity = (float)lightIntensityNumericUpDown.Value;
-            settings.LightYaw = (float)lightYawNumericUpDown.Value;
-            settings.LightPitch = (float)lightPitchNumericUpDown.Value;
-            settings.LightEnabled = enableLightToolStripMenuItem.Checked;
-            settings.AmbientEnabled = _scene.AmbientEnabled;
-            settings.TexturesEnabled = enableTexturesToolStripMenuItem.Checked;
-            settings.SemiTransparencyEnabled = enableSemiTransparencyToolStripMenuItem.Checked;
-            settings.ForceDoubleSided = forceDoubleSidedToolStripMenuItem.Checked;
-            settings.AutoAttachLimbs = autoAttachLimbsToolStripMenuItem.Checked;
-            settings.DrawFaces = drawModeFacesToolStripMenuItem.Checked;
-            settings.DrawWireframe = drawModeWireframeToolStripMenuItem.Checked;
-            settings.DrawVertices = drawModeVerticesToolStripMenuItem.Checked;
-            settings.DrawSolidWireframeVertices = drawModeSolidWireframeVerticesToolStripMenuItem.Checked;
-            settings.WireframeSize = (float)wireframeSizeUpDown.Value;
-            settings.VertexSize = (float)vertexSizeUpDown.Value;
-            settings.GizmoType = _gizmoType;
-            settings.ShowBounds = showBoundsToolStripMenuItem.Checked;
-            settings.ShowLightRotationRay = _scene.ShowLightRotationRay;
-            settings.ShowDebugVisuals = _scene.ShowDebugVisuals;
-            settings.ShowDebugPickingRay = _scene.ShowDebugPickingRay;
-            settings.ShowDebugIntersections = _scene.ShowDebugIntersections;
-            settings.BackgroundColor =  _scene.ClearColor;
-            settings.AmbientColor = _scene.AmbientColor;
-            settings.MaskColor = _scene.MaskColor;
-            settings.SolidWireframeVerticesColor = _scene.SolidWireframeVerticesColor;
-            settings.ShowUVsInVRAM = showUVToolStripMenuItem.Checked;
-            settings.AutoDrawModelTextures = autoDrawModelTexturesToolStripMenuItem.Checked;
-            settings.AutoPlayAnimation = autoPlayAnimationsToolStripMenuItem.Checked;
-            settings.AutoSelectAnimationModel = autoSelectAnimationModelToolStripMenuItem.Checked;
-            settings.AnimationLoopMode = (AnimationLoopMode)animationLoopModeComboBox.SelectedIndex;
-            settings.AnimationReverse = animationReverseCheckBox.Checked;
-            settings.AnimationSpeed = (float)animationSpeedNumericUpDown.Value;
-        }
-
         private void defaultSettingsToolStripMenuItem_Click(object sender, EventArgs e)
         {
             LoadDefaultSettings();
@@ -2907,21 +2876,78 @@ namespace PSXPrev.Forms
             SaveSettings();
         }
 
-        private void startScanToolStripMenuItem_Click(object sender, EventArgs e)
+        private void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            PromptScan();
+            Application.Exit();
         }
 
-        private void clearScanResultsToolStripMenuItem_Click(object sender, EventArgs e)
+        private void videoTutorialToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (_rootEntities.Count > 0 || _textures.Count > 0 || _animations.Count > 0)
+            Process.Start("https://www.youtube.com/watch?v=hPDa8l3ZE6U");
+        }
+
+        private void compatibilityListToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Process.Start("https://docs.google.com/spreadsheets/d/155pUzwl7CC14ssT0PJkaEA53CS1ijpOV04VitQCVBC4/edit?pli=1#gid=22642205");
+        }
+
+        private void viewOnGitHubToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Process.Start("https://github.com/rickomax/psxprev");
+        }
+
+        private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var message = "PSXPrev - PlayStation (PSX) Files Previewer/Extractor\n" +
+                          "(c) PSXPrev Contributors - 2020-2023";
+            MessageBox.Show(this, message, "About", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        #endregion
+
+
+        #region Helper Types
+
+        private enum MouseEventType
+        {
+            Down,
+            Up,
+            Move,
+            Wheel,
+        }
+
+        private enum KeyEventType
+        {
+            Down,
+            Up,
+        }
+
+        private enum EntitySelectionSource
+        {
+            None,
+            TreeView,
+            Click,
+        }
+
+        private class TexturesListViewTagInfo
+        {
+            //public Texture Texture { get; set; }
+            // We need to store index because ImageListViewItem.Index does not represent the original index.
+            public int Index { get; set; }
+            public bool Found { get; set; }
+        }
+
+        private class TexturesListViewGrouper : ImageListView.IGrouper
+        {
+            public ImageListView.GroupInfo GetGroupInfo(ImageListViewItem item)
             {
-                var result = MessageBox.Show(this, "Are you sure you want to clear scan results?", "Clear Scan Results", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-                if (result == DialogResult.Yes)
-                {
-                    ClearResults();
-                }
+                var tagInfo = (TexturesListViewTagInfo)item.Tag;
+                var name = tagInfo.Found ? "Found" : "Textures"; // Name ID of group
+                var order = tagInfo.Found ? 0 : 1;               // Index of group
+                return new ImageListView.GroupInfo(name, order);
             }
         }
+
+        #endregion
     }
 }
