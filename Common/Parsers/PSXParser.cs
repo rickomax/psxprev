@@ -65,7 +65,7 @@ namespace PSXPrev.Common.Parsers
             }
             var metaPtr = reader.ReadUInt32(); //todo: read meta
             var objectCount = reader.ReadUInt32();
-            if (objectCount == 0 || objectCount > Program.MaxPSXObjectCount)
+            if (objectCount == 0 || objectCount > Limits.MaxPSXObjectCount)
             {
                 return null;
             }
@@ -86,7 +86,7 @@ namespace PSXPrev.Common.Parsers
                 objectModels[i] = new PSXModel(x, y, z, modelIndex);
             }
             var modelCount = reader.ReadUInt32();
-            if (modelCount == 0 || modelCount > Program.MaxPSXObjectCount)
+            if (modelCount == 0 || modelCount > Limits.MaxPSXObjectCount)
             {
                 return null;
             }

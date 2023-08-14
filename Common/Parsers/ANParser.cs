@@ -63,12 +63,12 @@ namespace PSXPrev.Common.Parsers
 
             var version = reader.ReadByte();
             var numJoints = reader.ReadByte();
-            if (numJoints == 0 || numJoints > Program.MaxANJoints)
+            if (numJoints == 0 || numJoints > Limits.MaxANJoints)
             {
                 return null;
             }
             var numFrames = reader.ReadUInt16();
-            if (numFrames == 0 || numFrames > Program.MaxANFrames)
+            if (numFrames == 0 || numFrames > Limits.MaxANFrames)
             {
                 return null;
             }

@@ -64,7 +64,7 @@ namespace PSXPrev.Common.Parsers
             var version = reader.ReadByte();
             var resolution = reader.ReadUInt16();
             var frameCount = reader.ReadUInt32();
-            if (frameCount == 0 || frameCount > Program.MaxTODFrames)
+            if (frameCount == 0 || frameCount > Limits.MaxTODFrames)
             {
                 return null;
             }
@@ -77,7 +77,7 @@ namespace PSXPrev.Common.Parsers
                 var framePosition = reader.BaseStream.Position;
                 var frameSize = reader.ReadUInt16();
                 var packetCount = reader.ReadUInt16();
-                if (packetCount > Program.MaxTODPackets)
+                if (packetCount > Limits.MaxTODPackets)
                 {
                     return null;
                 }

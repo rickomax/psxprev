@@ -56,7 +56,7 @@ namespace PSXPrev.Common.Parsers
             }
 
             var frameCount = reader.ReadUInt32();
-            if (frameCount < Program.MinVDFFrames || frameCount > Program.MaxVDFFrames)
+            if (frameCount < Limits.MinVDFFrames || frameCount > Limits.MaxVDFFrames)
             {
                 return null;
             }
@@ -72,7 +72,7 @@ namespace PSXPrev.Common.Parsers
             for (uint f = 0; f < frameCount; f++)
             {
                 var objectId = reader.ReadUInt32();
-                if (objectId > Program.MaxVDFObjects)
+                if (objectId > Limits.MaxVDFObjects)
                 {
                     return null;
                 }
@@ -83,7 +83,7 @@ namespace PSXPrev.Common.Parsers
                 var vertexOffset = reader.ReadUInt32();
                 var skippedVertices = vertexOffset / 8;
                 var vertexCount = reader.ReadUInt32();
-                if (vertexCount + skippedVertices == 0 || vertexCount + skippedVertices > Program.MaxVDFVertices)
+                if (vertexCount + skippedVertices == 0 || vertexCount + skippedVertices > Limits.MaxVDFVertices)
                 {
                     return null;
                 }

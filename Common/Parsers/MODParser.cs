@@ -71,7 +71,7 @@ namespace PSXPrev.Common.Parsers
             // This may be handled by another file...
 
             var count = reader.ReadUInt16();
-            if (count == 0 || count > Program.MaxMODModels)
+            if (count == 0 || count > Limits.MaxMODModels)
             {
                 return null;
             }
@@ -93,7 +93,7 @@ namespace PSXPrev.Common.Parsers
 
                 // See notes by countFaces.
                 var countVerts = reader.ReadUInt32();
-                if (countVerts > Program.MaxMODVertices)
+                if (countVerts > Limits.MaxMODVertices)
                 {
                     return null;
                 }
@@ -121,7 +121,7 @@ namespace PSXPrev.Common.Parsers
                     // we can check this now to set the capacity of triangles without wasting memory.
                     return null;
                 }
-                if (countFaces > Program.MaxMODFaces)
+                if (countFaces > Limits.MaxMODFaces)
                 {
                     return null;
                 }
