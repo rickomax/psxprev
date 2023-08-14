@@ -78,6 +78,23 @@ namespace PSXPrev.Common.Renderer
             Initialized = true;
         }
 
+        public void AssignModelTextures(RootEntity rootEntity)
+        {
+            foreach (ModelEntity model in rootEntity.ChildEntities)
+            {
+                AssignModelTextures(model);
+            }
+        }
+
+        public void AssignModelTextures(ModelEntity model)
+        {
+            model.TexturePage = ClampTexturePage(model.TexturePage);
+            if (model.IsTextured)
+            {
+                model.Texture = _vramPages[model.TexturePage];
+            }
+        }
+
         // Gets if a page has had at least one texture drawn to it.
         public bool IsPageUsed(uint index) => IsPageUsed((int)index);
 
@@ -101,7 +118,8 @@ namespace PSXPrev.Common.Renderer
         {
             if (force || _modifiedPages[index])
             {
-                _scene.UpdateTexture(_vramPages[index].Bitmap, index);
+                // Support using VRAM even if we have no Scene.
+                _scene?.UpdateTexture(_vramPages[index].Bitmap, index);
                 _modifiedPages[index] = false;
                 return true;
             }

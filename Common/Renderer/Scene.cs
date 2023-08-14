@@ -189,7 +189,6 @@ namespace PSXPrev.Common.Renderer
         public MeshBatch LightRotationRayBatch { get; private set; }
         public MeshBatch DebugPickingRayBatch { get; private set; }
         public MeshBatch DebugIntersectionsBatch { get; private set; }
-        public AnimationBatch AnimationBatch { get; private set; }
         public TextureBinder TextureBinder { get; private set; }
 
         public event EventHandler CameraChanged;
@@ -464,16 +463,15 @@ namespace PSXPrev.Common.Renderer
                 LightIntensity = 1f,
             };
             DebugIntersectionsBatch = new MeshBatch(this);
-            AnimationBatch = new AnimationBatch(this);
 
-            TimeChanged += (sender, args) => {
+            TimeChanged += (sender, e) => {
                 if (ShowVisuals && ShowLightRotationRay && LightRotationRayBatch.Visible)
                 {
                     _lightRayTimer += _timeDelta;
                     UpdateLightRotationRay();
                 }
             };
-            LightChanged += (sender, args) => {
+            LightChanged += (sender, e) => {
                 if (ShowVisuals && ShowLightRotationRay)
                 {
                     _lightRayTimer = 0d; // Show light rotation ray and reset timer
@@ -481,7 +479,7 @@ namespace PSXPrev.Common.Renderer
                     UpdateLightRotationRay();
                 }
             };
-            CameraChanged += (sender, args) => {
+            CameraChanged += (sender, e) => {
                 UpdateLightRotationRay();
                 UpdateDebugPickingRay();
                 UpdateGizmoVisual(_gizmoEntity, _currentGizmoType, _highlightGizmo);

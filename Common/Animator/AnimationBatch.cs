@@ -143,6 +143,7 @@ namespace PSXPrev.Common.Animator
         {
             _scene = scene;
             _lastRootEntity = new WeakReference<RootEntity>(null);
+            Invalidate();
         }
 
 
@@ -181,7 +182,8 @@ namespace PSXPrev.Common.Animator
 
         public void SetupAnimationBatch(Animation animation, bool simulate = false)
         {
-            if (!simulate)
+            // Support using AnimationBatch even if we have no Scene.
+            if (!simulate && _scene != null)
             {
                 // todo: Is this correct for handling reseting the mesh batch?
                 // What if the animation doesn't match the object?
@@ -203,7 +205,8 @@ namespace PSXPrev.Common.Animator
         {
             var rootEntity = selectedRootEntity ?? selectedModelEntity?.GetRootEntity();
 
-            if (!simulate)
+            // Support using AnimationBatch even if we have no Scene.
+            if (!simulate && _scene != null)
             {
                 _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, selectedModelEntity, selectedRootEntity, updateMeshData || _scene.AutoAttach, false, true);
             }
