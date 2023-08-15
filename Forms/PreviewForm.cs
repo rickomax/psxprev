@@ -26,6 +26,11 @@ namespace PSXPrev.Forms
     {
         private const float MouseSensivity = 0.0035f;
 
+        private const int ModelsTabIndex     = 0;
+        private const int TexturesTabIndex   = 1;
+        private const int VRAMTabIndex       = 2;
+        private const int AnimationsTabIndex = 3;
+
         private static readonly Pen Black3Px = new Pen(Color.Black, 3f);
         private static readonly Pen White1Px = new Pen(Color.White, 1f);
         private static readonly Pen Cyan1Px = new Pen(Color.Cyan, 1f);
@@ -45,8 +50,6 @@ namespace PSXPrev.Forms
         private bool _inAnimationTab;
         private int _lastMouseX;
         private int _lastMouseY;
-        private bool _shiftKeyDown;
-        private bool _controlKeyDown;
         private GLControl _openTkControl;
         private bool _playing;
         private Timer _redrawTimer;
@@ -58,6 +61,7 @@ namespace PSXPrev.Forms
         private EntitySelectionSource _selectionSource;
         private bool _showUv;
         private int _vramSelectedPage = -1; // Used because combo box SelectedIndex can be -1 while typing.
+        private Texture _texturePreviewImage;
         private Bitmap _maskColorBitmap;
         private Bitmap _ambientColorBitmap;
         private Bitmap _backgroundColorBitmap;
@@ -69,6 +73,8 @@ namespace PSXPrev.Forms
         private bool _autoPlayAnimations;
         private bool _closing;
         private bool _inDialog; // Prevent timers from performing updates while true
+        private bool _resizeLayoutSuspended; // True if we need to ResumeLayout during ResizeEnd event
+        private object _cancelMenuCloseItemClickedSender; // Prevent closing menus on certain click events (like separators)
 
         private GizmoType _gizmoType;
         private GizmoId _hoveredGizmo;
@@ -115,6 +121,10 @@ namespace PSXPrev.Forms
                 }
             }
         }
+
+        private bool IsControlDown => ModifierKeys.HasFlag(Keys.Control);
+
+        private bool IsShiftDown => ModifierKeys.HasFlag(Keys.Shift);
 
         #region Scanning
 
@@ -352,6 +362,7 @@ namespace PSXPrev.Forms
             animationLoopModeComboBox.SelectedIndex = (int)settings.AnimationLoopMode;
             animationReverseCheckBox.Checked = settings.AnimationReverse;
             animationSpeedNumericUpDown.Value = (decimal)settings.AnimationSpeed;
+            fastWindowResizeToolStripMenuItem.Checked = settings.FastWindowResize;
         }
 
         public void WriteSettings(Settings settings)
@@ -394,6 +405,7 @@ namespace PSXPrev.Forms
             settings.AnimationLoopMode = (AnimationLoopMode)animationLoopModeComboBox.SelectedIndex;
             settings.AnimationReverse = animationReverseCheckBox.Checked;
             settings.AnimationSpeed = (float)animationSpeedNumericUpDown.Value;
+            settings.FastWindowResize = fastWindowResizeToolStripMenuItem.Checked;
         }
 
         #endregion
@@ -450,8 +462,14 @@ namespace PSXPrev.Forms
             texturePanel.MouseWheel += TexturePanelOnMouseWheel;
             vramPanel.MouseWheel += VramPanelOnMouseWheel;
 
-            // Ensure numeric up downs display the same value that they store internally
-            SetupNumericUpDownValidateEvents();
+            // Allow changing multiple draw modes while holding shift down.
+            drawModeToolStripMenuItem.DropDown.Closing += OnDrawModeMenuClosing;
+
+            // Ensure numeric up downs display the same value that they store internally.
+            SetupNumericUpDownValidateEvents(this);
+
+            // Normally clicking a menu separator will close the menu, which doesn't follow standard UI patterns.
+            SetupCancelMenuCloseOnSeparatorClick(mainMenuStrip);
 
 
             // Setup Enabled/Visible
@@ -518,6 +536,7 @@ namespace PSXPrev.Forms
                 animationsTreeView.Nodes.Clear();
 
                 // Clear picture boxes
+                _texturePreviewImage = null;
                 texturePreviewPictureBox.Image = null;
                 vramPagePictureBox.Image = null;
                 vramPagePictureBox.Invalidate();
@@ -590,10 +609,28 @@ namespace PSXPrev.Forms
             Program.CancelScan(); // Cancel the scan if one is active.
         }
 
+        private void previewForm_ResizeBegin(object sender, EventArgs e)
+        {
+            if (fastWindowResizeToolStripMenuItem.Checked)
+            {
+                SuspendLayout();
+                _resizeLayoutSuspended = true;
+            }
+        }
+
+        private void previewForm_ResizeEnd(object sender, EventArgs e)
+        {
+            if (_resizeLayoutSuspended)
+            {
+                ResumeLayout();
+                _resizeLayoutSuspended = false;
+            }
+        }
+
         private void menusTabControl_SelectedIndexChanged(object sender, EventArgs e)
         {
             // Handle leaving the animation tab.
-            if (_inAnimationTab && menusTabControl.SelectedTab.TabIndex != 3)
+            if (_inAnimationTab && menusTabControl.SelectedTab.TabIndex != AnimationsTabIndex)
             {
                 _inAnimationTab = false;
                 // Restart to force animation state update next time we're in the animation tab.
@@ -605,23 +642,23 @@ namespace PSXPrev.Forms
                 UpdateSelectedEntity();
             }
             // Force-hide all visuals when in animation tab.
-            _scene.ShowVisuals = menusTabControl.SelectedTab.TabIndex != 3;
+            _scene.ShowVisuals = menusTabControl.SelectedTab.TabIndex != AnimationsTabIndex;
 
             switch (menusTabControl.SelectedTab.TabIndex)
             {
-                case 0: // Models
+                case ModelsTabIndex: // Models
                     {
                         animationsTreeView.SelectedNode = null;
                         _openTkControl.Parent = modelsSplitContainer.Panel2;
                         _openTkControl.Show();
                         break;
                     }
-                case 2: // VRAM
+                case VRAMTabIndex: // VRAM
                     {
                         UpdateVRAMComboBoxPageItems();
-                        break;
+                        goto default;
                     }
-                case 3: // Animations
+                case AnimationsTabIndex: // Animations
                     {
                         _inAnimationTab = true;
                         animationsTableLayoutPanel.Controls.Add(_openTkControl, 0, 0);
@@ -658,12 +695,6 @@ namespace PSXPrev.Forms
                 var sceneFocused = _openTkControl.Focused;
                 switch (e.KeyCode)
                 {
-                    case Keys.ShiftKey:
-                        _shiftKeyDown = state;
-                        break;
-                    case Keys.ControlKey:
-                        _controlKeyDown = state;
-                        break;
                     case Keys.Enter when state:
                         // Take focus away from numeric up/downs,
                         // and give it the primary control of this tab.
@@ -684,14 +715,14 @@ namespace PSXPrev.Forms
 
                         switch (menusTabControl.SelectedTab.TabIndex)
                         {
-                            case 0: // Models
-                            case 3: // Animations
+                            case ModelsTabIndex: // Models
+                            case AnimationsTabIndex: // Animations
                                 _openTkControl.Focus();
                                 break;
-                            case 1: // Textures
+                            case TexturesTabIndex: // Textures
                                 texturePreviewPictureBox.Focus();
                                 break;
-                            case 2: // VRAM
+                            case VRAMTabIndex: // VRAM
                                 vramPagePictureBox.Focus();
                                 break;
                         }
@@ -701,7 +732,7 @@ namespace PSXPrev.Forms
                     // We can't set these shortcut keys in the designer because it
                     // considers them "invalid" for not having modifier keys.
                     case Keys.W when state && sceneFocused:
-                        if (!_controlKeyDown)
+                        if (!IsControlDown)
                         {
                             if (_gizmoType != GizmoType.Translate)
                             {
@@ -712,7 +743,7 @@ namespace PSXPrev.Forms
                         }
                         break;
                     case Keys.E when state && sceneFocused:
-                        if (!_controlKeyDown)
+                        if (!IsControlDown)
                         {
                             if (_gizmoType != GizmoType.Rotate)
                             {
@@ -723,7 +754,7 @@ namespace PSXPrev.Forms
                         }
                         break;
                     case Keys.R when state && sceneFocused:
-                        if (!_controlKeyDown)
+                        if (!IsControlDown)
                         {
                             if (_gizmoType != GizmoType.Scale)
                             {
@@ -737,7 +768,7 @@ namespace PSXPrev.Forms
                     // Debugging keys for testing picking rays.
 #if true
                     case Keys.D when state && sceneFocused:
-                        if (_controlKeyDown) // Ctrl+D: Toggle debug visuals)
+                        if (IsControlDown) // Ctrl+D: Toggle debug visuals)
                         {
                             _scene.ShowDebugVisuals = !_scene.ShowDebugVisuals;
                             Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugVisuals: {_scene.ShowDebugVisuals}");
@@ -747,7 +778,7 @@ namespace PSXPrev.Forms
                     case Keys.P when state && sceneFocused:
                         if (_scene.ShowDebugVisuals)
                         {
-                            if (_controlKeyDown) // Ctrl+P (Toggle debug picking ray)
+                            if (IsControlDown) // Ctrl+P (Toggle debug picking ray)
                             {
                                 _scene.ShowDebugPickingRay = !_scene.ShowDebugPickingRay;
                                 Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugPickingRay: {_scene.ShowDebugPickingRay}");
@@ -763,7 +794,7 @@ namespace PSXPrev.Forms
                     case Keys.I when state && sceneFocused:
                         if (_scene.ShowDebugVisuals)
                         {
-                            if (_controlKeyDown) // Ctrl+I (Toggle debug intersections)
+                            if (IsControlDown) // Ctrl+I (Toggle debug intersections)
                             {
                                 _scene.ShowDebugIntersections = !_scene.ShowDebugIntersections;
                                 Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugIntersections: {_scene.ShowDebugIntersections}");
@@ -790,7 +821,7 @@ namespace PSXPrev.Forms
                     // Debugging: Print information to help hardcode scene setup when taking screenshots of models.
 #if DEBUG
                     case Keys.C when state && sceneFocused:
-                        if (_scene.ShowDebugVisuals && !_controlKeyDown)
+                        if (_scene.ShowDebugVisuals && !IsControlDown)
                         {
                             Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"CameraFOV      = {_scene.CameraFOV:R};");
                             Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"CameraDistance = {_scene.CameraDistance:R};");
@@ -842,22 +873,22 @@ namespace PSXPrev.Forms
 
         private void openTKControl_Load(object sender, EventArgs e)
         {
-            _openTkControl.MakeCurrent();
             // Setup classes that depend on OpenTK.
             var width  = Math.Max(1, _openTkControl.ClientSize.Width);
             var height = Math.Max(1, _openTkControl.ClientSize.Height);
+            _openTkControl.MakeCurrent();
             _scene.Initialize(width, height);
             _vram.Initialize();
         }
 
         private void _openTkControl_Resize(object sender, EventArgs e)
         {
-            _openTkControl.MakeCurrent();
             // Make sure to use ClientSize to exclude size added by the borders.
             var width  = Math.Max(1, _openTkControl.ClientSize.Width);
             var height = Math.Max(1, _openTkControl.ClientSize.Height);
             if (_scene.Initialized)
             {
+                _openTkControl.MakeCurrent();
                 _scene.Resize(width, height);
             }
         }
@@ -978,7 +1009,7 @@ namespace PSXPrev.Forms
             _lastMouseY = e.Y;
         }
 
-        private void SetupNumericUpDownValidateEvents(Control parent = null)
+        private void SetupNumericUpDownValidateEvents(Control parent)
         {
             // When a user manually enters in a value in a NumericUpDown,
             // the value will be shown with the specified number of decimal places,
@@ -987,7 +1018,7 @@ namespace PSXPrev.Forms
             // Anyways, this fixes that by rounding the value during the validating event.
             // We need to find all NumericUpDowns in the form, and register the event for those.
             var queue = new Queue<Control>();
-            queue.Enqueue(parent ?? this);
+            queue.Enqueue(parent);
 
             while (queue.Count > 0)
             {
@@ -1016,6 +1047,72 @@ namespace PSXPrev.Forms
             {
                 numericUpDown.Value = Math.Round(numericUpDown.Value, numericUpDown.DecimalPlaces,
                                                  MidpointRounding.AwayFromZero);
+            }
+        }
+
+        private void SetupCancelMenuCloseOnSeparatorClick(object parent, bool setupChildren = true)
+        {
+            var queue = new Queue<object>();
+            if (parent is ToolStrip toolStrip) // Parent is ToolStrip
+            {
+                // Ignore setupChildren here and treat toolStrip's items as the parents.
+                foreach (var child in toolStrip.Items)
+                {
+                    queue.Enqueue(child);
+                }
+            }
+            else
+            {
+                queue.Enqueue(parent);
+            }
+
+            while (queue.Count > 0)
+            {
+                var container = queue.Dequeue();
+
+                if (container is ToolStripDropDownItem dropDownItem)
+                {
+                    dropDownItem.DropDown.Closing += OnCancelMenuCloseOnSeparatorClickClosing;
+                    dropDownItem.DropDown.ItemClicked += OnCancelMenuCloseOnSeparatorClickItemClicked;
+
+                    if (setupChildren)
+                    {
+                        foreach (var child in dropDownItem.DropDownItems)
+                        {
+                            queue.Enqueue(child);
+                        }
+                    }
+                }
+            }
+        }
+
+        private void OnCancelMenuCloseOnSeparatorClickClosing(object sender, ToolStripDropDownClosingEventArgs e)
+        {
+            if (_cancelMenuCloseItemClickedSender == sender)
+            {
+                if (e.CloseReason == ToolStripDropDownCloseReason.ItemClicked)
+                {
+                    // We're closing because a separator item was clicked, so cancel it.
+                    e.Cancel = true;
+                }
+                // Always clear the clicked separator sender for the sender's Closing event.
+                _cancelMenuCloseItemClickedSender = null;
+            }
+        }
+
+        private void OnCancelMenuCloseOnSeparatorClickItemClicked(object sender, ToolStripItemClickedEventArgs e)
+        {
+            if (e.ClickedItem is ToolStripSeparator)
+            {
+                // Store the sender of the clicked separator, we'll need it
+                // to make sure we cancel during the correct Closing event.
+                _cancelMenuCloseItemClickedSender = sender;
+            }
+            else
+            {
+                // Always reset this if a new item is clicked that isn't a separator.
+                // In the scenario that Closing never happened after a separator was clicked.
+                _cancelMenuCloseItemClickedSender = null;
             }
         }
 
@@ -1989,7 +2086,7 @@ namespace PSXPrev.Forms
 
         private bool IsTriangleSelectMode()
         {
-            return _shiftKeyDown;
+            return IsShiftDown;
         }
 
         private void UpdateSelectedEntity(bool updateMeshData = true, bool forceUpdatePropertyGrid = true)
@@ -2150,6 +2247,16 @@ namespace PSXPrev.Forms
         private void gizmoToolScaleToolStripMenuItem_Click(object sender, EventArgs e)
         {
             SetGizmoType(GizmoType.Scale);
+        }
+
+        private void OnDrawModeMenuClosing(object sender, ToolStripDropDownClosingEventArgs e)
+        {
+            if (IsShiftDown && e.CloseReason == ToolStripDropDownCloseReason.ItemClicked)
+            {
+                // Allow changing multiple draw modes without re-opening the menu.
+                // A hacky solution until we have draw modes somewhere else like a toolbar.
+                e.Cancel = true;
+            }
         }
 
         private void drawModeFacesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
@@ -2403,18 +2510,18 @@ namespace PSXPrev.Forms
 
         private void texturePreviewPictureBox_Paint(object sender, PaintEventArgs e)
         {
-            if (texturePreviewPictureBox.Image == null)
+            if (_texturePreviewImage == null)
             {
                 return;
             }
             var dstRect = new Rectangle(0, 0, texturePreviewPictureBox.Width, texturePreviewPictureBox.Height);
-            var srcRect = new Rectangle(0, 0, texturePreviewPictureBox.Image.Width, texturePreviewPictureBox.Image.Height);
+            var srcRect = new Rectangle(0, 0, _texturePreviewImage.Width, _texturePreviewImage.Height);
 
             e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
             // Despite what it sounds like, we want Half. Otherwise we end up drawing half a pixel back.
             e.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
             e.Graphics.DrawImage(
-                texturePreviewPictureBox.Image,
+                _texturePreviewImage.Bitmap,
                 dstRect,
                 srcRect,
                 GraphicsUnit.Pixel);
@@ -2523,10 +2630,11 @@ namespace PSXPrev.Forms
                 return;
             }
             _texturePreviewScale = 1f;
-            var bitmap = texture.Bitmap;
-            texturePreviewPictureBox.Image = bitmap;
-            texturePreviewPictureBox.Width = bitmap.Width;
-            texturePreviewPictureBox.Height = bitmap.Height;
+            _texturePreviewImage = texture;
+            // Uncomment this line if you want to restore the blur shadow that draws around textures when zoomed in.
+            //texturePreviewPictureBox.Image = texture.Bitmap;
+            texturePreviewPictureBox.Width = texture.Width;
+            texturePreviewPictureBox.Height = texture.Height;
             texturePreviewPictureBox.Refresh();
             texturePropertyGrid.SelectedObject = texture;
         }
@@ -2850,14 +2958,31 @@ namespace PSXPrev.Forms
             }
         }
 
+        private void showSideBarToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            var visible = showSideBarToolStripMenuItem.Checked;
+            modelsSplitContainer.Panel1Collapsed = !visible;
+            texturesSplitContainer.Panel1Collapsed = !visible;
+            vramSplitContainer.Panel1Collapsed = !visible;
+            animationsSplitContainer.Panel1Collapsed = !visible;
+        }
+
         private void defaultSettingsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            LoadDefaultSettings();
+            var result = MessageBox.Show(this, "Are you sure you want to reset settings to their default values?", "Reset Settings", MessageBoxButtons.YesNo);
+            if (result == DialogResult.Yes)
+            {
+                LoadDefaultSettings();
+            }
         }
 
         private void loadSettingsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            LoadSettings();
+            var result = MessageBox.Show(this, "Are you sure you want to reload settings from file?", "Reload Settings", MessageBoxButtons.YesNo);
+            if (result == DialogResult.Yes)
+            {
+                LoadSettings();
+            }
         }
 
         private void saveSettingsToolStripMenuItem_Click(object sender, EventArgs e)

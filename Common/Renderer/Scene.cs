@@ -413,19 +413,22 @@ namespace PSXPrev.Common.Renderer
             }
             SetupGL();
             SetupShaders();
-            Resize(width, height);
+            Resize(width, height, true); // Force-resize if width/height equals initial values
             SetupMatrices();
             SetupInternals();
             Initialized = true;
         }
 
-        public void Resize(float width, float height)
+        public void Resize(float width, float height, bool force = false)
         {
-            ViewportWidth  = width;
-            ViewportHeight = height;
-            GL.Viewport(0, 0, (int)width, (int)height);
-            SetupMatrices();
-            OnCameraChanged();
+            if (force || ViewportWidth != width || ViewportHeight != height)
+            {
+                ViewportWidth  = width;
+                ViewportHeight = height;
+                GL.Viewport(0, 0, (int)width, (int)height);
+                SetupMatrices();
+                OnCameraChanged();
+            }
         }
 
         private void SetupInternals()

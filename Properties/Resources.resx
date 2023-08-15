@@ -277,4 +277,10 @@
   <data name="Help_Credits" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Icons\Fugue\Help_Credits.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="File_FastWindowResize" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icons\Fugue\File_FastWindowResize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="File_ShowSideBar" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icons\Fugue\File_ShowSideBar.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
 </root>
