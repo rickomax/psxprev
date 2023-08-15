@@ -140,6 +140,9 @@ namespace PSXPrev
         [JsonProperty("animationSpeed")]
         public float AnimationSpeed { get; set; } = 1f;
 
+        [JsonProperty("fastWindowResize")]
+        public bool FastWindowResize { get; set; } = false;
+
         [JsonProperty("logStandardColor"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
         public ConsoleColor LogStandardColor { get; set; } = ConsoleColor.White;
 
