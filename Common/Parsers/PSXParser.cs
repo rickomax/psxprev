@@ -51,18 +51,17 @@ namespace PSXPrev.Common.Parsers
                 triangles.Add(triangle);
             }
 
-            var version = reader.ReadByte();
-            var magic2 = reader.ReadByte();
-            var magic3 = reader.ReadByte();
-            var magic4 = reader.ReadByte();
-            if (version != 0x04 && version != 0x03 && version != 0x06)
+            var version = reader.ReadUInt16();
+            var magic   = reader.ReadUInt16();
+            if (version != 0x0004 && version != 0x0003 && version != 0x0006)
             {
                 return null;
             }
-            if (magic2 != 0x00 || magic3 != 0x02 || magic4 != 0x00)
+            if (magic != 0x0002)
             {
                 return null;
             }
+
             var metaPtr = reader.ReadUInt32(); //todo: read meta
             var objectCount = reader.ReadUInt32();
             if (objectCount == 0 || objectCount > Limits.MaxPSXObjectCount)
@@ -85,11 +84,13 @@ namespace PSXPrev.Common.Parsers
                 var palTop = reader.ReadUInt32();
                 objectModels[i] = new PSXModel(x, y, z, modelIndex);
             }
+
             var modelCount = reader.ReadUInt32();
             if (modelCount == 0 || modelCount > Limits.MaxPSXObjectCount)
             {
                 return null;
             }
+
             var modelEntities = new List<ModelEntity>();
             var attachmentIndex = 0;
             for (uint i = 0; i < modelCount; i++)
@@ -118,15 +119,12 @@ namespace PSXPrev.Common.Parsers
                 var vertices = new Vector3[vertexCount];
                 for (uint j = 0; j < vertexCount; j++)
                 {
-                    var x = reader.ReadInt16(); //reader.ReadInt16() / 1f) / 2.25f;
-                    var y = reader.ReadInt16(); //reader.ReadInt16() / 1f) / 2.25f;
-                    var z = reader.ReadInt16(); //(reader.ReadInt16() / 1f) / 2.25f;
-                    var pad = reader.ReadInt16();
-                    var vertex = new Vector3(
-                        x / 1f / 2.25f,
-                        y / 1f / 2.25f,
-                        z / 1f / 2.25f
-                    );
+                    var x = reader.ReadInt16();
+                    var y = reader.ReadInt16();
+                    var z = reader.ReadInt16();
+                    var pad = reader.ReadUInt16();
+                    vertices[j] = new Vector3(x / 2.25f, y / 2.25f, z / 2.25f);
+
                     if (pad == 1)
                     {
                         attachableIndices.Add(j, (uint)attachmentIndex++);
@@ -135,8 +133,6 @@ namespace PSXPrev.Common.Parsers
                     {
                         attachedIndices.Add(j, (uint)y);
                     }
-
-                    vertices[j] = vertex;
                 }
 
                 var normals = new Vector3[planeCount];
@@ -145,10 +141,8 @@ namespace PSXPrev.Common.Parsers
                     var x = reader.ReadInt16() / 4096f;
                     var y = reader.ReadInt16() / 4096f;
                     var z = reader.ReadInt16() / 4096f;
-                    reader.ReadInt16();
-                    normals[j] = new Vector3(
-                        x, y, z
-                    );
+                    reader.ReadUInt16(); //pad
+                    normals[j] = new Vector3(x, y, z);
                 }
 
                 //uint faceFlags;
@@ -399,7 +393,7 @@ namespace PSXPrev.Common.Parsers
                             TMDID = psxModel.ModelIndex, //todo
                             OriginalLocalMatrix = Matrix4.CreateTranslation(psxModel.X, psxModel.Y, psxModel.Z)
                         };
-                        model.ComputeAttachedOnly();
+                        model.ComputeAttached();
                         modelEntities.Add(model);
                     }
                 }

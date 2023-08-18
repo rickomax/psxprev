@@ -302,6 +302,18 @@ namespace PSXPrev.Common
             }
         }
 
+        public virtual void UnfixConnections()
+        {
+            if (ChildEntities == null)
+            {
+                return;
+            }
+            foreach (var child in ChildEntities)
+            {
+                child.UnfixConnections();
+            }
+        }
+
         public virtual void ClearConnectionsCache()
         {
             if (ChildEntities == null)

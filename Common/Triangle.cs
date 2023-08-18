@@ -107,7 +107,10 @@ namespace PSXPrev.Common
 
         // Cache of already-attached entities/vertices to speed up FixConnections.
         [Browsable(false)]
-        public Tuple<EntityBase, Vector3>[] AttachedCache { get; set; }
+        public Tuple<EntityBase, Vector3>[] AttachedVerticesCache { get; set; }
+        // Cache of already-attached entities/normals to speed up FixConnections.
+        [Browsable(false)]
+        public Tuple<EntityBase, Vector3>[] AttachedNormalsCache { get; set; }
 
         [Browsable(false)]
         public float IntersectionDistance { get; set; }
