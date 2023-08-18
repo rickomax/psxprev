@@ -60,21 +60,15 @@ namespace PSXPrev.Common.Parsers
             {
                 rootEntity = new RootEntity();
                 rootEntity.ChildEntities = modelEntities.ToArray();
-                if (TextureResults.Count > 0)
+                rootEntity.OwnedTextures.AddRange(TextureResults);
+                rootEntity.OwnedAnimations.AddRange(AnimationResults);
+                foreach (var texture in TextureResults)
                 {
-                    foreach (var texture in TextureResults)
-                    {
-                        texture.OwnerEntity = rootEntity;
-                    }
-                    rootEntity.OwnedTextures.AddRange(TextureResults);
+                    texture.OwnerEntity = rootEntity;
                 }
-                if (AnimationResults.Count > 0)
+                foreach (var animation in AnimationResults)
                 {
-                    foreach (var animation in AnimationResults)
-                    {
-                        animation.OwnerEntity = rootEntity;
-                    }
-                    rootEntity.OwnedAnimations.AddRange(AnimationResults);
+                    animation.OwnerEntity = rootEntity;
                 }
                 rootEntity.ComputeBounds();
             }
@@ -135,6 +129,10 @@ namespace PSXPrev.Common.Parsers
                 rootEntity.Coords = coords;
             }
             var primitiveHeaderCount = reader.ReadUInt32();
+            //for (var i = 0; i < primitiveHeaderCount; i++)
+            //{
+            //    var primitiveHeaderPointer = reader.ReadUInt32() * 4;
+            //}
             return rootEntity;
         }
 
@@ -370,13 +368,13 @@ namespace PSXPrev.Common.Parsers
                         {
                             // Joint Axes/Roll-Pitch-Yaw: Not supported yet (function doesn't return animation yet)
                             var rpy = code1 == 1;
-                            animation = ProcessMIMeJointData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, dataCount, rpy, reset);
+                            animation = ProcessMIMeJointData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, dataCount, rpy, reset, blockCount);
                         }
                         else if (code0 == 2 && code1 == 0 && !reset) // Normal not supported, reset not supported
                         {
                             // Vertex/Normal
                             var normal = code1 == 1;
-                            animation = ProcessMIMeVertexNormalData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, dataCount, normal, reset);
+                            animation = ProcessMIMeVertexNormalData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, dataCount, normal, reset, blockCount);
                         }
                         if (animation != null)
                         {
@@ -694,7 +692,7 @@ namespace PSXPrev.Common.Parsers
         private List<Animation> ProcessAnimationData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, uint blockCount)
         {
             var primitivePosition = reader.BaseStream.Position;
-            ProcessAnimationPrimitiveHeader(reader, primitiveHeaderPointer, out var interpTop, out var ctrlTop, out var paramTop, out var coordTop, out var sectionList);
+            ProcessAnimationPrimitiveHeader(reader, primitiveHeaderPointer, out var interpTop, out var ctrlTop, out var paramTop, out var sectionList);
 
             reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
 
@@ -759,6 +757,7 @@ namespace PSXPrev.Common.Parsers
             // Debug: Print instruction set. Programmatically disabled by default since it wastes a lot of time.
             if (Program.Debug && false)
             {
+                HMDHelper.PrintInterpolationTypes(reader, interpTop, ctrlTop, paramTop, _offset);
                 HMDHelper.PrintAnimInstructions(reader, ctrlTop, paramTop, _offset);
             }
             
@@ -792,13 +791,18 @@ namespace PSXPrev.Common.Parsers
                 var updateSectionIndex = updateIndex >> 24;
                 var updateOffsetInSection = (updateIndex & 0xffffff) * 4;
 
+                if (updateSectionIndex >= sectionList.Length)
+                {
+                    return null;
+                }
+
                 if (updateOffsetInSection < 4 || (updateOffsetInSection - 4) % 80 != 0)
                 {
                     if (Program.Debug)
                     {
                         Program.Logger.WriteErrorLine($"Invalid {FormatName} animation updateOffsetInSection {updateOffsetInSection}");
                     }
-                    return null; // Coordinate offset starts before table, or offset is not aligned.
+                    return null; // Coordinate offset starts before table, or offset is not aligned, or general update driver.
                 }
                 var tmdid = (updateOffsetInSection - 4) / 80 + 1; // Divide by size of coord uint. Coord TMDIDs are 1-indexed.
 
@@ -1036,10 +1040,64 @@ namespace PSXPrev.Common.Parsers
             return animationList;
         }
 
-        private Animation ProcessMIMeJointData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, bool rpy, bool reset)
+        private Animation ProcessMIMeJointData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, bool rpy, bool reset, uint blockCount)
         {
+            Animation animation;
+            Dictionary<uint, AnimationObject> animationObjects;
+
+            AnimationFrame GetNextAnimationFrame(AnimationObject animationObject)
+            {
+                var animationFrames = animationObject.AnimationFrames;
+                var frameTime = (uint)animationFrames.Count;
+                var animationFrame = new AnimationFrame
+                {
+                    FrameTime = frameTime,
+                    FrameDuration = 1,
+                    AnimationObject = animationObject
+                };
+                animationFrames.Add(frameTime, animationFrame);
+
+                //animation.FrameCount = Math.Max(animation.FrameCount, animationFrame.FrameEnd);
+                return animationFrame;
+            }
+            AnimationObject GetAnimationObject(uint objectId)
+            {
+                var tmdid = objectId; // TMDID and objectId are the same.
+                while (animationObjects.ContainsKey(objectId))
+                {
+                    // Another animation object exists that modifies the same TMDID.
+                    // This and the other object run in parallel.
+                    // We need a new objectId.
+                    objectId += blockCount;
+                }
+                if (!animationObjects.TryGetValue(objectId, out var animationObject))
+                {
+                    animationObject = new AnimationObject { Animation = animation, ID = objectId };
+                    animationObject.TMDID.Add(tmdid);
+                    animationObjects.Add(objectId, animationObject);
+                }
+                return animationObject;
+            }
+
+            animation = new Animation();
+            animationObjects = new Dictionary<uint, AnimationObject>();
+
             var position = reader.BaseStream.Position;
-            ProcessMIMeJointPrimitiveHeader(reader, primitiveHeaderPointer, reset, out var coordTop, out var mimeTop, out var mimeNum, out var mimeId, out var mimeDiffTop);
+            ProcessMIMeJointPrimitiveHeader(reader, primitiveHeaderPointer, reset, out var coordTop, out var mimeKeyTop, out var mimeKeyCount, out var mimeId, out var mimeDiffTop);
+
+            // Initial values for interpolation keys
+            if (mimeKeyCount > Limits.MaxHMDMIMeKeys)
+            {
+                // For now we can ignore this, it's possible that no errors would occur if more keys were defined.
+                //return null;
+            }
+            //reader.BaseStream.Seek(_offset + mimeKeyTop, SeekOrigin.Begin);
+            //var keyValues = new float[Math.Min(mimeKeyCount, (uint)Limits.MaxHMDMIMeKeys)];
+            //for (var i = 0; i < keyValues.Length; i++)
+            //{
+            //    keyValues[i] = reader.ReadInt32() / 4096f;
+            //}
+
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
 
             for (uint i = 0; i < dataCount; i++)
@@ -1053,30 +1111,60 @@ namespace PSXPrev.Common.Parsers
 
                 var coordID = reader.ReadUInt16();
                 var numDiffs = reader.ReadUInt16();
-                if (numDiffs > Limits.MaxHMDMIMeDiffs)
+                if (numDiffs > Limits.MaxHMDMIMeKeys)
                 {
                     return null;
                 }
+                if (coordID + 2 >= blockCount)
+                {
+                    return null; // First and last block are pre/post-processing and don't have coords
+                }
+
                 var diffKeyBits = reader.ReadUInt32(); // Keys with differences by bit index.
                 var diffKeys = new List<uint>();
-                for (var key = 0; key < 32; key++)
+                for (var keyIndex = 0; keyIndex < 32; keyIndex++)
                 {
-                    if ((diffKeyBits & (1u << key)) != 0)
+                    if ((diffKeyBits & (1u << keyIndex)) != 0)
                     {
-                        diffKeys.Add((uint)key);
+                        diffKeys.Add((uint)keyIndex);
                     }
+                }
+                if (diffKeys.Count < numDiffs)
+                {
+                    return null; // Not enough keys defined for diffs
                 }
 
                 // numDiffs of Joint MIMeDiffData packets
                 for (var j = 0; j < numDiffs; j++)
                 {
-                    var dvx = reader.ReadInt16();
-                    var dvy = reader.ReadInt16();
-                    var dvz = reader.ReadInt16();
-                    var dtp = reader.ReadInt16(); // bit 0: 0 if dvz-dvz are all zero, bit 1: 0 if dtx-dtz are all zero
+                    // Each diff is its own animation object, with its own interpolation key
+                    var animationObject = GetAnimationObject(coordID + 1u);
+
+                    var dvx = (float)(reader.ReadInt16() / 4096d * (Math.PI * 2d));
+                    var dvy = (float)(reader.ReadInt16() / 4096d * (Math.PI * 2d));
+                    var dvz = (float)(reader.ReadInt16() / 4096d * (Math.PI * 2d));
+                    var dtp = reader.ReadInt16(); // bit 0: 0 if dvx-dvz are all zero, bit 1: 0 if dtx-dtz are all zero
                     var dtx = reader.ReadInt32();
                     var dty = reader.ReadInt32();
                     var dtz = reader.ReadInt32();
+
+                    var animationFrame = GetNextAnimationFrame(animationObject);
+                    // The behavior for this is not confirmed to be entirely correct yet. For now, supporting it is enough.
+                    if ((dtp & 0x1) != 0)
+                    {
+                        animationFrame.RotationType = InterpolationType.Linear;
+                        var dv = new Vector3(dvx, dvy, dvz) * (rpy ? 1f : -1f); // Rotation is inverted for Axes?
+                        animationFrame.EulerRotation = dv * 0f; // Key values of 0f-1f
+                        animationFrame.FinalEulerRotation = dv * 1f;
+                        animationFrame.RotationOrder = (rpy ? RotationOrder.XYZ : RotationOrder.YXZ);
+                    }
+                    if ((dtp & 0x2) != 0)
+                    {
+                        animationFrame.TranslationType = InterpolationType.Linear;
+                        var dt = new Vector3(dtx, dty, dtz);
+                        animationFrame.Translation = dt * 0f; // Key values of 0f-1f
+                        animationFrame.FinalTranslation = dt * 1f;
+                    }
                 }
 
                 // 1 Reset Joint MIMeDiffData packet (this is just working data)
@@ -1100,10 +1188,15 @@ namespace PSXPrev.Common.Parsers
                 reader.BaseStream.Seek(position, SeekOrigin.Begin);
             }
 
+            animation.AnimationType = AnimationType.HMD;
+            animation.FPS = 1f;
+            animation.AssignObjects(animationObjects, true, false);
+            return animation;
+
             return null;
         }
 
-        private Animation ProcessMIMeVertexNormalData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, bool normal, bool reset)
+        private Animation ProcessMIMeVertexNormalData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, bool normal, bool reset, uint blockCount)
         {
             Animation animation;
             Dictionary<uint, AnimationObject> animationObjects;
@@ -1125,10 +1218,18 @@ namespace PSXPrev.Common.Parsers
             }
             AnimationObject GetAnimationObject(uint objectId)
             {
+                var tmdid = objectId; // TMDID and objectId are the same.
+                while (animationObjects.ContainsKey(objectId))
+                {
+                    // Another animation object exists that modifies the same TMDID.
+                    // This and the other object run in parallel.
+                    // We need a new objectId.
+                    objectId += blockCount;
+                }
                 if (!animationObjects.TryGetValue(objectId, out var animationObject))
                 {
                     animationObject = new AnimationObject { Animation = animation, ID = objectId };
-                    animationObject.TMDID.Add(objectId);
+                    animationObject.TMDID.Add(tmdid);
                     animationObjects.Add(objectId, animationObject);
                 }
                 return animationObject;
@@ -1138,7 +1239,21 @@ namespace PSXPrev.Common.Parsers
             animationObjects = new Dictionary<uint, AnimationObject>();
 
             var position = reader.BaseStream.Position;
-            ProcessMIMeVertexNormalPrimitiveHeader(reader, primitiveHeaderPointer, reset, out var mimeTop, out var mimeNum, out var mimeId, out var mimeDiffTop, out var mimeOrigTop, out var vertTop, out var normTop);
+            ProcessMIMeVertexNormalPrimitiveHeader(reader, primitiveHeaderPointer, reset, out var mimeKeyTop, out var mimeKeyCount, out var mimeId, out var mimeDiffTop, out var mimeOrigTop, out var vertTop, out var normTop);
+
+            // Initial values for interpolation keys
+            if (mimeKeyCount > Limits.MaxHMDMIMeKeys)
+            {
+                // For now we can ignore this, it's possible that no errors would occur if more keys were defined.
+                //return null;
+            }
+            //reader.BaseStream.Seek(_offset + mimeKeyTop, SeekOrigin.Begin);
+            //var keyValues = new float[Math.Min(mimeKeyCount, (uint)Limits.MaxHMDMIMeKeys)];
+            //for (var i = 0; i < keyValues.Length; i++)
+            //{
+            //    keyValues[i] = reader.ReadInt32() / 4096f;
+            //}
+
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
 
             for (uint i = 0; i < dataCount; i++)
@@ -1152,7 +1267,7 @@ namespace PSXPrev.Common.Parsers
 
                 var numOriginals = reader.ReadUInt16();
                 var numDiffs = reader.ReadUInt16();
-                if (numDiffs > Limits.MaxHMDMIMeDiffs)
+                if (numDiffs > Limits.MaxHMDMIMeKeys)
                 {
                     return null;
                 }
@@ -1160,18 +1275,26 @@ namespace PSXPrev.Common.Parsers
                 {
                     return null;
                 }
+
                 var diffKeyBits = reader.ReadUInt32(); // Keys with differences by bit index.
                 var diffKeys = new List<uint>();
-                for (var key = 0; key < 32; key++)
+                for (var keyIndex = 0; keyIndex < 32; keyIndex++)
                 {
-                    if ((diffKeyBits & (1u << key)) != 0)
+                    if ((diffKeyBits & (1u << keyIndex)) != 0)
                     {
-                        diffKeys.Add((uint)key);
+                        diffKeys.Add((uint)keyIndex);
                     }
                 }
+                if (diffKeys.Count < numDiffs)
+                {
+                    return null; // Not enough keys defined for diffs
+                }
+
                 var animationObject = GetAnimationObject(mimeId + 1u); // Probably not correct...
                 for (uint j = 0; j < numDiffs; j++)
                 {
+                    // todo: Each diff should be its own object, but AnimationBatch needs to be able to handle that first.
+
                     var diffDataIndex = reader.ReadUInt32() * 4;
 
                     var diffPosition = reader.BaseStream.Position;
@@ -1212,6 +1335,7 @@ namespace PSXPrev.Common.Parsers
 
                     reader.BaseStream.Seek(diffPosition, SeekOrigin.Begin);
                 }
+
                 for (uint j = 0; j < numOriginals; j++)
                 {
                     var diffChangedIndex = reader.ReadUInt32() * 4;
@@ -1225,12 +1349,13 @@ namespace PSXPrev.Common.Parsers
 
                     reader.BaseStream.Seek(origPosition, SeekOrigin.Begin);
                 }
+
                 reader.BaseStream.Seek(position, SeekOrigin.Begin);
             }
 
             animation.AnimationType = normal ? AnimationType.NormalDiff : AnimationType.VertexDiff;
             animation.FPS = 1f;
-            animation.AssignObjects(animationObjects, false, false);
+            animation.AssignObjects(animationObjects, true, false);
             return animation;
         }
 
@@ -1527,12 +1652,15 @@ namespace PSXPrev.Common.Parsers
 
             reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
 
+            normTop = 0;
+            coordTop = 0;
+
             var headerSize = reader.ReadUInt32();
 
             ReadMappedPointer(reader, out var polyTopapped, out polyTop);
             ReadMappedPointer(reader, out var vertTopMapped, out vertTop);
-            ReadMappedPointer(reader, out var normTopMaped, out normTop);
-            ReadMappedPointer(reader, out var coordTopMapped, out coordTop);
+            if (headerSize >= 3) ReadMappedPointer(reader, out var normTopMaped, out normTop);
+            if (headerSize >= 4) ReadMappedPointer(reader, out var coordTopMapped, out coordTop);
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
@@ -1543,14 +1671,18 @@ namespace PSXPrev.Common.Parsers
 
             reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
 
+            normTop = 0;
+            calcNormTop = 0;
+            coordTop = 0;
+
             var headerSize = reader.ReadUInt32();
 
             ReadMappedPointer(reader, out var polyTopMapped, out polyTop);
             ReadMappedPointer(reader, out var vertTopMapped, out vertTop);
             ReadMappedPointer(reader, out var calcVertTopMapped, out calcVertTop);
-            ReadMappedPointer(reader, out var normTopMaped, out normTop);
-            ReadMappedPointer(reader, out var calcNormTopMaped, out calcNormTop);
-            ReadMappedPointer(reader, out var coordTopMapped, out coordTop);
+            if (headerSize >= 4) ReadMappedPointer(reader, out var normTopMaped, out normTop);
+            if (headerSize >= 5) ReadMappedPointer(reader, out var calcNormTopMaped, out calcNormTop);
+            if (headerSize >= 6) ReadMappedPointer(reader, out var coordTopMapped, out coordTop);
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
@@ -1561,15 +1693,17 @@ namespace PSXPrev.Common.Parsers
 
             reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
 
+            clutTop = 0;
+
             var headerSize = reader.ReadUInt32();
 
             ReadMappedPointer(reader, out var imageTopMapped, out imageTop);
-            ReadMappedPointer(reader, out var clutTopMapped, out clutTop);
+            if (headerSize >= 2) ReadMappedPointer(reader, out var clutTopMapped, out clutTop);
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ProcessAnimationPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint interpTop, out uint ctrlTop, out uint paramTop, out uint coordTop, out uint[] sectionList)
+        private void ProcessAnimationPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, out uint interpTop, out uint ctrlTop, out uint paramTop, out uint[] sectionList)
         {
             var position = reader.BaseStream.Position;
 
@@ -1597,59 +1731,59 @@ namespace PSXPrev.Common.Parsers
             interpTop = (animHeaderSize >= 2 ? sectionList[1] : 0u);
             ctrlTop   = (animHeaderSize >= 3 ? sectionList[2] : 0u);
             paramTop  = (animHeaderSize >= 4 ? sectionList[3] : 0u);
-            coordTop  = (animHeaderSize >= 5 ? sectionList[4] : 0u);
+            // Coord top is not guaranteed to be the next section!
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ProcessMIMeJointPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, bool reset, out uint coordTop, out uint mimeTop, out uint mimeNum, out ushort mimeId, out uint mimeDiffTop)
+        private void ProcessMIMeJointPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, bool reset, out uint coordTop, out uint mimeKeyTop, out uint mimeKeyCount, out ushort mimeId, out uint mimeDiffTop)
         {
             var position = reader.BaseStream.Position;
             reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
+
+            mimeKeyTop = 0;
+            mimeKeyCount = 0;
 
             var headerSize = reader.ReadUInt32();
 
             ReadMappedPointer(reader, out var coordTopMapped, out coordTop);
             if (!reset)
             {
-                ReadMappedPointer(reader, out var mimeTopMapped, out mimeTop);
-                mimeNum = reader.ReadUInt32();
-            }
-            else
-            {
-                mimeTop = 0;
-                mimeNum = 0;
+                ReadMappedPointer(reader, out var mimeKeyTopMapped, out mimeKeyTop);
+                mimeKeyCount = reader.ReadUInt32();
             }
             mimeId = reader.ReadUInt16();
             reader.ReadUInt16(); //reserved
-            ReadMappedPointer(reader, out var mimeAxesDiffTopMapped, out mimeDiffTop);
+            ReadMappedPointer(reader, out var mimeDiffTopMapped, out mimeDiffTop);
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ProcessMIMeVertexNormalPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, bool reset, out uint mimeTop, out uint mimeNum, out ushort mimeId, out uint mimeDiffTop, out uint mimeOrigTop, out uint vertTop, out uint normTop)
+        private void ProcessMIMeVertexNormalPrimitiveHeader(BinaryReader reader, uint primitiveHeaderPointer, bool reset, out uint mimeKeyTop, out uint mimeKeyCount, out ushort mimeId, out uint mimeDiffTop, out uint mimeOrigTop, out uint vertTop, out uint normTop)
         {
             var position = reader.BaseStream.Position;
             reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
+
+            mimeKeyTop = 0;
+            mimeKeyCount = 0;
+            normTop = 0;
 
             var headerSize = reader.ReadUInt32();
 
             if (!reset)
             {
-                ReadMappedPointer(reader, out var mimeTopMapped, out mimeTop);
-                mimeNum = reader.ReadUInt32();
-            }
-            else
-            {
-                mimeTop = 0;
-                mimeNum = 0;
+                ReadMappedPointer(reader, out var mimeKeyTopMapped, out mimeKeyTop);
+                mimeKeyCount = reader.ReadUInt32();
             }
             mimeId = reader.ReadUInt16();
             reader.ReadUInt16(); //reserved
             ReadMappedPointer(reader, out var mimeDiffTopMapped, out mimeDiffTop);
             ReadMappedPointer(reader, out var mimeOrigTopMapped, out mimeOrigTop);
             ReadMappedPointer(reader, out var mimeVertTopMapped, out vertTop);
-            ReadMappedPointer(reader, out var mimeNormTopMapped, out normTop);
+            if ((!reset && headerSize >= 8) || (reset && headerSize >= 6))
+            {
+                ReadMappedPointer(reader, out var mimeNormTopMapped, out normTop);
+            }
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
@@ -1660,8 +1794,8 @@ namespace PSXPrev.Common.Parsers
 
             reader.BaseStream.Seek(_offset + primitiveHeaderPointer, SeekOrigin.Begin);
 
-            uvTop = int.MaxValue;
-            coordTop = int.MaxValue;
+            uvTop = 0;
+            coordTop = 0;
 
             var headerSize = reader.ReadUInt32();
 
@@ -1669,15 +1803,8 @@ namespace PSXPrev.Common.Parsers
             ReadMappedPointer(reader, out var gridTopMapped, out gridTop);
             ReadMappedPointer(reader, out var vertTopMapped, out vertTop);
             ReadMappedPointer(reader, out var normTopMapped, out normTop);
-
-            if (headerSize >= 5)
-            {
-                ReadMappedPointer(reader, out var uvTopMapped, out uvTop);
-            }
-            if (headerSize >= 6)
-            {
-                ReadMappedPointer(reader, out var coordTopMapped, out coordTop);
-            }
+            if (headerSize >= 5) ReadMappedPointer(reader, out var uvTopMapped, out uvTop);
+            if (headerSize >= 6) ReadMappedPointer(reader, out var coordTopMapped, out coordTop);
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }

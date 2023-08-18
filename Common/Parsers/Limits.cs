@@ -23,7 +23,8 @@
         public static ulong MaxHMDAnimSequenceSize = 20000;
         public static ulong MaxHMDAnimSequenceCount = 1024;
         public static ulong MaxHMDAnimInstructions = ushort.MaxValue + 1; // Hard cap
-        public static ulong MaxHMDMIMeDiffs = 100;
+        public static ulong MaxHMDAnimInterpolationTypes = 128; // Hard cap
+        public static ulong MaxHMDMIMeKeys = 32;
         public static ulong MaxHMDMIMeOriginals = 100;
         public static ulong MaxHMDVertices = 5000;
 
@@ -35,6 +36,7 @@
 
         public static ulong MaxTIMResolution = 1024;
 
+        public static ulong MaxTMDVertices = 20000; // Also used for normals
         public static ulong MaxTMDPrimitives = 10000;
         public static ulong MaxTMDObjects = 10000;
 

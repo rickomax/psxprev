@@ -9,7 +9,7 @@ namespace PSXPrev.Common.Parsers
 {
     public static class HMDHelper
     {
-        public static bool TryGetAnimInterpolationType(uint interpAlgo, bool scale, out InterpolationType interpType)
+        public static bool TryGetAnimInterpolationType(uint interpAlgo, bool scale, out InterpolationType interpType, bool allowUnsupported = false)
         {
             switch (interpAlgo)
             {
@@ -29,10 +29,14 @@ namespace PSXPrev.Common.Parsers
                     interpType = InterpolationType.BSpline;
                     return true;
                 case  4: // Beta-Spline
+                //case 12: // Beta-Spline(*) not known to exist
                     if (scale)
                     {
-                        //interpType = InterpolationType.BetaSpline;
-                        //return true;
+                        if (allowUnsupported)
+                        {
+                            interpType = InterpolationType.BetaSpline;
+                            return true;
+                        }
                     }
                     break; // Not supported yet
             }
@@ -105,11 +109,12 @@ namespace PSXPrev.Common.Parsers
                 var scaleAlgo = (animationType >>  8) & 0xf;
                 var rotOrder  = (animationType >> 12) & 0xf; // 0-XYZ, 1-XZY, 2-YXZ, 3-YZX, 4-ZXY, 5-ZYX
 
-                var transShort  = (transAlgo >= 9 && transAlgo <= 11);
-                var scaleSingle = (scaleAlgo >= 9 && scaleAlgo <= 11);
+                // Support undocumented versions of algorithms for other interpolation types in-case they do exist.
+                var transShort  = (transAlgo >= 9 && transAlgo <= 12);
+                var scaleSingle = (scaleAlgo >= 9 && scaleAlgo <= 12);
                 // Bezier curve packets store 3 vectors for each algorithm.
                 var transCount = (transAlgo == 2 || transAlgo == 10 ? 3 : 1);
-                var rotCount   = (rotAlgo   == 2                    ? 3 : 1);
+                var rotCount   = (rotAlgo   == 2 || rotAlgo   == 10 ? 3 : 1);
                 var scaleCount = (scaleAlgo == 2 || scaleAlgo == 10 ? 3 : 1);
                 Vector3[] t = (transAlgo != 0 ? new Vector3[transCount] : null);
                 Vector3[] r = (rotAlgo   != 0 ? new Vector3[rotCount]   : null);
@@ -289,6 +294,135 @@ namespace PSXPrev.Common.Parsers
             {
                 return false; // Invalid TGT
             }
+        }
+
+        public static void PrintInterpolationTypes(BinaryReader reader, uint interpTop, uint? ctrlTop, uint? paramTop, long offset)
+        {
+            var position = reader.BaseStream.Position;
+
+            HashSet<uint> usedTypes = null;
+            if (ctrlTop.HasValue && paramTop.HasValue)
+            {
+                usedTypes = new HashSet<uint>();
+
+                reader.BaseStream.Seek(offset + ctrlTop.Value, SeekOrigin.Begin);
+
+                // Find what interpolation types are used by instructions
+                var instructionCount = (paramTop.Value - ctrlTop.Value) / 4;
+                if (instructionCount > Limits.MaxHMDAnimInstructions)
+                {
+                    return;
+                }
+                for (var i = 0; i < instructionCount; i++)
+                {
+                    var descriptor = reader.ReadUInt32();
+                    var descriptorType = (descriptor >> 30) & 0x3;
+
+                    if ((descriptorType & 0x2) == 0x0) // Normal
+                    {
+                        var interpIndex = (descriptor >> 24) & 0x7f; // Index into interpolation table. Specifies function to be used.
+
+                        usedTypes.Add(interpIndex);
+                    }
+                }
+            }
+
+            void Write(ConsoleColor color, string text, int pad = 0, bool padLeft = false)
+            {
+                if (pad > 0)
+                {
+                    text = (padLeft ? text.PadLeft(pad) : text.PadRight(pad));
+                }
+                Program.Logger.WriteColor(color, text);
+            }
+
+            string[] algoNames = { "None", "Linear", "Bezier", "BSpline", "Beta", null, null, null,
+                                   null, "Linear*", "Bezier*", "BSpline*", "Beta*" };
+            string GetAlgoName(uint interpAlgo, bool scale, out bool valid)
+            {
+                valid = TryGetAnimInterpolationType(interpAlgo, scale, out _, true);
+                return (interpAlgo < algoNames.Length ? algoNames[interpAlgo] : null) ?? $"0x{interpAlgo:x}";
+            }
+
+            reader.BaseStream.Seek(offset + interpTop, SeekOrigin.Begin);
+            var interpCount = reader.ReadUInt32() & 0x7fffffff;
+            interpCount = Math.Min(interpCount, (uint)Limits.MaxHMDAnimInterpolationTypes);
+
+            var unusedColor = ConsoleColor.DarkGray;
+
+            var digits = interpCount.ToString().Length;
+            var indexLen = digits;
+
+            for (uint i = 0; i < interpCount; i++)
+            {
+                var used = usedTypes?.Contains(i) ?? true;
+                var animationType = reader.ReadUInt32();
+
+                var indexColor = ConsoleColor.DarkGray;
+                Write(indexColor, "[");
+                Write(indexColor, $"{i}", indexLen, true);
+                Write(indexColor, "] ");
+
+                var tgt = ((animationType >> 16) & 0xf); // Update: 0-Coordinate, 1-General
+                var cat = ((animationType >> 20) & 0x7); // Category: 0-Standard update driver
+                var ini = ((animationType >> 23) & 0x1) == 1; // Scan: 0-Off, 1-On
+
+                if (tgt == 0) // Coordinate update
+                {
+                    // Interpolation: 0-None, 1-Linear, 2-Bezier, 3-BSpline, 4-BetaSpline[*], 9-Linear(*), 10-Bezier(*), 11-BSpline(*)
+                    // Scale: No packet information available for anything other than linear.
+                    // [*] Scale only, no packet information available. Assumed to be same as B-Spline.
+                    // (*) Scale: single value for xyz, Translation: int16 values, Rotation: not supported.
+                    var transAlgo = (animationType >>  0) & 0xf;
+                    var rotAlgo   = (animationType >>  4) & 0xf;
+                    var scaleAlgo = (animationType >>  8) & 0xf;
+                    var rotOrder  = (animationType >> 12) & 0xf; // 0-XYZ, 1-XZY, 2-YXZ, 3-YZX, 4-ZXY, 5-ZYX
+
+                    var transAlgoStr = GetAlgoName(transAlgo, false, out var transValid);
+                    var rotAlgoStr   = GetAlgoName(rotAlgo,   false, out var rotValid);
+                    var scaleAlgoStr = GetAlgoName(scaleAlgo, true,  out var scaleValid);
+                    if (rotAlgo != 0)
+                    {
+                        var rotOrderStr  = $"0x{rotOrder:x}";
+                        if (TryGetAnimRotationOrder(rotOrder, out var rotOrderType))
+                        {
+                            rotOrderStr = rotOrderType.ToString();
+                        }
+                        rotAlgoStr += $"({rotOrderStr})";
+                    }
+
+                    var color = used ? ConsoleColor.Blue : unusedColor;
+                    Write(color, $"t:{transAlgoStr,-8} s:{scaleAlgoStr,-8} r:{rotAlgoStr}");
+                }
+                else if (tgt == 1) // General update (vertices or normals)
+                {
+                    var length = (animationType >> 0) & 0xf; // Length: 0-32bit, 1-16bit, 2-8bit
+                    var write  = (animationType >> 4) & 0xf; // Write area: bits represent each unit to write to.
+                    var algo   = (animationType >> 8) & 0xf; // Interpolation: 1-Linear, 2-Bezier, 3-BSpline
+                    // Length: 16bit, Write: 0b1010 - Would write to 0x2 and 0x6
+                    // Not supported. In the future we can add support for updating vertices and normals.
+
+                    string[] lengthNames = { "32bit", "16bit", "8bit" };
+
+                    var lengthStr = length < lengthNames.Length ? lengthNames[length] : $"0x{length:x}";
+                    var lengthValid = length <= 2;
+                    var writeStr = Convert.ToString(write, 2).PadLeft(4, '0');
+
+                    var algoStr = (algo <= algoNames.Length ? algoNames[algo] : null) ?? $"0x{algo:x}";
+                    var algoValid = algo >= 1 && algo <= 3;
+
+
+                    var color = used ? ConsoleColor.DarkYellow : unusedColor;
+                    Write(color, $"a:{algoStr,-8} l:{lengthStr,-8} w:{writeStr}");
+                }
+                else
+                {
+                    var color = used ? ConsoleColor.Red : unusedColor;
+                    Write(color, $"0x{animationType:x08}");
+                }
+            }
+
+            reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
         public static void PrintAnimInstructions(BinaryReader reader, uint ctrlTop, uint paramTop, long offset, Dictionary<uint, List<Tuple<uint, uint>>> tmdidStarts = null)
