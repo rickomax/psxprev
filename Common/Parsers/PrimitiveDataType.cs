@@ -27,6 +27,8 @@
         // 2 bytes:
         CBA,
         TSB,
+        W,
+        H,
         VERTEX0,
         VERTEX1,
         VERTEX2,

@@ -21,6 +21,9 @@ namespace PSXPrev.Common
 
         public bool Visible { get; set; } = true;
 
+        [Browsable(false)]
+        public Vector3 SpriteCenter { get; set; }
+
         // Debug render settings for testing, not for use with PlayStation models.
         // Note: DebugMeshRenderInfo's TexturePage, RenderFlags, MixtureRate, and Visible are ignored.
         [Browsable(false)]
@@ -123,6 +126,10 @@ namespace PSXPrev.Common
         [Browsable(false)]
         public Vector3[] InitialNormals { get; set; }
 
+        // This model only contains attached vertices, and should not be used in bounds calculation.
+        [Browsable(false)]
+        public bool AttachedOnly { get; set; }
+
         // HMD: Attachable (shared) geometry can only be used when attachable.SharedID <= attached.SharedID.
         [Browsable(false)]
         public uint SharedID { get; set; }
@@ -163,6 +170,30 @@ namespace PSXPrev.Common
             return $"{name} Triangles={TrianglesCount} TexturePage={page}";
         }
 
+        public void ComputeAttachedOnly()
+        {
+            foreach (var triangle in Triangles)
+            {
+                if (triangle.AttachedIndices != null)
+                {
+                    for (var i = 0; i < 3; i++)
+                    {
+                        if (triangle.AttachedIndices[i] == Triangle.NoAttachment)
+                        {
+                            AttachedOnly = false;
+                            return;
+                        }
+                    }
+                }
+                else
+                {
+                    AttachedOnly = false;
+                    return;
+                }
+            }
+            AttachedOnly = true;
+        }
+
         public override void ComputeBounds()
         {
             base.ComputeBounds();
@@ -181,8 +212,8 @@ namespace PSXPrev.Common
                                 continue;
                             }
                         }
-                        var vertex = triangle.Vertices[i];
-                        bounds.AddPoint(Vector3.TransformPosition(vertex, worldMatrix));
+                        Vector3.TransformPosition(ref triangle.Vertices[i], ref worldMatrix, out var vertex);
+                        bounds.AddPoint(vertex);
                     }
 
                 }
@@ -291,7 +322,7 @@ namespace PSXPrev.Common
                                     }
                                     if (subModel.AttachableNormals != null && subModel.AttachableNormals.TryGetValue(attachedNormalIndex, out var attachedNormal))
                                     {
-                                        triangle.Normals[i] = attachedNormal;
+                                        triangle.Normals[i] = ConnectNormal(subModel, attachedNormal);
                                     }
                                     // Note: DON'T break when we find a shared attachable. Later-defined attachables have priority.
                                 }

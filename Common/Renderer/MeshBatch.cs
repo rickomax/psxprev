@@ -110,13 +110,10 @@ namespace PSXPrev.Common.Renderer
             //focus
             if (selectedRootEntity != null)
             {
-                foreach (var subEntity in selectedRootEntity.ChildEntities)
+                modelCount += selectedRootEntity.ChildEntities.Length;
+                if (focus)
                 {
-                    modelCount++;
-                    if (focus)
-                    {
-                        bounds.AddBounds(subEntity.Bounds3D);
-                    }
+                    bounds.AddBounds(selectedRootEntity.Bounds3D);
                 }
             }
             //reset
@@ -251,7 +248,7 @@ namespace PSXPrev.Common.Renderer
 
             if (updateMeshData)
             {
-                var isLines = _scene.VibRibbonWireframe || mesh.RenderFlags.HasFlag(RenderFlags.VibRibbon);
+                var isLines = _scene.VibRibbonWireframe || mesh.RenderFlags.HasFlag(RenderFlags.Line);
                 UpdateTriangleMeshData(mesh, modelEntity.Triangles, isLines,
                     initialVertices, initialNormals, finalVertices, finalNormals, interpolator);
             }
@@ -307,7 +304,7 @@ namespace PSXPrev.Common.Renderer
 
             if (updateMeshData)
             {
-                var isLines = mesh.RenderFlags.HasFlag(RenderFlags.VibRibbon);
+                var isLines = mesh.RenderFlags.HasFlag(RenderFlags.Line);
                 UpdateTriangleMeshData(mesh, triangleBuilder.Triangles, isLines);
             }
         }
@@ -694,6 +691,20 @@ namespace PSXPrev.Common.Renderer
             }
 
             var modelMatrix = mesh.WorldMatrix;
+            if (mesh.RenderFlags.HasFlag(RenderFlags.Sprite))
+            {
+                // Sprites always face the camera
+                // THIS MATH IS NOT 100% CORRECT! It's not accurate when we have parent transforms, and I think
+                // also local transforms. But it will still correctly face the camera regardless. I think.
+                var center = mesh.SpriteCenter;
+                var spriteRotation = Matrix4.CreateFromQuaternion(_scene.CameraRotation);
+                // Rotate sprite around its center
+                var spriteMatrix = Matrix4.CreateTranslation(-center) * spriteRotation * Matrix4.CreateTranslation(center);
+                // Remove rotation applied by world matrix
+                spriteMatrix *= Matrix4.CreateFromQuaternion(modelMatrix.ExtractRotationSafe().Inverted());
+                // Apply transform before world matrix transform
+                modelMatrix = spriteMatrix * modelMatrix;
+            }
             // Use Inverted() since it checks determinant to avoid singular matrix exception.
             var normalMatrix = new Matrix3(modelMatrix).Inverted();
             normalMatrix.Transpose();

@@ -133,7 +133,7 @@ namespace PSXPrev.Common
 
 
         // A fix to correct UVs where either all U or V coordinates are identical, which causes tearing.
-        public void CorrectUVTearing()
+        public Triangle CorrectUVTearing()
         {
             // This fix should be applied even if all 3 UVs are Vector2.Zero.
             // However, it should not be applied if this face is untextured.
@@ -209,6 +209,7 @@ namespace PSXPrev.Common
                 }
 #endif
             }
+            return this;
         }
     }
 }

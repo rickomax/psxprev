@@ -10,18 +10,23 @@ namespace PSXPrev.Common.Parsers
     {
         public static PrimitiveData CreateTMDPacketStructure(byte flag, byte mode, BinaryReader reader, int index)
         {
-            var option = (mode & 0x1F);
+            var lgtBit = ((flag >> 0) & 0x01) == 0; // Light: 0-Lit, 1-Unlit
+            var fceBit = ((flag >> 1) & 0x01) == 1; // Both sides: 0-Single sided, 1-Double sided
+            var grdBit = ((flag >> 2) & 0x01) == 1; // Colors: 0-Single, 1-Separate (gradation)
 
-            var lgtBit = ((flag >> 0) & 0x01) == 0; //0-lit, 1-unlit
-            var fceBit = ((flag >> 1) & 0x01) == 1; //1-double faced, 0-single faced
-            var grdBit = ((flag >> 2) & 0x01) == 1 || mode == 0x35 || mode == 0x31 || mode == 0x39 || mode == 0x3d || mode == 0x3b || mode == 0x3f; //0-gradation, 1-single color
+            var tgeBit = ((mode >> 0) & 0x01) == 0; // Brightness: 0-On, 1-Off
+            var abeBit = ((mode >> 1) & 0x01) == 1; // Semi-transparency: 0-Off, 1-On
+            var tmeBit = ((mode >> 2) & 0x01) == 1; // Texture: 0-Off, 1-On
+            var isqBit = ((mode >> 3) & 0x01) == 1; // Polygon: 0-Triangle, 1-Quad
+            var iipBit = ((mode >> 4) & 0x01) == 1; // Shading: 0-Flat, 1-Gouraud (separate colors when !lgtBit)
+            var code = ((mode >> 5) & 0x07); // Code: 1-Polygon, 2-Straight Line, 3-Sprite
 
-            var tgeBit = ((option >> 0) & 0x01) == 0; //brightness: 0-on, 1-off
-            var abeBit = ((option >> 1) & 0x01) == 1; //translucency: 0-off, 1-on
-            var tmeBit = ((option >> 2) & 0x01) == 1; //texture: 0-off, 1-on
-            var isqBit = ((option >> 3) & 0x01) == 1; //1-quad, 0-tri
-            var iipBit = ((option >> 4) & 0x01) == 1; //shading mode: 0-flat, 1-goraund
-            var code = ((mode >> 5) & 0x03);
+            // todo: This was the case with two PsyQ TMD models (mode=0x21), but it's not clear if they were actually readable...
+            // Maybe the brightness bit is what actually determines if normals are present, similar to lmdBit for HMD...?
+            //if (lgtBit && !tgeBit)
+            //{
+            //    lgtBit = false;
+            //}
 
             var renderFlags = RenderFlags.None;
             if (!lgtBit) renderFlags |= RenderFlags.Unlit;
@@ -31,7 +36,7 @@ namespace PSXPrev.Common.Parsers
 
             if (Program.Debug)
             {
-                Program.Logger.WriteLine("[{9}] mode: {8:x2} light:{0} double-faced:{1} gradation:{2} brightness:{3} translucency:{4} texture:{5} quad:{6} gouraud:{7}",
+                Program.Logger.WriteLine("[{9}] mode: {8:x2} light:{0} double-sided:{1} gradation:{2} brightness:{3} translucency:{4} texture:{5} quad:{6} gouraud:{7}",
                     lgtBit ? 1 : 0,
                     fceBit ? 1 : 0,
                     grdBit ? 1 : 0, 
@@ -57,9 +62,11 @@ namespace PSXPrev.Common.Parsers
                     break;
                 case 2:
                     primitiveType = PrimitiveType.StraightLine;
+                    supported = true; // WIP, untested
                     break;
                 case 3:
                     primitiveType = PrimitiveType.Sprite;
+                    supported = true; // WIP, untested
                     break;
             }
 
@@ -71,7 +78,31 @@ namespace PSXPrev.Common.Parsers
                 }
             }
 
-            return ParsePrimitiveData(reader, primitiveType, renderFlags, false, lgtBit, iipBit, tmeBit, grdBit, false);
+            if (primitiveType == PrimitiveType.Sprite)
+            {
+                var sizCode = ((mode >> 3) & 0x03);
+                uint size = 0;
+                switch (sizCode)
+                {
+                    case 0: size =  0; break; // Free size
+                    case 1: size =  1; break; // 1x1
+                    case 2: size =  8; break; // 8x8
+                    case 3: size = 16; break; // 16x16
+                }
+
+                renderFlags |= RenderFlags.Unlit | RenderFlags.Textured | RenderFlags.Sprite;
+                return ParseSpritePrimitiveData(reader, primitiveType, renderFlags, size);
+            }
+            else if (primitiveType == PrimitiveType.StraightLine)
+            {
+                renderFlags |= RenderFlags.Unlit | RenderFlags.Line; // Only use first-two vertices with Line flag
+                renderFlags &= ~RenderFlags.Textured;
+                return ParseLinePrimitiveData(reader, primitiveType, renderFlags, iipBit);
+            }
+            else
+            {
+                return ParsePrimitiveData(reader, primitiveType, renderFlags, false, lgtBit, iipBit, tmeBit, grdBit, false);
+            }
         }
 
         public static PrimitiveData CreateHMDPacketStructure(uint driver, uint flag, BinaryReader reader)
@@ -144,6 +175,70 @@ namespace PSXPrev.Common.Parsers
             return ParsePrimitiveData(reader, primitiveType, renderFlags, true, lgtBit, iipBit, tmeBit, colBit, tileBit);
         }
 
+        private static PrimitiveData ParseSpritePrimitiveData(BinaryReader reader, PrimitiveType primitiveType, RenderFlags renderFlags, uint size)
+        {
+            var primitiveData = new PrimitiveData
+            {
+                PrimitiveType = primitiveType,
+                RenderFlags = renderFlags,
+            };
+
+            void ReadData(PrimitiveDataType dataType)
+            {
+                primitiveData.ReadData(reader, 0, dataType);
+            }
+
+            ReadData(PrimitiveDataType.VERTEX0);
+            ReadData(PrimitiveDataType.TSB);
+            ReadData(PrimitiveDataType.U0);
+            ReadData(PrimitiveDataType.V0);
+            ReadData(PrimitiveDataType.CBA);
+            if (size == 0)
+            {
+                ReadData(PrimitiveDataType.W);
+                ReadData(PrimitiveDataType.H);
+            }
+            else
+            {
+                primitiveData.Add(0, PrimitiveDataType.W, size);
+                primitiveData.Add(0, PrimitiveDataType.H, size);
+            }
+
+            return primitiveData;
+        }
+
+        private static PrimitiveData ParseLinePrimitiveData(BinaryReader reader, PrimitiveType primitiveType, RenderFlags renderFlags, bool gouraud)
+        {
+            var primitiveData = new PrimitiveData
+            {
+                PrimitiveType = primitiveType,
+                RenderFlags = renderFlags,
+            };
+
+            void ReadData(PrimitiveDataType dataType)
+            {
+                primitiveData.ReadData(reader, 0, dataType);
+            }
+
+            var numVerts = 2;
+            var numColors = gouraud ? numVerts : 1;
+
+            for (var i = 0; i < numColors; i++)
+            {
+                ReadData(PrimitiveDataType.R0 + i);
+                ReadData(PrimitiveDataType.G0 + i);
+                ReadData(PrimitiveDataType.B0 + i);
+                ReadData(i == 0 ? PrimitiveDataType.Mode : PrimitiveDataType.PAD1);
+            }
+
+            ReadData(PrimitiveDataType.VERTEX0);
+            ReadData(PrimitiveDataType.VERTEX1);
+            // Add VERTEX2 so that we can parse just like a triangle
+            primitiveData.Add(0, PrimitiveDataType.VERTEX2, primitiveData[0, PrimitiveDataType.VERTEX1]);
+
+            return primitiveData;
+        }
+
         private static PrimitiveData ParsePrimitiveData(BinaryReader reader, PrimitiveType primitiveType, RenderFlags renderFlags, bool hmd, bool light, bool gouraud, bool texture, bool gradation, bool tiled)
         {
             var primitiveData = new PrimitiveData
@@ -152,9 +247,9 @@ namespace PSXPrev.Common.Parsers
                 RenderFlags = renderFlags,
             };
 
-            void ReadData(int index, PrimitiveDataType dataType, int? dataLength = null)
+            void ReadData(int index, PrimitiveDataType dataType)
             {
-                primitiveData.ReadData(reader, index, dataType, dataLength);
+                primitiveData.ReadData(reader, index, dataType);
             }
 
             // Mesh packet structure is the same as a triangle in most cases.
@@ -162,16 +257,14 @@ namespace PSXPrev.Common.Parsers
             var tri  = primitiveType == PrimitiveType.Triangle || mesh;
             var quad = primitiveType == PrimitiveType.Quad;
 
-            var hasColors = ( tri &&  light && !texture) ||
-                            (quad &&  light && !texture) ||
-                            ( tri && !light) ||
-                            (quad && !light) ||
-                            (hmd && gradation);
+            var hasColors = ( light && !texture) ||
+                            (!light) ||
+                            (hmd && gradation); // todo: Is this the same for TMD too?
 
             var numVerts = quad ? 4 : 3;
             var numColors = gradation ? numVerts : 1;
-            // HMD: Gouraud surfaces without light have colors for each vertex (regardless of gradation).
-            if (hmd && !light && gouraud)
+            // Gouraud surfaces without light have colors for each vertex (regardless of gradation).
+            if (!light && gouraud)
             {
                 numColors = numVerts;
             }
@@ -368,10 +461,90 @@ namespace PSXPrev.Common.Parsers
             return primitiveData;
         }
 
+        public static void AddSpritesToGroup(Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>> groupedSprites, PrimitiveData primitiveData, Func<uint, Vector3> vertexCallback)
+        {
+            RenderInfo renderInfo;
+            Vector3 center;
+
+            void AddTriangle(Triangle triangle)
+            {
+                if (renderInfo.RenderFlags.HasFlag(RenderFlags.Textured))
+                {
+                    triangle.CorrectUVTearing();
+                }
+                var tuple = new Tuple<Vector3, RenderInfo>(center, renderInfo);
+                if (!groupedSprites.TryGetValue(tuple, out var triangles))
+                {
+                    triangles = new List<Triangle>();
+                    groupedSprites.Add(tuple, triangles);
+                }
+                triangles.Add(triangle);
+            }
+
+            primitiveData.TryGetValue(0, PrimitiveDataType.TSB, out var tsbValue);
+            ParseTSB(tsbValue, out var tPage, out var pmode, out var mixtureRate);
+            if (!primitiveData.RenderFlags.HasFlag(RenderFlags.SemiTransparent))
+            {
+                mixtureRate = MixtureRate.None; // No semi-transparency
+            }
+
+            renderInfo = new RenderInfo(tPage, primitiveData.RenderFlags, mixtureRate);
+
+
+            if (!primitiveData.TryGetValue(0, PrimitiveDataType.VERTEX0, out var vertexIndex0))
+            {
+                return;
+            }
+
+            if (Program.Debug)
+            {
+                Program.Logger.WriteLine($"Primitive data: {primitiveData.PrintPrimitiveData()}");
+            }
+            
+            center = vertexCallback(vertexIndex0);
+            primitiveData.TryGetValue(0, PrimitiveDataType.W, out var width);
+            primitiveData.TryGetValue(0, PrimitiveDataType.H, out var height);
+
+            // Remember that Y-up is negative, so height values are negated compared to what we set for UVs.
+            // Note that these vertex coordinates also assume the default orientation of the view is (0, 0, -1).
+            var vertex0 = center + new Vector3(-width / 2f,  height / 2f, 0f);
+            var vertex1 = center + new Vector3( width / 2f,  height / 2f, 0f);
+            var vertex2 = center + new Vector3(-width / 2f, -height / 2f, 0f);
+            var vertex3 = center + new Vector3( width / 2f, -height / 2f, 0f);
+
+            var uMin = primitiveData.TryGetValue(0, PrimitiveDataType.U0, out var uValue) ? GeomMath.ConvertUV(uValue) : 0f;
+            var vMin = primitiveData.TryGetValue(0, PrimitiveDataType.V0, out var vValue) ? GeomMath.ConvertUV(vValue) : 0f;
+            var uMax = Math.Min(1f, GeomMath.ConvertUV(uValue + width));
+            var vMax = Math.Min(1f, GeomMath.ConvertUV(vValue + height));
+
+            var uv0 = new Vector2(uMin, vMin);
+            var uv1 = new Vector2(uMax, vMin);
+            var uv2 = new Vector2(uMin, vMax);
+            var uv3 = new Vector2(uMax, vMax);
+
+            AddTriangle(new Triangle
+            {
+                Vertices = new[] { vertex0, vertex1, vertex2 },
+                //OriginalVertexIndices = new[] { vertexIndex0, vertexIndex0, vertexIndex0 },
+                Normals = Triangle.EmptyNormals,
+                Colors = Triangle.EmptyColors,
+                Uv = new[] { uv0, uv1, uv2 },
+                AttachableIndices = Triangle.EmptyAttachableIndices,
+            });
+            AddTriangle(new Triangle
+            {
+                Vertices = new[] { vertex1, vertex3, vertex2 },
+                //OriginalVertexIndices = new[] { vertexIndex0, vertexIndex0, vertexIndex0 },
+                Normals = Triangle.EmptyNormals,
+                Colors = Triangle.EmptyColors,
+                Uv = new[] { uv1, uv3, uv2 },
+                AttachableIndices = Triangle.EmptyAttachableIndices,
+            });
+        }
+
         public static void AddTrianglesToGroup(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, PrimitiveData primitiveData, bool attached, Func<uint, Vector3> vertexCallback, Func<uint, Vector3> normalCallback)
         {
             RenderInfo renderInfo;
-            int m; // MeshLength loop variable
 
             void AddTriangle(Triangle triangle)
             {
@@ -388,7 +561,7 @@ namespace PSXPrev.Common.Parsers
             }
 
             // todo: We should cache vertex (and normal maybe?) lookups when MeshLength > 1.
-            for (m = 0; m < primitiveData.MeshLength; m++)
+            for (var m = 0; m < primitiveData.MeshLength; m++)
             {
                 primitiveData.TryGetValue(m, PrimitiveDataType.TSB, out var tsbValue);
                 ParseTSB(tsbValue, out var tPage, out var pmode, out var mixtureRate);
@@ -432,7 +605,14 @@ namespace PSXPrev.Common.Parsers
                 else
                 {
                     hasNormals = false;
-                    normal0 = normal1 = normal2 = GeomMath.CalculateNormal(vertex0, vertex1, vertex2);
+                    if (primitiveData.PrimitiveType != PrimitiveType.StraightLine)
+                    {
+                        normal0 = normal1 = normal2 = GeomMath.CalculateNormal(vertex0, vertex1, vertex2);
+                    }
+                    else
+                    {
+                        normal0 = normal1 = normal2 = Vector3.Zero;
+                    }
                     normalIndex1 = normalIndex2 = normalIndex0;
                 }
 
@@ -536,6 +716,7 @@ namespace PSXPrev.Common.Parsers
                     }
                 }
                 AddTriangle(triangle1);
+
                 // If this is a quad, then we need to handle the second triangle on the first loop.
                 // Don't use TryGetVertex, since that may return the next vertex for strip meshes.
                 var quad = m == 0 && primitiveData.PrimitiveType == PrimitiveType.Quad;
@@ -556,7 +737,14 @@ namespace PSXPrev.Common.Parsers
                     }
                     else
                     {
-                        normal1 = normal3 = normal2 = GeomMath.CalculateNormal(vertex1, vertex3, vertex2);
+                        if (primitiveData.PrimitiveType != PrimitiveType.StraightLine)
+                        {
+                            normal1 = normal3 = normal2 = GeomMath.CalculateNormal(vertex1, vertex3, vertex2);
+                        }
+                        else
+                        {
+                            normal3 = Vector3.Zero;
+                        }
                         normalIndex3 = normalIndex0;
                     }
                     // todo: Do we need normal calculation for this triangle if !hasNormals?

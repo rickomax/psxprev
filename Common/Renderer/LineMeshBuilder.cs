@@ -91,12 +91,13 @@ namespace PSXPrev.Common.Renderer
             return new ModelEntity
             {
                 TexturePage = TexturePage,
-                RenderFlags = RenderFlags | RenderFlags.VibRibbon,
+                RenderFlags = RenderFlags | RenderFlags.Line,
                 MixtureRate = MixtureRate,
+                SpriteCenter = SpriteCenter,
                 Visible = Visible,
                 DebugMeshRenderInfo = new MeshRenderInfo(this),
                 Triangles = triangles,
-                LocalMatrix = modelMatrix ?? Matrix4.Identity,
+                OriginalLocalMatrix = modelMatrix ?? Matrix4.Identity,
             };
         }
 
