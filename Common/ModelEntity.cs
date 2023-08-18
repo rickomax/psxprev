@@ -126,6 +126,14 @@ namespace PSXPrev.Common
         [Browsable(false)]
         public Vector3[] InitialNormals { get; set; }
 
+        // The vertices of this model have been attached by FixConnections and are no longer invalid.
+        [Browsable(false)]
+        public bool IsAttached { get; set; }
+
+        // This model contains at least one attached vertex.
+        [Browsable(false)]
+        public bool HasAttached { get; set; }
+
         // This model only contains attached vertices, and should not be used in bounds calculation.
         [Browsable(false)]
         public bool AttachedOnly { get; set; }
@@ -156,6 +164,9 @@ namespace PSXPrev.Common
             TMDID = fromModel.TMDID;
             Visible = fromModel.Visible;
             SharedID = fromModel.SharedID;
+            IsAttached = fromModel.IsAttached;
+            HasAttached = fromModel.HasAttached;
+            AttachedOnly = fromModel.AttachedOnly;
             AttachableVertices = fromModel.AttachableVertices;
             AttachableNormals = fromModel.AttachableNormals;
             //AttachableVertices = new Dictionary<uint, Vector3>(fromModel.AttachableVertices);
@@ -170,8 +181,10 @@ namespace PSXPrev.Common
             return $"{name} Triangles={TrianglesCount} TexturePage={page}";
         }
 
-        public void ComputeAttachedOnly()
+        public void ComputeAttached()
         {
+            var hasAttached = false;
+            var attachedOnly = (Triangles.Length > 0);
             foreach (var triangle in Triangles)
             {
                 if (triangle.AttachedIndices != null)
@@ -180,18 +193,26 @@ namespace PSXPrev.Common
                     {
                         if (triangle.AttachedIndices[i] == Triangle.NoAttachment)
                         {
-                            AttachedOnly = false;
-                            return;
+                            attachedOnly = false;
+                        }
+                        else
+                        {
+                            hasAttached = true;
                         }
                     }
                 }
                 else
                 {
-                    AttachedOnly = false;
-                    return;
+                    attachedOnly = false;
+                }
+
+                if (hasAttached && !attachedOnly)
+                {
+                    break; // Nothing more to compute
                 }
             }
-            AttachedOnly = true;
+            HasAttached = hasAttached;
+            AttachedOnly = attachedOnly;
         }
 
         public override void ComputeBounds()
@@ -205,7 +226,7 @@ namespace PSXPrev.Common
                 {
                     for (var i = 0; i < triangle.Vertices.Length; i++)
                     {
-                        if (triangle.AttachedIndices != null)
+                        if (!IsAttached && triangle.AttachedIndices != null)
                         {
                             if (triangle.AttachedIndices[i] != Triangle.NoAttachment)
                             {
@@ -254,20 +275,30 @@ namespace PSXPrev.Common
         public override void FixConnections()
         {
             base.FixConnections();
+            if (!HasAttached)
+            {
+                return;
+            }
+            IsAttached = true;
             var rootEntity = GetRootEntity();
             if (rootEntity != null)
             {
                 foreach (var triangle in Triangles)
                 {
                     // If we have cached connections, then use those. It'll make things much faster.
-                    if (triangle.AttachedCache != null)
+                    if (triangle.AttachedVerticesCache != null)
                     {
                         for (var i = 0; i < 3; i++)
                         {
-                            var cache = triangle.AttachedCache[i];
-                            if (cache != null)
+                            var vertexCache = triangle.AttachedVerticesCache[i];
+                            var normalCache = triangle.AttachedNormalsCache?[i];
+                            if (vertexCache != null)
                             {
-                                triangle.Vertices[i] = ConnectVertex(cache.Item1, cache.Item2);
+                                triangle.Vertices[i] = ConnectVertex(vertexCache.Item1, vertexCache.Item2);
+                            }
+                            if (normalCache != null)
+                            {
+                                triangle.Normals[i] = ConnectNormal(normalCache.Item1, normalCache.Item2);
                             }
                         }
                         continue;
@@ -286,9 +317,9 @@ namespace PSXPrev.Common
                         {
                             // In the event that some attached indices are not found,
                             // we don't want to waste time looking for them again. Create an attached cache now.
-                            if (triangle.AttachedCache == null)
+                            if (triangle.AttachedVerticesCache == null)
                             {
-                                triangle.AttachedCache = new Tuple<EntityBase, Vector3>[3];
+                                triangle.AttachedVerticesCache = new Tuple<EntityBase, Vector3>[3];
                             }
                             foreach (ModelEntity subModel in rootEntity.ChildEntities)
                             {
@@ -302,7 +333,7 @@ namespace PSXPrev.Common
                                             {
                                                 var attachedVertex = subTriangle.Vertices[j];
                                                 // Cache connection to speed up FixConnections in the future.
-                                                triangle.AttachedCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedVertex);
+                                                triangle.AttachedVerticesCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedVertex);
                                                 triangle.Vertices[i] = ConnectVertex(subModel, attachedVertex);
                                                 break;
                                             }
@@ -317,11 +348,16 @@ namespace PSXPrev.Common
                                     if (subModel.AttachableVertices != null && subModel.AttachableVertices.TryGetValue(attachedIndex, out var attachedVertex))
                                     {
                                         // Cache connection to speed up FixConnections in the future.
-                                        triangle.AttachedCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedVertex);
+                                        triangle.AttachedVerticesCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedVertex);
                                         triangle.Vertices[i] = ConnectVertex(subModel, attachedVertex);
                                     }
                                     if (subModel.AttachableNormals != null && subModel.AttachableNormals.TryGetValue(attachedNormalIndex, out var attachedNormal))
                                     {
+                                        if (triangle.AttachedNormalsCache == null)
+                                        {
+                                            triangle.AttachedNormalsCache = new Tuple<EntityBase, Vector3>[3];
+                                        }
+                                        triangle.AttachedNormalsCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedNormal);
                                         triangle.Normals[i] = ConnectNormal(subModel, attachedNormal);
                                     }
                                     // Note: DON'T break when we find a shared attachable. Later-defined attachables have priority.
@@ -333,12 +369,19 @@ namespace PSXPrev.Common
             }
         }
 
+        public override void UnfixConnections()
+        {
+            base.UnfixConnections();
+            IsAttached = false;
+        }
+
         public override void ClearConnectionsCache()
         {
             base.ClearConnectionsCache();
             foreach (var triangle in Triangles)
             {
-                triangle.AttachedCache = null;
+                triangle.AttachedVerticesCache = null;
+                triangle.AttachedNormalsCache = null;
             }
         }
     }

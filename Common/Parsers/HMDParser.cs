@@ -484,7 +484,7 @@ namespace PSXPrev.Common.Parsers
                     sharedVertices.Clear();
                     sharedNormals.Clear();
                 }
-                model.ComputeAttachedOnly();
+                model.ComputeAttached();
                 modelEntities.Add(model);
             }
             if (sharedVertices.Count > 0 || sharedNormals.Count > 0)

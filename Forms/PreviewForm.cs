@@ -902,7 +902,18 @@ namespace PSXPrev.Forms
                 if (_animationBatch.SetupAnimationFrame(checkedEntities, _selectedRootEntity, _selectedModelEntity, true))
                 {
                     // Animation has been processed. Update attached limbs while animating.
-                    (_selectedRootEntity ?? _selectedModelEntity?.GetRootEntity())?.FixConnections();
+                    var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
+                    if (rootEntity != null)
+                    {
+                        if (_scene.AutoAttach)
+                        {
+                            rootEntity.FixConnections();
+                        }
+                        else
+                        {
+                            rootEntity.UnfixConnections();
+                        }
+                    }
                 }
             }
             _scene.Draw();
@@ -2097,7 +2108,14 @@ namespace PSXPrev.Forms
             if (rootEntity != null)
             {
                 rootEntity.ResetAnimationData();
-                rootEntity.FixConnections();
+                if (_scene.AutoAttach)
+                {
+                    rootEntity.FixConnections();
+                }
+                else
+                {
+                    rootEntity.UnfixConnections();
+                }
             }
             if (selectedEntityBase != null)
             {
