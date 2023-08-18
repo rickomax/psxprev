@@ -30,6 +30,7 @@ namespace PSXPrev.Common.Renderer
             new Vector3(-1f,  1f, -1f),
             new Vector3(-1f, -1f, -1f),
         };
+        private static readonly Vector3 SpriteNormal = -Vector3.UnitZ;
 
 
         public bool CalculateNormals { get; set; }
@@ -110,6 +111,8 @@ namespace PSXPrev.Common.Renderer
         {
             base.CopyFrom(triangleBuilder);
             CalculateNormals = triangleBuilder.CalculateNormals;
+            // todo: Should we be making a copy of this?
+            OutlineBuilder = new LineMeshBuilder(triangleBuilder.OutlineBuilder);
         }
 
 
@@ -121,10 +124,11 @@ namespace PSXPrev.Common.Renderer
                 TexturePage = TexturePage,
                 RenderFlags = RenderFlags,
                 MixtureRate = MixtureRate,
+                SpriteCenter = SpriteCenter,
                 Visible = Visible,
                 DebugMeshRenderInfo = new MeshRenderInfo(this),
                 Triangles = Triangles.ToArray(),
-                LocalMatrix = modelMatrix ?? Matrix4.Identity,
+                OriginalLocalMatrix = modelMatrix ?? Matrix4.Identity,
             };
         }
 
@@ -150,15 +154,18 @@ namespace PSXPrev.Common.Renderer
             Triangles.Add(triangle);
         }
 
-        public void AddTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Color color = null)
+        #region AddTriangle
+
+        public void AddTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
+                                Color color0 = null, Color color1 = null, Color color2 = null)
         {
             if (!CalculateNormals)
             {
-                color = color ?? Color.White;
+                color0 = color0 ?? Color.White;
                 Triangles.Add(new Triangle
                 {
                     Vertices = new[] { vertex0, vertex1, vertex2 },
-                    Colors = new[] { color, color, color },
+                    Colors = new[] { color0, color1 ?? color0, color2 ?? color0 },
                     Normals = Triangle.EmptyNormals,
                     Uv = Triangle.EmptyUv,
                 });
@@ -166,36 +173,94 @@ namespace PSXPrev.Common.Renderer
             else
             {
                 var normal = GeomMath.CalculateNormal(vertex0, vertex1, vertex2);
-                AddTriangle(vertex0, vertex1, vertex2, normal, color);
+                AddTriangle(vertex0, vertex1, vertex2, normal, color0, color1, color2);
             }
         }
 
-        public void AddTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 normal, Color color = null)
+        public void AddTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 normal,
+                                Color color0 = null, Color color1 = null, Color color2 = null)
         {
-            color = color ?? Color.White;
+            color0 = color0 ?? Color.White;
             Triangles.Add(new Triangle
             {
                 Vertices = new[] { vertex0, vertex1, vertex2 },
-                Colors = new[] { color, color, color },
+                Colors = new[] { color0, color1 ?? color0, color2 ?? color0 },
                 Normals = new[] { normal, normal, normal },
                 Uv = Triangle.EmptyUv,
             });
         }
 
         public void AddTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
-                                Vector3 normal0, Vector3 normal1, Vector3 normal2, Color color)
+                                Vector3 normal0, Vector3 normal1, Vector3 normal2,
+                                Color color0 = null, Color color1 = null, Color color2 = null)
         {
-            color = color ?? Color.White;
+            color0 = color0 ?? Color.White;
             Triangles.Add(new Triangle
             {
                 Vertices = new[] { vertex0, vertex1, vertex2 },
-                Colors = new[] { color, color, color },
+                Colors = new[] { color0, color1 ?? color0, color2 ?? color0 },
                 Normals = new[] { normal0, normal1, normal2 },
                 Uv = Triangle.EmptyUv,
             });
         }
 
-        public void AddTriangle(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Color color = null)
+        public void AddTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
+                                Vector2 uv0, Vector2 uv1, Vector2 uv2,
+                                Color color0 = null, Color color1 = null, Color color2 = null)
+        {
+            if (!CalculateNormals)
+            {
+                color0 = color0 ?? Color.White;
+                Triangles.Add(new Triangle
+                {
+                    Vertices = new[] { vertex0, vertex1, vertex2 },
+                    Colors = new[] { color0, color1 ?? color0, color2 ?? color0 },
+                    Normals = Triangle.EmptyNormals,
+                    Uv = new[] { uv0, uv1, uv2 },
+                }.CorrectUVTearing());
+            }
+            else
+            {
+                var normal = GeomMath.CalculateNormal(vertex0, vertex1, vertex2);
+                AddTriangle(vertex0, vertex1, vertex2, normal, uv0, uv1, uv2, color0, color1, color2);
+            }
+        }
+
+        public void AddTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 normal,
+                                Vector2 uv0, Vector2 uv1, Vector2 uv2,
+                                Color color0 = null, Color color1 = null, Color color2 = null)
+        {
+            color0 = color0 ?? Color.White;
+            Triangles.Add(new Triangle
+            {
+                Vertices = new[] { vertex0, vertex1, vertex2 },
+                Colors = new[] { color0, color1 ?? color0, color2 ?? color0 },
+                Normals = new[] { normal, normal, normal },
+                Uv = new[] { uv0, uv1, uv2 },
+            }.CorrectUVTearing());
+        }
+
+        public void AddTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
+                                Vector3 normal0, Vector3 normal1, Vector3 normal2,
+                                Vector2 uv0, Vector2 uv1, Vector2 uv2,
+                                Color color0 = null, Color color1 = null, Color color2 = null)
+        {
+            color0 = color0 ?? Color.White;
+            Triangles.Add(new Triangle
+            {
+                Vertices = new[] { vertex0, vertex1, vertex2 },
+                Colors = new[] { color0, color1 ?? color0, color2 ?? color0 },
+                Normals = new[] { normal0, normal1, normal2 },
+                Uv = new[] { uv0, uv1, uv2 },
+            }.CorrectUVTearing());
+        }
+
+        #endregion
+
+        #region AddTriangle (matrix)
+
+        public void AddTriangle(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
+                                Color color0 = null, Color color1 = null, Color color2 = null)
         {
             if (matrix.HasValue)
             {
@@ -205,10 +270,11 @@ namespace PSXPrev.Common.Renderer
                 vertex1 = GeomMath.TransformPosition(ref vertex1, ref matrixValue);
                 vertex2 = GeomMath.TransformPosition(ref vertex2, ref matrixValue);
             }
-            AddTriangle(vertex0, vertex1, vertex2, color);
+            AddTriangle(vertex0, vertex1, vertex2, color0, color1, color2);
         }
 
-        public void AddTriangle(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 normal, Color color = null)
+        public void AddTriangle(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 normal,
+                                Color color0 = null, Color color1 = null, Color color2 = null)
         {
             if (matrix.HasValue)
             {
@@ -220,11 +286,12 @@ namespace PSXPrev.Common.Renderer
                 vertex2 = GeomMath.TransformPosition(ref vertex2, ref matrixValue);
                 normal = GeomMath.TransformNormalInverseNormalized(ref normal, ref invMatrixValue);
             }
-            AddTriangle(vertex0, vertex1, vertex2, normal, color);
+            AddTriangle(vertex0, vertex1, vertex2, normal, color0, color1, color2);
         }
 
         public void AddTriangle(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
-                                Vector3 normal0, Vector3 normal1, Vector3 normal2, Color color = null)
+                                Vector3 normal0, Vector3 normal1, Vector3 normal2,
+                                Color color0 = null, Color color1 = null, Color color2 = null)
         {
             if (matrix.HasValue)
             {
@@ -238,22 +305,118 @@ namespace PSXPrev.Common.Renderer
                 normal1 = GeomMath.TransformNormalInverseNormalized(ref normal1, ref invMatrixValue);
                 normal2 = GeomMath.TransformNormalInverseNormalized(ref normal2, ref invMatrixValue);
             }
-            AddTriangle(vertex0, vertex1, vertex2, normal0, normal1, normal2, color);
+            AddTriangle(vertex0, vertex1, vertex2, normal0, normal1, normal2, color0, color1, color2);
         }
 
-        public void AddQuad(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Color color = null)
+        public void AddTriangle(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
+                                Vector2 uv0, Vector2 uv1, Vector2 uv2,
+                                Color color0 = null, Color color1 = null, Color color2 = null)
         {
-            AddTriangle(vertex0, vertex1, vertex2, color);
-            AddTriangle(vertex1, vertex3, vertex2, color);
+            if (matrix.HasValue)
+            {
+                var matrixValue = matrix.Value;
+
+                vertex0 = GeomMath.TransformPosition(ref vertex0, ref matrixValue);
+                vertex1 = GeomMath.TransformPosition(ref vertex1, ref matrixValue);
+                vertex2 = GeomMath.TransformPosition(ref vertex2, ref matrixValue);
+            }
+            AddTriangle(vertex0, vertex1, vertex2, uv0, uv1, uv2, color0, color1, color2);
         }
 
-        public void AddQuad(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Vector3 normal, Color color = null)
+        public void AddTriangle(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 normal,
+                                Vector2 uv0, Vector2 uv1, Vector2 uv2,
+                                Color color0 = null, Color color1 = null, Color color2 = null)
         {
-            AddTriangle(vertex0, vertex1, vertex2, normal, color);
-            AddTriangle(vertex1, vertex3, vertex2, normal, color);
+            if (matrix.HasValue)
+            {
+                var matrixValue = matrix.Value;
+                GeomMath.InvertSafe(ref matrixValue, out var invMatrixValue);
+
+                vertex0 = GeomMath.TransformPosition(ref vertex0, ref matrixValue);
+                vertex1 = GeomMath.TransformPosition(ref vertex1, ref matrixValue);
+                vertex2 = GeomMath.TransformPosition(ref vertex2, ref matrixValue);
+                normal = GeomMath.TransformNormalInverseNormalized(ref normal, ref invMatrixValue);
+            }
+            AddTriangle(vertex0, vertex1, vertex2, normal, uv0, uv1, uv2, color0, color1, color2);
         }
 
-        public void AddQuad(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Color color = null)
+        public void AddTriangle(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
+                                Vector3 normal0, Vector3 normal1, Vector3 normal2,
+                                Vector2 uv0, Vector2 uv1, Vector2 uv2,
+                                Color color0 = null, Color color1 = null, Color color2 = null)
+        {
+            if (matrix.HasValue)
+            {
+                var matrixValue = matrix.Value;
+                GeomMath.InvertSafe(ref matrixValue, out var invMatrixValue);
+
+                vertex0 = GeomMath.TransformPosition(ref vertex0, ref matrixValue);
+                vertex1 = GeomMath.TransformPosition(ref vertex1, ref matrixValue);
+                vertex2 = GeomMath.TransformPosition(ref vertex2, ref matrixValue);
+                normal0 = GeomMath.TransformNormalInverseNormalized(ref normal0, ref invMatrixValue);
+                normal1 = GeomMath.TransformNormalInverseNormalized(ref normal1, ref invMatrixValue);
+                normal2 = GeomMath.TransformNormalInverseNormalized(ref normal2, ref invMatrixValue);
+            }
+            AddTriangle(vertex0, vertex1, vertex2, normal0, normal1, normal2, uv0, uv1, uv2, color0, color1, color2);
+        }
+
+        #endregion
+
+        #region AddQuad
+
+        public void AddQuad(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
+                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+        {
+            AddTriangle(vertex0, vertex1, vertex2, color0, color1, color2);
+            AddTriangle(vertex1, vertex3, vertex2, color1, color3, color2);
+        }
+
+        public void AddQuad(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Vector3 normal,
+                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+        {
+            AddTriangle(vertex0, vertex1, vertex2, normal, color0, color1, color2);
+            AddTriangle(vertex1, vertex3, vertex2, normal, color1, color3, color2);
+        }
+
+        public void AddQuad(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
+                            Vector3 normal0, Vector3 normal1, Vector3 normal2, Vector3 normal3,
+                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+        {
+            AddTriangle(vertex0, vertex1, vertex2, normal0, normal1, normal2, color0, color1, color2);
+            AddTriangle(vertex1, vertex3, vertex2, normal1, normal3, normal2, color1, color3, color2);
+        }
+
+        public void AddQuad(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
+                            Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
+                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+        {
+            AddTriangle(vertex0, vertex1, vertex2, uv0, uv1, uv2, color0, color1, color2);
+            AddTriangle(vertex1, vertex3, vertex2, uv1, uv3, uv2, color1, color3, color2);
+        }
+
+        public void AddQuad(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Vector3 normal,
+                            Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
+                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+        {
+            AddTriangle(vertex0, vertex1, vertex2, normal, uv0, uv1, uv2, color0, color1, color2);
+            AddTriangle(vertex1, vertex3, vertex2, normal, uv1, uv3, uv2, color1, color3, color2);
+        }
+
+        public void AddQuad(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
+                            Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
+                            Vector3 normal0, Vector3 normal1, Vector3 normal2, Vector3 normal3,
+                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+        {
+            AddTriangle(vertex0, vertex1, vertex2, normal0, normal1, normal2, uv0, uv1, uv2, color0, color1, color2);
+            AddTriangle(vertex1, vertex3, vertex2, normal1, normal3, normal2, uv1, uv3, uv2, color1, color3, color2);
+        }
+
+        #endregion
+
+        #region AddQuad (matrix)
+
+        public void AddQuad(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
+                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
         {
             if (matrix.HasValue)
             {
@@ -264,12 +427,12 @@ namespace PSXPrev.Common.Renderer
                 vertex2 = GeomMath.TransformPosition(ref vertex2, ref matrixValue);
                 vertex3 = GeomMath.TransformPosition(ref vertex3, ref matrixValue);
             }
-            AddTriangle(vertex0, vertex1, vertex2, color);
-            AddTriangle(vertex1, vertex3, vertex2, color);
+            AddTriangle(vertex0, vertex1, vertex2, color0, color1, color2);
+            AddTriangle(vertex1, vertex3, vertex2, color1, color3, color2);
         }
 
-        public void AddQuad(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
-                            Vector3 normal, Color color = null)
+        public void AddQuad(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Vector3 normal,
+                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
         {
             if (matrix.HasValue)
             {
@@ -282,9 +445,92 @@ namespace PSXPrev.Common.Renderer
                 vertex3 = GeomMath.TransformPosition(ref vertex3, ref matrixValue);
                 normal = GeomMath.TransformNormalInverseNormalized(ref normal, ref invMatrixValue);
             }
-            AddTriangle(vertex0, vertex1, vertex2, normal, color);
-            AddTriangle(vertex1, vertex3, vertex2, normal, color);
+            AddTriangle(vertex0, vertex1, vertex2, normal, color0, color1, color2);
+            AddTriangle(vertex1, vertex3, vertex2, normal, color1, color3, color2);
         }
+
+        public void AddQuad(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
+                            Vector3 normal0, Vector3 normal1, Vector3 normal2, Vector3 normal3,
+                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+        {
+            if (matrix.HasValue)
+            {
+                var matrixValue = matrix.Value;
+                GeomMath.InvertSafe(ref matrixValue, out var invMatrixValue);
+
+                vertex0 = GeomMath.TransformPosition(ref vertex0, ref matrixValue);
+                vertex1 = GeomMath.TransformPosition(ref vertex1, ref matrixValue);
+                vertex2 = GeomMath.TransformPosition(ref vertex2, ref matrixValue);
+                vertex3 = GeomMath.TransformPosition(ref vertex3, ref matrixValue);
+                normal0 = GeomMath.TransformNormalInverseNormalized(ref normal0, ref invMatrixValue);
+                normal1 = GeomMath.TransformNormalInverseNormalized(ref normal1, ref invMatrixValue);
+                normal2 = GeomMath.TransformNormalInverseNormalized(ref normal2, ref invMatrixValue);
+                normal3 = GeomMath.TransformNormalInverseNormalized(ref normal3, ref invMatrixValue);
+            }
+            AddTriangle(vertex0, vertex1, vertex2, normal0, normal1, normal2, color0, color1, color2);
+            AddTriangle(vertex1, vertex3, vertex2, normal1, normal3, normal2, color1, color3, color2);
+        }
+
+        public void AddQuad(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
+                            Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
+                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+        {
+            if (matrix.HasValue)
+            {
+                var matrixValue = matrix.Value;
+
+                vertex0 = GeomMath.TransformPosition(ref vertex0, ref matrixValue);
+                vertex1 = GeomMath.TransformPosition(ref vertex1, ref matrixValue);
+                vertex2 = GeomMath.TransformPosition(ref vertex2, ref matrixValue);
+                vertex3 = GeomMath.TransformPosition(ref vertex3, ref matrixValue);
+            }
+            AddTriangle(vertex0, vertex1, vertex2, uv0, uv1, uv2, color0, color1, color2);
+            AddTriangle(vertex1, vertex3, vertex2, uv1, uv3, uv2, color1, color3, color2);
+        }
+
+        public void AddQuad(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Vector3 normal,
+                            Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
+                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+        {
+            if (matrix.HasValue)
+            {
+                var matrixValue = matrix.Value;
+                GeomMath.InvertSafe(ref matrixValue, out var invMatrixValue);
+
+                vertex0 = GeomMath.TransformPosition(ref vertex0, ref matrixValue);
+                vertex1 = GeomMath.TransformPosition(ref vertex1, ref matrixValue);
+                vertex2 = GeomMath.TransformPosition(ref vertex2, ref matrixValue);
+                vertex3 = GeomMath.TransformPosition(ref vertex3, ref matrixValue);
+                normal = GeomMath.TransformNormalInverseNormalized(ref normal, ref invMatrixValue);
+            }
+            AddTriangle(vertex0, vertex1, vertex2, normal, uv0, uv1, uv2, color0, color1, color2);
+            AddTriangle(vertex1, vertex3, vertex2, normal, uv1, uv3, uv2, color1, color3, color2);
+        }
+
+        public void AddQuad(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
+                            Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
+                            Vector3 normal0, Vector3 normal1, Vector3 normal2, Vector3 normal3,
+                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+        {
+            if (matrix.HasValue)
+            {
+                var matrixValue = matrix.Value;
+                GeomMath.InvertSafe(ref matrixValue, out var invMatrixValue);
+
+                vertex0 = GeomMath.TransformPosition(ref vertex0, ref matrixValue);
+                vertex1 = GeomMath.TransformPosition(ref vertex1, ref matrixValue);
+                vertex2 = GeomMath.TransformPosition(ref vertex2, ref matrixValue);
+                vertex3 = GeomMath.TransformPosition(ref vertex3, ref matrixValue);
+                normal0 = GeomMath.TransformNormalInverseNormalized(ref normal0, ref invMatrixValue);
+                normal1 = GeomMath.TransformNormalInverseNormalized(ref normal1, ref invMatrixValue);
+                normal2 = GeomMath.TransformNormalInverseNormalized(ref normal2, ref invMatrixValue);
+                normal3 = GeomMath.TransformNormalInverseNormalized(ref normal3, ref invMatrixValue);
+            }
+            AddTriangle(vertex0, vertex1, vertex2, normal0, normal1, normal2, uv0, uv1, uv2, color0, color1, color2);
+            AddTriangle(vertex1, vertex3, vertex2, normal1, normal3, normal2, uv1, uv3, uv2, color1, color3, color2);
+        }
+
+        #endregion
 
         private void AddCorners(Vector3[] corners, Vector3[] normals, Color color = null)
         {
@@ -926,6 +1172,65 @@ namespace PSXPrev.Common.Renderer
                 vertexLast = vertex;
                 normalLast = normal;
             }
+        }
+
+        // Size refers to the distance from the center to the corners.
+        public void AddSprite(Vector3 center, Vector2 size, Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+        {
+            AddSprite(null, center, size, color0, color1, color2, color3);
+        }
+
+        public void AddSprite(Matrix4? matrix, Vector3 center, Vector2 size, Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+        {
+            if (matrix.HasValue)
+            {
+                var matrixValue = matrix.Value;
+                center = GeomMath.TransformPosition(ref center, ref matrixValue);
+            }
+            // Don't transform individual vertices, since they must always face the camera
+            var vertex0 = center + new Vector3(-size.X,  size.Y, 0f);
+            var vertex1 = center + new Vector3( size.X,  size.Y, 0f);
+            var vertex2 = center + new Vector3(-size.X, -size.Y, 0f);
+            var vertex3 = center + new Vector3( size.X, -size.Y, 0f);
+            AddTriangle(vertex0, vertex1, vertex2, SpriteNormal, color0, color1, color2);
+            AddTriangle(vertex1, vertex3, vertex2, SpriteNormal, color1, color3, color2);
+        }
+
+        public void AddSprite(Vector3 center, Vector2 size, int u, int v, int uSize, int vSize, Color color = null)
+        {
+            AddSprite(null, center, size, u, v, uSize, vSize, color);
+        }
+
+        public void AddSprite(Matrix4? matrix, Vector3 center, Vector2 size, int u, int v, int uSize, int vSize, Color color = null)
+        {
+            var uv = GeomMath.ConvertUV((uint)u, (uint)v);
+            var uvSize = GeomMath.ConvertUV((uint)uSize, (uint)vSize);
+            AddSprite(null, center, size, uv, uvSize, color);
+        }
+
+        public void AddSprite(Vector3 center, Vector2 size, Vector2 uv, Vector2 uvSize, Color color = null)
+        {
+            AddSprite(null, center, size, uv, uvSize, color);
+        }
+
+        public void AddSprite(Matrix4? matrix, Vector3 center, Vector2 size, Vector2 uv, Vector2 uvSize, Color color = null)
+        {
+            if (matrix.HasValue)
+            {
+                var matrixValue = matrix.Value;
+                center = GeomMath.TransformPosition(ref center, ref matrixValue);
+            }
+            // Don't transform individual vertices, since they must always face the camera
+            var vertex0 = center + new Vector3(-size.X,  size.Y, 0f);
+            var vertex1 = center + new Vector3( size.X,  size.Y, 0f);
+            var vertex2 = center + new Vector3(-size.X, -size.Y, 0f);
+            var vertex3 = center + new Vector3( size.X, -size.Y, 0f);
+            var uv0 = uv + new Vector2(      0f,       0f);
+            var uv1 = uv + new Vector2(uvSize.X,       0f);
+            var uv2 = uv + new Vector2(      0f, uvSize.Y);
+            var uv3 = uv + new Vector2(uvSize.X, uvSize.Y);
+            AddTriangle(vertex0, vertex1, vertex2, SpriteNormal, uv0, uv1, uv2, color);
+            AddTriangle(vertex1, vertex3, vertex2, SpriteNormal, uv1, uv3, uv2, color);
         }
     }
 }

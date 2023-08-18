@@ -368,7 +368,21 @@ namespace PSXPrev.Common.Renderer
         public float CameraNearClip { get; private set; } = CameraDefaultNearClip;
         public float CameraFarClip { get; private set; } = CameraDefaultFarClip;
 
-        public Quaternion CameraRotation => _viewOriginMatrix.Inverted().ExtractRotation();
+        // I'm not too sure about this, but very specific camera angles would cause some sort of broken
+        // quaternion when extracting from the view matrix. It's possible this has to do with gimbal
+        // lock and the Matrix4.LookAt up vector. But all I know is getting the rotation this way does
+        // not produce the same issue... or at least, I can't reproduce it through brute force.
+        // See FocusOnBounds for settings to reproduce the broken CameraRotationOld.
+        public Quaternion CameraRotation
+        {
+            get
+            {
+                // +180deg to X since camera faces opposite direction and up-side down
+                return (Quaternion.FromAxisAngle(Vector3.UnitX, (float)(_cameraPitch + Math.PI)) *
+                        Quaternion.FromAxisAngle(Vector3.UnitY, _cameraYaw)).Inverted();
+            }
+        }
+        //public Quaternion CameraRotationOld => _viewOriginMatrix.Inverted().ExtractRotation();
 
         public Vector3 CameraDirection => CameraRotation * Vector3.UnitZ;
 
@@ -578,7 +592,7 @@ namespace PSXPrev.Common.Renderer
         {
             var rotation = Matrix4.CreateRotationX(_lightPitch) * Matrix4.CreateRotationY(_lightYaw);
 
-            LightDirection = Vector3.TransformVector(new Vector3(0f, 0f, -1f), rotation);
+            LightDirection = Vector3.TransformVector(-Vector3.UnitZ, rotation);
         }
 
         private void UpdateViewMatrix()
@@ -595,7 +609,7 @@ namespace PSXPrev.Common.Renderer
             var eye = (rotation * new Vector4(0f, 0f, distance, 1f)).Xyz;
 
             // Target (0, 0, 0), then apply _viewTarget translation later, because we need _viewOriginMatrix.
-            _viewOriginMatrix = Matrix4.LookAt(eye, Vector3.Zero, new Vector3(0f, -1f, 0f));
+            _viewOriginMatrix = Matrix4.LookAt(eye, Vector3.Zero, -Vector3.UnitY);
             // Apply camera translation (after rotation).
             _viewOriginMatrix *= cameraTranslation;
             // Apply target translation (before rotation).
@@ -1121,6 +1135,21 @@ namespace PSXPrev.Common.Renderer
             _viewTarget = bounds.Center;
             _viewTargetBounds = new BoundingBox(bounds);
             CameraDistance = DistanceToFitBounds(bounds);
+
+            // Settings to reproduce broken CameraRotationOld quaternion.
+            // Broken:  {V: (1.331799E-08, -0.1654844, -2.234731E-09), W: 0.9862124}
+            // Working: {V: (0.6572002, 0, -0.1102769), W: 0.745605}
+#if false
+            CameraFOV      = 60f;
+            CameraDistance = 378.244873f;
+            _cameraX       = 0f;
+            _cameraY       = 0f;
+            _cameraPitch   = 2.70083547E-08f;
+            _cameraYaw     = 5.950687f;
+            LightIntensity = 1f;
+            LightPitchYaw  = new Vector2(3.92699075f, 2.3561945f);
+#endif
+
             UpdateViewMatrix();
             OnCameraChanged();
         }

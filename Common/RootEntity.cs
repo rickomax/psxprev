@@ -57,7 +57,16 @@ namespace PSXPrev.Common
             var bounds = new BoundingBox();
             foreach (var entity in ChildEntities)
             {
+                // Not yet, there are some issues with this, like models that are only made of attached vertices.
+                //if (entity is ModelEntity model && (model.Triangles.Length == 0 || model.AttachedOnly))
+                //{
+                //    continue; // Don't count empty models in bounds, since they'll always be at (0, 0, 0).
+                //}
                 bounds.AddBounds(entity.Bounds3D);
+            }
+            if (!bounds.IsSet)
+            {
+                bounds.AddPoint(WorldMatrix.ExtractTranslation());
             }
             Bounds3D = bounds;
         }

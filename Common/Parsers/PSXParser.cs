@@ -399,6 +399,7 @@ namespace PSXPrev.Common.Parsers
                             TMDID = psxModel.ModelIndex, //todo
                             OriginalLocalMatrix = Matrix4.CreateTranslation(psxModel.X, psxModel.Y, psxModel.Z)
                         };
+                        model.ComputeAttachedOnly();
                         modelEntities.Add(model);
                     }
                 }

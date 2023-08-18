@@ -16,7 +16,10 @@ namespace PSXPrev.Common
         Subdivision       = (1 << 6),
         AutomaticDivision = (1 << 7),
 
-        VibRibbon         = (1 << 16),
+        // Also known as VibRibbon (only use Vertex0 and Vertex1).
+        Line              = (1 << 16),
+        // Always face the camera (assumes direction is (0, 0, -1), so X and Y components should be used for size).
+        Sprite            = (1 << 17), // WIP
 
         // Not PlayStation render flags
         NoAmbient         = (1 << 28),
@@ -41,7 +44,7 @@ namespace PSXPrev.Common
         // Use this mask when separating meshes by render info.
         public const RenderFlags SupportedFlags = RenderFlags.DoubleSided | RenderFlags.Unlit |
                                                   RenderFlags.SemiTransparent | RenderFlags.Textured |
-                                                  RenderFlags.VibRibbon;
+                                                  RenderFlags.Line | RenderFlags.Sprite;
 
         public uint TexturePage { get; }
         public RenderFlags RenderFlags { get; }

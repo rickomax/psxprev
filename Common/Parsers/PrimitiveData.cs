@@ -290,6 +290,8 @@ namespace PSXPrev.Common.Parsers
                     return 1;
                 case PrimitiveDataType.CBA:
                 case PrimitiveDataType.TSB:
+                case PrimitiveDataType.W:
+                case PrimitiveDataType.H:
                 case PrimitiveDataType.VERTEX0:
                 case PrimitiveDataType.VERTEX1:
                 case PrimitiveDataType.VERTEX2:

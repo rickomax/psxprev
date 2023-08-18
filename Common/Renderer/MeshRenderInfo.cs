@@ -27,6 +27,7 @@ namespace PSXPrev.Common.Renderer
         public float? LightIntensity { get; set; } // Overrides Scene's or MeshBatch's light intensity
         public Color AmbientColor { get; set; } // Overrides Scene's or MeshBatch's ambient color
         public Color SolidColor { get; set; } // Overrides Mesh's vertex colors
+        public Vector3 SpriteCenter { get; set; }
         public bool Visible { get; set; } = true;
 
         public bool IsTextured => RenderFlags.HasFlag(RenderFlags.Textured);
@@ -55,6 +56,7 @@ namespace PSXPrev.Common.Renderer
             TexturePage = modelEntity.TexturePage;
             RenderFlags = modelEntity.RenderFlags;
             MixtureRate = modelEntity.MixtureRate;
+            SpriteCenter = modelEntity.SpriteCenter;
             Visible     = modelEntity.Visible;
         }
 
@@ -69,6 +71,7 @@ namespace PSXPrev.Common.Renderer
             LightIntensity = renderInfo.LightIntensity;
             AmbientColor = renderInfo.AmbientColor;
             SolidColor = renderInfo.SolidColor;
+            SpriteCenter = renderInfo.SpriteCenter;
             Visible = renderInfo.Visible;
         }
     }

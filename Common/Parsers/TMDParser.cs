@@ -146,6 +146,7 @@ namespace PSXPrev.Common.Parsers
                 }
 
                 var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
+                var groupedSprites = new Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>>();
 
                 if (Limits.IgnoreTMDVersion && (int)objBlock.PrimitiveTop < 0)
                 {
@@ -157,6 +158,40 @@ namespace PSXPrev.Common.Parsers
                 {
                     Program.Logger.WriteLine($"Primitive count:{objBlock.NPrimitive} {_fileTitle}");
                 }
+
+                Vector3 VertexCallback(uint index)
+                {
+                    if (index >= vertices.Length)
+                    {
+                        if (Limits.IgnoreTMDVersion)
+                        {
+                            return new Vector3(index, 0, 0);
+                        }
+                        if (!Program.ShowErrors)
+                        {
+                            Program.Logger.WriteErrorLine($"Vertex index error: {_fileTitle}");
+                        }
+                        throw new Exception($"Vertex index error: {_fileTitle}");
+                    }
+                    return vertices[index];
+                }
+                Vector3 NormalCallback(uint index)
+                {
+                    if (index >= normals.Length)
+                    {
+                        if (Limits.IgnoreTMDVersion)
+                        {
+                            return new Vector3(index, 0, 0);
+                        }
+                        if (!Program.ShowErrors)
+                        {
+                            Program.Logger.WriteErrorLine($"Normal index error: {_fileTitle}");
+                        }
+                        throw new Exception($"Normal index error: {_fileTitle}");
+                    }
+                    return normals[index];
+                }
+
                 for (var p = 0; p < objBlock.NPrimitive; p++)
                 {
                     var olen = reader.ReadByte();
@@ -171,50 +206,22 @@ namespace PSXPrev.Common.Parsers
                         {
                             case PrimitiveType.Triangle:
                             case PrimitiveType.Quad:
-                                TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, false,
-                                    index =>
-                                    {
-                                        if (index >= vertices.Length)
-                                        {
-                                            if (Limits.IgnoreTMDVersion)
-                                            {
-                                                return new Vector3(index, 0, 0);
-                                            }
-                                            if (!Program.ShowErrors)
-                                            {
-                                                Program.Logger.WriteErrorLine($"Vertex index error: {_fileTitle}");
-                                            }
-                                            throw new Exception($"Vertex index error: {_fileTitle}");
-                                        }
-                                        return vertices[index];
-                                    },
-                                    index =>
-                                    {
-                                        if (index >= normals.Length)
-                                        {
-                                            if (Limits.IgnoreTMDVersion)
-                                            {
-                                                return new Vector3(index, 0, 0);
-                                            }
-                                            if (!Program.ShowErrors)
-                                            {
-                                                Program.Logger.WriteErrorLine($"Normal index error: {_fileTitle}");
-                                            }
-                                            throw new Exception($"Normal index error: {_fileTitle}");
-                                        }
-                                        return normals[index];
-                                    });
-                                break;
                             case PrimitiveType.StraightLine:
+                                TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, false,
+                                    VertexCallback, NormalCallback);
                                 break;
                             case PrimitiveType.Sprite:
-
+                                TMDHelper.AddSpritesToGroup(groupedSprites, packetStructure,
+                                    VertexCallback);
                                 break;
                         }
 
                     }
                     reader.BaseStream.Seek(primitivePosition + ilen * 4, SeekOrigin.Begin);
                 }
+
+                var scaleValue = (float)Math.Pow(2, objBlock.Scale); // -2=0.25, -1=0.5, 0=1.0, 1=2.0, 2=4.0, ...
+                var scaleMatrix = Matrix4.CreateScale(scaleValue);
 
                 foreach (var kvp in groupedTriangles)
                 {
@@ -226,7 +233,25 @@ namespace PSXPrev.Common.Parsers
                         TexturePage = renderInfo.TexturePage,
                         RenderFlags = renderInfo.RenderFlags,
                         MixtureRate = renderInfo.MixtureRate,
-                        TMDID = o
+                        TMDID = o,
+                        OriginalLocalMatrix = scaleMatrix,
+                    };
+                    models.Add(model);
+                }
+                foreach (var kvp in groupedSprites)
+                {
+                    var spriteCenter = kvp.Key.Item1;
+                    var renderInfo = kvp.Key.Item2;
+                    var triangles = kvp.Value;
+                    var model = new ModelEntity
+                    {
+                        Triangles = triangles.ToArray(),
+                        TexturePage = renderInfo.TexturePage,
+                        RenderFlags = renderInfo.RenderFlags,
+                        MixtureRate = renderInfo.MixtureRate,
+                        SpriteCenter = spriteCenter,
+                        TMDID = o,
+                        OriginalLocalMatrix = scaleMatrix,
                     };
                     models.Add(model);
                 }
