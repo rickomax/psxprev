@@ -64,6 +64,10 @@ namespace PSXPrev.Common.Parsers
                     primitiveTop += objTop;
                 }
 
+                if (nVert > Limits.MaxTMDVertices || nNormal > Limits.MaxTMDVertices)
+                {
+                    return null;
+                }
                 if (nPrimitive > Limits.MaxTMDPrimitives)
                 {
                     return null;

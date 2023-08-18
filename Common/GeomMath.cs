@@ -65,7 +65,6 @@ namespace PSXPrev.Common
 
         public static void TransformNormalInverseNormalized(ref Vector3 normal, ref Matrix4 invMatrix, out Vector3 result)
         {
-            Vector3.TransformPosition(Vector3.Zero, Matrix4.Zero);
             Vector3.TransformNormalInverse(ref normal, ref invMatrix, out result);
             if (!result.IsZero())
             {
@@ -632,6 +631,11 @@ namespace PSXPrev.Common
         public static float Snap(float x, double step)
         {
             return (float)(Math.Round(x / step) * step);
+        }
+
+        public static double Snap(double x, double step)
+        {
+            return (Math.Round(x / step) * step);
         }
 
         public static Vector3 Snap(Vector3 vector, double step)

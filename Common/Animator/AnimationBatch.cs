@@ -166,13 +166,13 @@ namespace PSXPrev.Common.Animator
             Time += seconds;
         }
 
-        public void SetTimeToFrame(AnimationFrame frame)
+        public void SetTimeToFrame(AnimationFrame frame, bool endOfFrame = false)
         {
             var timeMultiplier = FPS * Math.Abs(frame.AnimationObject.Speed);
             if (timeMultiplier != 0)
             {
                 //const double EPSILON = 0.0001d;
-                Time = (frame.FrameEnd - EPSILON) / timeMultiplier;
+                Time = (!endOfFrame ? frame.FrameTime : (frame.FrameEnd - EPSILON)) / timeMultiplier;
             }
             else
             {
