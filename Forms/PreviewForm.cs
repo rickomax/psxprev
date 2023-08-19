@@ -26,6 +26,11 @@ namespace PSXPrev.Forms
     {
         private const float MouseSensivity = 0.0035f;
 
+        private const double AnimationProgressPrecision = 200d;
+
+        private const double DefaultElapsedTime = 1d / 60d; // 1 frame (60FPS)
+        private const double MaxElapsedTime = 10d / 60d; // 10 frames (60FPS)
+
         private const int ModelsTabIndex     = 0;
         private const int TexturesTabIndex   = 1;
         private const int VRAMTabIndex       = 2;
@@ -35,6 +40,7 @@ namespace PSXPrev.Forms
         private static readonly Pen White1Px = new Pen(Color.White, 1f);
         private static readonly Pen Cyan1Px = new Pen(Color.Cyan, 1f);
 
+
         private readonly List<RootEntity> _rootEntities = new List<RootEntity>();
         private readonly List<Texture> _textures = new List<Texture>();
         private readonly List<Animation> _animations = new List<Animation>();
@@ -42,19 +48,33 @@ namespace PSXPrev.Forms
         private readonly Scene _scene;
         private readonly VRAM _vram;
         private readonly AnimationBatch _animationBatch;
+        private GLControl _openTkControl;
 
-        private Timer _animateTimer;
+        // Form timers
+        private Timer _mainTimer; // Main timer used by all timed events
+        private Stopwatch _mainWatch; // Watch to track elapsed time between main timer events
+        private bool _fixedTimer = false; // If true, then timer always updates with the same time delta
+        // Timers that are updated during main timer Elapsed event
+        private RefreshDelayTimer _animationProgressBarRefreshDelayTimer;
+        private RefreshDelayTimer _modelPropertyGridRefreshDelayTimer;
+        private float _fps = (float)(1d / DefaultElapsedTime);
+        private double _fpsCalcElapsedSeconds;
+        private int _fpsCalcElapsedFrames;
+
+        // Form state
+        private bool _closing;
+        private bool _inDialog; // Prevent timers from performing updates while true
+        private bool _resizeLayoutSuspended; // True if we need to ResumeLayout during ResizeEnd event
+        private object _cancelMenuCloseItemClickedSender; // Prevent closing menus on certain click events (like separators)
+
         private Animation _curAnimation;
-        private AnimationFrame _curAnimationFrameObj;
         private AnimationObject _curAnimationObject;
+        private AnimationFrame _curAnimationFrame;
+        private float _animationSpeed = 1f;
         private bool _inAnimationTab;
+        private bool _playing;
         private int _lastMouseX;
         private int _lastMouseY;
-        private GLControl _openTkControl;
-        private bool _playing;
-        private Timer _redrawTimer;
-        private Timer _modelPropertyGridRefreshTimer; // Timer for refreshing property grid if the current model's properties have updated
-        private bool _modelPropertyGridNeedsRefresh;
         private Tuple<ModelEntity, Triangle> _selectedTriangle;
         private ModelEntity _selectedModelEntity;
         private RootEntity _selectedRootEntity;
@@ -71,10 +91,6 @@ namespace PSXPrev.Forms
         private bool _autoDrawModelTextures;
         private bool _autoSelectAnimationModel;
         private bool _autoPlayAnimations;
-        private bool _closing;
-        private bool _inDialog; // Prevent timers from performing updates while true
-        private bool _resizeLayoutSuspended; // True if we need to ResumeLayout during ResizeEnd event
-        private object _cancelMenuCloseItemClickedSender; // Prevent closing menus on certain click events (like separators)
 
         private GizmoType _gizmoType;
         private GizmoId _hoveredGizmo;
@@ -108,7 +124,6 @@ namespace PSXPrev.Forms
                 if (_playing != value)
                 {
                     _playing = value;
-                    _animateTimer.Enabled = value;
 
                     // Make sure we restart the animation if it was finished.
                     if (!value && _animationBatch.IsFinished)
@@ -440,21 +455,18 @@ namespace PSXPrev.Forms
 
 
             // Setup Timers
-            // Don't start timers until the Form is loaded
-            _redrawTimer = new Timer();
-            _redrawTimer.Interval = 1f / 60f;
-            _redrawTimer.SynchronizingObject = this;
-            _redrawTimer.Elapsed += _redrawTimer_Elapsed;
+            // Don't start watch until first Elapsed event (and use a default time for that first event)
+            // Don't start timer until the Form is loaded
+            _mainWatch = new Stopwatch();
+            _mainTimer = new Timer(1d); // 1 millisecond, update as fast as possible (usually ~60FPS)
+            _mainTimer.SynchronizingObject = this;
+            _mainTimer.Elapsed += _mainTimer_Elapsed;
 
-            _modelPropertyGridRefreshTimer = new Timer();
-            _modelPropertyGridRefreshTimer.Interval = 50f; // 50 milliseconds
-            _modelPropertyGridRefreshTimer.SynchronizingObject = this;
-            _modelPropertyGridRefreshTimer.Elapsed += _modelPropertyGridRefreshTimer_Elapsed;
+            _animationProgressBarRefreshDelayTimer = new RefreshDelayTimer(1d / 60d); // 1 frame (60FPS)
+            _animationProgressBarRefreshDelayTimer.Elapsed += () => UpdateAnimationProgressLabel(true);
 
-            _animateTimer = new Timer();
-            _animateTimer.Interval = 1f / 60f;
-            _animateTimer.SynchronizingObject = this;
-            _animateTimer.Elapsed += _animateTimer_Elapsed;
+            _modelPropertyGridRefreshDelayTimer = new RefreshDelayTimer(50d / 1000d); // 50 milliseconds
+            _modelPropertyGridRefreshDelayTimer.Elapsed += () => UpdateModelPropertyGrid(true);
 
 
             // Setup Events
@@ -522,7 +534,7 @@ namespace PSXPrev.Forms
                 _selectedRootEntity = null;
                 _curAnimation = null;
                 _curAnimationObject = null;
-                _curAnimationFrameObj = null;
+                _curAnimationFrame = null;
                 UpdateSelectedAnimation(false);
 
                 // Clear selected property grid objects
@@ -578,8 +590,7 @@ namespace PSXPrev.Forms
             ReadSettings(Settings.Instance);
 
             // Start timers that should always be running
-            _redrawTimer.Start();
-            _modelPropertyGridRefreshTimer.Start();
+            _mainTimer.Start();
         }
 
         private void previewForm_Shown(object sender, EventArgs e)
@@ -602,9 +613,7 @@ namespace PSXPrev.Forms
             // The user can still manually save settings with a menu item.
             SaveSettings();
 
-            _redrawTimer?.Stop();
-            _modelPropertyGridRefreshTimer?.Stop();
-            _animateTimer?.Stop();
+            _mainTimer?.Stop();
 
             Program.CancelScan(); // Cancel the scan if one is active.
         }
@@ -1127,40 +1136,71 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void _modelPropertyGridRefreshTimer_Elapsed(object sender, ElapsedEventArgs e)
+        private void _mainTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            // Allow updating when _inDialog is true, since we'll only update once.
-            if (!IsDisposed && !_closing && _modelPropertyGridNeedsRefresh)
+            if (IsDisposed || _closing)
             {
-                _modelPropertyGridNeedsRefresh = false;
-                modelPropertyGrid.SelectedObject = modelPropertyGrid.SelectedObject;
+                return;
             }
-        }
 
-        private void _redrawTimer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            if (!_inDialog && !IsDisposed && !_closing)
+            if (_inDialog)
             {
-                _scene.AddTime(_redrawTimer.Interval);
-                Redraw();
+                // Instantly finish delayed control refreshes
+                _animationProgressBarRefreshDelayTimer.Finish();
+                _modelPropertyGridRefreshDelayTimer.Finish();
             }
-        }
-
-        private void _animateTimer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            // Don't animate if we're not in the animation tab.
-            // todo: Or allow animations to play in other tabs, in-which case other checks for _inAnimationTab need to be removed.
-            if (!_inDialog && !IsDisposed && !_closing && _inAnimationTab)
+            else
             {
-                if (Playing && _animationBatch.IsFinished)
+                // Get elapsed time
+                var deltaSeconds = _mainWatch.IsRunning ? _mainWatch.Elapsed.TotalSeconds : DefaultElapsedTime;
+                _mainWatch.Restart(); // Start or restart timer, use default time if timer wasn't running.
+
+                // Don't skip too much time if we've fallen too far behind.
+                var renderSeconds = _fixedTimer ? DefaultElapsedTime : Math.Min(deltaSeconds, MaxElapsedTime);
+
+
+                // Update FPS tracker
+                // Source: <http://www.david-amador.com/2009/11/how-to-do-a-xna-fps-counter/>
+                _fpsCalcElapsedSeconds += deltaSeconds;
+                if (_fpsCalcElapsedSeconds >= 1d) // Update FPS every one second
                 {
-                    Playing = false; // LoopMode is a Once type, and the animation has finished. Stop playing.
+                    _fps = (float)(_fpsCalcElapsedFrames / _fpsCalcElapsedSeconds);
+                    _fpsCalcElapsedSeconds = 0d;
+                    _fpsCalcElapsedFrames = 0;
+                    //Console.WriteLine($"FPS: {_fps:0.00}");
+                    // todo: Update a label or something here
                 }
-                else
+                _fpsCalcElapsedFrames++;
+
+
+                // Update delayed control refreshes
+                _animationProgressBarRefreshDelayTimer.AddTime(deltaSeconds);
+                _modelPropertyGridRefreshDelayTimer.AddTime(deltaSeconds);
+
+
+                // Update animation
+                // Don't animate if we're not in the animation tab, or not currently playing.
+                // todo: Or allow animations to play in other tabs, in-which case other checks for _inAnimationTab need to be removed.
+                if (_inAnimationTab && Playing)
                 {
-                    _animationBatch.AddTime(_animateTimer.Interval);
+                    if (Playing && _animationBatch.IsFinished)
+                    {
+                        Playing = false; // LoopMode is a Once type, and the animation has finished. Stop playing.
+                    }
+                    else
+                    {
+                        _animationBatch.AddTime(renderSeconds * _animationSpeed);
+                    }
+                    UpdateAnimationProgressLabel(false); // Delay update to avoid excessive control refresh
                 }
-                UpdateAnimationProgressLabel();
+
+
+                // Update scene timer and then mark for redraw (but only if visible)
+                if (_openTkControl.Parent != null)
+                {
+                    _scene.AddTime(renderSeconds);
+                    Redraw();
+                }
             }
         }
 
@@ -1289,6 +1329,17 @@ namespace PSXPrev.Forms
                 parentNode.Nodes.Add(animationObjectNode);
                 AddAnimationObject(animationObject, animationObjectNode);
             }
+#if false
+            var frames = new List<AnimationFrame>(parent.AnimationFrames.Values);
+            frames.Sort((a, b) => a.FrameTime.CompareTo(b.FrameTime));
+            for (var f = 0; f < frames.Count; f++)
+            {
+                var animationFrame = frames[f];
+                var animationFrameNode = new TreeNode("Animation-Frame " + animationFrame.FrameTime);
+                animationFrameNode.Tag = animationFrame;
+                parentNode.Nodes.Add(animationFrameNode);
+            }
+#endif
         }
 
         // Helper functions primarily intended for debugging models made by MeshBuilders.
@@ -1456,7 +1507,7 @@ namespace PSXPrev.Forms
                     break;
             }
 
-            UpdateSelectedEntity(false, forceUpdatePropertyGrid: false); // Delay updating property grid to reduce lag
+            UpdateSelectedEntity(false, noDelayUpdatePropertyGrid: false); // Delay updating property grid to reduce lag
         }
 
         private void FinishGizmoAction()
@@ -1677,14 +1728,14 @@ namespace PSXPrev.Forms
         {
             if (!Program.IsScanning)
             {
-                _inDialog = true;
+                EnterDialog();
                 try
                 {
                     ScannerForm.Show(this);
                 }
                 finally
                 {
-                    _inDialog = false;
+                    LeaveDialog();
                 }
             }
         }
@@ -1693,7 +1744,7 @@ namespace PSXPrev.Forms
         {
             // Use BeginInvoke so that dialog doesn't show up behind menu items...
             BeginInvoke((Action)(() => {
-                _inDialog = true;
+                EnterDialog();
                 try
                 {
                     // Don't use FolderBrowserDialog because it has the usability of a brick.
@@ -1717,14 +1768,14 @@ namespace PSXPrev.Forms
                 }
                 finally
                 {
-                    _inDialog = false;
+                    LeaveDialog();
                 }
             }));
         }
 
         private bool PromptVRAMPage(string title, int? initialPage, out int pageIndex)
         {
-            _inDialog = true;
+            EnterDialog();
             try
             {
                 pageIndex = 0;
@@ -1742,13 +1793,13 @@ namespace PSXPrev.Forms
             }
             finally
             {
-                _inDialog = false;
+                LeaveDialog();
             }
         }
 
         private bool PromptColor(Color? initialColor, Color? defaultColor, out Color color)
         {
-            _inDialog = true;
+            EnterDialog();
             try
             {
                 using (var colorDialog = new ColorDialog())
@@ -1777,7 +1828,7 @@ namespace PSXPrev.Forms
             }
             finally
             {
-                _inDialog = false;
+                LeaveDialog();
             }
         }
 
@@ -1795,7 +1846,7 @@ namespace PSXPrev.Forms
 
             var animations = GetCheckedAnimations(true);
 
-            _inDialog = true;
+            EnterDialog();
             try
             {
                 if (ExportModelsForm.Show(this, entities, animations, _animationBatch))
@@ -1805,7 +1856,7 @@ namespace PSXPrev.Forms
             }
             finally
             {
-                _inDialog = false;
+                LeaveDialog();
             }
         }
 
@@ -1882,6 +1933,23 @@ namespace PSXPrev.Forms
                     }
                 }
             });
+        }
+
+        private void EnterDialog()
+        {
+            if (!_inDialog)
+            {
+                _inDialog = true;
+                _mainWatch.Reset(); // Stop watch and use default time during the next Elapsed event
+            }
+        }
+
+        private void LeaveDialog()
+        {
+            if (_inDialog)
+            {
+                _inDialog = false;
+            }
         }
 
         private Bitmap DrawColorIcon(ref Bitmap bitmap, Color color)
@@ -2100,7 +2168,7 @@ namespace PSXPrev.Forms
             return IsShiftDown;
         }
 
-        private void UpdateSelectedEntity(bool updateMeshData = true, bool forceUpdatePropertyGrid = true)
+        private void UpdateSelectedEntity(bool updateMeshData = true, bool noDelayUpdatePropertyGrid = true)
         {
             _scene.BoundsBatch.Reset(1);
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
@@ -2138,7 +2206,7 @@ namespace PSXPrev.Forms
                 _scene.DebugIntersectionsBatch.Reset(1);
             }
             UpdateSelectedTriangle();
-            UpdateModelPropertyGrid(forceUpdatePropertyGrid);
+            UpdateModelPropertyGrid(noDelayUpdatePropertyGrid);
             UpdateGizmoVisualAndState(_selectedGizmo, _hoveredGizmo);
             _selectionSource = EntitySelectionSource.None;
         }
@@ -2152,19 +2220,20 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void UpdateModelPropertyGrid(bool force = false)
+        private void UpdateModelPropertyGrid(bool noDelay = true)
         {
             var propertyObject = _selectedTriangle?.Item2 ?? _selectedRootEntity ?? (object)_selectedModelEntity;
 
-            if (force || modelPropertyGrid.SelectedObject != propertyObject)
+            if (noDelay || modelPropertyGrid.SelectedObject != propertyObject)
             {
-                _modelPropertyGridNeedsRefresh = false;
+                _modelPropertyGridRefreshDelayTimer.Reset();
+
                 modelPropertyGrid.SelectedObject = propertyObject;
             }
             else
             {
                 // Delay updating the property grid to reduce lag.
-                _modelPropertyGridNeedsRefresh = true;
+                _modelPropertyGridRefreshDelayTimer.Start();
             }
         }
 
@@ -2794,7 +2863,7 @@ namespace PSXPrev.Forms
 
         private void UpdateSelectedAnimation(bool play = false)
         {
-            var propertyObject = _curAnimationFrameObj ?? _curAnimationObject ?? (object)_curAnimation;
+            var propertyObject = _curAnimationFrame ?? _curAnimationObject ?? (object)_curAnimation;
 
             // Change Playing after Enabled, so that the call to Refresh in Playing will affect the enabled visual style too.
             animationPlayButtonx.Enabled = (_curAnimation != null);
@@ -2806,12 +2875,30 @@ namespace PSXPrev.Forms
             UpdateAnimationProgressLabel();
         }
 
-        private void UpdateAnimationProgressLabel()
+        private void UpdateAnimationProgressLabel(bool noDelay = true)
         {
-            animationFrameTrackBar.Maximum = Math.Max(1, (int)_animationBatch.FrameCount);
-            animationFrameTrackBar.Value = (int)_animationBatch.CurrentFrameTime;
-            animationProgressLabel.Text = $"{animationFrameTrackBar.Value}/{animationFrameTrackBar.Maximum}";
-            animationFrameTrackBar.Refresh();
+            if (noDelay)
+            {
+                _animationProgressBarRefreshDelayTimer.Reset();
+
+                var displayMax = Math.Max(1, (int)_animationBatch.FrameCount);
+                var displayValue = (int)_animationBatch.CurrentFrameTime;
+
+                var newMax = Math.Max(1, (int)(_animationBatch.FrameCount * AnimationProgressPrecision));
+                var newValue = (int)(_animationBatch.CurrentFrameTime * AnimationProgressPrecision);
+
+                animationProgressLabel.Text = $"{displayValue}/{displayMax}";
+                if (newMax != animationFrameTrackBar.Maximum || newValue != animationFrameTrackBar.Value)
+                {
+                    animationFrameTrackBar.Maximum = newMax;
+                    animationFrameTrackBar.Value = newValue;
+                    animationFrameTrackBar.Refresh();
+                }
+            }
+            else
+            {
+                _animationProgressBarRefreshDelayTimer.Start();
+            }
         }
 
         private void animationsTreeView_AfterSelect(object sender, TreeViewEventArgs e)
@@ -2827,20 +2914,19 @@ namespace PSXPrev.Forms
             {
                 _curAnimation = animation;
                 _curAnimationObject = null;
-                _curAnimationFrameObj = null;
+                _curAnimationFrame = null;
             }
             else if (selectedNode.Tag is AnimationObject animationObject)
             {
                 _curAnimation = animationObject.Animation;
                 _curAnimationObject = animationObject;
-                _curAnimationFrameObj = null;
+                _curAnimationFrame = null;
             }
             else if (selectedNode.Tag is AnimationFrame animationFrame)
             {
                 _curAnimation = animationFrame.AnimationObject.Animation;
                 _curAnimationObject = animationFrame.AnimationObject;
-                _curAnimationFrameObj = animationFrame;
-                UpdateAnimationProgressLabel();
+                _curAnimationFrame = animationFrame;
             }
 
             if (_autoSelectAnimationModel && _curAnimation.OwnerEntity != null)
@@ -2853,9 +2939,9 @@ namespace PSXPrev.Forms
             }
             UpdateSelectedAnimation(_autoPlayAnimations);
 
-            if (_curAnimationFrameObj != null)
+            if (_curAnimationFrame != null)
             {
-                _animationBatch.SetTimeToFrame(_curAnimationFrameObj);
+                _animationBatch.SetTimeToFrame(_curAnimationFrame);
                 UpdateAnimationProgressLabel();
             }
 
@@ -2882,14 +2968,20 @@ namespace PSXPrev.Forms
         {
             if (_inAnimationTab && !Playing)
             {
-                _animationBatch.FrameTime = animationFrameTrackBar.Value;
+                var value = (double)animationFrameTrackBar.Value;
+                if (IsShiftDown)
+                {
+                    // Hold shift down to reduce precision to individual frames
+                    value = GeomMath.Snap(value, AnimationProgressPrecision);
+                }
+                _animationBatch.FrameTime = value / AnimationProgressPrecision;
                 UpdateAnimationProgressLabel();
             }
         }
 
         private void animationSpeedNumericUpDown_ValueChanged(object sender, EventArgs e)
         {
-            _animateTimer.Interval = 1f / 60f * (double)animationSpeedNumericUpDown.Value;
+            _animationSpeed = (float)animationSpeedNumericUpDown.Value;
         }
 
         private void animationLoopModeComboBox_SelectedIndexChanged(object sender, EventArgs e)
@@ -3077,6 +3169,63 @@ namespace PSXPrev.Forms
                 var name = tagInfo.Found ? "Found" : "Textures"; // Name ID of group
                 var order = tagInfo.Found ? 0 : 1;               // Index of group
                 return new ImageListView.GroupInfo(name, order);
+            }
+        }
+
+        // Helper class to delay refreshing controls to reduce lag
+        private class RefreshDelayTimer
+        {
+            // Time is in seconds
+            public bool NeedsRefresh { get; private set; }
+            public double ElapsedSeconds { get; private set; }
+            public double DelaySeconds { get; set; }
+
+            public event Action Elapsed;
+
+            public RefreshDelayTimer(double delaySeconds = 1d / 1000d)
+            {
+                DelaySeconds = delaySeconds;
+            }
+
+            // Start the timer but keep the current elapsed time
+            public void Start()
+            {
+                NeedsRefresh = true;
+            }
+
+            // Stop the timer and reset the elapsed time
+            public void Reset()
+            {
+                NeedsRefresh = false;
+                ElapsedSeconds = 0d;
+            }
+
+            // Start the timer and reset the elapsed time
+            public void Restart()
+            {
+                NeedsRefresh = true;
+                ElapsedSeconds = 0d;
+            }
+
+            // Finish the timer and raise the event if NeedsRefresh is true
+            public bool Finish() => AddTime(DelaySeconds);
+
+            // Update the timer if NeedsRefresh is true, and raise the event if finished
+            public bool AddTime(double seconds)
+            {
+                if (NeedsRefresh)
+                {
+                    ElapsedSeconds += seconds;
+                    if (ElapsedSeconds >= DelaySeconds)
+                    {
+                        NeedsRefresh = false;
+                        ElapsedSeconds = 0d;
+
+                        Elapsed?.Invoke();
+                        return true;
+                    }
+                }
+                return false;
             }
         }
 
