@@ -16,6 +16,9 @@ namespace PSXPrev.Common
         [Browsable(false)]
         public Coordinate[] Coords { get; set; }
 
+        [DisplayName("Format"), ReadOnly(true)]
+        public string FormatName { get; set; }
+
         [DisplayName("Total Triangles"), ReadOnly(false)]
         public int TotalTriangles
         {

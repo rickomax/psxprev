@@ -177,7 +177,7 @@ namespace PSXPrev.Common.Renderer
         // Draw texture onto page.
         public void DrawTexture(Texture texture, bool suppressUpdate = false)
         {
-            var index = texture.TexturePage;
+            var index = ClampTexturePage(texture.TexturePage);
             DrawTexture(_vramPages[index], texture);
 
             _usedPages[index] = true;

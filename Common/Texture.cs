@@ -68,6 +68,9 @@ namespace PSXPrev.Common
         [DisplayName("Name")]
         public string TextureName { get; set; }
 
+        [DisplayName("Format"), ReadOnly(true)]
+        public string FormatName { get; set; }
+
         [DisplayName("X")]
         public int X { get; set; }
 

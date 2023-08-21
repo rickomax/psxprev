@@ -216,7 +216,10 @@ namespace PSXPrev.Forms
                 statusCurrentFileProgressBar.Maximum = max;
                 statusCurrentFileProgressBar.Value = GeomMath.Clamp((int)(percent * max), 0, max);
 
-                statusMessageLabel.Text = message;
+                if (message != null)
+                {
+                    statusMessageLabel.Text = message;
+                }
 
                 if (reloadItems)
                 {
@@ -248,6 +251,12 @@ namespace PSXPrev.Forms
 
                 statusTotalFilesProgressBar.Visible = true;
                 statusCurrentFileProgressBar.Visible = true;
+                statusTotalFilesProgressBar.Maximum = 1;
+                statusTotalFilesProgressBar.Value = 0;
+                statusCurrentFileProgressBar.Maximum = 1;
+                statusCurrentFileProgressBar.Value = 1;
+
+                statusMessageLabel.Text = $"Scan Started";
 
                 statusStrip1.ResumeLayout();
                 statusStrip1.Refresh();
@@ -335,6 +344,7 @@ namespace PSXPrev.Forms
             {
                 Program.Logger.ReadSettings(Settings.Instance);
             }
+            Program.ConsoleLogger.ReadSettings(Settings.Instance);
 
             gridSnapUpDown.Value = (decimal)settings.GridSnap;
             angleSnapUpDown.Value = (decimal)settings.AngleSnap;
@@ -746,7 +756,7 @@ namespace PSXPrev.Forms
                             if (_gizmoType != GizmoType.Translate)
                             {
                                 SetGizmoType(GizmoType.Translate);
-                                //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                                //Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
                             }
                             e.Handled = true;
                         }
@@ -757,7 +767,7 @@ namespace PSXPrev.Forms
                             if (_gizmoType != GizmoType.Rotate)
                             {
                                 SetGizmoType(GizmoType.Rotate);
-                                //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                                //Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
                             }
                             e.Handled = true;
                         }
@@ -768,7 +778,7 @@ namespace PSXPrev.Forms
                             if (_gizmoType != GizmoType.Scale)
                             {
                                 SetGizmoType(GizmoType.Scale);
-                                //Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
+                                //Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"GizmoType: {_gizmoType}");
                             }
                             e.Handled = true;
                         }
@@ -780,7 +790,7 @@ namespace PSXPrev.Forms
                         if (IsControlDown) // Ctrl+D: Toggle debug visuals)
                         {
                             _scene.ShowDebugVisuals = !_scene.ShowDebugVisuals;
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugVisuals: {_scene.ShowDebugVisuals}");
+                            Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugVisuals: {_scene.ShowDebugVisuals}");
                             e.Handled = true;
                         }
                         break;
@@ -790,7 +800,7 @@ namespace PSXPrev.Forms
                             if (IsControlDown) // Ctrl+P (Toggle debug picking ray)
                             {
                                 _scene.ShowDebugPickingRay = !_scene.ShowDebugPickingRay;
-                                Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugPickingRay: {_scene.ShowDebugPickingRay}");
+                                Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugPickingRay: {_scene.ShowDebugPickingRay}");
                                 e.Handled = true;
                             }
                             else if (_scene.ShowDebugPickingRay) // P (Set debug picking ray)
@@ -806,7 +816,7 @@ namespace PSXPrev.Forms
                             if (IsControlDown) // Ctrl+I (Toggle debug intersections)
                             {
                                 _scene.ShowDebugIntersections = !_scene.ShowDebugIntersections;
-                                Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugIntersections: {_scene.ShowDebugIntersections}");
+                                Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"ShowDebugIntersections: {_scene.ShowDebugIntersections}");
                                 e.Handled = true;
                             }
                             else if (_scene.ShowDebugIntersections) // Hold I/Hold Shift+I (Update debug intersections)
@@ -832,14 +842,14 @@ namespace PSXPrev.Forms
                     case Keys.C when state && sceneFocused:
                         if (_scene.ShowDebugVisuals && !IsControlDown)
                         {
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"CameraFOV      = {_scene.CameraFOV:R};");
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"CameraDistance = {_scene.CameraDistance:R};");
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraX       = {_scene.CameraX:R};");
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraY       = {_scene.CameraY:R};");
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraPitch   = {_scene.CameraPitch:R};");
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"_cameraYaw     = {_scene.CameraYaw:R};");
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"LightIntensity = {_scene.LightIntensity:R};");
-                            Program.Logger.WriteColorLine(ConsoleColor.Magenta, $"LightPitchYaw  = new Vector2({_scene.LightPitch:R}, {_scene.LightYaw:R});");
+                            Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"CameraFOV      = {_scene.CameraFOV:R};");
+                            Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"CameraDistance = {_scene.CameraDistance:R};");
+                            Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"_cameraX       = {_scene.CameraX:R};");
+                            Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"_cameraY       = {_scene.CameraY:R};");
+                            Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"_cameraPitch   = {_scene.CameraPitch:R};");
+                            Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"_cameraYaw     = {_scene.CameraYaw:R};");
+                            Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"LightIntensity = {_scene.LightIntensity:R};");
+                            Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"LightPitchYaw  = new Vector2({_scene.LightPitch:R}, {_scene.LightYaw:R});");
                             e.Handled = true;
                         }
                         break;
@@ -847,33 +857,13 @@ namespace PSXPrev.Forms
 
                         // Debugging keys for testing AnimationBatch settings while they still don't have UI controls.
 #if false
-                    case Keys.A when state:
-                        var loopMode = _animationBatch.LoopMode + 1;
-                        if (loopMode > AnimationLoopMode.MirrorLoop)
-                        {
-                            loopMode = AnimationLoopMode.Once;
-                        }
-                        _animationBatch.LoopMode = loopMode;
-                        UpdateAnimationProgressLabel();
-                        Program.Logger.WriteLine($"LoopMode={_animationBatch.LoopMode,-10} Reverse={_animationBatch.Reverse}");
-                        break;
-                    case Keys.S when state:
-                        _animationBatch.Reverse = !_animationBatch.Reverse;
-                        UpdateAnimationProgressLabel();
-                        Program.Logger.WriteLine($"LoopMode={_animationBatch.LoopMode,-10} Reverse={_animationBatch.Reverse}");
-                        break;
-                    case Keys.D when state:
-                        _animationBatch.Restart();
-                        UpdateAnimationProgressLabel();
-                        Program.Logger.WriteLine("Restarted");
-                        break;
                     case Keys.F when state:
                         _animationBatch.LoopDelayTime += 0.5;
-                        Program.Logger.WriteLine($"LoopDelayTime={_animationBatch.LoopDelayTime}");
+                        Program.ConsoleLogger.WriteLine($"LoopDelayTime={_animationBatch.LoopDelayTime}");
                         break;
                     case Keys.G when state:
                         _animationBatch.LoopDelayTime -= 0.5;
-                        Program.Logger.WriteLine($"LoopDelayTime={_animationBatch.LoopDelayTime}");
+                        Program.ConsoleLogger.WriteLine($"LoopDelayTime={_animationBatch.LoopDelayTime}");
                         break;
 #endif
                 }
@@ -2881,11 +2871,12 @@ namespace PSXPrev.Forms
             {
                 _animationProgressBarRefreshDelayTimer.Reset();
 
-                var displayMax = Math.Max(1, (int)_animationBatch.FrameCount);
-                var displayValue = (int)_animationBatch.CurrentFrameTime;
+                // Display max can be shown as 0, even if we require a minimum of 1 internally.
+                var displayMax = (int)GeomMath.Clamp(_animationBatch.FrameCount, 0, int.MaxValue);
+                var displayValue = (int)GeomMath.Clamp(_animationBatch.CurrentFrameTime, 0, int.MaxValue);
 
-                var newMax = Math.Max(1, (int)(_animationBatch.FrameCount * AnimationProgressPrecision));
-                var newValue = (int)(_animationBatch.CurrentFrameTime * AnimationProgressPrecision);
+                var newMax = (int)GeomMath.Clamp(_animationBatch.FrameCount * AnimationProgressPrecision, 1, int.MaxValue);
+                var newValue = (int)GeomMath.Clamp(_animationBatch.CurrentFrameTime * AnimationProgressPrecision, 0, int.MaxValue);
 
                 animationProgressLabel.Text = $"{displayValue}/{displayMax}";
                 if (newMax != animationFrameTrackBar.Maximum || newValue != animationFrameTrackBar.Value)
@@ -2969,12 +2960,14 @@ namespace PSXPrev.Forms
             if (_inAnimationTab && !Playing)
             {
                 var value = (double)animationFrameTrackBar.Value;
-                if (IsShiftDown)
+                // Sanity check that max is less than intmax, if it isn't, then we aren't using progress precision.
+                if (IsShiftDown && animationFrameTrackBar.Maximum < int.MaxValue)
                 {
                     // Hold shift down to reduce precision to individual frames
                     value = GeomMath.Snap(value, AnimationProgressPrecision);
                 }
-                _animationBatch.FrameTime = value / AnimationProgressPrecision;
+                var delta = value / animationFrameTrackBar.Maximum;
+                _animationBatch.FrameTime = delta * _animationBatch.FrameCount;
                 UpdateAnimationProgressLabel();
             }
         }
