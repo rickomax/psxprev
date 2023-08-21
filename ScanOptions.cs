@@ -48,17 +48,31 @@ namespace PSXPrev
         [JsonProperty("ignoreTMDVersion")]
         public bool IgnoreTMDVersion { get; set; } = false;
 
-        [JsonProperty("startFileOffset")]
+        [JsonProperty("fileOffsetAlign")]
+        public long Alignment { get; set; } = 1;
+        [JsonProperty("fileOffsetStart")]
         public long? StartOffset { get; set; } = null;
-        [JsonProperty("stopFileOffset")]
+        [JsonProperty("fileOffsetStop")]
         public long? StopOffset { get; set; } = null;
-        [JsonProperty("nextFileOffset")]
+        [JsonProperty("fileOffsetNone")]
+        public bool NoOffset { get; set; } = false;
+        [JsonProperty("fileOffsetNext")]
         public bool NextOffset { get; set; } = false;
 
-        [JsonProperty("depthFirstFileSearch")]
-        public bool DepthFirstFileSearch { get; set; } = true; // AKA top-down
-        [JsonProperty("asyncFileScan")]
+        [JsonProperty("fileScanAsync")]
         public bool AsyncFileScan { get; set; } = true;
+        [JsonProperty("fileSearchDepthFirst")]
+        public bool DepthFirstFileSearch { get; set; } = true; // AKA top-down
+        [JsonProperty("fileSearchISOContents")]
+        public bool ReadISOContents { get; set; } = false;
+        [JsonProperty("fileSearchBINContents")]
+        public bool ReadBINContents { get; set; } = false;
+        [JsonProperty("binSectorAlign")]
+        public bool BINAlignToSector { get; set; } = false;
+        [JsonProperty("binSectorUserStart")]
+        public int? BINSectorUserStart = null;
+        [JsonProperty("binSectorUserSize")]
+        public int? BINSectorUserSize = null;
 
         // Log options:
         [JsonProperty("logToFile")]

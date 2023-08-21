@@ -101,18 +101,25 @@ namespace PSXPrev.Forms
                 IgnoreTMDVersion = optionIgnoreTMDVersionCheckBox.Checked,
 
                 //todo
-                StartOffset = optionNoOffsetCheckBox.Checked ? (long?)0 : null,
-                StopOffset = optionNoOffsetCheckBox.Checked ? (long?)1 : null,
+                //Alignment = 1, //todo
+                //StartOffset = null, //todo
+                //StopOffset = null, //todo
+                NoOffset = optionNoOffsetCheckBox.Checked,
                 //NextOffset = false, //todo
 
-                //DepthFirstFileSearch = true, //todo
                 //AsyncFileScan = true, //todo
+                //DepthFirstFileSearch = true, //todo
+                ReadISOContents = true, //todo (default to true until we have an option for it)
+                //ReadBINContents = false, //todo
+                //BINAlignToSector = false, //todo
+                //BINSectorUserStart = null, //todo
+                //BINSectorUserSize = null, //todo
 
                 LogToFile = optionLogToFileCheckBox.Checked,
                 LogToConsole = !optionNoVerboseCheckBox.Checked,
                 Debug = optionDebugCheckBox.Checked,
                 ShowErrors = optionShowErrorsCheckBox.Checked,
-                //ConsoleColor = true, //todo
+                //UseConsoleColor = true, //todo
 
                 DrawAllToVRAM = optionDrawAllToVRAMCheckBox.Checked,
                 FixUVAlignment = !optionOldUVAlignmentCheckBox.Checked,

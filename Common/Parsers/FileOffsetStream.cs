@@ -4,14 +4,17 @@ using System.IO;
 namespace PSXPrev.Common.Parsers
 {
     // Stream wrapper for tracking the farthest position visited in the file.
+    // This class assumes that the underlying stream is never moved independent of this wrapper.
     public sealed class FileOffsetStream : Stream
     {
         private readonly Stream _stream;
+        private readonly bool _leaveOpen;
         private long _maxPosition;
 
-        public FileOffsetStream(Stream stream)
+        public FileOffsetStream(Stream stream, bool leaveOpen = false)
         {
             _stream = stream;
+            _leaveOpen = leaveOpen;
             _maxPosition = stream.Position;
         }
 
@@ -48,15 +51,6 @@ namespace PSXPrev.Common.Parsers
             return newPosition;
         }
 
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                _maxPosition = Math.Max(_maxPosition, _stream.Position);
-            }
-            base.Dispose(disposing);
-        }
-
         public override int ReadByte() => _stream.ReadByte();
 
         public override void WriteByte(byte value) => _stream.WriteByte(value);
@@ -68,5 +62,35 @@ namespace PSXPrev.Common.Parsers
         public override void Flush() => _stream.Flush();
 
         public override void SetLength(long value) => _stream.SetLength(value);
+
+
+        protected override void Dispose(bool disposing)
+        {
+            try
+            {
+                if (disposing)
+                {
+                    try
+                    {
+                        _maxPosition = Math.Max(_maxPosition, _stream.Position);
+                    }
+                    finally
+                    {
+                        if (_leaveOpen)
+                        {
+                            _stream.Flush();
+                        }
+                        else
+                        {
+                            _stream.Close();
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                base.Dispose(disposing);
+            }
+        }
     }
 }

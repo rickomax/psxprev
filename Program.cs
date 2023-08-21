@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -25,6 +26,8 @@ namespace PSXPrev
         public static string RootNamespace = "PSXPrev";
 
         public static readonly Logger Logger = new Logger();
+        // For use with non-scanners
+        public static readonly Logger ConsoleLogger = new Logger();
 
         private static PreviewForm PreviewForm;
 
@@ -39,10 +42,12 @@ namespace PSXPrev
 
         // Lock for _currentFileLength and _largestCurrentFilePosition, because longs can't be volatile.
         private static readonly object _fileProgressLock = new object();
+        private static readonly Dictionary<FileOffsetScanner, long> _currentParserPositions = new Dictionary<FileOffsetScanner, long>();
         private static long _currentFilePosition; // Farthest position of all the active parsers
         private static long _currentFileLength;
         private static int _currentFileIndex;
         private static int _totalFiles;
+        private static int _lastUpdateFileIndex;
         private static ScanOptions _options = new ScanOptions();
         private static ScanOptions _commandLineOptions;
 
@@ -67,6 +72,7 @@ namespace PSXPrev
 
         private static readonly string[] InvalidFileExtensions = { ".str", ".str;1", ".xa", ".xa;1", ".vb", ".vb;1" };
         private static readonly string[] ISOFileExtensions = { ".iso" };
+        private static readonly string[] BINFileExtensions = { ".bin" };
 
 
         // This attribute is necessary since PreviewForm now runs on the main thread.
@@ -127,12 +133,19 @@ namespace PSXPrev
             Console.WriteLine("  -ignorehmdversion     : less strict scanning of HMD models");
             Console.WriteLine("  -ignoretimversion     : less strict scanning of TIM textures");
             Console.WriteLine("  -ignoretmdversion     : less strict scanning of TMD models");
-            //Console.WriteLine("  -start [OFFSET]       : scan files starting at offset (hex)");
-            //Console.WriteLine("  -stop [OFFSET]        : scan files up to offset (hex)");
-            Console.WriteLine("  -range [START],[STOP] : scan files between offsets (hex)");
-            Console.WriteLine("  -nooffset             : alias for -range 0,1");
-            Console.WriteLine("  -nextoffset           : continue scan at end of previous match");
-            Console.WriteLine("  -syncscan             : disable multi-threaded scanning");
+            Console.WriteLine("  -align <ALIGN>        : scan offsets at specified increments");
+            Console.WriteLine("  -start <OFFSET>       : scan files starting at offset (hex)");
+            Console.WriteLine("  -stop  <OFFSET>       : scan files up to offset (hex, exclusive)");
+            Console.WriteLine("  -range [START],[STOP] : shorthand for [-start <START>] [-stop <STOP>]");
+            Console.WriteLine("  -nooffset   : shorthand for -stop <START+1>");
+            Console.WriteLine("  -nextoffset : continue scan at end of previous match");
+            Console.WriteLine("  -depthlast  : scan files at lower folder depths first");
+            Console.WriteLine("  -syncscan   : disable multi-threaded scanning per format");
+            Console.WriteLine("  -scaniso    : scan contents of .iso files");
+            Console.WriteLine("  -scanbin    : scan contents of raw PS1 .bin files (experimental)");
+            Console.WriteLine("  -binalign   : scan .bin file offsets at sector size increments");
+            Console.WriteLine("  -binsector <START>,<SIZE> : change sector reading of .bin files (default: 24,2048)");
+            Console.WriteLine("                              combined values must not exceed " + BinCDStream.SectorRawSize);
             Console.WriteLine();
             Console.WriteLine("log options:");
             Console.WriteLine("  -log       : write output to log file");
@@ -145,6 +158,10 @@ namespace PSXPrev
             //Console.WriteLine("  -help        : show this help message"); // It's redundant to display this
             Console.WriteLine("  -drawvram  : draw all loaded textures to VRAM (not advised when scanning many files)");
             Console.WriteLine("  -olduv     : use old UV alignment that less-accurately matches the PlayStation");
+            Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine("notes:");
+            Console.WriteLine("Star Ocean 2 seems to use -binsector 40,2032. However most observed games use the defaut.");
 
             Console.ResetColor();
         }
@@ -169,10 +186,11 @@ namespace PSXPrev
             }
         }
 
-        // Consumed is number of extra arguments consumed after index.
-        private static bool TryParseOption(string[] args, int index, ScanOptions options, ref bool help, out int consumed)
+        // consumedParameters is number of extra arguments consumed after index.
+        private static bool TryParseOption(string[] args, int index, ScanOptions options, ref bool help, out int parameterCount, out bool invalidParameter)
         {
-            consumed = 0;
+            parameterCount = 0;
+            invalidParameter = false;
             var arg = args[index];
 
             if (options == null)
@@ -233,51 +251,90 @@ namespace PSXPrev
                     options.IgnoreTMDVersion = true;
                     break;
 
-                /*case "-start": // -start <OFFSET>
+                case "-align":
+                    parameterCount++;
                     if (index + 1 < args.Length)
                     {
-                        consumed++;
-                        if (TryParseOffset(args[index + 1], out var startOffset))
+                        invalidParameter = !TryParseValue(args[index + 1], false, out var align);
+                        if (!invalidParameter)
+                        {
+                            options.Alignment = align;
+                            break;
+                        }
+                    }
+                    return false;
+                case "-start": // -start <OFFSET>
+                    parameterCount++;
+                    if (index + 1 < args.Length)
+                    {
+                        invalidParameter = !TryParseValue(args[index + 1], true, out var startOffset);
+                        if (!invalidParameter)
                         {
                             options.StartOffset = startOffset;
+                            break;
                         }
-                        break;
                     }
                     return false;
                 case "-stop": // -stop <OFFSET>
+                    parameterCount++;
                     if (index + 1 < args.Length)
                     {
-                        consumed++;
-                        if (TryParseOffset(args[index + 1], out var stopOffset))
+                        invalidParameter = !TryParseValue(args[index + 1], true, out var stopOffset);
+                        if (!invalidParameter)
                         {
                             options.StopOffset = stopOffset;
+                            break;
                         }
-                        break;
-                    }
-                    return false;*/
-                case "-range": // -range [START],[STOP]  Shorthand for -start <START> -stop <STOP>
-                    if (index + 1 < args.Length)
-                    {
-                        consumed++;
-                        if (TryParseRange(args[index + 1], out var start, out var stop))
-                        {
-                            options.StartOffset = start;
-                            options.StopOffset  = stop;
-                        }
-                        break;
                     }
                     return false;
-                case "-nooffset": // Shorthand for -range 0,1
-                    options.StartOffset = 0;
-                    options.StopOffset  = 1;
+                case "-range": // -range [START],[STOP]  Shorthand for -start <START> -stop <STOP>
+                    parameterCount++;
+                    if (index + 1 < args.Length)
+                    {
+                        invalidParameter = !TryParseRange(args[index + 1], true, false, out var startRange, out var stopRange);
+                        if (!invalidParameter)
+                        {
+                            options.StartOffset = startRange;
+                            options.StopOffset  = stopRange;
+                            break;
+                        }
+                    }
+                    return false;
+                case "-nooffset": // Shorthand for -stop <START+1>
+                    options.NoOffset = true;
                     break;
                 case "-nextoffset":
                     options.NextOffset = true;
                     break;
 
+                case "-depthlast":
+                    options.DepthFirstFileSearch = false;
+                    break;
                 case "-syncscan":
                     options.AsyncFileScan = false;
                     break;
+                case "-scaniso":
+                    options.ReadISOContents = true;
+                    break;
+                case "-scanbin":
+                    options.ReadBINContents = true;
+                    break;
+                case "-binalign":
+                    options.BINAlignToSector = true;
+                    break;
+                case "-binsector":
+                    parameterCount++;
+                    if (index + 1 < args.Length)
+                    {
+                        invalidParameter = !TryParseBINSector(args[index + 1], false, true, out var sectorStart, out var sectorSize);
+                        if (!invalidParameter)
+                        {
+                            options.BINSectorUserStart = sectorStart;
+                            options.BINSectorUserSize  = sectorSize;
+                            break;
+                        }
+                    }
+                    return false;
 
                 // Log options:
                 case "-log":
@@ -311,15 +368,16 @@ namespace PSXPrev
             return true;
         }
 
-        private static bool TryParseOffset(string text, out long offset)
+        private static bool TryParseValue(string text, bool hex, out long offset)
         {
-            // This style has a terrible name. "0x" prefix is illegal and the number is always parsed as hex.
-            var style = NumberStyles.AllowHexSpecifier; // Only accept offsets as hexadecimal integer
+            var style = hex ? NumberStyles.AllowHexSpecifier : NumberStyles.None;
             if (text.StartsWith("0x", StringComparison.InvariantCultureIgnoreCase))
             {
                 text = text.Substring(2); // Strip prefix
+                // This style has a terrible name. "0x" prefix is illegal and the number is always parsed as hex.
+                style = NumberStyles.AllowHexSpecifier; // Hexadecimal integer
             }
-            else if (text.StartsWith(".", StringComparison.InvariantCultureIgnoreCase))
+            else if (text.StartsWith(".", StringComparison.InvariantCulture))
             {
                 // Use the decimal prefix observed in OllyDbg, I'm at a loss for what else could be used...
                 text = text.Substring(1); // Strip prefix
@@ -328,7 +386,7 @@ namespace PSXPrev
             return long.TryParse(text, style, CultureInfo.InvariantCulture, out offset);
         }
 
-        private static bool TryParseRange(string text, out long? start, out long? stop)
+        private static bool TryParseRange(string text, bool hex, bool require, out long? start, out long? stop)
         {
             //-range BE740       : BE740-BE741
             //-range BE740,      : BE740-end
@@ -339,7 +397,7 @@ namespace PSXPrev
             if (param.Length == 1)
             {
                 // Parse a single offset as both the start and stop.
-                if (!TryParseOffset(param[0], out var offset))
+                if (!TryParseValue(param[0], hex, out var offset))
                 {
                     return false;
                 }
@@ -351,21 +409,66 @@ namespace PSXPrev
             {
                 // Parse a start and/or stop offset.
                 // Empty strings are treated as null.
-                if (!string.IsNullOrEmpty(param[0]))
+                if (require || !string.IsNullOrEmpty(param[0]))
                 {
-                    if (!TryParseOffset(param[0], out var startOffset))
+                    if (!TryParseValue(param[0], hex, out var startOffset))
                     {
                         return false;
                     }
                     start = startOffset;
                 }
-                if (!string.IsNullOrEmpty(param[1]))
+                if (require || !string.IsNullOrEmpty(param[1]))
                 {
-                    if (!TryParseOffset(param[1], out var stopOffset))
+                    if (!TryParseValue(param[1], hex, out var stopOffset))
                     {
                         return false;
                     }
                     stop = stopOffset;
+                }
+                return true;
+            }
+            return false;
+        }
+
+        private static bool TryParseBINSector(string text, bool hex, bool require, out int? start, out int? size)
+        {
+            //-binsector 24,2048 (default)
+            //-binsector 40,2032 (Star Ocean 2)
+            start = size = null;
+            var param = text.Split(new[] { ',' }, StringSplitOptions.None);
+            if (param.Length == 2)
+            {
+                // Parse a start and/or stop offset.
+                // Empty strings are treated as null.
+                long sectorStart, sectorSize;
+                if (require || !string.IsNullOrEmpty(param[0]))
+                {
+                    if (!TryParseValue(param[0], hex, out sectorStart))
+                    {
+                        return false;
+                    }
+                    start = (int)sectorStart;
+                }
+                else
+                {
+                    sectorStart = BinCDStream.SectorUserStart;
+                }
+                if (require || !string.IsNullOrEmpty(param[1]))
+                {
+                    if (!TryParseValue(param[1], hex, out sectorSize))
+                    {
+                        return false;
+                    }
+                    size = (int)sectorSize;
+                }
+                else
+                {
+                    sectorSize = BinCDStream.SectorUserSize;
+                }
+                // Validate sector info so that we don't cause problems parsing the file
+                if (sectorStart < 0 || sectorSize <= 0 || sectorStart + sectorSize > BinCDStream.SectorRawSize)
+                {
+                    return false;
                 }
                 return true;
             }
@@ -410,7 +513,7 @@ namespace PSXPrev
                 // However, this would prevent the user from specifying a filter that matches a command line option.
                 // This is a pretty unlikely scenario, but it's worth considering.
                 //options.Filter = ScanOptions.DefaultFilter;
-                //if (args.Length > 1 && !TryParseOption(args, 1, options, ref help, out _))
+                //if (args.Length > 1 && !TryParseOption(args, 1, options, ref help, out _, out _))
                 //{
                 //    options.Filter = args[1];
                 //}
@@ -419,9 +522,24 @@ namespace PSXPrev
                 // Parse all remaining options that aren't PATH or FILTER.
                 for (var a = 2; a < args.Length; a++)
                 {
-                    if (!TryParseOption(args, a, options, ref help, out var consumed))
+                    if (!TryParseOption(args, a, options, ref help, out var parameterCount, out var invalidParameter))
                     {
-                        if (a == 1)
+                        if (a + 1 + parameterCount > args.Length)
+                        {
+                            var missing = (a + 1 + parameterCount) - args.Length;
+                            Program.ConsoleLogger.WriteErrorLine($"Missing {missing} parameters for argument: {args[a]}");
+                        }
+                        else if (invalidParameter)
+                        {
+                            var paramList = new List<string>();
+                            for (var p = 0; p < parameterCount; p++)
+                            {
+                                paramList.Add(args[a + 1 + p]);
+                            }
+                            var paramStr = string.Join(" ", paramList);
+                            Program.ConsoleLogger.WriteErrorLine($"Invalid parameters for argument: {args[a]} {paramStr}");
+                        }
+                        else if (a == 1)
                         {
                             // If we want to make filter optional, then handle it here.
                             options.Filter = args[a];
@@ -429,11 +547,11 @@ namespace PSXPrev
                         else
                         {
                             // If we want, we can show some warning or error that an unknown option was passed.
-                            Program.Logger.WriteWarningLine($"Unknown or invalid usage of argument: {args[a]}");
+                            Program.ConsoleLogger.WriteWarningLine($"Unknown or invalid usage of argument: {args[a]}");
                         }
                     }
-                    // Skip consumed extra arguments (consumed count does not include the base argument).
-                    a += consumed;
+                    // Skip consumed extra arguments (parameterCount does not include the base argument).
+                    a += parameterCount;
                 }
             }
 
@@ -459,6 +577,7 @@ namespace PSXPrev
             Settings.Load();
             Logger.UseConsoleColor = Settings.Instance.ScanOptions.UseConsoleColor;
             Logger.ReadSettings(Settings.Instance);
+            ConsoleLogger.ReadSettings(Settings.Instance);
 
 
             if (ParseCommandLineOptions(args))
@@ -570,7 +689,7 @@ namespace PSXPrev
 
             if (!Directory.Exists(options.Path) && !File.Exists(options.Path))
             {
-                Program.Logger.WriteErrorLine($"Directory/File not found: {options.Path}");
+                Program.ConsoleLogger.WriteErrorLine($"Directory/File not found: {options.Path}");
                 return false;
             }
 
@@ -583,7 +702,11 @@ namespace PSXPrev
             _scanning = true;
             _pauseRequested = false;
             _cancelRequested = false;
+            _currentParserPositions.Clear();
+            _currentFilePosition = 0;
+            _currentFileLength = 0;
             _currentFileIndex = 0;
+            _lastUpdateFileIndex = 0;
             _totalFiles = 0;
 
             _addedEntities.Clear();
@@ -607,7 +730,7 @@ namespace PSXPrev
         {
             try
             {
-                PreviewForm.ScanStarted();
+                PreviewForm?.ScanStarted();
 
                 //Program.Logger.WriteLine();
                 Program.Logger.WriteLine("Scan begin {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
@@ -615,16 +738,19 @@ namespace PSXPrev
 
                 ScanFiles();
 
-                //Program.Logger.WriteLine();
                 watch.Stop();
+                var hours = (int)watch.Elapsed.TotalHours;
+                var minutes = watch.Elapsed.Minutes;
+                var seconds = watch.Elapsed.Seconds;
+                //Program.Logger.WriteLine();
                 Program.Logger.WriteLine("Scan end {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
-                Program.Logger.WriteLine("Scan took {0} minutes and {1} seconds", (int)watch.Elapsed.TotalMinutes, watch.Elapsed.Seconds);
+                Program.Logger.WriteLine("Scan took {0} hours {1} minutes {2} seconds", hours, minutes, seconds);
                 Program.Logger.WritePositiveLine("Found {0} Models", _allEntities.Count);
                 Program.Logger.WritePositiveLine("Found {0} Textures", _allTextures.Count);
                 Program.Logger.WritePositiveLine("Found {0} Animations", _allAnimations.Count);
 
                 // Scan finished, perform end-of-scan actions specified by the user.
-                PreviewForm.ScanFinished(_options.DrawAllToVRAM);
+                PreviewForm?.ScanFinished(_options.DrawAllToVRAM);
             }
             catch (Exception exp)
             {
@@ -636,60 +762,108 @@ namespace PSXPrev
             _cancelRequested = false;
         }
 
-        private static void ResetFileProgress(bool nextParser = false)
+        private static void ResetFileProgress(bool nextParser)
         {
+            var shouldUpdateProgress = false;
             lock (_fileProgressLock)
             {
-                _currentFilePosition = 0;
-                _currentFileLength = 0;
-            }
-            if (!nextParser)
-            {
-                //PreviewForm.UpdateProgress(0, 100, false, "File Started");
-            }
-        }
-
-        private static void UpdateFileProgress(long filePos, string message)
-        {
-            lock (_fileProgressLock)
-            {
-                if (filePos > _currentFilePosition)
+                if (_currentFilePosition > 1 * 1024 * 1024)
                 {
-                    _currentFilePosition = filePos;
+                    // Always update progress if the last scan was over 1MB
+                    shouldUpdateProgress = true;
+                }
+
+                if (!nextParser)
+                {
+                    _currentParserPositions.Clear();
+                    _currentFilePosition = 0;
+                    _currentFileLength = 0;
+                    var filesIncrease = _currentFileIndex - _lastUpdateFileIndex;
+                    var percentIncrease = (float)filesIncrease / _totalFiles;
+                    // Update progress if 20 files or 10% of files scanned since last update
+                    // todo: These numbers may need some tweaking...
+                    if (filesIncrease >= 20 || percentIncrease >= 0.10f)
+                    {
+                        shouldUpdateProgress = true;
+                    }
+                }
+                else
+                {
+                    _currentFilePosition = 0; // Start of next synchronous parser
                 }
             }
-            var reloadItems = true; // ReloadItems in the same invoke call as ScanUpdated
-            PreviewForm.ScanUpdated(_currentFilePosition, _currentFileLength, _currentFileIndex, _totalFiles, message, reloadItems);
+            if (shouldUpdateProgress)
+            {
+                UpdateFileProgress(null, 0, null);
+            }
         }
 
-        private static void AddEntity(RootEntity entity, long fp)
+        private static void UpdateFileProgress(FileOffsetScanner scanner, long fp, string message)
+        {
+            var reloadItems = message != null; // ReloadItems in the same invoke call as ScanUpdated
+            long currentPosition, currentLength;
+            int fileIndex, totalFiles;
+            lock (_fileProgressLock)
+            {
+                _lastUpdateFileIndex = _currentFileIndex;
+
+                if (scanner != null)
+                {
+                    // This is being called by a scanner callback, so update the current file progress.
+                    _currentParserPositions[scanner] = fp;
+                    var maxfp = _currentParserPositions.Values.Max();
+                    if (maxfp != _currentFilePosition)
+                    {
+                        _currentFilePosition = maxfp;
+                    }
+                    else if (!reloadItems && message == null)
+                    {
+                        return; // Position hasn't changed and we didn't find a file, don't update progress
+                    }
+                }
+
+                // We need to store these as local variables before leaving the lock.
+                currentPosition = _currentFilePosition;
+                currentLength = _currentFileLength;
+                fileIndex = _currentFileIndex;
+                totalFiles = _totalFiles;
+            }
+            PreviewForm?.ScanUpdated(currentPosition, currentLength, fileIndex, totalFiles, message, reloadItems);
+        }
+
+        private static void AddEntity(FileOffsetScanner scanner, RootEntity entity, long fp)
         {
             // Prevent another thread from enumerating or modifying the list while adding to it.
             lock (_addedEntities)
             {
                 _addedEntities.Add(entity);
             }
-            UpdateFileProgress(fp, $"Found Model with {entity.ChildCount} objects");
+            UpdateFileProgress(scanner, fp, $"Found {scanner.FormatName} Model with {entity.ChildCount} objects");
         }
 
-        private static void AddTexture(Texture texture, long fp)
+        private static void AddTexture(FileOffsetScanner scanner, Texture texture, long fp)
         {
             // Prevent another thread from enumerating or modifying the list while adding to it.
             lock (_addedTextures)
             {
                 _addedTextures.Add(texture);
             }
-            UpdateFileProgress(fp, $"Found Texture {texture.Width}x{texture.Height} {texture.Bpp}bpp");
+            UpdateFileProgress(scanner, fp, $"Found {scanner.FormatName} Texture {texture.Width}x{texture.Height} {texture.Bpp}bpp");
         }
 
-        private static void AddAnimation(Animation animation, long fp)
+        private static void AddAnimation(FileOffsetScanner scanner, Animation animation, long fp)
         {
             // Prevent another thread from enumerating or modifying the list while adding to it.
             lock (_addedAnimations)
             {
                 _addedAnimations.Add(animation);
             }
-            UpdateFileProgress(fp, $"Found Animation with {animation.ObjectCount} objects and {animation.FrameCount} frames");
+            UpdateFileProgress(scanner, fp, $"Found {scanner.FormatName} Animation with {animation.ObjectCount} objects and {animation.FrameCount} frames");
+        }
+
+        private static void ProgressCallback(FileOffsetScanner scanner, long fp)
+        {
+            UpdateFileProgress(scanner, fp, null); // Update progress bar but don't reload items
         }
 
         internal static bool PauseScan(bool paused)
@@ -743,14 +917,20 @@ namespace PSXPrev
             return Array.IndexOf(extensions, ext) != -1;
         }
 
-        private static bool HasInvalidExtension(string file)
+        private static bool ShouldIncludeFile(string file)
         {
-            return HasFileExtension(file, InvalidFileExtensions);
+            return !HasFileExtension(file, InvalidFileExtensions);
         }
 
-        private static bool HasISOExtension(string file)
+        private static bool ShouldProcessISOContents(string file)
         {
-            return HasFileExtension(file, ISOFileExtensions);
+            return _options.ReadISOContents && HasFileExtension(file, ISOFileExtensions);
+        }
+
+        private static bool ShouldProcessBINContents(string file)
+        {
+            return _options.ReadBINContents && HasFileExtension(file, BINFileExtensions) &&
+                BinCDStream.IsBINFile(file);
         }
 
         private static void ScanFiles()
@@ -798,22 +978,43 @@ namespace PSXPrev
                 parsers.Add(() => new VDFParser(AddAnimation));
             }
 
-            if (HasISOExtension(_options.Path))
+            if (File.Exists(_options.Path))
             {
-                ProcessISO(_options.Path, _options.Filter, parsers);
-            }
-            else if (File.Exists(_options.Path))
-            {
-                ProcessFile(_options.Path, parsers);
+                _totalFiles = 1;
+                if (!ProcessFileOrContents(_options.Path, _options.Filter, parsers))
+                {
+                    _currentFileIndex++;
+                }
             }
             else
             {
-                ProcessFiles(_options.Path, _options.Filter, parsers);
+                ProcessDirectoryContents(_options.Path, _options.Filter, parsers);
             }
         }
 
-        private static bool ProcessISO(string isoPath, string filter, List<Func<FileOffsetScanner>> parsers)
+        private static bool ProcessFileOrContents(string file, string filter, List<Func<FileOffsetScanner>> parsers)
         {
+            if (ShouldProcessISOContents(file))
+            {
+                return ProcessISOContents(file, filter, parsers);
+            }
+            else if (ShouldProcessBINContents(file))
+            {
+                return ProcessBINContents(file, filter, parsers);
+            }
+            else
+            {
+                return ProcessFile(file, parsers);
+            }
+        }
+
+        private static bool ProcessISOContents(string isoPath, string filter, List<Func<FileOffsetScanner>> parsers)
+        {
+            Stream OpenDiscFileInfo(DiscFileInfo fileInfo)
+            {
+                return fileInfo.OpenRead();
+            }
+
             using (var isoStream = File.OpenRead(isoPath))
             using (var cdReader = new CDReader(isoStream, true))
             {
@@ -823,29 +1024,19 @@ namespace PSXPrev
                 {
                     var fileInfo = cdReader.GetFileInfo(file);
                     // fileInfo.Exists is here for a reason (unsure what that reason was)
-                    if (HasInvalidExtension(file) || !fileInfo.Exists)
+                    if (ShouldIncludeFile(file) && fileInfo.Exists)
                     {
-                        continue;
+                        fileInfoList.Add(fileInfo);
                     }
-                    fileInfoList.Add(fileInfo);
                 }
 
-                _totalFiles += fileInfoList.Count;
+                _totalFiles += fileInfoList.Count; // Use += in-case this isn't the only selected path
                 foreach (var fileInfo in fileInfoList)
                 {
-                    ResetFileProgress();
-
-                    foreach (var parser in parsers)
+                    // False to disable async processing, since one underlying stream is being used to read the ISO.
+                    if (ProcessFile(fileInfo, fileInfo.FullName, parsers, false, true, false, OpenDiscFileInfo))
                     {
-                        ResetFileProgress(true);
-                        if (WaitOnScanState())
-                        {
-                            return true; // Canceled
-                        }
-                        using (var fs = fileInfo.OpenRead())
-                        {
-                            ScanFile(fs, fileInfo.FullName, parser);
-                        }
+                        return true; // Canceled
                     }
                     _currentFileIndex++;
                 }
@@ -869,12 +1060,11 @@ namespace PSXPrev
 
                     foreach (var fileInfo in directoryInfo.GetFiles(filter))
                     {
-                        var file = fileInfo.FullName;
-                        if (HasInvalidExtension(file) || !fileInfo.Exists)
+                        // fileInfo.Exists is here for a reason (unsure what that reason was)
+                        if (ShouldIncludeFile(fileInfo.FullName) && fileInfo.Exists)
                         {
-                            continue;
+                            fileInfoList.Add(fileInfo);
                         }
-                        fileInfoList.Add(fileInfo);
                     }
 
                     if (WaitOnScanState())
@@ -896,22 +1086,13 @@ namespace PSXPrev
                     }
                 }
 
-                _totalFiles = fileInfoList.Count;
+                _totalFiles += fileInfoList.Count; // Use += in-case this isn't the only selected path
                 foreach (var fileInfo in fileInfoList)
                 {
-                    ResetFileProgress();
-
-                    foreach (var parser in parsers)
+                    // False to disable async processing, since one underlying stream is being used to read the ISO.
+                    if (ProcessFile(fileInfo.FullName, parsers, false, fileInfo, OpenDiscFileInfo))
                     {
-                        ResetFileProgress(true);
-                        if (WaitOnScanState())
-                        {
-                            return true; // Canceled
-                        }
-                        using (var stream = fileInfo.OpenRead())
-                        {
-                            ScanFile(stream, fileInfo.FullName, parser);
-                        }
+                        return true; // Canceled
                     }
                     _currentFileIndex++;
                 }
@@ -920,7 +1101,22 @@ namespace PSXPrev
             return false;
         }
 
-        private static bool ProcessFiles(string basePath, string filter, List<Func<FileOffsetScanner>> parsers)
+        private static bool ProcessBINContents(string binPath, string filter, List<Func<FileOffsetScanner>> parsers)
+        {
+            Stream OpenBINFile(string file)
+            {
+                var firstIndex = BinCDStream.SectorsFirstIndex;
+                var rawSize   = BinCDStream.SectorRawSize;
+                var userStart = _options.BINSectorUserStart ?? BinCDStream.SectorUserStart;
+                var userSize  = _options.BINSectorUserSize  ?? BinCDStream.SectorUserSize;
+                return new BinCDStream(File.OpenRead(file), firstIndex, rawSize, userStart, userSize);
+            }
+
+            // Not sure how to read BIN file index yet, so just read the entire thing as one file...
+            return ProcessFile(binPath, binPath, parsers, true, true, true, OpenBINFile);
+        }
+
+        private static bool ProcessDirectoryContents(string basePath, string filter, List<Func<FileOffsetScanner>> parsers)
         {
             // Note: We can also just use SearchOption.AllDirectories as the third argument to GetFiles,
             // but that might be slow if there are A LOT of files to get. And we can't use EnumerateFiles
@@ -938,11 +1134,10 @@ namespace PSXPrev
 
                 foreach (var file in Directory.GetFiles(path, filter))
                 {
-                    if (HasInvalidExtension(file))
+                    if (ShouldIncludeFile(file))
                     {
-                        continue;
+                        fileList.Add(file);
                     }
-                    fileList.Add(file);
                 }
 
                 if (WaitOnScanState())
@@ -961,19 +1156,10 @@ namespace PSXPrev
                 }
             }
 
-            _totalFiles += fileList.Count;
+            _totalFiles += fileList.Count; // Use += in-case this isn't the only selected path
             foreach (var file in fileList)
             {
-                // If we want, we could add support to process ISOs in directories.
-                /*if (HasISOExtension(file))
-                {
-                    if (ProcessISO(file, filter, parsers))
-                    {
-                        return true; // Canceled
-                    }
-                }
-                else*/
-                if (ProcessFile(file, parsers))
+                if (ProcessFileOrContents(file, filter, parsers))
                 {
                     return true; // Canceled
                 }
@@ -984,50 +1170,77 @@ namespace PSXPrev
 
         private static bool ProcessFile(string file, List<Func<FileOffsetScanner>> parsers)
         {
-            ResetFileProgress();
-            if (_options.AsyncFileScan && parsers.Count > 1)
+            return ProcessFile(file, file, parsers, true, true, false, File.OpenRead);
+        }
+
+        private static bool ProcessFile<TFile>(TFile fileInfo, string file, List<Func<FileOffsetScanner>> parsers, bool @async, bool buffered, bool isBin, Func<TFile, Stream> openFile)
+        {
+            ResetFileProgress(false); // Start of file
+            if (@async && _options.AsyncFileScan && parsers.Count > 1)
             {
                 if (WaitOnScanState())
                 {
                     return true; // Canceled
                 }
                 Parallel.ForEach(parsers, parser => {
-                    using (var fs = File.OpenRead(file))
+                    // Open individual streams for asynchronous scanning
+                    using (var fs = openFile(fileInfo))
+                    using (var bs = buffered ? new BufferedStream(fs) : null)
                     {
-                        ScanFile(fs, file, parser);
+                        var stream = bs ?? fs;
+                        ScanFile(stream, file, isBin, parser);
                     }
                 });
             }
             else
             {
-                foreach (var parser in parsers)
+                // Re-use one stream if we're doing synchronous scanning
+                using (var fs = openFile(fileInfo))
+                using (var bs = buffered ? new BufferedStream(fs) : null)
                 {
-                    ResetFileProgress(true);
+                    var stream = bs ?? fs;
+                    foreach (var parser in parsers)
+                    {
+                        ResetFileProgress(true); // Start of next parser
+                        if (WaitOnScanState())
+                        {
+                            return true; // Canceled
+                        }
+                        stream.Seek(0, SeekOrigin.Begin);
+                        ScanFile(stream, file, isBin, parser);
+                    }
+                }
+                /*foreach (var parser in parsers)
+                {
+                    ResetFileProgress(true); // Start of next parser
                     if (WaitOnScanState())
                     {
                         return true; // Canceled
                     }
-                    using (var fs = File.OpenRead(file))
+                    using (var fs = openFile(fileInfo))
+                    using (var bs = buffered ? new BufferedStream(fs) : null)
                     {
-                        ScanFile(fs, file, parser);
+                        var stream = bs ?? fs;
+                        ScanFile(stream, file, isBin, parser);
                     }
-                }
+                }*/
             }
             return false;
         }
 
-        private static void ScanFile(Stream stream, string file, Func<FileOffsetScanner> parser)
+        private static void ScanFile(Stream stream, string file, bool isBin, Func<FileOffsetScanner> parser)
         {
-            using (var bs = new BufferedStream(stream))
-            using (var reader = new BinaryReader(bs, Encoding.BigEndianUnicode))
-            //using (var fileOffsetStream = new FileOffsetStream(bs))
-            //using (var reader = new BinaryReader(fileOffsetStream, Encoding.BigEndianUnicode))
+            using (var reader = new BinaryReader(stream, Encoding.BigEndianUnicode, true))
+            //using (var fos = new FileOffsetStream(stream, true))
+            //using (var reader = new BinaryReader(fos, Encoding.BigEndianUnicode, true))
             {
                 var scanner = parser();
                 try
                 {
                     lock (_fileProgressLock)
                     {
+                        // Add this position to the dictionary so its included in the max
+                        _currentParserPositions.Add(scanner, 0);
                         if (stream.Length > _currentFileLength)
                         {
                             _currentFileLength = stream.Length;
@@ -1038,9 +1251,18 @@ namespace PSXPrev
 
                     // Setup scanner settings
                     // In the future we could move Debug, ShowErrors, and Logger into the scanner.
-                    scanner.StartOffset = _options.StartOffset;
+                    scanner.StartOffset = _options.StartOffset ?? 0;
                     scanner.StopOffset  = _options.StopOffset;
+                    scanner.StopOffset  = _options.NoOffset ? (_options.StartOffset ?? 0) + 1 : _options.StopOffset;
                     scanner.NextOffset  = _options.NextOffset;
+                    scanner.Alignment   = _options.Alignment;
+                    if (isBin && _options.BINAlignToSector)
+                    {
+                        scanner.Alignment = _options.BINSectorUserSize ?? BinCDStream.SectorUserSize;
+                    }
+
+                    scanner.ProgressCallback = ProgressCallback;
+                    scanner.BytesPerProgress = 1 * 1024 * 1024; // 1MB
 
                     scanner.ScanFile(reader, fileTitle);
                 }
@@ -1050,6 +1272,11 @@ namespace PSXPrev
                 }
                 finally
                 {
+                    lock (_fileProgressLock)
+                    {
+                        // Remove this position from the dictionary so its not included in the max
+                        _currentParserPositions.Remove(scanner);
+                    }
                     try
                     {
                         scanner.Dispose();

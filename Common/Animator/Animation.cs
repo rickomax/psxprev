@@ -23,6 +23,9 @@ namespace PSXPrev.Common.Animator
         [DisplayName("Animation Name")]
         public string AnimationName { get; set; }
 
+        [DisplayName("Format"), ReadOnly(true)]
+        public string FormatName { get; set; }
+
         [DisplayName("Frame Count"), ReadOnly(true)]
         public uint FrameCount { get; set; }
 

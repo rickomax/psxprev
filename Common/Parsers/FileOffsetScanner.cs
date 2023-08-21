@@ -5,9 +5,10 @@ using PSXPrev.Common.Animator;
 
 namespace PSXPrev.Common.Parsers
 {
-    public delegate void EntityAddedAction(RootEntity rootEntity, long offset);
-    public delegate void AnimationAddedAction(Animation animation, long offset);
-    public delegate void TextureAddedAction(Texture texture, long offset);
+    public delegate void EntityAddedAction(FileOffsetScanner scanner, RootEntity rootEntity, long offset);
+    public delegate void AnimationAddedAction(FileOffsetScanner scanner, Animation animation, long offset);
+    public delegate void TextureAddedAction(FileOffsetScanner scanner, Texture texture, long offset);
+    public delegate void ScannerProgressAction(FileOffsetScanner scanner, long offset);
 
     public abstract class FileOffsetScanner : IDisposable
     {
@@ -28,6 +29,10 @@ namespace PSXPrev.Common.Parsers
         public long? StopOffset { get; set; }
         // Next stream offset will be at the end of the last-read file.
         public bool NextOffset { get; set; }
+        public long Alignment { get; set; }
+
+        public ScannerProgressAction ProgressCallback { get; set; }
+        public long BytesPerProgress { get; set; }
 
         public FileOffsetScanner(EntityAddedAction entityAdded = null, TextureAddedAction textureAdded = null, AnimationAddedAction animationAdded = null)
         {
@@ -44,7 +49,9 @@ namespace PSXPrev.Common.Parsers
             Program.Logger.WriteLine($"Scanning for {FormatName} at file: {fileTitle}");
 
             // Assume this is a read-only stream, and that the length won't change.
-            _offset = StartOffset ?? 0;
+            var start = Math.Max(0, StartOffset ?? 0);
+            var lastProgress = start;
+            _offset = start;
             // Ensure stop offset is always at least StartOffset + 1.
             var length = Math.Min(Math.Max((StopOffset ?? long.MaxValue), (_offset + 1)), reader.BaseStream.Length);
 
@@ -67,50 +74,56 @@ namespace PSXPrev.Common.Parsers
 
                     Parse(reader);
 
-                    var offsetPostfix = (_offset > 0 ? $"_{_offset:X}" : string.Empty);
-                    var name = $"{fileTitle}{offsetPostfix}";
-
-                    foreach (var entity in EntityResults)
+                    if (EntityResults.Count > 0 || TextureResults.Count > 0 || AnimationResults.Count > 0)
                     {
-                        if (entity == null)
+                        var offsetPostfix = (_offset > 0 ? $"_{_offset:X}" : string.Empty);
+                        var name = $"{fileTitle}{offsetPostfix}";
+
+                        foreach (var entity in EntityResults)
                         {
-                            continue;
+                            if (entity == null)
+                            {
+                                continue;
+                            }
+                            passed = true;
+                            entity.EntityName = name;
+                            entity.FormatName = FormatName;
+                            _entityAddedAction(this, entity, _offset);
+
+                            Program.Logger.WritePositiveLine($"Found {FormatName} Model {AtOffsetString}");
                         }
-                        passed = true;
-                        entity.EntityName = name;
-                        _entityAddedAction(entity, _offset);
-
-                        Program.Logger.WritePositiveLine($"Found {FormatName} Model {AtOffsetString}");
-                    }
-                    // Enumerate textures differently so that we know whether to dispose of them or not.
-                    while (TextureResults.Count > 0)
-                    {
-                        var texture = TextureResults[0]; // Pop (but remove later on)
-
-                        if (texture == null)
+                        // Enumerate textures differently so that we know whether to dispose of them or not.
+                        while (TextureResults.Count > 0)
                         {
-                            TextureResults.RemoveAt(0);
-                            continue;
+                            var texture = TextureResults[0]; // Pop (but remove later on)
+
+                            if (texture == null)
+                            {
+                                TextureResults.RemoveAt(0);
+                                continue;
+                            }
+                            passed = true;
+                            texture.TextureName = name;
+                            texture.FormatName = FormatName;
+                            _textureAddedAction(this, texture, _offset);
+
+                            TextureResults.RemoveAt(0); // We should no longer dispose of this during an exception
+
+                            Program.Logger.WritePositiveLine($"Found {FormatName} Texture {AtOffsetString}");
                         }
-                        passed = true;
-                        texture.TextureName = name;
-                        _textureAddedAction(texture, _offset);
-
-                        TextureResults.RemoveAt(0); // We should no longer dispose of this during an exception
-
-                        Program.Logger.WritePositiveLine($"Found {FormatName} Texture {AtOffsetString}");
-                    }
-                    foreach (var animation in AnimationResults)
-                    {
-                        if (animation == null)
+                        foreach (var animation in AnimationResults)
                         {
-                            continue;
-                        }
-                        passed = true;
-                        animation.AnimationName = name;
-                        _animationAddedAction(animation, _offset);
+                            if (animation == null)
+                            {
+                                continue;
+                            }
+                            passed = true;
+                            animation.AnimationName = name;
+                            animation.FormatName = FormatName;
+                            _animationAddedAction(this, animation, _offset);
 
-                        Program.Logger.WritePositiveLine($"Found {FormatName} Animation {AtOffsetString}");
+                            Program.Logger.WritePositiveLine($"Found {FormatName} Animation {AtOffsetString}");
+                        }
                     }
                 }
                 catch (Exception exp)
@@ -119,6 +132,7 @@ namespace PSXPrev.Common.Parsers
                     {
                         Program.Logger.WriteExceptionLine(exp, $"Error scanning {FormatName} {AtOffsetString}");
                     }
+                    // todo: Maybe we want to support keeping textures even if we failed to read the rest of the file?
                     // Make sure to dispose of textures that we never got to add.
                     foreach (var leakedTexture in TextureResults)
                     {
@@ -144,6 +158,19 @@ namespace PSXPrev.Common.Parsers
                     //}
                     _offset = Math.Max(_offset, endPosition);
                 }
+                if (Alignment > 1)
+                {
+                    // todo: Should we align based on start offset?
+                    //_offset = start + ((_offset - start) + Alignment - 1) / Alignment * Alignment;
+                    _offset = (_offset + Alignment - 1) / Alignment * Alignment;
+                }
+                if (BytesPerProgress > 0 && (_offset - lastProgress) >= BytesPerProgress)
+                {
+                    // todo: Should we align progress? Or maybe exclude bytes skipped by endPosition...?
+                    lastProgress = _offset;
+                    //lastProgress = _offset / BytesPerProgress * BytesPerProgress;
+                    ProgressCallback?.Invoke(this, _offset);
+                }
             }
 
             Program.Logger.WriteLine($"{FormatName} - Reached file end: {fileTitle}");
@@ -166,7 +193,7 @@ namespace PSXPrev.Common.Parsers
         }
 
 
-        protected string AtOffsetString => $"at offset {_offset:X}";
+        public string AtOffsetString => $"at offset {_offset:X}";
 
         public abstract string FormatName { get; }
 
