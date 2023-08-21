@@ -79,7 +79,7 @@ namespace PSXPrev.Common.Renderer
         }
 
 
-        public void SetupMultipleEntityBatch(RootEntity[] checkedEntities = null, ModelEntity selectedModelEntity = null, RootEntity selectedRootEntity = null, bool updateMeshData = true, bool focus = false, bool hasAnimation = false)
+        public void SetupMultipleEntityBatch(RootEntity[] checkedEntities = null, ModelEntity selectedModelEntity = null, RootEntity selectedRootEntity = null, bool updateMeshData = true, bool focus = false, bool tmdidOfSelected = false)
         {
             if (selectedModelEntity == null && selectedRootEntity == null)
             {
@@ -110,10 +110,25 @@ namespace PSXPrev.Common.Renderer
             //focus
             if (selectedRootEntity != null)
             {
-                modelCount += selectedRootEntity.ChildEntities.Length;
-                if (focus)
+                if (selectedModelEntity != null && tmdidOfSelected)
                 {
-                    bounds.AddBounds(selectedRootEntity.Bounds3D);
+                    var tmdidModels = selectedRootEntity.GetModelsWithTMDID(selectedModelEntity.TMDID);
+                    modelCount += tmdidModels.Count;
+                    foreach (var modelEntity in tmdidModels)
+                    {
+                        if (focus && (modelEntity.Triangles.Length > 0 && (!modelEntity.AttachedOnly || modelEntity.IsAttached)))
+                        {
+                            bounds.AddBounds(modelEntity.Bounds3D);
+                        }
+                    }
+                }
+                else
+                {
+                    modelCount += selectedRootEntity.ChildEntities.Length;
+                    if (focus)
+                    {
+                        bounds.AddBounds(selectedRootEntity.Bounds3D);
+                    }
                 }
             }
             //reset
@@ -147,7 +162,16 @@ namespace PSXPrev.Common.Renderer
             //root entity
             if (selectedRootEntity != null)
             {
-                foreach (ModelEntity modelEntity in selectedRootEntity.ChildEntities)
+                IEnumerable<EntityBase> models;
+                if (selectedModelEntity != null && tmdidOfSelected)
+                {
+                    models = selectedRootEntity.GetModelsWithTMDID(selectedModelEntity.TMDID);
+                }
+                else
+                {
+                    models = selectedRootEntity.ChildEntities;
+                }
+                foreach (ModelEntity modelEntity in models)
                 {
                     BindModelMesh(modelEntity, selectedRootEntity.TempMatrix * modelEntity.TempWorldMatrix, updateMeshData,
                         modelEntity.InitialVertices, modelEntity.InitialNormals,

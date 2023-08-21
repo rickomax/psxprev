@@ -34,45 +34,54 @@ namespace PSXPrev.Common.Parsers
 
         private Texture ParseTim(BinaryReader reader)
         {
-            Texture texture = null;
-
-            var palette = new System.Drawing.Color[] { };
-
             var flag = reader.ReadUInt32();
             var pmode = (flag & 0x7);
-            if (pmode > 4)
+            if (pmode == 4 || pmode > 4)
             {
-                return null;
+                return null; // Mixed format not supported (check now to speed up TIM scanning), or invalid pmode
             }
+            var hasClut = (flag & 0x8) != 0;
+            // Reduce false positives, since the hiword of flag should be all zeroes.
+            //if (!Limits.IgnoreTIMVersion && (flag & 0xffff0000) != 0)
+            //{
+            //    return null;
+            //}
 
-            var cf = (flag & 0x8) >> 3;
-            if (cf > 1)
-            {
-                return null;
-            }
-
-            if (pmode < 2 && cf != 1)
-            {
-                return null;
-            }
-
+            System.Drawing.Color[] palette = null;
             bool[] semiTransparentPalette = null;
-            if (cf == 1)
+            if (hasClut)
             {
-                var clutBnum = reader.ReadUInt32();
+                var clutBnum = reader.ReadUInt32(); // Size of clut data starting at this field
                 var clutDx = reader.ReadUInt16();
                 var clutDy = reader.ReadUInt16();
                 var clutWidth = reader.ReadUInt16();
                 var clutHeight = reader.ReadUInt16();
+
+                // Noted in jpsxdec/CreateTim that some files can claim an unpaletted pmode but still use a palette.
+                if (pmode == 2)
+                {
+                    pmode = GetModeFromClut(clutWidth, clutHeight);
+                }
+                else if (pmode == 3)
+                {
+                    pmode = 1; // 8bpp (256clut)
+                }
+
                 palette = ReadPalette(reader, pmode, clutWidth, clutHeight, out semiTransparentPalette, false);
             }
-            var imgBnum = reader.ReadUInt32();
+
+            if (pmode < 2 && palette == null)
+            {
+                return null; // No palette for clut format (check now to speed up TIM scanning)
+            }
+
+            var imgBnum = reader.ReadUInt32(); // Size of image data starting at this field
             var imgDx = reader.ReadUInt16();
             var imgDy = reader.ReadUInt16();
-            var imgWidth = reader.ReadUInt16();
+            var imgStride = reader.ReadUInt16(); // Stride in units of 2 bytes
             var imgHeight = reader.ReadUInt16();
-            texture = ReadTexture(reader, imgWidth, imgHeight, imgDx, imgDy, pmode, palette, semiTransparentPalette, false);
-            return texture;
+
+            return ReadTexture(reader, imgStride, imgHeight, imgDx, imgDy, pmode, palette, semiTransparentPalette, false);
         }
 
         public static System.Drawing.Color[] ReadPalette(BinaryReader reader, uint pmode, uint clutWidth, uint clutHeight, out bool[] semiTransparentPalette, bool allowOutOfBounds)
@@ -85,7 +94,8 @@ namespace PSXPrev.Common.Parsers
             }
 
             // HMD: Support models with invalid image data, but valid model data.
-            if (allowOutOfBounds && (clutWidth * clutHeight * 2) + reader.BaseStream.Position > reader.BaseStream.Length)
+            var clutDataSize = (clutHeight * clutWidth * 2);
+            if (allowOutOfBounds && clutDataSize + reader.BaseStream.Position > reader.BaseStream.Length)
             {
                 return null;
             }
@@ -114,15 +124,15 @@ namespace PSXPrev.Common.Parsers
                     }
                     else
                     {
-                        var clut = reader.ReadUInt16();
-                        var r = (clut & 0x1F);
-                        var g = (clut & 0x3E0) >> 5;
-                        var b = (clut & 0x7C00) >> 10;
-                        var stpBit = ((clut & 0x8000) >> 15) == 1; // Semi-transparency: 0-Off, 1-On
+                        var data = reader.ReadUInt16();
+                        var r = (data) & 0x1f;
+                        var g = (data >> 5) & 0x1f;
+                        var b = (data >> 10) & 0x1f;
+                        var stp = ((data >> 15) & 0x1) == 1; // Semi-transparency: 0-Off, 1-On
                         var a = 255;
 
-                        // Note: stpMode (not stpBit) is defined on a per polygon basis. We can't apply alpha now, only during rendering.
-                        if (stpBit)
+                        // Note: stpMode (not stp) is defined on a per polygon basis. We can't apply alpha now, only during rendering.
+                        if (stp)
                         {
                             if (semiTransparentPalette == null)
                             {
@@ -132,7 +142,7 @@ namespace PSXPrev.Common.Parsers
                         }
                         else if (r == 0 && g == 0 && b == 0)
                         {
-                            a = 0; // Transparent when black and !stpBit
+                            a = 0; // Transparent when black and !stp
                         }
 
                         color = System.Drawing.Color.FromArgb(a, r * 8, g * 8, b * 8);
@@ -143,268 +153,235 @@ namespace PSXPrev.Common.Parsers
             return palette;
         }
 
-        public static Texture ReadTexture(BinaryReader reader, ushort imgWidth, ushort imgHeight, ushort imgDx, ushort imgDy, uint pmode, System.Drawing.Color[] palette, bool[] semiTransparentPalette, bool allowOutOfBounds)
+        public static Texture ReadTexture(BinaryReader reader, ushort stride, ushort height, ushort dx, ushort dy, uint pmode, System.Drawing.Color[] palette, bool[] semiTransparentPalette, bool allowOutOfBounds)
         {
-            Texture texture = null;
-            Bitmap bitmap = null;
-            Bitmap semiTransparentMap = null;
+            if ((pmode == 0 || pmode == 1) && palette == null)
+            {
+                return null; // No palette for clut format
+            }
+            if (pmode == 4 || pmode > 4)
+            {
+                return null; // Mixed format not supported, or invalid pmode
+            }
 
-            if (imgWidth == 0 || imgHeight == 0 || imgWidth > Limits.MaxTIMResolution || imgHeight > Limits.MaxTIMResolution)
+            var textureBpp = GetBpp(pmode);
+            var textureWidth = stride * 16 / textureBpp;
+            var textureHeight = height;
+
+            if (stride == 0 || height == 0 || textureWidth > (int)Limits.MaxTIMResolution || height > Limits.MaxTIMResolution)
             {
                 return null;
             }
 
-            var texturePage = imgDx / 64;
-            if (texturePage > 16)
+            // HMD: Support models with invalid image data, but valid model data.
+            var textureDataSize = (textureHeight * textureWidth * textureBpp / 8);
+            if (allowOutOfBounds && textureDataSize + reader.BaseStream.Position > reader.BaseStream.Length)
             {
                 return null;
             }
 
-            var textureOffset = texturePage * 64;
+            var texturePageX = dx / 64;
+            if (texturePageX > 16)
+            {
+                return null;
+            }
+            var textureOffsetX = texturePageX * 64;
 
-            var texturePageY = imgDy / 255;
+            var texturePageY = dy / 256; // Changed from 255
             if (texturePageY > 2)
             {
                 return null;
             }
-
             var textureOffsetY = texturePageY * 256;
 
-            var finalTexturePage = (texturePageY * 16) + texturePage;
+            var texturePage = (texturePageY * 16) + texturePageX;
+            var textureX = (dx - textureOffsetX) * 16 / textureBpp;// Math.Min(16, textureBpp); // todo: Or is this the same as textureWidth?
+            var textureY = (dy - textureOffsetY);
 
-            int textureX;
-            int textureY;
-            int textureWidth;
-            ushort textureHeight;
-            int textureBpp;
 
-            switch (pmode)
+            var texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, texturePage);
+            try
             {
-                case 0: //4bpp
-                    textureX = (imgDx - textureOffset) * 4;
-                    textureY = (imgDy - textureOffsetY);
-                    textureWidth = imgWidth * 4;
-                    textureHeight = imgHeight;
-                    textureBpp = 4;
+                var bitmap = texture.Bitmap;
+                var semiTransparentMap = semiTransparentPalette != null ? texture.SetupSemiTransparentMap() : null;
 
-                    // HMD: Support models with invalid image data, but valid model data.
-                    if (allowOutOfBounds && (textureWidth * textureHeight / 2) + reader.BaseStream.Position > reader.BaseStream.Length)
-                    {
-                        break;
-                    }
-                    if (palette == null)
-                    {
-                        break;
-                    }
-
-                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, finalTexturePage);
-                    bitmap = texture.Bitmap;
-                    if (semiTransparentPalette != null)
-                    {
-                        semiTransparentMap = texture.SetupSemiTransparentMap();
-                    }
-
-                    for (var y = 0; y < imgHeight; y++)
-                    {
-                        for (var x = 0; x < imgWidth; x++)
+                switch (pmode)
+                {
+                    case 0: // 4bpp (16clut)
+                        for (var y = 0; y < height; y++)
                         {
-                            var data1 = reader.ReadUInt16();
-                            var index1 = (data1 & 0xF);
-                            var index2 = (data1 & 0xF0) >> 4;
-                            var index3 = (data1 & 0xF00) >> 8;
-                            var index4 = (data1 & 0xF000) >> 12;
-
-                            if (palette == null || index1 >= palette.Length || index2 >= palette.Length || index3 >= palette.Length || index4 >= palette.Length)
+                            for (var x = 0; x < stride; x++)
                             {
-                                return texture;
-                            }
+                                var data = reader.ReadUInt16();
+                                var index1 = (data) & 0xf;
+                                var index2 = (data >> 4) & 0xf;
+                                var index3 = (data >> 8) & 0xf;
+                                var index4 = (data >> 12) & 0xf;
 
-                            var color1 = palette[index1];
-                            var color2 = palette[index2];
-                            var color3 = palette[index3];
-                            var color4 = palette[index4];
+                                var color1 = palette[index1];
+                                var color2 = palette[index2];
+                                var color3 = palette[index3];
+                                var color4 = palette[index4];
 
-                            bitmap.SetPixel((x * 4) + 0, y, color1);
-                            bitmap.SetPixel((x * 4) + 1, y, color2);
-                            bitmap.SetPixel((x * 4) + 2, y, color3);
-                            bitmap.SetPixel((x * 4) + 3, y, color4);
+                                bitmap.SetPixel((x * 4) + 0, y, color1);
+                                bitmap.SetPixel((x * 4) + 1, y, color2);
+                                bitmap.SetPixel((x * 4) + 2, y, color3);
+                                bitmap.SetPixel((x * 4) + 3, y, color4);
 
-                            if (semiTransparentPalette != null)
-                            {
-                                if (semiTransparentPalette[index1])
+                                if (semiTransparentPalette != null)
                                 {
-                                    semiTransparentMap.SetPixel((x * 4) + 0, y, Texture.SemiTransparentFlag);
-                                }
-                                if (semiTransparentPalette[index2])
-                                {
-                                    semiTransparentMap.SetPixel((x * 4) + 1, y, Texture.SemiTransparentFlag);
-                                }
-                                if (semiTransparentPalette[index3])
-                                {
-                                    semiTransparentMap.SetPixel((x * 4) + 2, y, Texture.SemiTransparentFlag);
-                                }
-                                if (semiTransparentPalette[index4])
-                                {
-                                    semiTransparentMap.SetPixel((x * 4) + 3, y, Texture.SemiTransparentFlag);
+                                    if (semiTransparentPalette[index1])
+                                    {
+                                        semiTransparentMap.SetPixel((x * 4) + 0, y, Texture.SemiTransparentFlag);
+                                    }
+                                    if (semiTransparentPalette[index2])
+                                    {
+                                        semiTransparentMap.SetPixel((x * 4) + 1, y, Texture.SemiTransparentFlag);
+                                    }
+                                    if (semiTransparentPalette[index3])
+                                    {
+                                        semiTransparentMap.SetPixel((x * 4) + 2, y, Texture.SemiTransparentFlag);
+                                    }
+                                    if (semiTransparentPalette[index4])
+                                    {
+                                        semiTransparentMap.SetPixel((x * 4) + 3, y, Texture.SemiTransparentFlag);
+                                    }
                                 }
                             }
                         }
-                    }
-
-                    break;
-                case 1: //8bpp
-                    texturePage = imgDx / 64;
-                    textureOffset = texturePage * 64;
-                    textureX = (imgDx - textureOffset) * 2;
-                    textureY = (imgDy - textureOffsetY);
-                    textureWidth = imgWidth * 2;
-                    textureHeight = imgHeight;
-                    textureBpp = 8;
-
-                    // HMD: Support models with invalid image data, but valid model data.
-                    if (allowOutOfBounds && (textureWidth * textureHeight) + reader.BaseStream.Position > reader.BaseStream.Length)
-                    {
                         break;
-                    }
-                    if (palette == null)
-                    {
-                        break;
-                    }
 
-                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, finalTexturePage);
-                    bitmap = texture.Bitmap;
-                    if (semiTransparentPalette != null)
-                    {
-                        semiTransparentMap = texture.SetupSemiTransparentMap();
-                    }
-
-                    for (var y = 0; y < imgHeight; y++)
-                    {
-                        for (var x = 0; x < imgWidth; x++)
+                    case 1: // 8bpp (256clut)
+                        for (var y = 0; y < height; y++)
                         {
-                            var data1 = reader.ReadUInt16();
-                            var index1 = (data1 & 0xFF);
-                            var index2 = (data1 & 0xFF00) >> 8;
-
-                            if (palette == null || index1 >= palette.Length || index2 >= palette.Length)
+                            for (var x = 0; x < stride; x++)
                             {
-                                return texture;
-                            }
+                                var data = reader.ReadUInt16();
+                                var index1 = (data) & 0xff;
+                                var index2 = (data >> 8) & 0xff;
 
-                            var color1 = palette[index1];
-                            var color2 = palette[index2];
+                                var color1 = palette[index1];
+                                var color2 = palette[index2];
 
-                            bitmap.SetPixel((x * 2) + 0, y, color1);
-                            bitmap.SetPixel((x * 2) + 1, y, color2);
+                                bitmap.SetPixel((x * 2) + 0, y, color1);
+                                bitmap.SetPixel((x * 2) + 1, y, color2);
 
-                            if (semiTransparentPalette != null)
-                            {
-                                if (semiTransparentPalette[index1])
+                                if (semiTransparentPalette != null)
                                 {
-                                    semiTransparentMap.SetPixel((x * 2) + 0, y, Texture.SemiTransparentFlag);
-                                }
-                                if (semiTransparentPalette[index2])
-                                {
-                                    semiTransparentMap.SetPixel((x * 2) + 1, y, Texture.SemiTransparentFlag);
+                                    if (semiTransparentPalette[index1])
+                                    {
+                                        semiTransparentMap.SetPixel((x * 2) + 0, y, Texture.SemiTransparentFlag);
+                                    }
+                                    if (semiTransparentPalette[index2])
+                                    {
+                                        semiTransparentMap.SetPixel((x * 2) + 1, y, Texture.SemiTransparentFlag);
+                                    }
                                 }
                             }
                         }
-                    }
-
-                    break;
-                case 2: //16bpp
-                    textureX = (imgDx - textureOffset);
-                    textureY = (imgDy - textureOffsetY);
-                    textureWidth = imgWidth;
-                    textureHeight = imgHeight;
-                    textureBpp = 16;
-
-                    // HMD: Support models with invalid image data, but valid model data.
-                    if (allowOutOfBounds && (textureWidth * textureHeight * 2) + reader.BaseStream.Position > reader.BaseStream.Length)
-                    {
                         break;
-                    }
 
-                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, finalTexturePage);
-                    bitmap = texture.Bitmap;
-
-                    for (var y = 0; y < imgHeight; y++)
-                    {
-                        for (var x = 0; x < imgWidth; x++)
+                    case 2: // 16bpp (5/5/5)
+                        for (var y = 0; y < height; y++)
                         {
-                            var data1 = reader.ReadUInt16();
-                            var r0 = (data1 & 0x1F);
-                            var g0 = (data1 & 0x3E0) >> 5;
-                            var b0 = (data1 & 0x7C00) >> 10;
-                            var stpBit = ((data1 & 0x8000) >> 15) == 1; // Semi-transparency: 0-Off, 1-On
-                            var a0 = 255;
-
-                            // Note: stpMode (not stpBit) is defined on a per polygon basis. We can't apply alpha now, only during rendering.
-                            if (stpBit)
+                            for (var x = 0; x < stride; x++)
                             {
-                                if (semiTransparentMap == null)
+                                var data = reader.ReadUInt16();
+                                var r = (data) & 0x1f;
+                                var g = (data >> 5) & 0x1f;
+                                var b = (data >> 10) & 0x1f;
+                                var stp = ((data >> 15) & 0x1) == 1; // Semi-transparency: 0-Off, 1-On
+                                var a = 255;
+
+                                // Note: stpMode (not stp) is defined on a per polygon basis. We can't apply alpha now, only during rendering.
+                                if (stp)
                                 {
-                                    semiTransparentMap = texture.SetupSemiTransparentMap();
+                                    if (semiTransparentMap == null)
+                                    {
+                                        semiTransparentMap = texture.SetupSemiTransparentMap();
+                                    }
+                                    semiTransparentMap.SetPixel(x, y, Texture.SemiTransparentFlag);
                                 }
-                                semiTransparentMap.SetPixel(x, y, Texture.SemiTransparentFlag);
+                                else if (r == 0 && g == 0 && b == 0)
+                                {
+                                    a = 0; // Transparent when black and !stp
+                                }
+
+                                var color1 = System.Drawing.Color.FromArgb(a, r * 8, g * 8, b * 8);
+
+                                bitmap.SetPixel(x, y, color1);
                             }
-                            else if (r0 == 0 && g0 == 0 && b0 == 0)
-                            {
-                                a0 = 0; // Transparent when black and !stpBit
-                            }
-
-                            var color1 = System.Drawing.Color.FromArgb(a0, r0 * 8, g0 * 8, b0 * 8);
-
-                            bitmap.SetPixel(x, y, color1);
                         }
-                    }
-
-                    break;
-                case 3: //24bpp
-                    textureX = (imgDx - textureOffset);
-                    textureY = (imgDy - textureOffsetY);
-                    textureWidth = imgWidth;
-                    textureHeight = imgHeight;
-                    textureBpp = 24;
-
-                    if (imgWidth % 2 != 0)
-                    {
-                        if (Program.Debug)
-                        {
-                            Program.Logger.WriteLine("24bpp texture has odd-numbered width, unsure how to handle row padding.");
-                        }
-                    }
-                    // HMD: Support models with invalid image data, but valid model data.
-                    if (allowOutOfBounds && (textureWidth * textureHeight * 3) + reader.BaseStream.Position > reader.BaseStream.Length)
-                    {
                         break;
-                    }
 
-                    texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, finalTexturePage);
-                    bitmap = texture.Bitmap;
+                    case 3: // 24bpp
+                        var padding = (stride * 2) - (textureWidth * 3);
 
-                    for (var y = 0; y < imgHeight; y++)
-                    {
-                        for (var x = 0; x < imgWidth; x++)
+                        for (var y = 0; y < height; y++)
                         {
-                            var r0 = reader.ReadByte();
-                            var g0 = reader.ReadByte();
-                            var b0 = reader.ReadByte();
+                            for (var x = 0; x < textureWidth; x++)
+                            {
+                                var r = reader.ReadByte();
+                                var g = reader.ReadByte();
+                                var b = reader.ReadByte();
 
-                            var color1 = System.Drawing.Color.FromArgb(255, r0, g0, b0);
+                                var color1 = System.Drawing.Color.FromArgb(255, r, g, b);
 
-                            bitmap.SetPixel(x, y, color1);
+                                bitmap.SetPixel(x, y, color1);
+                            }
+                            // todo: Is there padding at the end of rows?
+                            //       It's probably padding to 2-bytes if there is any, rather than 4-bytes.
+                            for (var p = 0; p < padding; p++)
+                            {
+                                reader.ReadByte();
+                            }
                         }
-                        // todo: Is there padding at the end of rows?
-                        //       It's probably padding to 2-bytes if there is any, rather than 4-bytes.
-                    }
+                        break;
 
-                    break;
-                case 4:
-                    break;
+                    case 4: // Mixed (not supported yet)
+                        texture.Dispose();
+                        texture = null;
+                        break;
+                }
+            }
+            catch
+            {
+                texture.Dispose(); // Cleanup on failure to parse
+                throw;
             }
 
             return texture;
+        }
+
+        public static uint GetModeFromClut(ushort clutWidth, ushort clutHeight)
+        {
+            // NOTE: Width*height always seems to be 16 or 256.
+            //       Specifically width was 16 or 256 and height was 1.
+            //       With that, it's safe to assume the dimensions tell us the color count.
+            //       Because this data could potentionally give us something other than 16 or 256,
+            //       assume anything greater than 16 will allocate a 256clut and only read w*h colors.
+
+            // todo: Which is correct?
+            //return (clutWidth * clutHeight <= 16 ? 0u : 1u);
+            return (clutWidth * clutHeight < 256 ? 0u : 1u);
+        }
+
+        public static uint GetModeFromNoClut()
+        {
+            return 2u;
+        }
+
+        public static int GetBpp(uint pmode)
+        {
+            switch (pmode)
+            {
+                case 0: return  4; // 4bpp (16clut)
+                case 1: return  8; // 8bpp (256clut)
+                case 2: return 16; // 16bpp (5/5/5)
+                case 3: return 24; // 24bpp
+                case 4: return  0; // Mixed
+            }
+            return -1;
         }
     }
 }

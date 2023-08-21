@@ -32,6 +32,10 @@
         public static ulong MaxMODVertices = 10000;
         public static ulong MaxMODFaces = 10000;
 
+        public static ulong MaxPMDObjects = 4000;
+        public static ulong MaxPMDPointers = 4000;
+        public static ulong MaxPMDPackets = 4000;
+
         public static ulong MaxPSXObjectCount = 1024;
 
         public static ulong MaxTIMResolution = 1024;

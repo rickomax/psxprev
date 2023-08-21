@@ -91,6 +91,7 @@ namespace PSXPrev.Forms
         private bool _autoDrawModelTextures;
         private bool _autoSelectAnimationModel;
         private bool _autoPlayAnimations;
+        private bool _onlyModelsWithSameTMDID;
 
         private GizmoType _gizmoType;
         private GizmoId _hoveredGizmo;
@@ -324,6 +325,9 @@ namespace PSXPrev.Forms
         {
             Settings.LoadDefaults();
             ReadSettings(Settings.Instance);
+
+            // temp: Add this here until its a proper feature
+            _onlyModelsWithSameTMDID = false;
         }
 
         public void LoadSettings()
@@ -782,6 +786,12 @@ namespace PSXPrev.Forms
                             }
                             e.Handled = true;
                         }
+                        break;
+
+                    case Keys.M when state && sceneFocused:
+                        _onlyModelsWithSameTMDID = !_onlyModelsWithSameTMDID;
+                        Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"_onlyModelsWithSameTMDID: {_onlyModelsWithSameTMDID}");
+                        UpdateSelectedEntity();
                         break;
 
                     // Debugging keys for testing picking rays.
@@ -2183,7 +2193,7 @@ namespace PSXPrev.Forms
                 // todo: Ensure we focus when switching to a different root entity, even if the selected entity is a sub-model.
                 var focus = _selectionSource == EntitySelectionSource.TreeView && _selectedModelEntity == null;
                 var checkedEntities = GetCheckedEntities();
-                _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, _selectedModelEntity, _selectedRootEntity, updateMeshData, focus);
+                _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, _selectedModelEntity, _selectedRootEntity, updateMeshData, focus, tmdidOfSelected: _onlyModelsWithSameTMDID);
             }
             else
             {

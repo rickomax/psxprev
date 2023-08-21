@@ -619,6 +619,11 @@ namespace PSXPrev.Common.Parsers
             var normSrcOffset = reader.ReadUInt32();
             var normDstOffset = reader.ReadUInt32();
 
+            if (vertCount > Limits.MaxHMDVertices || normCount > Limits.MaxHMDVertices)
+            {
+                throw new Exception("Shared vertCount or normCount is greater than expected limit");
+            }
+
             // todo: If shared geometry doesn't look right, then the handling for DstOffsets here may be incorrect.
             for (uint i = 0; i < vertCount; i++)
             {
@@ -646,9 +651,9 @@ namespace PSXPrev.Common.Parsers
 
             var x = reader.ReadUInt16();
             var y = reader.ReadUInt16();
-            var width = reader.ReadUInt16();
+            var stride = reader.ReadUInt16();
             var height = reader.ReadUInt16();
-            if (width == 0 || height == 0 || width > 256 || height > 256)
+            if (stride == 0 || height == 0 || stride > 256 || height > 256)
             {
                 return null;
             }
@@ -665,12 +670,7 @@ namespace PSXPrev.Common.Parsers
                 var clutHeight = reader.ReadUInt16();
                 var clutIndex = reader.ReadUInt32() * 4;
 
-                // NOTE: Width*height always seems to be 16 or 256.
-                //       Specifically width was 16 or 256 and height was 1.
-                //       With that, it's safe to assume the dimensions tell us the color count.
-                //       Because this data could potentionally give us something other than 16 or 256,
-                //       assume anything greater than 16 will allocate a 256clut and only read w*h colors.
-                pmode = (clutWidth * clutHeight <= 16) ? 0u : 1u; // 16clut or 256clut
+                pmode = TIMParser.GetModeFromClut(clutWidth, clutHeight);
 
                 reader.BaseStream.Seek(_offset + clutTop + clutIndex, SeekOrigin.Begin);
                 // Allow out of bounds to support HMDs with invalid image data, but valid model data.
@@ -678,13 +678,13 @@ namespace PSXPrev.Common.Parsers
             }
             else
             {
-                pmode = 2u; // 16bpp
+                pmode = TIMParser.GetModeFromNoClut();
                 palette = null;
                 semiTransparentPalette = null;
             }
             reader.BaseStream.Seek(_offset + imageTop + imageIndex, SeekOrigin.Begin);
             // Allow out of bounds to support HMDs with invalid image data, but valid model data.
-            var texture = TIMParser.ReadTexture(reader, width, height, x, y, pmode, palette, semiTransparentPalette, true);
+            var texture = TIMParser.ReadTexture(reader, stride, height, x, y, pmode, palette, semiTransparentPalette, true);
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
             return texture;

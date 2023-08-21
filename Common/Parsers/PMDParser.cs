@@ -57,7 +57,7 @@ namespace PSXPrev.Common.Parsers
             var primPoint = reader.ReadUInt32();
             var vertPoint = reader.ReadUInt32();
             var nObj = reader.ReadUInt32();
-            if (nObj < 1 || nObj > 4000)
+            if (nObj < 1 || nObj > Limits.MaxPMDObjects)
             {
                 return null;
             }
@@ -65,7 +65,7 @@ namespace PSXPrev.Common.Parsers
             for (uint o = 0; o < nObj; o++)
             {
                 var nPointers = reader.ReadUInt32();
-                if (nPointers < 1 || nPointers > 4000)
+                if (nPointers < 1 || nPointers > Limits.MaxPMDPointers)
                 {
                     return null;
                 }
@@ -75,7 +75,7 @@ namespace PSXPrev.Common.Parsers
                     var pointer = reader.ReadUInt32();
                     reader.BaseStream.Seek(_offset + pointer, SeekOrigin.Begin);
                     var nPacket = reader.ReadUInt16();
-                    if (nPacket > 4000)
+                    if (nPacket > Limits.MaxPMDPackets)
                     {
                         return null;
                     }
