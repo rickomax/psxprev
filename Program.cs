@@ -66,8 +66,8 @@ namespace PSXPrev
 
         public static bool FixUVAlignment => _options.FixUVAlignment;
 
-        public static bool Debug => _options.Debug;
-        public static bool ShowErrors => _options.ShowErrors;
+        public static bool Debug => _options.DebugLogging;
+        public static bool ShowErrors => _options.ErrorLogging;
 
 
         private static readonly string[] InvalidFileExtensions = { ".str", ".str;1", ".xa", ".xa;1", ".vb", ".vb;1" };
@@ -137,7 +137,7 @@ namespace PSXPrev
             Console.WriteLine("  -start <OFFSET>       : scan files starting at offset (hex)");
             Console.WriteLine("  -stop  <OFFSET>       : scan files up to offset (hex, exclusive)");
             Console.WriteLine("  -range [START],[STOP] : shorthand for [-start <START>] [-stop <STOP>]");
-            Console.WriteLine("  -nooffset   : shorthand for -stop <START+1>");
+            Console.WriteLine("  -startonly  : shorthand for -stop <START+1>");
             Console.WriteLine("  -nextoffset : continue scan at end of previous match");
             Console.WriteLine("  -depthlast  : scan files at lower folder depths first");
             Console.WriteLine("  -syncscan   : disable multi-threaded scanning per format");
@@ -270,7 +270,8 @@ namespace PSXPrev
                         invalidParameter = !TryParseValue(args[index + 1], true, out var startOffset);
                         if (!invalidParameter)
                         {
-                            options.StartOffset = startOffset;
+                            options.StartOffsetHasValue = true;
+                            options.StartOffsetValue = startOffset;
                             break;
                         }
                     }
@@ -282,7 +283,8 @@ namespace PSXPrev
                         invalidParameter = !TryParseValue(args[index + 1], true, out var stopOffset);
                         if (!invalidParameter)
                         {
-                            options.StopOffset = stopOffset;
+                            options.StopOffsetHasValue = true;
+                            options.StopOffsetValue = stopOffset;
                             break;
                         }
                     }
@@ -294,21 +296,23 @@ namespace PSXPrev
                         invalidParameter = !TryParseRange(args[index + 1], true, false, out var startRange, out var stopRange);
                         if (!invalidParameter)
                         {
-                            options.StartOffset = startRange;
-                            options.StopOffset  = stopRange;
+                            options.StartOffsetHasValue = startRange.HasValue;
+                            options.StopOffsetHasValue  = stopRange.HasValue;
+                            options.StartOffsetValue = startRange ?? options.StartOffsetValue;
+                            options.StopOffsetValue  = stopRange  ?? options.StopOffsetValue;
                             break;
                         }
                     }
                     return false;
-                case "-nooffset": // Shorthand for -stop <START+1>
-                    options.NoOffset = true;
+                case "-startonly": // Shorthand for -stop <START+1>
+                    options.StartOffsetOnly = true;
                     break;
                 case "-nextoffset":
                     options.NextOffset = true;
                     break;
 
                 case "-depthlast":
-                    options.DepthFirstFileSearch = false;
+                    options.TopDownFileSearch = false;
                     break;
                 case "-syncscan":
                     options.AsyncFileScan = false;
@@ -326,11 +330,12 @@ namespace PSXPrev
                     parameterCount++;
                     if (index + 1 < args.Length)
                     {
-                        invalidParameter = !TryParseBINSector(args[index + 1], false, true, out var sectorStart, out var sectorSize);
+                        invalidParameter = !TryParseBINSector(args[index + 1], false, out var sectorStart, out var sectorSize);
                         if (!invalidParameter)
                         {
-                            options.BINSectorUserStart = sectorStart;
-                            options.BINSectorUserSize  = sectorSize;
+                            options.BINSectorUserStartSizeHasValue = true;
+                            options.BINSectorUserStartValue = sectorStart;
+                            options.BINSectorUserSizeValue  = sectorSize;
                             break;
                         }
                     }
@@ -345,10 +350,10 @@ namespace PSXPrev
                     options.LogToConsole = false;
                     break;
                 case "-debug":
-                    options.Debug = true;
+                    options.DebugLogging = true;
                     break;
                 case "-error":
-                    options.ShowErrors = true;
+                    options.ErrorLogging = true;
                     break;
                 case "-nocolor":
                     options.UseConsoleColor = false;
@@ -430,41 +435,26 @@ namespace PSXPrev
             return false;
         }
 
-        private static bool TryParseBINSector(string text, bool hex, bool require, out int? start, out int? size)
+        private static bool TryParseBINSector(string text, bool hex, out int start, out int size)
         {
             //-binsector 24,2048 (default)
             //-binsector 40,2032 (Star Ocean 2)
-            start = size = null;
+            start = size = 0;
             var param = text.Split(new[] { ',' }, StringSplitOptions.None);
             if (param.Length == 2)
             {
                 // Parse a start and/or stop offset.
                 // Empty strings are treated as null.
-                long sectorStart, sectorSize;
-                if (require || !string.IsNullOrEmpty(param[0]))
+                if (!TryParseValue(param[0], hex, out var sectorStart))
                 {
-                    if (!TryParseValue(param[0], hex, out sectorStart))
-                    {
-                        return false;
-                    }
-                    start = (int)sectorStart;
+                    return false;
                 }
-                else
+                start = (int)sectorStart;
+                if (!TryParseValue(param[1], hex, out var sectorSize))
                 {
-                    sectorStart = BinCDStream.SectorUserStart;
+                    return false;
                 }
-                if (require || !string.IsNullOrEmpty(param[1]))
-                {
-                    if (!TryParseValue(param[1], hex, out sectorSize))
-                    {
-                        return false;
-                    }
-                    size = (int)sectorSize;
-                }
-                else
-                {
-                    sectorSize = BinCDStream.SectorUserSize;
-                }
+                size = (int)sectorSize;
                 // Validate sector info so that we don't cause problems parsing the file
                 if (sectorStart < 0 || sectorSize <= 0 || sectorStart + sectorSize > BinCDStream.SectorRawSize)
                 {
@@ -490,7 +480,11 @@ namespace PSXPrev
                 return false; // No command line arguments
             }
 
-            var options = new ScanOptions();
+            // Change settings whose defaults differ between the command line and ScannerForm.
+            var options = new ScanOptions
+            {
+                ReadISOContents = false,
+            };
             var help = false; // Skip scanning and print the help message.
 
             // Check if the user is asking for -help in-place of positional arguments.
@@ -559,7 +553,7 @@ namespace PSXPrev
             if (help)
             {
                 PrintHelp(!options.UseConsoleColor);
-                if (options.Debug)
+                if (options.DebugLogging)
                 {
                     PressAnyKeyToContinue(); // Make it easier to check console output before closing.
                 }
@@ -1075,7 +1069,7 @@ namespace PSXPrev
                     var directories = directoryInfo.GetDirectories(); // PushRange/EnqueueRange
                     for (var i = 0; i < directories.Length; i++)
                     {
-                        if (_options.DepthFirstFileSearch)
+                        if (_options.TopDownFileSearch)
                         {
                             directoryList.Insert(i, directories[i].FullName);
                         }
@@ -1107,8 +1101,8 @@ namespace PSXPrev
             {
                 var firstIndex = BinCDStream.SectorsFirstIndex;
                 var rawSize   = BinCDStream.SectorRawSize;
-                var userStart = _options.BINSectorUserStart ?? BinCDStream.SectorUserStart;
-                var userSize  = _options.BINSectorUserSize  ?? BinCDStream.SectorUserSize;
+                var userStart = _options.BINSectorUserStart;
+                var userSize  = _options.BINSectorUserSize;
                 return new BinCDStream(File.OpenRead(file), firstIndex, rawSize, userStart, userSize);
             }
 
@@ -1146,7 +1140,7 @@ namespace PSXPrev
                 }
 
                 var directories = Directory.GetDirectories(path); // PushRange/EnqueueRange
-                if (_options.DepthFirstFileSearch)
+                if (_options.TopDownFileSearch)
                 {
                     directoryList.InsertRange(0, directories);
                 }
@@ -1251,14 +1245,14 @@ namespace PSXPrev
 
                     // Setup scanner settings
                     // In the future we could move Debug, ShowErrors, and Logger into the scanner.
-                    scanner.StartOffset = _options.StartOffset ?? 0;
+                    scanner.StartOffset = _options.StartOffset;
                     scanner.StopOffset  = _options.StopOffset;
-                    scanner.StopOffset  = _options.NoOffset ? (_options.StartOffset ?? 0) + 1 : _options.StopOffset;
+                    scanner.StopOffset  = _options.StartOffsetOnly ? _options.StartOffset + 1 : _options.StopOffset;
                     scanner.NextOffset  = _options.NextOffset;
                     scanner.Alignment   = _options.Alignment;
                     if (isBin && _options.BINAlignToSector)
                     {
-                        scanner.Alignment = _options.BINSectorUserSize ?? BinCDStream.SectorUserSize;
+                        scanner.Alignment = _options.BINSectorUserSize;
                     }
 
                     scanner.ProgressCallback = ProgressCallback;

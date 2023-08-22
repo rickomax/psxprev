@@ -208,14 +208,14 @@ namespace PSXPrev.Forms
             {
                 // Update major progress bar
                 statusTotalFilesProgressBar.Maximum = totalFiles;
-                statusTotalFilesProgressBar.Value = GeomMath.Clamp(currentFile, 0, totalFiles);
+                statusTotalFilesProgressBar.SetValueSafe(currentFile);
 
                 // Update minor progress bar
                 // Avoid divide-by-zero when scanning a file that's 0 bytes in size.
                 var percent = (currentLength > 0) ? ((double)currentPosition / currentLength) : 1d;
                 const int max = 100;
                 statusCurrentFileProgressBar.Maximum = max;
-                statusCurrentFileProgressBar.Value = GeomMath.Clamp((int)(percent * max), 0, max);
+                statusCurrentFileProgressBar.SetValueSafe((int)(percent * max));
 
                 if (message != null)
                 {
@@ -350,17 +350,17 @@ namespace PSXPrev.Forms
             }
             Program.ConsoleLogger.ReadSettings(Settings.Instance);
 
-            gridSnapUpDown.Value = (decimal)settings.GridSnap;
-            angleSnapUpDown.Value = (decimal)settings.AngleSnap;
-            scaleSnapUpDown.Value = (decimal)settings.ScaleSnap;
-            cameraFOVUpDown.Value = (decimal)settings.CameraFOV;
+            gridSnapUpDown.SetValueSafe((decimal)settings.GridSnap);
+            angleSnapUpDown.SetValueSafe((decimal)settings.AngleSnap);
+            scaleSnapUpDown.SetValueSafe((decimal)settings.ScaleSnap);
+            cameraFOVUpDown.SetValueSafe((decimal)settings.CameraFOV);
             {
                 // Prevent light rotation ray from showing up while reading settings.
                 // This is re-assigned later in the function.
                 _scene.ShowLightRotationRay = false;
-                lightIntensityNumericUpDown.Value = (decimal)settings.LightIntensity;
-                lightYawNumericUpDown.Value = (decimal)settings.LightYaw;
-                lightPitchNumericUpDown.Value = (decimal)settings.LightPitch;
+                lightIntensityNumericUpDown.SetValueSafe((decimal)settings.LightIntensity);
+                lightYawNumericUpDown.SetValueSafe((decimal)settings.LightYaw);
+                lightPitchNumericUpDown.SetValueSafe((decimal)settings.LightPitch);
                 enableLightToolStripMenuItem.Checked = settings.LightEnabled;
             }
             _scene.AmbientEnabled = settings.AmbientEnabled;
@@ -372,8 +372,8 @@ namespace PSXPrev.Forms
             drawModeWireframeToolStripMenuItem.Checked = settings.DrawWireframe;
             drawModeVerticesToolStripMenuItem.Checked = settings.DrawVertices;
             drawModeSolidWireframeVerticesToolStripMenuItem.Checked = settings.DrawSolidWireframeVertices;
-            wireframeSizeUpDown.Value = (decimal)settings.WireframeSize;
-            vertexSizeUpDown.Value = (decimal)settings.VertexSize;
+            wireframeSizeUpDown.SetValueSafe((decimal)settings.WireframeSize);
+            vertexSizeUpDown.SetValueSafe((decimal)settings.VertexSize);
             SetGizmoType(settings.GizmoType, force: true);
             showBoundsToolStripMenuItem.Checked = settings.ShowBounds;
             _scene.ShowLightRotationRay = settings.ShowLightRotationRay;
@@ -390,7 +390,7 @@ namespace PSXPrev.Forms
             autoSelectAnimationModelToolStripMenuItem.Checked = settings.AutoSelectAnimationModel;
             animationLoopModeComboBox.SelectedIndex = (int)settings.AnimationLoopMode;
             animationReverseCheckBox.Checked = settings.AnimationReverse;
-            animationSpeedNumericUpDown.Value = (decimal)settings.AnimationSpeed;
+            animationSpeedNumericUpDown.SetValueSafe((decimal)settings.AnimationSpeed);
             fastWindowResizeToolStripMenuItem.Checked = settings.FastWindowResize;
         }
 
@@ -598,6 +598,34 @@ namespace PSXPrev.Forms
             _openTkControl.Invalidate();
         }
 
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == Keys.Enter)
+            {
+                // Take focus away from numeric up/downs,
+                // and give it the primary control of this tab.
+                var numericUpDown = this.GetFocusedControlOfType<NumericUpDown>();
+                if (numericUpDown != null)
+                {
+                    switch (menusTabControl.SelectedTab.TabIndex)
+                    {
+                        case ModelsTabIndex: // Models
+                        case AnimationsTabIndex: // Animations
+                            _openTkControl.Focus();
+                            break;
+                        case TexturesTabIndex: // Textures
+                            texturePreviewPictureBox.Focus();
+                            break;
+                        case VRAMTabIndex: // VRAM
+                            vramPagePictureBox.Focus();
+                            break;
+                    }
+                    return true; // Enter key handled
+                }
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
         private void previewForm_Load(object sender, EventArgs e)
         {
             // Read and apply settings or default settings
@@ -718,39 +746,6 @@ namespace PSXPrev.Forms
                 var sceneFocused = _openTkControl.Focused;
                 switch (e.KeyCode)
                 {
-                    case Keys.Enter when state:
-                        // Take focus away from numeric up/downs,
-                        // and give it the primary control of this tab.
-
-                        // Find the control with focus, but check the type to make sure we don't
-                        // go farther into the nested controls than what's publicly exposed.
-                        var focusedControl = ActiveControl;
-                        var focusedContainer = focusedControl as IContainerControl;
-                        while (focusedContainer != null && !(focusedControl is NumericUpDown))
-                        {
-                            focusedControl = focusedContainer.ActiveControl;
-                            focusedContainer = focusedControl as IContainerControl;
-                        }
-                        if (!(focusedControl is NumericUpDown))
-                        {
-                            break;
-                        }
-
-                        switch (menusTabControl.SelectedTab.TabIndex)
-                        {
-                            case ModelsTabIndex: // Models
-                            case AnimationsTabIndex: // Animations
-                                _openTkControl.Focus();
-                                break;
-                            case TexturesTabIndex: // Textures
-                                texturePreviewPictureBox.Focus();
-                                break;
-                            case VRAMTabIndex: // VRAM
-                                vramPagePictureBox.Focus();
-                                break;
-                        }
-                        break;
-
                     // Gizmo tools
                     // We can't set these shortcut keys in the designer because it
                     // considers them "invalid" for not having modifier keys.
@@ -2892,7 +2887,7 @@ namespace PSXPrev.Forms
                 if (newMax != animationFrameTrackBar.Maximum || newValue != animationFrameTrackBar.Value)
                 {
                     animationFrameTrackBar.Maximum = newMax;
-                    animationFrameTrackBar.Value = newValue;
+                    animationFrameTrackBar.SetValueSafe(newValue);
                     animationFrameTrackBar.Refresh();
                 }
             }
