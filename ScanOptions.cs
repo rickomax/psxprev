@@ -50,29 +50,48 @@ namespace PSXPrev
 
         [JsonProperty("fileOffsetAlign")]
         public long Alignment { get; set; } = 1;
+
+        // We want nullables, but we also want to preserve the last-used values the UI when null.
+        [JsonProperty("fileOffsetHasStart")]
+        public bool StartOffsetHasValue { get; set; } = false;
+        [JsonProperty("fileOffsetHasStop")]
+        public bool StopOffsetHasValue { get; set; } = false;
         [JsonProperty("fileOffsetStart")]
-        public long? StartOffset { get; set; } = null;
+        public long StartOffsetValue { get; set; } = 0;
         [JsonProperty("fileOffsetStop")]
-        public long? StopOffset { get; set; } = null;
-        [JsonProperty("fileOffsetNone")]
-        public bool NoOffset { get; set; } = false;
+        public long StopOffsetValue { get; set; } = 1;
+        [JsonIgnore]
+        public long StartOffset => StartOffsetHasValue ? StartOffsetValue : 0;
+        [JsonIgnore]
+        public long? StopOffset => StopOffsetHasValue ? (long?)StopOffsetValue : null;
+
+        [JsonProperty("fileOffsetOnlyStart")]
+        public bool StartOffsetOnly { get; set; } = false;
         [JsonProperty("fileOffsetNext")]
         public bool NextOffset { get; set; } = false;
 
         [JsonProperty("fileScanAsync")]
         public bool AsyncFileScan { get; set; } = true;
-        [JsonProperty("fileSearchDepthFirst")]
-        public bool DepthFirstFileSearch { get; set; } = true; // AKA top-down
+        [JsonProperty("fileSearchTopDown")]
+        public bool TopDownFileSearch { get; set; } = true; // AKA depth-first
         [JsonProperty("fileSearchISOContents")]
-        public bool ReadISOContents { get; set; } = false;
+        public bool ReadISOContents { get; set; } = true; // Disable this by default when parsing command line arguments
         [JsonProperty("fileSearchBINContents")]
         public bool ReadBINContents { get; set; } = false;
         [JsonProperty("binSectorAlign")]
         public bool BINAlignToSector { get; set; } = false;
-        [JsonProperty("binSectorUserStart")]
-        public int? BINSectorUserStart = null;
-        [JsonProperty("binSectorUserSize")]
-        public int? BINSectorUserSize = null;
+
+        // We want nullables, but we also want to preserve the last-used values in the UI when null.
+        [JsonProperty("binSectorHasStartSize")]
+        public bool BINSectorUserStartSizeHasValue { get; set; } = false;
+        [JsonProperty("binSectorStart")]
+        public int BINSectorUserStartValue { get; set; } = Common.Parsers.BinCDStream.SectorUserStart;
+        [JsonProperty("binSectorSize")]
+        public int BINSectorUserSizeValue { get; set; } = Common.Parsers.BinCDStream.SectorUserSize;
+        [JsonIgnore]
+        public int BINSectorUserStart => BINSectorUserStartSizeHasValue ? BINSectorUserStartValue : Common.Parsers.BinCDStream.SectorUserStart;
+        [JsonIgnore]
+        public int BINSectorUserSize  => BINSectorUserStartSizeHasValue ? BINSectorUserSizeValue  : Common.Parsers.BinCDStream.SectorUserSize;
 
         // Log options:
         [JsonProperty("logToFile")]
@@ -81,10 +100,10 @@ namespace PSXPrev
         public bool LogToConsole { get; set; } = true;
         [JsonProperty("consoleColor")]
         public bool UseConsoleColor { get; set; } = true;
-        [JsonProperty("debug")]
-        public bool Debug { get; set; } = false;
-        [JsonProperty("showErrors")]
-        public bool ShowErrors { get; set; } = false;
+        [JsonProperty("debugLogging")]
+        public bool DebugLogging { get; set; } = false;
+        [JsonProperty("errorLogging")]
+        public bool ErrorLogging { get; set; } = false;
 
         // Program options:
         [JsonProperty("drawAllToVRAM")]

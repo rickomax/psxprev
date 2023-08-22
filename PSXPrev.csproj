@@ -157,6 +157,7 @@
     <Compile Include="Forms\ExportModelsForm.Designer.cs">
       <DependentUpon>ExportModelsForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\Utils\ControlExtensions.cs" />
     <Compile Include="Forms\Utils\DictionaryPropertyGridAdapter.cs" />
     <Compile Include="Forms\Utils\TreeViewExtensions.cs" />
     <Compile Include="Forms\PreviewForm.cs">

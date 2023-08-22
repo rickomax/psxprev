@@ -158,6 +158,9 @@ namespace PSXPrev
         [JsonProperty("logExceptionPrefixColor"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
         public ConsoleColor LogExceptionPrefixColor { get; set; } = ConsoleColor.DarkGray;
 
+        [JsonProperty("scanOptionsShowAdvanced")]
+        public bool ShowAdvancedScanOptions { get; set; } = false;
+
         [JsonProperty("scanOptions")]
         public ScanOptions ScanOptions { get; set; } = new ScanOptions();
 

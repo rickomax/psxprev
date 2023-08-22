@@ -64,7 +64,7 @@ namespace PSXPrev.Forms
             toolTip.SetToolTip(optionMergeModelsCheckBox, "The geometry for all models will be merged\nand exported as a single file");
 
             // Use the last export options
-            ReadSettings(Settings.Instance.ExportModelOptions);
+            ReadSettings(Settings.Instance, Settings.Instance.ExportModelOptions);
         }
 
         private void selectFolderButton_Click(object sender, EventArgs e)
@@ -139,11 +139,26 @@ namespace PSXPrev.Forms
 
         private void ExportModelsForm_FormClosed(object sender, FormClosedEventArgs e)
         {
+            // todo: Should we always save settings?
+            //WriteSettings(Settings.Instance, null); // For now, at least save UI settings (none yet).
+            var options = CreateOptions();
+            WriteSettings(Settings.Instance, options);
+            Settings.Instance.Save();
+
             if (DialogResult != DialogResult.OK)
             {
                 return;
             }
 
+            //var options = CreateOptions();
+            //WriteSettings(Settings.Instance, options);
+            //Settings.Instance.Save();
+
+            Export(options, Entities, Animations, AnimationBatch);
+        }
+
+        private ExportModelOptions CreateOptions()
+        {
             var options = new ExportModelOptions
             {
                 // These settings are only present for loading and saving purposes.
@@ -163,12 +178,10 @@ namespace PSXPrev.Forms
                 ExportAnimations = !animationsOffRadioButton.Checked,
             };
 
-            WriteSettings(options);
-
-            Export(options, Entities, Animations, AnimationBatch);
+            return options;
         }
 
-        private void ReadSettings(ExportModelOptions options)
+        private void ReadSettings(Settings settings, ExportModelOptions options)
         {
             if (options == null)
             {
@@ -246,9 +259,12 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void WriteSettings(ExportModelOptions options)
+        private void WriteSettings(Settings settings, ExportModelOptions options)
         {
-            Settings.Instance.ExportModelOptions = options.Clone();
+            if (options != null)
+            {
+                settings.ExportModelOptions = options.Clone();
+            }
         }
 
 
