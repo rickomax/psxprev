@@ -103,9 +103,9 @@ namespace PSXPrev.Forms
                 {
                     texturesIndividualRadioButton.Checked = true;
                 }*/
-                texturesIndividualRadioButton.Enabled = _format != ExportModelOptions.PLY;
+                texturesIndividualRadioButton.Enabled = _format != ExportModelOptions.PLY && _format != ExportModelOptions.DAE;
 
-                optionMergeModelsCheckBox.Enabled = _format != ExportModelOptions.GLTF2;
+                optionMergeModelsCheckBox.Enabled = _format != ExportModelOptions.GLTF2 && _format != ExportModelOptions.DAE;
                 optionExperimentalVertexColorCheckBox.Enabled = _format == ExportModelOptions.OBJ;
 
                 animationsGroupBox.Enabled = _format == ExportModelOptions.GLTF2;
@@ -131,9 +131,6 @@ namespace PSXPrev.Forms
             if (sender is RadioButton radioButton && radioButton.Checked)
             {
                 checkedAnimationsListBox.Enabled = !animationsOffRadioButton.Checked;
-                optionRedrawTexturesCheckBox.Enabled = !texturesOffRadioButton.Checked;
-                optionShareTexturesCheckBox.Enabled = !texturesOffRadioButton.Checked;
-                optionTiledTexturesCheckBox.Enabled = !texturesOffRadioButton.Checked;
             }
         }
 
@@ -280,13 +277,13 @@ namespace PSXPrev.Forms
                     var plyExporter = new PLYExporter();
                     plyExporter.Export(options, entities);
                     break;
-                case ExportModelOptions.DAE:
-                    var daeExporter = new DAEExporter();
-                    daeExporter.Export(options, entities);
-                    break;
                 case ExportModelOptions.GLTF2:
                     var glTF2Exporter = new glTF2Exporter();
                     glTF2Exporter.Export(options, entities, animations, animationBatch);
+                    break;
+                case ExportModelOptions.DAE:
+                    var daeExporter = new DAEExporter();
+                    daeExporter.Export(options, entities);
                     break;
             }
         }

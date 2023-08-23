@@ -687,6 +687,8 @@ namespace PSXPrev.Common.Parsers
                 semiTransparentPalettes = null;
             }
 
+            reader.BaseStream.Seek(_offset + imageTop + imageIndex, SeekOrigin.Begin);
+            // Allow out of bounds to support HMDs with invalid image data, but valid model data.
             var texture = TIMParser.ReadTexture(reader, stride, height, x, y, pmode, 0, palettes, semiTransparentPalettes, true);
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
             return texture;

@@ -450,9 +450,7 @@ namespace PSXPrev.Forms
         private void SetupControls()
         {
             // Set window title to format: PSXPrev #.#.#.#
-            var assembly = Assembly.GetExecutingAssembly();
-            var fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
-            Text = $"{Text} {fileVersionInfo.FileVersion}";
+            Text = $"{Text} {GetVersionString()}";
 
 
             // Setup GLControl
@@ -604,6 +602,13 @@ namespace PSXPrev.Forms
         private void Redraw()
         {
             _openTkControl.Invalidate();
+        }
+
+        private static string GetVersionString()
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            var fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
+            return fileVersionInfo.FileVersion;
         }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -3213,7 +3218,8 @@ namespace PSXPrev.Forms
         private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
         {
             var message = "PSXPrev - PlayStation (PSX) Files Previewer/Extractor\n" +
-                          "(c) PSXPrev Contributors - 2020-2023";
+                          "\u00a9 PSXPrev Contributors - 2020-2023\n" +
+                          $"Version {GetVersionString()}";
             MessageBox.Show(this, message, "About", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
