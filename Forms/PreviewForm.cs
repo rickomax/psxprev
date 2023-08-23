@@ -86,6 +86,7 @@ namespace PSXPrev.Forms
         private Bitmap _ambientColorBitmap;
         private Bitmap _backgroundColorBitmap;
         private Bitmap _wireframeVerticesColorBitmap;
+        private int _paletteIndex;
         private float _texturePreviewScale = 1f;
         private float _vramPageScale = 1f;
         private bool _autoDrawModelTextures;
@@ -280,7 +281,7 @@ namespace PSXPrev.Forms
                 SelectFirstEntity(); // Select something if the user hasn't already done so.
                 if (drawAllToVRAM)
                 {
-                    DrawTexturesToVRAM(_textures);
+                    DrawTexturesToVRAM(_textures, _paletteIndex);
                 }
 
                 pauseScanningToolStripMenuItem.Checked = false;
@@ -384,6 +385,7 @@ namespace PSXPrev.Forms
             SetAmbientColor(settings.AmbientColor);
             SetMaskColor(settings.MaskColor);
             SetSolidWireframeVerticesColor(settings.SolidWireframeVerticesColor);
+            SetPaletteIndex(settings.PaletteIndex);
             showUVToolStripMenuItem.Checked = settings.ShowUVsInVRAM;
             autoDrawModelTexturesToolStripMenuItem.Checked = settings.AutoDrawModelTextures;
             autoPlayAnimationsToolStripMenuItem.Checked = settings.AutoPlayAnimation;
@@ -427,6 +429,7 @@ namespace PSXPrev.Forms
             settings.AmbientColor = _scene.AmbientColor;
             settings.MaskColor = _scene.MaskColor;
             settings.SolidWireframeVerticesColor = _scene.SolidWireframeVerticesColor;
+            settings.PaletteIndex = _paletteIndex;
             settings.ShowUVsInVRAM = showUVToolStripMenuItem.Checked;
             settings.AutoDrawModelTextures = autoDrawModelTexturesToolStripMenuItem.Checked;
             settings.AutoPlayAnimation = autoPlayAnimationsToolStripMenuItem.Checked;
@@ -1792,6 +1795,30 @@ namespace PSXPrev.Forms
             }
         }
 
+        private bool PromptClutIndex(string title, int? initialIndex, out int clutIndex)
+        {
+            EnterDialog();
+            try
+            {
+                clutIndex = 0;
+                var defaultText = (initialIndex.HasValue && initialIndex.Value != -1) ? initialIndex.ToString() : null;
+                var pageStr = InputDialog.Show(this, $"Please type in a Palette index (0-255)", title, defaultText);
+                if (pageStr != null)
+                {
+                    if (int.TryParse(pageStr, out clutIndex) && clutIndex >= 0 && clutIndex < VRAM.PageCount)
+                    {
+                        return true; // OK (valid page)
+                    }
+                    MessageBox.Show(this, $"Please type in a valid Palette index between 0 and 255", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                return false; // Canceled / OK (invalid page)
+            }
+            finally
+            {
+                LeaveDialog();
+            }
+        }
+
         private bool PromptColor(Color? initialColor, Color? defaultColor, out Color color)
         {
             EnterDialog();
@@ -2248,7 +2275,7 @@ namespace PSXPrev.Forms
             var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
             if (rootEntity != null && _autoDrawModelTextures)
             {
-                DrawModelTexturesToVRAM(rootEntity);
+                DrawModelTexturesToVRAM(rootEntity, _paletteIndex);
             }
             UpdateSelectedEntity();
         }
@@ -2477,10 +2504,16 @@ namespace PSXPrev.Forms
 
         #region Textures/VRAM
 
-        private void DrawTexturesToVRAM(IEnumerable<Texture> textures)
+        private void DrawTexturesToVRAM(IEnumerable<Texture> textures, int? clutIndex)
         {
             foreach (var texture in textures)
             {
+                if (clutIndex.HasValue && texture.ClutIndex != clutIndex.Value && texture.MaxClutIndex != 0)
+                {
+                    // We're only drawing textures of a specific clut index, and this isn't one of them.
+                    // We make an exception for textures that have no alternate cluts.
+                    continue;
+                }
                 _vram.DrawTexture(texture, true); // Suppress updates to scene until all textures are drawn.
             }
             if (_vram.UpdateAllPages()) // True if any pages needed to be updated (aka textures wasn't empty)
@@ -2490,10 +2523,10 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void DrawModelTexturesToVRAM(RootEntity rootEntity)
+        private void DrawModelTexturesToVRAM(RootEntity rootEntity, int? clutIndex)
         {
             // Note: We can't just use ModelEntity.Texture, since that just points to the VRAM page.
-            DrawTexturesToVRAM(rootEntity.OwnedTextures);
+            DrawTexturesToVRAM(rootEntity.OwnedTextures, clutIndex);
         }
 
         private void ClearVRAMPage(int index)
@@ -2508,6 +2541,12 @@ namespace PSXPrev.Forms
             _vram.ClearAllPages();
             vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
             UpdateVRAMComboBoxPageItems();
+        }
+
+        private void SetPaletteIndex(int paletteIndex)
+        {
+            _paletteIndex = GeomMath.Clamp(paletteIndex, 0, 255);
+            setPaletteIndexToolStripMenuItem.Text = $"Set Palette Index: {_paletteIndex}";
         }
 
         private static int CompareTexturesListViewItems(ImageListViewItem a, ImageListViewItem b)
@@ -2711,7 +2750,7 @@ namespace PSXPrev.Forms
             {
                 return;
             }
-            _texturePreviewScale = 1f;
+            //_texturePreviewScale = 1f;
             _texturePreviewImage = texture;
             // Uncomment this line if you want to restore the blur shadow that draws around textures when zoomed in.
             //texturePreviewPictureBox.Image = texture.Bitmap;
@@ -2754,12 +2793,12 @@ namespace PSXPrev.Forms
                 MessageBox.Show(this, "Select textures to draw to VRAM first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            DrawTexturesToVRAM(GetSelectedTextures());
+            DrawTexturesToVRAM(GetSelectedTextures(), null); // Null to draw selected textures of any clut index
         }
 
         private void drawAllToVRAM_Click(object sender, EventArgs e)
         {
-            DrawTexturesToVRAM(_textures);
+            DrawTexturesToVRAM(_textures, _paletteIndex);
         }
 
         private void findTextureByVRAMPage_Click(object sender, EventArgs e)
@@ -2794,6 +2833,14 @@ namespace PSXPrev.Forms
             texturesListView.GroupColumn = 1; // Set primary group back to "Textures"
             texturesListView.Sort(); // Re-sort now that "Found" group has been merged back with "Textures" group
             MessageBox.Show(this, "Results cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void setPaletteIndexToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (PromptClutIndex("Change Palette Index", _paletteIndex, out var newPaletteIndex))
+            {
+                SetPaletteIndex(newPaletteIndex);
+            }
         }
 
         private void vramComboBox_SelectedIndexChanged(object sender, EventArgs e)

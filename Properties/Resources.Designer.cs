@@ -543,6 +543,16 @@ namespace PSXPrev.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap Textures_SetPaletteIndex {
+            get {
+                object obj = ResourceManager.GetObject("Textures_SetPaletteIndex", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap VRAM_Clear_All {
             get {
                 object obj = ResourceManager.GetObject("VRAM_Clear_All", resourceCulture);

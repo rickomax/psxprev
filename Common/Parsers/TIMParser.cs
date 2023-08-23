@@ -23,16 +23,16 @@ namespace PSXPrev.Common.Parsers
                 var version = reader.ReadUInt16();
                 if (Limits.IgnoreTIMVersion || version == 0x00)
                 {
-                    var texture = ParseTim(reader);
-                    if (texture != null)
+                    var textures = ParseTim(reader);
+                    if (textures != null)
                     {
-                        TextureResults.Add(texture);
+                        TextureResults.AddRange(textures);
                     }
                 }
             }
         }
 
-        private Texture ParseTim(BinaryReader reader)
+        private List<Texture> ParseTim(BinaryReader reader)
         {
             var flag = reader.ReadUInt32();
             var pmode = (flag & 0x7);
@@ -47,8 +47,8 @@ namespace PSXPrev.Common.Parsers
             //    return null;
             //}
 
-            System.Drawing.Color[] palette = null;
-            bool[] semiTransparentPalette = null;
+            System.Drawing.Color[][] palettes = null;
+            bool[][] semiTransparentPalettes = null;
             if (hasClut)
             {
                 var clutBnum = reader.ReadUInt32(); // Size of clut data starting at this field
@@ -60,17 +60,20 @@ namespace PSXPrev.Common.Parsers
                 // Noted in jpsxdec/CreateTim that some files can claim an unpaletted pmode but still use a palette.
                 if (pmode == 2)
                 {
-                    pmode = GetModeFromClut(clutWidth, clutHeight);
+                    pmode = GetModeFromClut(clutWidth);
                 }
                 else if (pmode == 3)
                 {
                     pmode = 1; // 8bpp (256clut)
                 }
 
-                palette = ReadPalette(reader, pmode, clutWidth, clutHeight, out semiTransparentPalette, false);
+                // temp: Only support loading the first clut,
+                // because loading every clut variation is a mess currently.
+                var firstOnly = true;
+                palettes = ReadPalettes(reader, pmode, clutWidth, clutHeight, out semiTransparentPalettes, false, firstOnly);
             }
 
-            if (pmode < 2 && palette == null)
+            if (pmode < 2 && palettes == null)
             {
                 return null; // No palette for clut format (check now to speed up TIM scanning)
             }
@@ -81,16 +84,102 @@ namespace PSXPrev.Common.Parsers
             var imgStride = reader.ReadUInt16(); // Stride in units of 2 bytes
             var imgHeight = reader.ReadUInt16();
 
-            return ReadTexture(reader, imgStride, imgHeight, imgDx, imgDy, pmode, palette, semiTransparentPalette, false);
+            var imagePosition = reader.BaseStream.Position;
+            var imageCount = palettes?.Length ?? 1;
+            var textures = new List<Texture>(imageCount);
+            for (var i = 0; i < imageCount; i++)
+            {
+                if (i > 0)
+                {
+                    // We only need to seek back on later loops
+                    reader.BaseStream.Seek(imagePosition, SeekOrigin.Begin);
+                }
+                // Allow out of bounds to support HMDs with invalid image data, but valid model data.
+                var texture = ReadTexture(reader, i, imageCount - 1, imgStride, imgHeight, imgDx, imgDy, pmode, palettes[i], semiTransparentPalettes[i], false);
+                if (texture == null)
+                {
+                    break; // Every other attempt to read will fail too, just break now
+                }
+                textures.Add(texture);
+            }
+
+            return textures;
         }
 
-        public static System.Drawing.Color[] ReadPalette(BinaryReader reader, uint pmode, uint clutWidth, uint clutHeight, out bool[] semiTransparentPalette, bool allowOutOfBounds)
+        public static System.Drawing.Color[] ReadPalette(BinaryReader reader, uint pmode, uint clutWidth, out bool[] semiTransparentPalette, bool allowOutOfBounds)
         {
             semiTransparentPalette = null;
+
+            if (clutWidth == 0 || clutWidth > 256)
+            {
+                return null;
+            }
+            if (pmode >= 2)
+            {
+                return null; // Not a clut format
+            }
+
+            // HMD: Support models with invalid image data, but valid model data.
+            var clutDataSize = (clutWidth * 2);
+            if (allowOutOfBounds && clutDataSize + reader.BaseStream.Position > reader.BaseStream.Length)
+            {
+                return null;
+            }
+
+            // We should probably allocate the full 16clut or 256clut in-case an image pixel has bad data.
+            var paletteSize = pmode == 0 ? 16 : 256; // clutWidth;
+            var palette = new System.Drawing.Color[paletteSize];
+
+            for (var c = 0; c < palette.Length; c++)
+            {
+                System.Drawing.Color color;
+                if (c >= clutWidth)
+                {
+                    // Use default masking black as fallback color.
+                    color = System.Drawing.Color.FromArgb(255, 0, 0, 0);
+                }
+                else
+                {
+                    var data = reader.ReadUInt16();
+                    var r = (data) & 0x1f;
+                    var g = (data >> 5) & 0x1f;
+                    var b = (data >> 10) & 0x1f;
+                    var stp = ((data >> 15) & 0x1) == 1; // Semi-transparency: 0-Off, 1-On
+                    var a = 255;
+
+                    // Note: stpMode (not stp) is defined on a per polygon basis. We can't apply alpha now, only during rendering.
+                    if (stp)
+                    {
+                        if (semiTransparentPalette == null)
+                        {
+                            semiTransparentPalette = new bool[palette.Length];
+                        }
+                        semiTransparentPalette[c] = true;
+                    }
+                    else if (r == 0 && g == 0 && b == 0)
+                    {
+                        a = 0; // Transparent when black and !stp
+                    }
+
+                    color = System.Drawing.Color.FromArgb(a, r * 8, g * 8, b * 8);
+                }
+                palette[c] = color;
+            }
+
+            return palette;
+        }
+
+        public static System.Drawing.Color[][] ReadPalettes(BinaryReader reader, uint pmode, uint clutWidth, uint clutHeight, out bool[][] semiTransparentPalettes, bool allowOutOfBounds, bool firstOnly = false)
+        {
+            semiTransparentPalettes = null;
 
             if (clutWidth == 0 || clutHeight == 0 || clutWidth > 256 || clutHeight > 256)
             {
                 return null;
+            }
+            if (pmode >= 2)
+            {
+                return null; // Not a clut format
             }
 
             // HMD: Support models with invalid image data, but valid model data.
@@ -100,60 +189,27 @@ namespace PSXPrev.Common.Parsers
                 return null;
             }
 
-            var count = clutWidth * clutHeight;
-            System.Drawing.Color[] palette = null;
-            // We should probably allocate the full 16clut or 256clut in-case an image pixel has bad data.
-            switch (pmode)
+            var count = firstOnly ? 1 : clutHeight;
+            var palettes = new System.Drawing.Color[count][];
+            semiTransparentPalettes = new bool[count][];
+
+            for (var i = 0; i < clutHeight; i++)
             {
-                case 0:
-                    palette = new System.Drawing.Color[16];
-                    break;
-                case 1:
-                    palette = new System.Drawing.Color[256];
-                    break;
-            }
-            if (palette != null)
-            {
-                for (var c = 0; c < palette.Length; c++)
+                if (i < count)
                 {
-                    System.Drawing.Color color;
-                    if (c >= count)
-                    {
-                        // Use default masking black as fallback color.
-                        color = System.Drawing.Color.FromArgb(255, 0, 0, 0);
-                    }
-                    else
-                    {
-                        var data = reader.ReadUInt16();
-                        var r = (data) & 0x1f;
-                        var g = (data >> 5) & 0x1f;
-                        var b = (data >> 10) & 0x1f;
-                        var stp = ((data >> 15) & 0x1) == 1; // Semi-transparency: 0-Off, 1-On
-                        var a = 255;
-
-                        // Note: stpMode (not stp) is defined on a per polygon basis. We can't apply alpha now, only during rendering.
-                        if (stp)
-                        {
-                            if (semiTransparentPalette == null)
-                            {
-                                semiTransparentPalette = new bool[palette.Length];
-                            }
-                            semiTransparentPalette[c] = true;
-                        }
-                        else if (r == 0 && g == 0 && b == 0)
-                        {
-                            a = 0; // Transparent when black and !stp
-                        }
-
-                        color = System.Drawing.Color.FromArgb(a, r * 8, g * 8, b * 8);
-                    }
-                    palette[c] = color;
+                    palettes[i] = ReadPalette(reader, pmode, clutWidth, out semiTransparentPalettes[i], allowOutOfBounds);
+                }
+                else
+                {
+                    // Skip past this clut
+                    reader.BaseStream.Seek(clutWidth * 2, SeekOrigin.Current);
                 }
             }
-            return palette;
+
+            return palettes;
         }
 
-        public static Texture ReadTexture(BinaryReader reader, ushort stride, ushort height, ushort dx, ushort dy, uint pmode, System.Drawing.Color[] palette, bool[] semiTransparentPalette, bool allowOutOfBounds)
+        public static Texture ReadTexture(BinaryReader reader, int clutIndex, int maxClutIndex, ushort stride, ushort height, ushort dx, ushort dy, uint pmode, System.Drawing.Color[] palette, bool[] semiTransparentPalette, bool allowOutOfBounds)
         {
             if ((pmode == 0 || pmode == 1) && palette == null)
             {
@@ -199,7 +255,7 @@ namespace PSXPrev.Common.Parsers
             var textureY = (dy - textureOffsetY);
 
 
-            var texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, texturePage);
+            var texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, texturePage, clutIndex, maxClutIndex);
             try
             {
                 var bitmap = texture.Bitmap;
@@ -353,17 +409,19 @@ namespace PSXPrev.Common.Parsers
             return texture;
         }
 
-        public static uint GetModeFromClut(ushort clutWidth, ushort clutHeight)
+        public static uint GetModeFromClut(ushort clutWidth)
         {
-            // NOTE: Width*height always seems to be 16 or 256.
+            // NOTE: Width always seems to be 16 or 256.
             //       Specifically width was 16 or 256 and height was 1.
             //       With that, it's safe to assume the dimensions tell us the color count.
             //       Because this data could potentionally give us something other than 16 or 256,
-            //       assume anything greater than 16 will allocate a 256clut and only read w*h colors.
+            //       assume anything greater than 16 will allocate a 256clut and only read w colors.
+
+            // Note that height is different, and is used to count the number of cluts.
 
             // todo: Which is correct?
-            //return (clutWidth * clutHeight <= 16 ? 0u : 1u);
-            return (clutWidth * clutHeight < 256 ? 0u : 1u);
+            //return (clutWidth <= 16 ? 0u : 1u);
+            return (clutWidth < 256 ? 0u : 1u);
         }
 
         public static uint GetModeFromNoClut()
