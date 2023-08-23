@@ -82,11 +82,12 @@ namespace PSXPrev.Forms
         private bool _showUv;
         private int _vramSelectedPage = -1; // Used because combo box SelectedIndex can be -1 while typing.
         private Texture _texturePreviewImage;
+        private TexturesListViewItemAdaptor _texturesListViewAdaptor;
         private Bitmap _maskColorBitmap;
         private Bitmap _ambientColorBitmap;
         private Bitmap _backgroundColorBitmap;
         private Bitmap _wireframeVerticesColorBitmap;
-        private int _paletteIndex;
+        private int _clutIndex;
         private float _texturePreviewScale = 1f;
         private float _vramPageScale = 1f;
         private bool _autoDrawModelTextures;
@@ -113,6 +114,7 @@ namespace PSXPrev.Forms
             _scene = new Scene();
             _vram = new VRAM(_scene);
             _animationBatch = new AnimationBatch(_scene);
+            _texturesListViewAdaptor = new TexturesListViewItemAdaptor(this);
             Toolkit.Init();
             InitializeComponent();
             SetupControls();
@@ -281,7 +283,7 @@ namespace PSXPrev.Forms
                 SelectFirstEntity(); // Select something if the user hasn't already done so.
                 if (drawAllToVRAM)
                 {
-                    DrawTexturesToVRAM(_textures, _paletteIndex);
+                    DrawTexturesToVRAM(_textures, _clutIndex);
                 }
 
                 pauseScanningToolStripMenuItem.Checked = false;
@@ -385,7 +387,7 @@ namespace PSXPrev.Forms
             SetAmbientColor(settings.AmbientColor);
             SetMaskColor(settings.MaskColor);
             SetSolidWireframeVerticesColor(settings.SolidWireframeVerticesColor);
-            SetPaletteIndex(settings.PaletteIndex);
+            SetCurrentCLUTIndex(settings.CurrentCLUTIndex);
             showUVToolStripMenuItem.Checked = settings.ShowUVsInVRAM;
             autoDrawModelTexturesToolStripMenuItem.Checked = settings.AutoDrawModelTextures;
             autoPlayAnimationsToolStripMenuItem.Checked = settings.AutoPlayAnimation;
@@ -429,7 +431,7 @@ namespace PSXPrev.Forms
             settings.AmbientColor = _scene.AmbientColor;
             settings.MaskColor = _scene.MaskColor;
             settings.SolidWireframeVerticesColor = _scene.SolidWireframeVerticesColor;
-            settings.PaletteIndex = _paletteIndex;
+            settings.CurrentCLUTIndex = _clutIndex;
             settings.ShowUVsInVRAM = showUVToolStripMenuItem.Checked;
             settings.AutoDrawModelTextures = autoDrawModelTexturesToolStripMenuItem.Checked;
             settings.AutoPlayAnimation = autoPlayAnimationsToolStripMenuItem.Checked;
@@ -525,6 +527,9 @@ namespace PSXPrev.Forms
             // Setup ImageListView for textures
             // Set renderer to use a sharp-cornered square box, and nameplate below the box.
             texturesListView.SetRenderer(new Manina.Windows.Forms.ImageListViewRenderers.XPRenderer());
+
+            // Use this cache mode so that thumbnails are already loaded when you scroll past them.
+            texturesListView.CacheMode = CacheMode.Continuous;
 
             // Set handlers for "Found" and "Textures" groups.
             var grouper = new TexturesListViewGrouper();
@@ -747,6 +752,9 @@ namespace PSXPrev.Forms
             {
                 var state = eventType == KeyEventType.Down;
                 var sceneFocused = _openTkControl.Focused;
+                var textureTab = menusTabControl.SelectedIndex == TexturesTabIndex;
+                var textureFocused = textureTab && (texturePreviewPictureBox.Focused || texturesListView.Focused);
+                    
                 switch (e.KeyCode)
                 {
                     // Gizmo tools
@@ -790,6 +798,22 @@ namespace PSXPrev.Forms
                         _onlyModelsWithSameTMDID = !_onlyModelsWithSameTMDID;
                         Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"_onlyModelsWithSameTMDID: {_onlyModelsWithSameTMDID}");
                         UpdateSelectedEntity();
+                        e.Handled = true;
+                        break;
+
+                    case Keys.Oemplus when state && textureFocused:
+                        if (_clutIndex < 255)
+                        {
+                            SetCurrentCLUTIndex(_clutIndex + 1);
+                            e.Handled = true;
+                        }
+                        break;
+                    case Keys.OemMinus when state && textureFocused:
+                        if (_clutIndex > 0)
+                        {
+                            SetCurrentCLUTIndex(_clutIndex - 1);
+                            e.Handled = true;
+                        }
                         break;
 
                     // Debugging keys for testing picking rays.
@@ -1293,7 +1317,8 @@ namespace PSXPrev.Forms
 
         private void TextureAdded(Texture texture, int index)
         {
-            texturesListView.Items.Add(new ImageListViewItem
+            object key = index;
+            texturesListView.Items.Add(new ImageListViewItem(key)
             {
                 //Text = index.ToString(), //debug
                 Text = texture.TextureName,
@@ -1303,7 +1328,9 @@ namespace PSXPrev.Forms
                     Index = index,
                     Found = false,
                 },
-            }, texture.Bitmap);
+            }, _texturesListViewAdaptor);
+            // Change CLUT index to current index
+            texture.SetCLUTIndex(_clutIndex);
         }
 
         private void AnimationAdded(Animation animation, int index)
@@ -1795,7 +1822,7 @@ namespace PSXPrev.Forms
             }
         }
 
-        private bool PromptClutIndex(string title, int? initialIndex, out int clutIndex)
+        private bool PromptCLUTIndex(string title, int? initialIndex, out int clutIndex)
         {
             EnterDialog();
             try
@@ -2275,7 +2302,7 @@ namespace PSXPrev.Forms
             var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
             if (rootEntity != null && _autoDrawModelTextures)
             {
-                DrawModelTexturesToVRAM(rootEntity, _paletteIndex);
+                DrawModelTexturesToVRAM(rootEntity, _clutIndex);
             }
             UpdateSelectedEntity();
         }
@@ -2508,13 +2535,16 @@ namespace PSXPrev.Forms
         {
             foreach (var texture in textures)
             {
-                if (clutIndex.HasValue && texture.ClutIndex != clutIndex.Value && texture.MaxClutIndex != 0)
+                var oldClutIndex = texture.CLUTIndex;
+                if (clutIndex.HasValue && texture.CLUTCount > 1)
                 {
-                    // We're only drawing textures of a specific clut index, and this isn't one of them.
-                    // We make an exception for textures that have no alternate cluts.
-                    continue;
+                    texture.SetCLUTIndex(clutIndex.Value);
                 }
                 _vram.DrawTexture(texture, true); // Suppress updates to scene until all textures are drawn.
+                if (clutIndex.HasValue && texture.CLUTCount > 1)
+                {
+                    texture.SetCLUTIndex(clutIndex.Value);
+                }
             }
             if (_vram.UpdateAllPages()) // True if any pages needed to be updated (aka textures wasn't empty)
             {
@@ -2543,10 +2573,20 @@ namespace PSXPrev.Forms
             UpdateVRAMComboBoxPageItems();
         }
 
-        private void SetPaletteIndex(int paletteIndex)
+        private void SetCurrentCLUTIndex(int clutIndex)
         {
-            _paletteIndex = GeomMath.Clamp(paletteIndex, 0, 255);
-            setPaletteIndexToolStripMenuItem.Text = $"Set Palette Index: {_paletteIndex}";
+            _clutIndex = GeomMath.Clamp(clutIndex, 0, 255);
+            foreach (var texture in _textures)
+            {
+                texture.SetCLUTIndex(_clutIndex);
+            }
+
+            setPaletteIndexToolStripMenuItem.Text = $"Set CLUT Index: {_clutIndex}";
+
+            // Refresh texture thumbnails, texture preview, and property grid
+            texturesListView.Invalidate();
+            texturePreviewPictureBox.Invalidate();
+            texturePropertyGrid.SelectedObject = texturePropertyGrid.SelectedObject;
         }
 
         private static int CompareTexturesListViewItems(ImageListViewItem a, ImageListViewItem b)
@@ -2715,7 +2755,7 @@ namespace PSXPrev.Forms
             {
                 return;
             }
-            texturePreviewPictureBox.Width = (int)(texture.Width * _texturePreviewScale);
+            texturePreviewPictureBox.Width  = (int)(texture.Width  * _texturePreviewScale);
             texturePreviewPictureBox.Height = (int)(texture.Height * _texturePreviewScale);
             texturesZoomLabel.Text = $"{_texturePreviewScale:P0}"; // Percent format
         }
@@ -2732,7 +2772,7 @@ namespace PSXPrev.Forms
                 _vramPageScale /= 2f;
             }
             _vramPageScale = GeomMath.Clamp(_vramPageScale, 0.25f, 8.0f);
-            vramPagePictureBox.Width = (int)(VRAM.PageSize * _vramPageScale);
+            vramPagePictureBox.Width  = (int)(VRAM.PageSize * _vramPageScale);
             vramPagePictureBox.Height = (int)(VRAM.PageSize * _vramPageScale);
             vramZoomLabel.Text = $"{_vramPageScale:P0}"; // Percent format
         }
@@ -2754,8 +2794,8 @@ namespace PSXPrev.Forms
             _texturePreviewImage = texture;
             // Uncomment this line if you want to restore the blur shadow that draws around textures when zoomed in.
             //texturePreviewPictureBox.Image = texture.Bitmap;
-            texturePreviewPictureBox.Width = texture.Width;
-            texturePreviewPictureBox.Height = texture.Height;
+            texturePreviewPictureBox.Width  = (int)(texture.Width  * _texturePreviewScale);
+            texturePreviewPictureBox.Height = (int)(texture.Height * _texturePreviewScale);
             texturePreviewPictureBox.Refresh();
             texturePropertyGrid.SelectedObject = texture;
         }
@@ -2777,6 +2817,8 @@ namespace PSXPrev.Forms
             {
                 return;
             }
+            texture.CLUTIndex = GeomMath.Clamp(texture.CLUTIndex, 0, Math.Max(0, texture.CLUTCount - 1));
+            texture.SetCLUTIndex(texture.CLUTIndex);
             // Validate changes to texture properties.
             texture.X = VRAM.ClampTextureX(texture.X);
             texture.Y = VRAM.ClampTextureY(texture.Y);
@@ -2798,7 +2840,7 @@ namespace PSXPrev.Forms
 
         private void drawAllToVRAM_Click(object sender, EventArgs e)
         {
-            DrawTexturesToVRAM(_textures, _paletteIndex);
+            DrawTexturesToVRAM(_textures, _clutIndex);
         }
 
         private void findTextureByVRAMPage_Click(object sender, EventArgs e)
@@ -2837,9 +2879,12 @@ namespace PSXPrev.Forms
 
         private void setPaletteIndexToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (PromptClutIndex("Change Palette Index", _paletteIndex, out var newPaletteIndex))
+            if (PromptCLUTIndex("Change CLUT Index", _clutIndex, out var newCLUTIndex))
             {
-                SetPaletteIndex(newPaletteIndex);
+                if (_clutIndex != newCLUTIndex)
+                {
+                    SetCurrentCLUTIndex(newCLUTIndex);
+                }
             }
         }
 
@@ -3214,6 +3259,57 @@ namespace PSXPrev.Forms
                 var name = tagInfo.Found ? "Found" : "Textures"; // Name ID of group
                 var order = tagInfo.Found ? 0 : 1;               // Index of group
                 return new ImageListView.GroupInfo(name, order);
+            }
+        }
+
+        // We need a custom adaptor to assign the image associated with the ImageListViewItem.
+        // The default adaptor assumes the image is in the filesystem (which it's not),
+        // and there's no way to refresh the image thumbnail if we don't use this class.
+        private class TexturesListViewItemAdaptor : ImageListView.ImageListViewItemAdaptor
+        {
+            private static readonly Utility.Tuple<ColumnType, string, object>[] EmptyDetails = new Utility.Tuple<ColumnType, string, object>[0];
+
+            private PreviewForm _previewForm;
+
+            public TexturesListViewItemAdaptor(PreviewForm previewForm)
+            {
+                _previewForm = previewForm;
+            }
+
+            public override void Dispose()
+            {
+                _previewForm = null;
+            }
+
+            public override Image GetThumbnail(object key, Size size, UseEmbeddedThumbnails useEmbeddedThumbnails, bool useExifOrientation)
+            {
+                var index = (int)key;
+                return _previewForm._textures[index].Bitmap;
+            }
+
+            public override string GetUniqueIdentifier(object key, Size size, UseEmbeddedThumbnails useEmbeddedThumbnails, bool useExifOrientation)
+            {
+                var index = (int)key;
+                return index.ToString();
+            }
+
+            public override string GetSourceImage(object key)
+            {
+                // This is just asking for the source filename, we don't have anything like that, but we can safely return null.
+                return null;
+            }
+
+            public override Utility.Tuple<ColumnType, string, object>[] GetDetails(object key)
+            {
+                /*var index = (int)key;
+                var texture = _previewForm._textures[index];
+                var details = new Utility.Tuple<ColumnType, string, object>[]
+                {
+                    new Utility.Tuple<ColumnType, string, object>(ColumnType.Dimensions, string.Empty, new Size(texture.Width, texture.Height)),
+                    new Utility.Tuple<ColumnType, string, object>(ColumnType.Custom, "TexturePage", texture.TexturePage),
+                };
+                return details;*/
+                return EmptyDetails; // We're not displaying details columns
             }
         }
 

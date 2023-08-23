@@ -22,6 +22,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>1</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -31,6 +32,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationIcon>Resources\Icons\PlayStation_DarkSquare.ico</ApplicationIcon>
@@ -118,6 +120,7 @@
     <Compile Include="Common\Renderer\TextureBinder.cs" />
     <Compile Include="Common\Renderer\VRAM.cs" />
     <Compile Include="Common\Utils\BinaryReaderExtensions.cs" />
+    <Compile Include="Common\Utils\DrawingExtensions.cs" />
     <Compile Include="Common\Utils\FInt.cs" />
     <Compile Include="Common\Utils\JsonStringColorConverter.cs" />
     <Compile Include="Common\Utils\JsonStringEnumConverter.cs" />
