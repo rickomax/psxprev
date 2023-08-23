@@ -296,7 +296,11 @@ namespace PSXPrev
         {
             try
             {
-                Instance = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(FilePath));
+                Instance = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(FilePath), new JsonSerializerSettings
+                {
+                    // Fix security vulnerability in-case the settings file somehow gets replaced by someone else
+                    MaxDepth = 128,
+                });
                 Instance.Validate();
 
                 // Create a settings file if one doesn't already exist.
