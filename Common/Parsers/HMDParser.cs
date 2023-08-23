@@ -320,10 +320,10 @@ namespace PSXPrev.Common.Parsers
                         {
                             Program.Logger.WriteLine($"HMD Image Data");
                         }
-                        var texture = ProcessImageData(reader, driver, primitiveType, primitiveHeaderPointer);
-                        if (texture != null)
+                        var textures = ProcessImageData(reader, driver, primitiveType, primitiveHeaderPointer);
+                        if (textures != null)
                         {
-                            TextureResults.Add(texture);
+                            TextureResults.AddRange(textures);
                         }
                     }
                     else if (category == 3)
@@ -641,7 +641,7 @@ namespace PSXPrev.Common.Parsers
             reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
         }
 
-        private Texture ProcessImageData(BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer)
+        private List<Texture> ProcessImageData(BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer)
         {
             var hasClut = primitiveType == 1;
 
@@ -660,8 +660,8 @@ namespace PSXPrev.Common.Parsers
 
             var imageIndex = reader.ReadUInt32() * 4;
             uint pmode;
-            System.Drawing.Color[] palette;
-            bool[] semiTransparentPalette;
+            System.Drawing.Color[][] palettes;
+            bool[][] semiTransparentPalettes;
             if (hasClut)
             {
                 var clutX = reader.ReadUInt16();
@@ -670,24 +670,42 @@ namespace PSXPrev.Common.Parsers
                 var clutHeight = reader.ReadUInt16();
                 var clutIndex = reader.ReadUInt32() * 4;
 
-                pmode = TIMParser.GetModeFromClut(clutWidth, clutHeight);
+                pmode = TIMParser.GetModeFromClut(clutWidth);
 
                 reader.BaseStream.Seek(_offset + clutTop + clutIndex, SeekOrigin.Begin);
                 // Allow out of bounds to support HMDs with invalid image data, but valid model data.
-                palette = TIMParser.ReadPalette(reader, pmode, clutWidth, clutHeight, out semiTransparentPalette, true);
+                // temp: Only support loading the first clut,
+                // because loading every clut variation is a mess currently.
+                var firstOnly = true;
+                palettes = TIMParser.ReadPalettes(reader, pmode, clutWidth, clutHeight, out semiTransparentPalettes, true, firstOnly);
+                if (palettes == null)
+                {
+                    return null;
+                }
             }
             else
             {
                 pmode = TIMParser.GetModeFromNoClut();
-                palette = null;
-                semiTransparentPalette = null;
+                palettes = null;
+                semiTransparentPalettes = null;
             }
-            reader.BaseStream.Seek(_offset + imageTop + imageIndex, SeekOrigin.Begin);
-            // Allow out of bounds to support HMDs with invalid image data, but valid model data.
-            var texture = TIMParser.ReadTexture(reader, stride, height, x, y, pmode, palette, semiTransparentPalette, true);
+
+            var imageCount = palettes?.Length ?? 1;
+            var textures = new List<Texture>(imageCount);
+            for (var i = 0; i < imageCount; i++)
+            {
+                reader.BaseStream.Seek(_offset + imageTop + imageIndex, SeekOrigin.Begin);
+                // Allow out of bounds to support HMDs with invalid image data, but valid model data.
+                var texture = TIMParser.ReadTexture(reader, i, imageCount - 1, stride, height, x, y, pmode, palettes[i], semiTransparentPalettes[i], true);
+                if (texture == null)
+                {
+                    break; // Every other attempt to read will fail too, just break now
+                }
+                textures.Add(texture);
+            }
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
-            return texture;
+            return textures;
         }
 
         private List<Animation> ProcessAnimationData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, uint blockCount)

@@ -53,6 +53,8 @@
             this.offsetStartOnlyCheckBox = new System.Windows.Forms.CheckBox();
             this.offsetStartCheckBox = new System.Windows.Forms.CheckBox();
             this.offsetStopCheckBox = new System.Windows.Forms.CheckBox();
+            this.optionDrawAllToVRAMCheckBox = new System.Windows.Forms.CheckBox();
+            this.binSectorCheckBox = new System.Windows.Forms.CheckBox();
             this.formatsGroupBox = new System.Windows.Forms.GroupBox();
             this.animationsLabel = new System.Windows.Forms.Label();
             this.texturesLabel = new System.Windows.Forms.Label();
@@ -65,7 +67,6 @@
             this.checkTMDCheckBox = new System.Windows.Forms.CheckBox();
             this.optionsGroupBox = new System.Windows.Forms.GroupBox();
             this.optionShowErrorsCheckBox = new System.Windows.Forms.CheckBox();
-            this.optionDrawAllToVRAMCheckBox = new System.Windows.Forms.CheckBox();
             this.optionDebugCheckBox = new System.Windows.Forms.CheckBox();
             this.optionNoVerboseCheckBox = new System.Windows.Forms.CheckBox();
             this.optionLogToFileCheckBox = new System.Windows.Forms.CheckBox();
@@ -76,7 +77,6 @@
             this.showAdvancedButton = new System.Windows.Forms.Button();
             this.advancedOptionsGroupBox = new System.Windows.Forms.GroupBox();
             this.binSectorInvalidLabel = new System.Windows.Forms.Label();
-            this.binSectorCheckBox = new System.Windows.Forms.CheckBox();
             this.binSectorSizeUpDown = new System.Windows.Forms.NumericUpDown();
             this.binSectorStartUpDown = new System.Windows.Forms.NumericUpDown();
             this.advancedOffsetGroupBox = new System.Windows.Forms.GroupBox();
@@ -308,12 +308,6 @@
             // 
             // offsetAlignUpDown
             // 
-            this.offsetAlignUpDown.Hexadecimal = true;
-            this.offsetAlignUpDown.Increment = new decimal(new int[] {
-            8,
-            0,
-            0,
-            0});
             this.offsetAlignUpDown.Location = new System.Drawing.Point(279, 19);
             this.offsetAlignUpDown.Maximum = new decimal(new int[] {
             65536,
@@ -373,6 +367,32 @@
             this.toolTip.SetToolTip(this.offsetStopCheckBox, "Stop scanning files at the hexadecimal offset.");
             this.offsetStopCheckBox.UseVisualStyleBackColor = true;
             this.offsetStopCheckBox.CheckedChanged += new System.EventHandler(this.offsetStopCheckBox_CheckedChanged);
+            // 
+            // optionDrawAllToVRAMCheckBox
+            // 
+            this.optionDrawAllToVRAMCheckBox.AutoSize = true;
+            this.optionDrawAllToVRAMCheckBox.Location = new System.Drawing.Point(12, 42);
+            this.optionDrawAllToVRAMCheckBox.Name = "optionDrawAllToVRAMCheckBox";
+            this.optionDrawAllToVRAMCheckBox.Size = new System.Drawing.Size(111, 17);
+            this.optionDrawAllToVRAMCheckBox.TabIndex = 3;
+            this.optionDrawAllToVRAMCheckBox.Text = "Draw All to VRAM";
+            this.toolTip.SetToolTip(this.optionDrawAllToVRAMCheckBox, "All loaded textures will be drawn \r\nto VRAM after the scan finishes.");
+            this.optionDrawAllToVRAMCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // binSectorCheckBox
+            // 
+            this.binSectorCheckBox.AutoSize = true;
+            this.binSectorCheckBox.Enabled = false;
+            this.binSectorCheckBox.Location = new System.Drawing.Point(12, 69);
+            this.binSectorCheckBox.Margin = new System.Windows.Forms.Padding(3, 3, 0, 3);
+            this.binSectorCheckBox.Name = "binSectorCheckBox";
+            this.binSectorCheckBox.Size = new System.Drawing.Size(131, 17);
+            this.binSectorCheckBox.TabIndex = 6;
+            this.binSectorCheckBox.Text = "BIN Sector Start/Size:";
+            this.toolTip.SetToolTip(this.binSectorCheckBox, "Enter custom sector user start/size for raw PS1 .BIN files.\r\nThe default is 24, 2" +
+        "048.");
+            this.binSectorCheckBox.UseVisualStyleBackColor = true;
+            this.binSectorCheckBox.CheckedChanged += new System.EventHandler(this.binSectorCheckBox_CheckedChanged);
             // 
             // formatsGroupBox
             // 
@@ -510,17 +530,6 @@
             this.optionShowErrorsCheckBox.Text = "Error Logging";
             this.optionShowErrorsCheckBox.UseVisualStyleBackColor = true;
             // 
-            // optionDrawAllToVRAMCheckBox
-            // 
-            this.optionDrawAllToVRAMCheckBox.AutoSize = true;
-            this.optionDrawAllToVRAMCheckBox.Location = new System.Drawing.Point(12, 42);
-            this.optionDrawAllToVRAMCheckBox.Name = "optionDrawAllToVRAMCheckBox";
-            this.optionDrawAllToVRAMCheckBox.Size = new System.Drawing.Size(111, 17);
-            this.optionDrawAllToVRAMCheckBox.TabIndex = 3;
-            this.optionDrawAllToVRAMCheckBox.Text = "Draw All to VRAM";
-            this.toolTip.SetToolTip(this.optionDrawAllToVRAMCheckBox, "All loaded textures will be drawn \r\nto VRAM after the scan finishes.");
-            this.optionDrawAllToVRAMCheckBox.UseVisualStyleBackColor = true;
-            // 
             // optionDebugCheckBox
             // 
             this.optionDebugCheckBox.AutoSize = true;
@@ -635,21 +644,6 @@
             this.binSectorInvalidLabel.Text = "Start + Size is bigger\r\nthan raw size (2352)";
             this.binSectorInvalidLabel.Visible = false;
             // 
-            // binSectorCheckBox
-            // 
-            this.binSectorCheckBox.AutoSize = true;
-            this.binSectorCheckBox.Enabled = false;
-            this.binSectorCheckBox.Location = new System.Drawing.Point(12, 69);
-            this.binSectorCheckBox.Margin = new System.Windows.Forms.Padding(3, 3, 0, 3);
-            this.binSectorCheckBox.Name = "binSectorCheckBox";
-            this.binSectorCheckBox.Size = new System.Drawing.Size(131, 17);
-            this.binSectorCheckBox.TabIndex = 6;
-            this.binSectorCheckBox.Text = "BIN Sector Start/Size:";
-            this.toolTip.SetToolTip(this.binSectorCheckBox, "Enter custom sector user start/size for raw PS1 .BIN files.\r\nThe default is 24, 2" +
-        "048.");
-            this.binSectorCheckBox.UseVisualStyleBackColor = true;
-            this.binSectorCheckBox.CheckedChanged += new System.EventHandler(this.binSectorCheckBox_CheckedChanged);
-            // 
             // binSectorSizeUpDown
             // 
             this.binSectorSizeUpDown.Enabled = false;
@@ -730,11 +724,6 @@
             this.offsetStartUpDown.Enabled = false;
             this.offsetStartUpDown.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.offsetStartUpDown.Hexadecimal = true;
-            this.offsetStartUpDown.Increment = new decimal(new int[] {
-            8,
-            0,
-            0,
-            0});
             this.offsetStartUpDown.Location = new System.Drawing.Point(66, 19);
             this.offsetStartUpDown.Maximum = new decimal(new int[] {
             -1,
@@ -750,11 +739,6 @@
             this.offsetStopUpDown.Enabled = false;
             this.offsetStopUpDown.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.offsetStopUpDown.Hexadecimal = true;
-            this.offsetStopUpDown.Increment = new decimal(new int[] {
-            8,
-            0,
-            0,
-            0});
             this.offsetStopUpDown.Location = new System.Drawing.Point(66, 46);
             this.offsetStopUpDown.Maximum = new decimal(new int[] {
             -1,

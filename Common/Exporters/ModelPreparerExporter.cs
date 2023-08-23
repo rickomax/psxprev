@@ -579,7 +579,7 @@ namespace PSXPrev.Common.Exporters
                     var bitmap = VRAM.ConvertSingleTexture(_packedTextures, _countX, _countY, false);
                     try
                     {
-                        SingleTexture = new Texture(bitmap, 0, 0, 32, 0);
+                        SingleTexture = new Texture(bitmap, 0, 0, 32, 0, 0, 0);
                         SingleTexture.TextureName = $"Single[{_countX}x{_countY}]";
                         //SingleTexture.SemiTransparentMap = VRAM.ConvertSingleTexture(_packedTextures, _countX, _countY, true);
                     }
@@ -745,7 +745,7 @@ namespace PSXPrev.Common.Exporters
                     var bitmap = VRAM.ConvertTiledTexture(OriginalTexture, srcRect, _repeatX, _repeatY, fullWidth, fullHeight, false);
                     try
                     {
-                        TiledTexture = new Texture(bitmap, 0, 0, 32, TexturePage);
+                        TiledTexture = new Texture(bitmap, 0, 0, 32, TexturePage, 0, 0);
                         //TiledTexture.TextureName = $"Tiled[{srcX},{srcY} {srcWidth}x{srcHeight}]";
                         TiledTexture.TextureName = $"Tiled[{_repeatX}x{_repeatY}]";
                         //TiledTexture.SemiTransparentMap = VRAM.ConvertTiledTexture(OriginalTexture, srcRect, _repeatX, _repeatY, fullWidth, fullHeight, true);

@@ -12,23 +12,25 @@ namespace PSXPrev.Common
 
         private readonly WeakReference<RootEntity> _ownerEntity = new WeakReference<RootEntity>(null);
 
-        public Texture(Bitmap bitmap, int x, int y, int bpp, int texturePage, bool isVRAMPage = false)
+        public Texture(Bitmap bitmap, int x, int y, int bpp, int texturePage, int clutIndex, int maxClutIndex, bool isVRAMPage = false)
         {
             Bitmap = bitmap;
             X = x;
             Y = y;
             Bpp = bpp;
             TexturePage = texturePage;
+            ClutIndex = clutIndex;
+            MaxClutIndex = maxClutIndex;
             IsVRAMPage = isVRAMPage;
         }
 
-        public Texture(int width, int height, int x, int y, int bpp, int texturePage, bool isVRAMPage = false)
-            : this(new Bitmap(width, height), x, y, bpp, texturePage, isVRAMPage)
+        public Texture(int width, int height, int x, int y, int bpp, int texturePage, int clutIndex, int maxClutIndex, bool isVRAMPage = false)
+            : this(new Bitmap(width, height), x, y, bpp, texturePage, clutIndex, maxClutIndex, isVRAMPage)
         {
         }
 
         public Texture(Texture fromTexture)
-            : this(fromTexture.Width, fromTexture.Height, fromTexture.X, fromTexture.Y, fromTexture.Bpp, fromTexture.TexturePage, fromTexture.IsVRAMPage)
+            : this(fromTexture.Width, fromTexture.Height, fromTexture.X, fromTexture.Y, fromTexture.Bpp, fromTexture.TexturePage, fromTexture.ClutIndex, fromTexture.MaxClutIndex, fromTexture.IsVRAMPage)
         {
             try
             {
@@ -80,13 +82,19 @@ namespace PSXPrev.Common
         [DisplayName("VRAM Page")]
         public int TexturePage { get; set; }
 
-        [ReadOnly(true), DisplayName("BPP")]
+        [DisplayName("CLUT Index"), Browsable(false)]
+        public int ClutIndex { get; set; }
+
+        [Browsable(false)]
+        public int MaxClutIndex { get; set; }
+
+        [DisplayName("BPP"), ReadOnly(true)]
         public int Bpp { get; set; }
 
-        [ReadOnly(true), DisplayName("Width")]
+        [DisplayName("Width"), ReadOnly(true)]
         public int Width => Bitmap.Width;
 
-        [ReadOnly(true), DisplayName("Height")]
+        [DisplayName("Height"), ReadOnly(true)]
         public int Height => Bitmap.Height;
 
         // Usable area of the texture (only different from Width/Height when IsVRAMPage is true).

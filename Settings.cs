@@ -119,6 +119,9 @@ namespace PSXPrev
         [JsonProperty("colorDialogCustomColors", ItemConverterType = typeof(JsonStringColorConverter))]
         private System.Drawing.Color[] ColorDialogCustomColors { get; set; } = new System.Drawing.Color[0];
 
+        [JsonProperty("currentPaletteIndex")]
+        public int PaletteIndex { get; set; } = 0;
+
         [JsonProperty("showUVsInVRAM")]
         public bool ShowUVsInVRAM { get; set; } = true;
 
@@ -245,6 +248,7 @@ namespace PSXPrev
             BackgroundColor   = ValidateColor(BackgroundColor,   Defaults.BackgroundColor);
             AmbientColor      = ValidateColor(AmbientColor,      Defaults.AmbientColor);
             MaskColor         = ValidateColor(MaskColor,         Defaults.MaskColor);
+            PaletteIndex      = ValidateClamp(PaletteIndex,      Defaults.PaletteIndex, 0, 255);
             AnimationLoopMode = ValidateEnum( AnimationLoopMode, Defaults.AnimationLoopMode);
             AnimationSpeed    = ValidateClamp(AnimationSpeed,    Defaults.AnimationSpeed, 0.01f, 100f);
             LogStandardColor        = ValidateEnum(LogStandardColor,        Defaults.LogStandardColor);
@@ -340,6 +344,12 @@ namespace PSXPrev
         private static float ValidateClamp(float value, float @default, float min, float max)
         {
             return float.IsNaN(value) || float.IsInfinity(value) ? @default : GeomMath.Clamp(value, min, max);
+        }
+
+        private static int ValidateClamp(int value, int @default, int min, int max)
+        {
+            // Yeah, this ignores default...
+            return GeomMath.Clamp(value, min, max);
         }
 
         private static float ValidateAngle(float value, float @default)

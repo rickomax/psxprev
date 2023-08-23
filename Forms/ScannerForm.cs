@@ -238,7 +238,7 @@ namespace PSXPrev.Forms
                 BINSectorUserSizeValue  = (int)binSectorSizeUpDown.Value,
 
                 LogToFile = optionLogToFileCheckBox.Checked,
-                LogToConsole = !optionNoVerboseCheckBox.Checked,
+                LogToConsole = optionNoVerboseCheckBox.Checked,
                 //UseConsoleColor = true, // Not that important, don't add to reduce UI clutter
                 DebugLogging = optionDebugCheckBox.Checked,
                 ErrorLogging = optionShowErrorsCheckBox.Checked,
@@ -291,7 +291,7 @@ namespace PSXPrev.Forms
             binSectorSizeUpDown.SetValueSafe(options.BINSectorUserSizeValue);
 
             optionLogToFileCheckBox.Checked = options.LogToFile;
-            optionNoVerboseCheckBox.Checked = !options.LogToConsole;
+            optionNoVerboseCheckBox.Checked = options.LogToConsole;
             optionDebugCheckBox.Checked = options.DebugLogging;
             optionShowErrorsCheckBox.Checked = options.ErrorLogging;
 

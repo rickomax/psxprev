@@ -132,8 +132,6 @@ namespace PSXPrev.Forms
             this.wireframeSizeUpDown = new System.Windows.Forms.NumericUpDown();
             this.vertexSizeUpDown = new System.Windows.Forms.NumericUpDown();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
-            this.showSideBarToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.fastWindowResizeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.texturesListView = new Manina.Windows.Forms.ImageListView();
             this.texturePreviewPictureBox = new System.Windows.Forms.PictureBox();
             this.vramPagePictureBox = new System.Windows.Forms.PictureBox();
@@ -141,6 +139,8 @@ namespace PSXPrev.Forms
             this.clearScanResultsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.pauseScanningToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.stopScanningToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.fastWindowResizeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.showSideBarToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.defaultSettingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.loadSettingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveSettingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -175,6 +175,7 @@ namespace PSXPrev.Forms
             this.drawAllToVRAMToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.findByPageToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.clearSearchToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.setPaletteIndexToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoDrawModelTexturesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.exportVRAMPagesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.exportSelectedVRAMPageToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -1088,6 +1089,7 @@ namespace PSXPrev.Forms
             this.drawAllToVRAMToolStripMenuItem,
             this.findByPageToolStripMenuItem,
             this.clearSearchToolStripMenuItem,
+            this.setPaletteIndexToolStripMenuItem,
             this.toolStripSeparator1,
             this.autoDrawModelTexturesToolStripMenuItem,
             this.toolStripSeparator6,
@@ -1099,23 +1101,23 @@ namespace PSXPrev.Forms
             // toolStripSeparator3
             // 
             this.toolStripSeparator3.Name = "toolStripSeparator3";
-            this.toolStripSeparator3.Size = new System.Drawing.Size(173, 6);
+            this.toolStripSeparator3.Size = new System.Drawing.Size(177, 6);
             // 
             // toolStripSeparator1
             // 
             this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(173, 6);
+            this.toolStripSeparator1.Size = new System.Drawing.Size(177, 6);
             // 
             // toolStripSeparator6
             // 
             this.toolStripSeparator6.Name = "toolStripSeparator6";
-            this.toolStripSeparator6.Size = new System.Drawing.Size(173, 6);
+            this.toolStripSeparator6.Size = new System.Drawing.Size(177, 6);
             // 
             // setMaskColorToolStripMenuItem
             // 
             this.setMaskColorToolStripMenuItem.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.setMaskColorToolStripMenuItem.Name = "setMaskColorToolStripMenuItem";
-            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.setMaskColorToolStripMenuItem.Text = "Set Mask Color";
             this.setMaskColorToolStripMenuItem.Click += new System.EventHandler(this.setMaskColorToolStripMenuItem_Click);
             // 
@@ -1465,26 +1467,6 @@ namespace PSXPrev.Forms
             this.toolTip.SetToolTip(this.vertexSizeUpDown, "Vertex");
             this.vertexSizeUpDown.ValueChanged += new System.EventHandler(this.vertexSizeUpDown_ValueChanged);
             // 
-            // showSideBarToolStripMenuItem
-            // 
-            this.showSideBarToolStripMenuItem.Checked = true;
-            this.showSideBarToolStripMenuItem.CheckOnClick = true;
-            this.showSideBarToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.showSideBarToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.File_ShowSideBar;
-            this.showSideBarToolStripMenuItem.Name = "showSideBarToolStripMenuItem";
-            this.showSideBarToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.B)));
-            this.showSideBarToolStripMenuItem.Size = new System.Drawing.Size(207, 22);
-            this.showSideBarToolStripMenuItem.Text = "Show Side Bar";
-            this.showSideBarToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showSideBarToolStripMenuItem_CheckedChanged);
-            // 
-            // fastWindowResizeToolStripMenuItem
-            // 
-            this.fastWindowResizeToolStripMenuItem.CheckOnClick = true;
-            this.fastWindowResizeToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.File_FastWindowResize;
-            this.fastWindowResizeToolStripMenuItem.Name = "fastWindowResizeToolStripMenuItem";
-            this.fastWindowResizeToolStripMenuItem.Size = new System.Drawing.Size(207, 22);
-            this.fastWindowResizeToolStripMenuItem.Text = "Fast Window Resize";
-            // 
             // texturesListView
             // 
             this.texturesListView.AllowItemReorder = false;
@@ -1575,6 +1557,26 @@ namespace PSXPrev.Forms
             this.stopScanningToolStripMenuItem.Size = new System.Drawing.Size(207, 22);
             this.stopScanningToolStripMenuItem.Text = "Stop Scanning";
             this.stopScanningToolStripMenuItem.Click += new System.EventHandler(this.stopScanningToolStripMenuItem_Click);
+            // 
+            // fastWindowResizeToolStripMenuItem
+            // 
+            this.fastWindowResizeToolStripMenuItem.CheckOnClick = true;
+            this.fastWindowResizeToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.File_FastWindowResize;
+            this.fastWindowResizeToolStripMenuItem.Name = "fastWindowResizeToolStripMenuItem";
+            this.fastWindowResizeToolStripMenuItem.Size = new System.Drawing.Size(207, 22);
+            this.fastWindowResizeToolStripMenuItem.Text = "Fast Window Resize";
+            // 
+            // showSideBarToolStripMenuItem
+            // 
+            this.showSideBarToolStripMenuItem.Checked = true;
+            this.showSideBarToolStripMenuItem.CheckOnClick = true;
+            this.showSideBarToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.showSideBarToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.File_ShowSideBar;
+            this.showSideBarToolStripMenuItem.Name = "showSideBarToolStripMenuItem";
+            this.showSideBarToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.B)));
+            this.showSideBarToolStripMenuItem.Size = new System.Drawing.Size(207, 22);
+            this.showSideBarToolStripMenuItem.Text = "Show Side Bar";
+            this.showSideBarToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showSideBarToolStripMenuItem_CheckedChanged);
             // 
             // defaultSettingsToolStripMenuItem
             // 
@@ -1824,7 +1826,7 @@ namespace PSXPrev.Forms
             this.exportAllTexturesToolStripMenuItem});
             this.exportTexturesToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_Export;
             this.exportTexturesToolStripMenuItem.Name = "exportTexturesToolStripMenuItem";
-            this.exportTexturesToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.exportTexturesToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.exportTexturesToolStripMenuItem.Text = "Export Textures";
             // 
             // exportSelectedTexturesToolStripMenuItem
@@ -1847,7 +1849,7 @@ namespace PSXPrev.Forms
             // 
             this.drawToVRAMToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_DrawToVRAM;
             this.drawToVRAMToolStripMenuItem.Name = "drawToVRAMToolStripMenuItem";
-            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.drawToVRAMToolStripMenuItem.Text = "Draw to VRAM";
             this.drawToVRAMToolStripMenuItem.Click += new System.EventHandler(this.drawSelectedToVRAM_Click);
             // 
@@ -1855,7 +1857,7 @@ namespace PSXPrev.Forms
             // 
             this.drawAllToVRAMToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_DrawToVRAM_All;
             this.drawAllToVRAMToolStripMenuItem.Name = "drawAllToVRAMToolStripMenuItem";
-            this.drawAllToVRAMToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.drawAllToVRAMToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.drawAllToVRAMToolStripMenuItem.Text = "Draw All to VRAM";
             this.drawAllToVRAMToolStripMenuItem.Click += new System.EventHandler(this.drawAllToVRAM_Click);
             // 
@@ -1863,7 +1865,7 @@ namespace PSXPrev.Forms
             // 
             this.findByPageToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Find;
             this.findByPageToolStripMenuItem.Name = "findByPageToolStripMenuItem";
-            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.findByPageToolStripMenuItem.Text = "Find by Page";
             this.findByPageToolStripMenuItem.Click += new System.EventHandler(this.findTextureByVRAMPage_Click);
             // 
@@ -1871,16 +1873,25 @@ namespace PSXPrev.Forms
             // 
             this.clearSearchToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.FindClear;
             this.clearSearchToolStripMenuItem.Name = "clearSearchToolStripMenuItem";
-            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.clearSearchToolStripMenuItem.Text = "Clear Find Results";
             this.clearSearchToolStripMenuItem.Click += new System.EventHandler(this.clearTextureFindResults_Click);
+            // 
+            // setPaletteIndexToolStripMenuItem
+            // 
+            this.setPaletteIndexToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_SetPaletteIndex;
+            this.setPaletteIndexToolStripMenuItem.Name = "setPaletteIndexToolStripMenuItem";
+            this.setPaletteIndexToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.setPaletteIndexToolStripMenuItem.Text = "Set Palette Index";
+            this.setPaletteIndexToolStripMenuItem.Visible = false;
+            this.setPaletteIndexToolStripMenuItem.Click += new System.EventHandler(this.setPaletteIndexToolStripMenuItem_Click);
             // 
             // autoDrawModelTexturesToolStripMenuItem
             // 
             this.autoDrawModelTexturesToolStripMenuItem.CheckOnClick = true;
             this.autoDrawModelTexturesToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_AutoDrawTextures;
             this.autoDrawModelTexturesToolStripMenuItem.Name = "autoDrawModelTexturesToolStripMenuItem";
-            this.autoDrawModelTexturesToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
+            this.autoDrawModelTexturesToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.autoDrawModelTexturesToolStripMenuItem.Text = "Auto Draw Textures";
             this.autoDrawModelTexturesToolStripMenuItem.CheckedChanged += new System.EventHandler(this.autoDrawModelTexturesToolStripMenuItem_CheckedChanged);
             // 
@@ -2271,5 +2282,6 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.ToolStripProgressBar statusCurrentFileProgressBar;
         private System.Windows.Forms.ToolStripMenuItem fastWindowResizeToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem showSideBarToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem setPaletteIndexToolStripMenuItem;
     }
 }
