@@ -50,7 +50,7 @@ Treat this as an experimental release and use this tool at your own risk. Warnin
 
 **Runtime Requirements:**
 - An OpenGL 3.0 compatible video card
-- .NET Framework 4.8
+- .NET Framework 4.5
 
 ---
 
