@@ -497,7 +497,8 @@ namespace PSXPrev
                 }
             }
 
-            if (!help)
+            // Still parse when -help to check for -debug
+            //if (!help)
             {
                 // Parse positional arguments PATH and FILTER.
                 options.Path = args[0];
@@ -514,7 +515,8 @@ namespace PSXPrev
 
 
                 // Parse all remaining options that aren't PATH or FILTER.
-                for (var a = 2; a < args.Length; a++)
+                var startIndex = help ? 0 : 2;
+                for (var a = startIndex; a < args.Length; a++)
                 {
                     if (!TryParseOption(args, a, options, ref help, out var parameterCount, out var invalidParameter))
                     {

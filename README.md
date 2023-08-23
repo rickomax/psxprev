@@ -62,13 +62,15 @@ Treat this as an experimental release and use this tool at your own risk. Warnin
 \* Format support is work-in-progress
 
 **Usage:**
-A launcher interface will be displayed when running the application without passing any command line arguments.
+A scanner window will be displayed when running the application without passing any command line arguments.
 When passing command line arguments, PSXPrev will start scanning for files using the given parameters.
 As the scan runs, a new window will be displayed, containing the following tabs:
 - Models: Viewer for models found while scanning files.
 - Textures: Viewer for textures found while scanning files.
 - VRAM: Viewer for a replica of PSX Video RAM, which consists of 32 256x256 textures. (These pages are used to compose the final textures applied to models)
 - Animations: Player for animations found while scanning files.
+
+To scan more files, you can select **File** &gt; **Start Scan** to open the scanner window again.
 
 **Known issues/limitations:**
 PSXPrev only finds files conformant to the file formats it's scanning for. PSXPrev can't scan any compressed or proprietary formats.
@@ -81,7 +83,7 @@ arguments:
   PATH   : folder or file path to scan
   FILTER : wildcard filter for files to include (default: "*.*")
 
-scanner options: (default: all formats)
+scanner formats: (default: all formats)
   -an        : scan for AN animations
   -bff       : scan for BFF models
   -hmd       : scan for HMD models, textures, and animations
@@ -92,19 +94,33 @@ scanner options: (default: all formats)
   -tmd       : scan for TMD models
   -tod       : scan for TOD animations
   -vdf       : scan for VDF animations
-  -ignoretmdversion : reduce strictness when scanning TMD models
+
+scanner options:
+  -ignorehmdversion     : less strict scanning of HMD models
+  -ignoretimversion     : less strict scanning of TIM textures
+  -ignoretmdversion     : less strict scanning of TMD models
+  -align <ALIGN>        : scan offsets at specified increments
+  -start <OFFSET>       : scan files starting at offset (hex)
+  -stop  <OFFSET>       : scan files up to offset (hex, exclusive)
+  -range [START],[STOP] : shorthand for [-start <START>] [-stop <STOP>]
+  -startonly  : shorthand for -stop <START+1>
+  -nextoffset : continue scan at end of previous match
+  -depthlast  : scan files at lower folder depths first
+  -syncscan   : disable multi-threaded scanning per format
+  -scaniso    : scan contents of .iso files
+  -scanbin    : scan contents of raw PS1 .bin files (experimental)
+  -binalign   : scan .bin file offsets at sector size increments
+  -binsector <START>,<SIZE> : change sector reading of .bin files (default: 24,2048)
+                              combined values must not exceed 2352
 
 log options:
   -log       : write output to log file
-  -noverbose : don't write output to console
   -debug     : output file format details and other information
   -error     : show error (exception) messages when reading files
   -nocolor   : disable colored console output
+  -noverbose/-quiet : don't write output to console
 
 program options:
-  -drawvram    : draw all loaded textures to VRAM (not advised when scanning many files)
-  -nooffset    : only scan files at offset 0
-  -attachlimbs : enable Auto Attach Limbs by default
-  -autoplay    : automatically play selected animations
-  -autoselect  : select animation's model and draw selected model's textures (HMD only)
+  -drawvram  : draw all loaded textures to VRAM (not advised when scanning many files)
+  -olduv     : use old UV alignment that less-accurately matches the PlayStation
 ```

@@ -57,6 +57,7 @@
             this.checkedAnimationsListBox = new System.Windows.Forms.ListBox();
             this.animationsOnRadioButton = new System.Windows.Forms.RadioButton();
             this.animationsOffRadioButton = new System.Windows.Forms.RadioButton();
+            this.formatDAERadioButton = new System.Windows.Forms.RadioButton();
             this.filePathGroupBox.SuspendLayout();
             this.formatGroupBox.SuspendLayout();
             this.texturesGroupBox.SuspendLayout();
@@ -73,7 +74,7 @@
             this.filePathGroupBox.Location = new System.Drawing.Point(0, 0);
             this.filePathGroupBox.Name = "filePathGroupBox";
             this.filePathGroupBox.Size = new System.Drawing.Size(394, 77);
-            this.filePathGroupBox.TabIndex = 1;
+            this.filePathGroupBox.TabIndex = 0;
             this.filePathGroupBox.TabStop = false;
             this.filePathGroupBox.Text = "Folder";
             // 
@@ -108,6 +109,7 @@
             // 
             // formatGroupBox
             // 
+            this.formatGroupBox.Controls.Add(this.formatDAERadioButton);
             this.formatGroupBox.Controls.Add(this.formatGLTF2RadioButton);
             this.formatGroupBox.Controls.Add(this.formatPLYRadioButton);
             this.formatGroupBox.Controls.Add(this.formatOBJRadioButton);
@@ -115,31 +117,33 @@
             this.formatGroupBox.Location = new System.Drawing.Point(0, 77);
             this.formatGroupBox.Name = "formatGroupBox";
             this.formatGroupBox.Size = new System.Drawing.Size(394, 47);
-            this.formatGroupBox.TabIndex = 3;
+            this.formatGroupBox.TabIndex = 1;
             this.formatGroupBox.TabStop = false;
             this.formatGroupBox.Text = "Format";
             // 
             // formatGLTF2RadioButton
             // 
             this.formatGLTF2RadioButton.AutoSize = true;
-            this.formatGLTF2RadioButton.Location = new System.Drawing.Point(216, 19);
+            this.formatGLTF2RadioButton.Location = new System.Drawing.Point(132, 19);
             this.formatGLTF2RadioButton.Name = "formatGLTF2RadioButton";
-            this.formatGLTF2RadioButton.Size = new System.Drawing.Size(97, 17);
-            this.formatGLTF2RadioButton.TabIndex = 4;
+            this.formatGLTF2RadioButton.Size = new System.Drawing.Size(52, 17);
+            this.formatGLTF2RadioButton.TabIndex = 2;
             this.formatGLTF2RadioButton.Tag = "glTF2";
-            this.formatGLTF2RadioButton.Text = "Khronos .glTF2";
+            this.formatGLTF2RadioButton.Text = "glTF2";
+            this.toolTip.SetToolTip(this.formatGLTF2RadioButton, "Khronos glTF2 Format");
             this.formatGLTF2RadioButton.UseVisualStyleBackColor = true;
             this.formatGLTF2RadioButton.CheckedChanged += new System.EventHandler(this.formatRadioButtons_CheckedChanged);
             // 
             // formatPLYRadioButton
             // 
             this.formatPLYRadioButton.AutoSize = true;
-            this.formatPLYRadioButton.Location = new System.Drawing.Point(119, 19);
+            this.formatPLYRadioButton.Location = new System.Drawing.Point(72, 19);
             this.formatPLYRadioButton.Name = "formatPLYRadioButton";
-            this.formatPLYRadioButton.Size = new System.Drawing.Size(91, 17);
-            this.formatPLYRadioButton.TabIndex = 3;
+            this.formatPLYRadioButton.Size = new System.Drawing.Size(45, 17);
+            this.formatPLYRadioButton.TabIndex = 1;
             this.formatPLYRadioButton.Tag = "PLY";
-            this.formatPLYRadioButton.Text = "Stanford .PLY";
+            this.formatPLYRadioButton.Text = "PLY";
+            this.toolTip.SetToolTip(this.formatPLYRadioButton, "Stanford Polygon / Triangle Format");
             this.formatPLYRadioButton.UseVisualStyleBackColor = true;
             this.formatPLYRadioButton.CheckedChanged += new System.EventHandler(this.formatRadioButtons_CheckedChanged);
             // 
@@ -149,11 +153,12 @@
             this.formatOBJRadioButton.Checked = true;
             this.formatOBJRadioButton.Location = new System.Drawing.Point(12, 19);
             this.formatOBJRadioButton.Name = "formatOBJRadioButton";
-            this.formatOBJRadioButton.Size = new System.Drawing.Size(101, 17);
-            this.formatOBJRadioButton.TabIndex = 2;
+            this.formatOBJRadioButton.Size = new System.Drawing.Size(45, 17);
+            this.formatOBJRadioButton.TabIndex = 0;
             this.formatOBJRadioButton.TabStop = true;
             this.formatOBJRadioButton.Tag = "OBJ";
-            this.formatOBJRadioButton.Text = "Wavefront .OBJ";
+            this.formatOBJRadioButton.Text = "OBJ";
+            this.toolTip.SetToolTip(this.formatOBJRadioButton, "Wavefront OBJ Format");
             this.formatOBJRadioButton.UseVisualStyleBackColor = true;
             this.formatOBJRadioButton.CheckedChanged += new System.EventHandler(this.formatRadioButtons_CheckedChanged);
             // 
@@ -169,7 +174,7 @@
             this.texturesGroupBox.Location = new System.Drawing.Point(0, 124);
             this.texturesGroupBox.Name = "texturesGroupBox";
             this.texturesGroupBox.Size = new System.Drawing.Size(394, 80);
-            this.texturesGroupBox.TabIndex = 4;
+            this.texturesGroupBox.TabIndex = 2;
             this.texturesGroupBox.TabStop = false;
             this.texturesGroupBox.Text = "Textures";
             // 
@@ -181,7 +186,7 @@
             this.optionTiledTexturesCheckBox.Location = new System.Drawing.Point(269, 53);
             this.optionTiledTexturesCheckBox.Name = "optionTiledTexturesCheckBox";
             this.optionTiledTexturesCheckBox.Size = new System.Drawing.Size(82, 17);
-            this.optionTiledTexturesCheckBox.TabIndex = 9;
+            this.optionTiledTexturesCheckBox.TabIndex = 5;
             this.optionTiledTexturesCheckBox.Text = "Export Tiled";
             this.optionTiledTexturesCheckBox.UseVisualStyleBackColor = true;
             // 
@@ -193,7 +198,7 @@
             this.optionShareTexturesCheckBox.Location = new System.Drawing.Point(127, 53);
             this.optionShareTexturesCheckBox.Name = "optionShareTexturesCheckBox";
             this.optionShareTexturesCheckBox.Size = new System.Drawing.Size(136, 17);
-            this.optionShareTexturesCheckBox.TabIndex = 8;
+            this.optionShareTexturesCheckBox.TabIndex = 4;
             this.optionShareTexturesCheckBox.Text = "Share Between Models";
             this.optionShareTexturesCheckBox.UseVisualStyleBackColor = true;
             // 
@@ -203,7 +208,7 @@
             this.optionRedrawTexturesCheckBox.Location = new System.Drawing.Point(12, 53);
             this.optionRedrawTexturesCheckBox.Name = "optionRedrawTexturesCheckBox";
             this.optionRedrawTexturesCheckBox.Size = new System.Drawing.Size(109, 17);
-            this.optionRedrawTexturesCheckBox.TabIndex = 7;
+            this.optionRedrawTexturesCheckBox.TabIndex = 3;
             this.optionRedrawTexturesCheckBox.Text = "Redraw to VRAM";
             this.optionRedrawTexturesCheckBox.UseVisualStyleBackColor = true;
             // 
@@ -213,7 +218,7 @@
             this.texturesSingleRadioButton.Location = new System.Drawing.Point(246, 19);
             this.texturesSingleRadioButton.Name = "texturesSingleRadioButton";
             this.texturesSingleRadioButton.Size = new System.Drawing.Size(93, 17);
-            this.texturesSingleRadioButton.TabIndex = 6;
+            this.texturesSingleRadioButton.TabIndex = 2;
             this.texturesSingleRadioButton.Text = "Single Texture";
             this.texturesSingleRadioButton.UseVisualStyleBackColor = true;
             this.texturesSingleRadioButton.CheckedChanged += new System.EventHandler(this.texturesRadioButtons_CheckedChanged);
@@ -225,7 +230,7 @@
             this.texturesIndividualRadioButton.Location = new System.Drawing.Point(119, 19);
             this.texturesIndividualRadioButton.Name = "texturesIndividualRadioButton";
             this.texturesIndividualRadioButton.Size = new System.Drawing.Size(114, 17);
-            this.texturesIndividualRadioButton.TabIndex = 5;
+            this.texturesIndividualRadioButton.TabIndex = 1;
             this.texturesIndividualRadioButton.TabStop = true;
             this.texturesIndividualRadioButton.Text = "Individual Textures";
             this.texturesIndividualRadioButton.UseVisualStyleBackColor = true;
@@ -237,7 +242,7 @@
             this.texturesOffRadioButton.Location = new System.Drawing.Point(12, 19);
             this.texturesOffRadioButton.Name = "texturesOffRadioButton";
             this.texturesOffRadioButton.Size = new System.Drawing.Size(83, 17);
-            this.texturesOffRadioButton.TabIndex = 4;
+            this.texturesOffRadioButton.TabIndex = 0;
             this.texturesOffRadioButton.Text = "Don\'t Export";
             this.texturesOffRadioButton.UseVisualStyleBackColor = true;
             this.texturesOffRadioButton.CheckedChanged += new System.EventHandler(this.texturesRadioButtons_CheckedChanged);
@@ -251,7 +256,7 @@
             this.optionsGroupBox.Location = new System.Drawing.Point(0, 204);
             this.optionsGroupBox.Name = "optionsGroupBox";
             this.optionsGroupBox.Size = new System.Drawing.Size(394, 46);
-            this.optionsGroupBox.TabIndex = 5;
+            this.optionsGroupBox.TabIndex = 3;
             this.optionsGroupBox.TabStop = false;
             this.optionsGroupBox.Text = "Options";
             // 
@@ -263,7 +268,7 @@
             this.optionAttachLimbsCheckBox.Location = new System.Drawing.Point(111, 19);
             this.optionAttachLimbsCheckBox.Name = "optionAttachLimbsCheckBox";
             this.optionAttachLimbsCheckBox.Size = new System.Drawing.Size(87, 17);
-            this.optionAttachLimbsCheckBox.TabIndex = 11;
+            this.optionAttachLimbsCheckBox.TabIndex = 1;
             this.optionAttachLimbsCheckBox.Text = "Attach Limbs";
             this.optionAttachLimbsCheckBox.UseVisualStyleBackColor = true;
             // 
@@ -275,7 +280,7 @@
             this.optionExperimentalVertexColorCheckBox.Location = new System.Drawing.Point(204, 19);
             this.optionExperimentalVertexColorCheckBox.Name = "optionExperimentalVertexColorCheckBox";
             this.optionExperimentalVertexColorCheckBox.Size = new System.Drawing.Size(172, 17);
-            this.optionExperimentalVertexColorCheckBox.TabIndex = 12;
+            this.optionExperimentalVertexColorCheckBox.TabIndex = 2;
             this.optionExperimentalVertexColorCheckBox.Text = "Experimental .OBJ Vertex Color";
             this.optionExperimentalVertexColorCheckBox.UseVisualStyleBackColor = true;
             // 
@@ -285,7 +290,7 @@
             this.optionMergeModelsCheckBox.Location = new System.Drawing.Point(12, 19);
             this.optionMergeModelsCheckBox.Name = "optionMergeModelsCheckBox";
             this.optionMergeModelsCheckBox.Size = new System.Drawing.Size(93, 17);
-            this.optionMergeModelsCheckBox.TabIndex = 10;
+            this.optionMergeModelsCheckBox.TabIndex = 0;
             this.optionMergeModelsCheckBox.Text = "Merge Models";
             this.optionMergeModelsCheckBox.UseVisualStyleBackColor = true;
             // 
@@ -318,7 +323,7 @@
             this.animationsGroupBox.Location = new System.Drawing.Point(0, 250);
             this.animationsGroupBox.Name = "animationsGroupBox";
             this.animationsGroupBox.Size = new System.Drawing.Size(394, 186);
-            this.animationsGroupBox.TabIndex = 7;
+            this.animationsGroupBox.TabIndex = 4;
             this.animationsGroupBox.TabStop = false;
             this.animationsGroupBox.Text = "Animations";
             // 
@@ -347,7 +352,8 @@
             this.checkedAnimationsListBox.Name = "checkedAnimationsListBox";
             this.checkedAnimationsListBox.SelectionMode = System.Windows.Forms.SelectionMode.None;
             this.checkedAnimationsListBox.Size = new System.Drawing.Size(370, 69);
-            this.checkedAnimationsListBox.TabIndex = 7;
+            this.checkedAnimationsListBox.TabIndex = 2;
+            this.checkedAnimationsListBox.TabStop = false;
             // 
             // animationsOnRadioButton
             // 
@@ -355,9 +361,10 @@
             this.animationsOnRadioButton.Location = new System.Drawing.Point(101, 19);
             this.animationsOnRadioButton.Name = "animationsOnRadioButton";
             this.animationsOnRadioButton.Size = new System.Drawing.Size(101, 17);
-            this.animationsOnRadioButton.TabIndex = 6;
+            this.animationsOnRadioButton.TabIndex = 1;
             this.animationsOnRadioButton.Text = "Export Checked";
             this.animationsOnRadioButton.UseVisualStyleBackColor = true;
+            this.animationsOnRadioButton.CheckedChanged += new System.EventHandler(this.animationsRadioButtons_CheckedChanged);
             // 
             // animationsOffRadioButton
             // 
@@ -366,11 +373,24 @@
             this.animationsOffRadioButton.Location = new System.Drawing.Point(12, 19);
             this.animationsOffRadioButton.Name = "animationsOffRadioButton";
             this.animationsOffRadioButton.Size = new System.Drawing.Size(83, 17);
-            this.animationsOffRadioButton.TabIndex = 5;
+            this.animationsOffRadioButton.TabIndex = 0;
             this.animationsOffRadioButton.TabStop = true;
             this.animationsOffRadioButton.Text = "Don\'t Export";
             this.animationsOffRadioButton.UseVisualStyleBackColor = true;
             this.animationsOffRadioButton.CheckedChanged += new System.EventHandler(this.animationsRadioButtons_CheckedChanged);
+            // 
+            // formatDAERadioButton
+            // 
+            this.formatDAERadioButton.AutoSize = true;
+            this.formatDAERadioButton.Location = new System.Drawing.Point(192, 19);
+            this.formatDAERadioButton.Name = "formatDAERadioButton";
+            this.formatDAERadioButton.Size = new System.Drawing.Size(47, 17);
+            this.formatDAERadioButton.TabIndex = 3;
+            this.formatDAERadioButton.Tag = "DAE";
+            this.formatDAERadioButton.Text = "DAE";
+            this.toolTip.SetToolTip(this.formatDAERadioButton, "COLLADA Digital Asset Exchange Format");
+            this.formatDAERadioButton.UseVisualStyleBackColor = true;
+            this.formatDAERadioButton.CheckedChanged += new System.EventHandler(this.formatRadioButtons_CheckedChanged);
             // 
             // ExportModelsForm
             // 
@@ -436,5 +456,6 @@
         private System.Windows.Forms.RadioButton animationsOnRadioButton;
         private System.Windows.Forms.RadioButton animationsOffRadioButton;
         private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.RadioButton formatDAERadioButton;
     }
 }
