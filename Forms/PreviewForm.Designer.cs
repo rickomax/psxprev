@@ -1882,8 +1882,7 @@ namespace PSXPrev.Forms
             this.setPaletteIndexToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_SetPaletteIndex;
             this.setPaletteIndexToolStripMenuItem.Name = "setPaletteIndexToolStripMenuItem";
             this.setPaletteIndexToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.setPaletteIndexToolStripMenuItem.Text = "Set Palette Index";
-            this.setPaletteIndexToolStripMenuItem.Visible = false;
+            this.setPaletteIndexToolStripMenuItem.Text = "Set CLUT Index";
             this.setPaletteIndexToolStripMenuItem.Click += new System.EventHandler(this.setPaletteIndexToolStripMenuItem_Click);
             // 
             // autoDrawModelTexturesToolStripMenuItem

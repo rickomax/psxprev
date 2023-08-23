@@ -320,10 +320,10 @@ namespace PSXPrev.Common.Parsers
                         {
                             Program.Logger.WriteLine($"HMD Image Data");
                         }
-                        var textures = ProcessImageData(reader, driver, primitiveType, primitiveHeaderPointer);
-                        if (textures != null)
+                        var texture = ProcessImageData(reader, driver, primitiveType, primitiveHeaderPointer);
+                        if (texture != null)
                         {
-                            TextureResults.AddRange(textures);
+                            TextureResults.Add(texture);
                         }
                     }
                     else if (category == 3)
@@ -641,7 +641,7 @@ namespace PSXPrev.Common.Parsers
             reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
         }
 
-        private List<Texture> ProcessImageData(BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer)
+        private Texture ProcessImageData(BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer)
         {
             var hasClut = primitiveType == 1;
 
@@ -660,7 +660,7 @@ namespace PSXPrev.Common.Parsers
 
             var imageIndex = reader.ReadUInt32() * 4;
             uint pmode;
-            System.Drawing.Color[][] palettes;
+            int[][] palettes;
             bool[][] semiTransparentPalettes;
             if (hasClut)
             {
@@ -674,10 +674,7 @@ namespace PSXPrev.Common.Parsers
 
                 reader.BaseStream.Seek(_offset + clutTop + clutIndex, SeekOrigin.Begin);
                 // Allow out of bounds to support HMDs with invalid image data, but valid model data.
-                // temp: Only support loading the first clut,
-                // because loading every clut variation is a mess currently.
-                var firstOnly = true;
-                palettes = TIMParser.ReadPalettes(reader, pmode, clutWidth, clutHeight, out semiTransparentPalettes, true, firstOnly);
+                palettes = TIMParser.ReadPalettes(reader, pmode, clutWidth, clutHeight, out semiTransparentPalettes, true);
                 if (palettes == null)
                 {
                     return null;
@@ -690,22 +687,9 @@ namespace PSXPrev.Common.Parsers
                 semiTransparentPalettes = null;
             }
 
-            var imageCount = palettes?.Length ?? 1;
-            var textures = new List<Texture>(imageCount);
-            for (var i = 0; i < imageCount; i++)
-            {
-                reader.BaseStream.Seek(_offset + imageTop + imageIndex, SeekOrigin.Begin);
-                // Allow out of bounds to support HMDs with invalid image data, but valid model data.
-                var texture = TIMParser.ReadTexture(reader, i, imageCount - 1, stride, height, x, y, pmode, palettes[i], semiTransparentPalettes[i], true);
-                if (texture == null)
-                {
-                    break; // Every other attempt to read will fail too, just break now
-                }
-                textures.Add(texture);
-            }
-
+            var texture = TIMParser.ReadTexture(reader, stride, height, x, y, pmode, 0, palettes, semiTransparentPalettes, true);
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
-            return textures;
+            return texture;
         }
 
         private List<Animation> ProcessAnimationData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, uint blockCount)
