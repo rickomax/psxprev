@@ -49,6 +49,8 @@ namespace PSXPrev.Forms
         }
         public AnimationBatch AnimationBatch { get; private set; }
 
+        public ExportModelOptions Options { get; private set; }
+
         public ExportModelsForm()
         {
             InitializeComponent();
@@ -142,16 +144,7 @@ namespace PSXPrev.Forms
             WriteSettings(Settings.Instance, options);
             Settings.Instance.Save();
 
-            if (DialogResult != DialogResult.OK)
-            {
-                return;
-            }
-
-            //var options = CreateOptions();
-            //WriteSettings(Settings.Instance, options);
-            //Settings.Instance.Save();
-
-            Export(options, Entities, Animations, AnimationBatch);
+            Options = options;
         }
 
         private ExportModelOptions CreateOptions()
@@ -288,14 +281,18 @@ namespace PSXPrev.Forms
             }
         }
 
-        public static bool Show(IWin32Window owner, RootEntity[] entities, Animation[] animations = null, AnimationBatch animationBatch = null)
+        public static ExportModelOptions Show(IWin32Window owner, RootEntity[] entities, Animation[] animations = null, AnimationBatch animationBatch = null)
         {
             using (var form = new ExportModelsForm())
             {
                 form.Entities = entities;
                 form.Animations = animations;
                 form.AnimationBatch = animationBatch;
-                return form.ShowDialog(owner) == DialogResult.OK;
+                if (form.ShowDialog(owner) == DialogResult.OK)
+                {
+                    return form.Options;
+                }
+                return null;
             }
         }
     }

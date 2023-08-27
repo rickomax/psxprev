@@ -10,6 +10,8 @@ namespace PSXPrev.Forms
     {
         private bool _showAdvanved;
 
+        public ScanOptions Options { get; private set; }
+
         public ScannerForm()
         {
             InitializeComponent();
@@ -181,20 +183,7 @@ namespace PSXPrev.Forms
             WriteSettings(Settings.Instance, options);
             Settings.Instance.Save();
 
-            if (DialogResult != DialogResult.OK)
-            {
-                return;
-            }
-
-            //var options = CreateOptions();
-            //WriteSettings(Settings.Instance, options);
-            //Settings.Instance.Save();
-
-            if (!Program.ScanAsync(options))
-            {
-                MessageBox.Show(this, $"Directory/File not found: {options.Path}", "Scan Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                DialogResult = DialogResult.Cancel; // Change dialog result so that Show returns false.
-            }
+            Options = options;
         }
 
         private ScanOptions CreateOptions()
@@ -231,7 +220,8 @@ namespace PSXPrev.Forms
                 AsyncFileScan = optionAsyncScanCheckBox.Checked,
                 //TopDownFileSearch = true, // Not that important, don't add to reduce UI clutter
                 ReadISOContents = isoContentsCheckBox.Checked,
-                ReadBINContents = binContentsCheckBox.Checked,
+                ReadBINContents = false, //todo
+                ReadBINSectorData = binContentsCheckBox.Checked,
                 //BINAlignToSector = false, // Just enter size into Align, don't add to reduce UI clutter
                 BINSectorUserStartSizeHasValue = binSectorCheckBox.Checked,
                 BINSectorUserStartValue = (int)binSectorStartUpDown.Value,
@@ -285,7 +275,8 @@ namespace PSXPrev.Forms
 
             optionAsyncScanCheckBox.Checked = options.AsyncFileScan;
             isoContentsCheckBox.Checked = options.ReadISOContents;
-            binContentsCheckBox.Checked = options.ReadBINContents;
+            // todo: ReadBINContents
+            binContentsCheckBox.Checked = options.ReadBINSectorData;
             binSectorCheckBox.Checked = options.BINSectorUserStartSizeHasValue;
             binSectorStartUpDown.SetValueSafe(options.BINSectorUserStartValue);
             binSectorSizeUpDown.SetValueSafe(options.BINSectorUserSizeValue);
@@ -311,11 +302,15 @@ namespace PSXPrev.Forms
         }
 
 
-        public static bool Show(IWin32Window owner)
+        public static ScanOptions Show(IWin32Window owner)
         {
             using (var form = new ScannerForm())
             {
-                return form.ShowDialog(owner) == DialogResult.OK;
+                if (form.ShowDialog(owner) == DialogResult.OK)
+                {
+                    return form.Options;
+                }
+                return null;
             }
         }
     }

@@ -13,6 +13,10 @@ namespace PSXPrev.Common.Parsers
 {
     public class PSXParser : FileOffsetScanner
     {
+        private PSXModel[] _objectModels;
+        private Vector3[] _vertices;
+        private Vector3[] _normals;
+
         public PSXParser(EntityAddedAction entityAdded)
             : base(entityAdded: entityAdded)
         {
@@ -68,7 +72,11 @@ namespace PSXPrev.Common.Parsers
             {
                 return null;
             }
-            var objectModels = new PSXModel[objectCount];
+            if (_objectModels == null || _objectModels.Length < objectCount)
+            {
+                Array.Resize(ref _objectModels, (int)objectCount);
+            }
+            var objectModels = _objectModels;// new PSXModel[objectCount];
             for (var i = 0; i < objectCount; i++)
             {
                 var flags = reader.ReadUInt32();
@@ -116,7 +124,12 @@ namespace PSXPrev.Common.Parsers
 
                 var attachedIndices = new Dictionary<uint, uint>();
                 var attachableIndices = new Dictionary<uint, uint>();
-                var vertices = new Vector3[vertexCount];
+
+                if (_vertices == null || _vertices.Length < vertexCount)
+                {
+                    Array.Resize(ref _vertices, (int)vertexCount);
+                }
+                var vertices = _vertices;// new Vector3[vertexCount];
                 for (uint j = 0; j < vertexCount; j++)
                 {
                     var x = reader.ReadInt16();
@@ -135,7 +148,11 @@ namespace PSXPrev.Common.Parsers
                     }
                 }
 
-                var normals = new Vector3[planeCount];
+                if (_normals == null || _normals.Length < planeCount)
+                {
+                    Array.Resize(ref _normals, (int)planeCount);
+                }
+                var normals = _normals;// new Vector3[planeCount];
                 for (uint j = 0; j < planeCount; j++)
                 {
                     var x = reader.ReadInt16() / 4096f;
@@ -172,6 +189,10 @@ namespace PSXPrev.Common.Parsers
                         var i1 = reader.ReadByte();
                         var i2 = reader.ReadByte();
                         var i3 = reader.ReadByte();
+                        if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount || i3 >= vertexCount)
+                        {
+                            throw new IndexOutOfRangeException("Vertex index out of bounds");
+                        }
                         var vertex0 = vertices[i0];
                         var vertex1 = vertices[i1];
                         var vertex2 = vertices[i2];
@@ -203,6 +224,10 @@ namespace PSXPrev.Common.Parsers
                         //todo
                         var planeIndex = reader.ReadUInt16();
                         var surfFlags = reader.ReadInt16();
+                        if (planeIndex >= planeCount)
+                        {
+                            throw new IndexOutOfRangeException("Normal index out of bounds");
+                        }
                         var normal0 = normals[planeIndex];
                         var normal1 = normals[planeIndex];
                         var normal2 = normals[planeIndex];
@@ -271,6 +296,10 @@ namespace PSXPrev.Common.Parsers
                         var i1 = reader.ReadUInt16();
                         var i2 = reader.ReadUInt16();
                         var i3 = reader.ReadUInt16();
+                        if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount || i3 >= vertexCount)
+                        {
+                            throw new IndexOutOfRangeException("Vertex index out of bounds");
+                        }
                         var vertex0 = vertices[i0];
                         var vertex1 = vertices[i1];
                         var vertex2 = vertices[i2];
@@ -302,6 +331,10 @@ namespace PSXPrev.Common.Parsers
                         //todo
                         var planeIndex = reader.ReadUInt16();
                         var surfFlags = reader.ReadInt16();
+                        if (planeIndex >= planeCount)
+                        {
+                            throw new IndexOutOfRangeException("Normal index out of bounds");
+                        }
                         var normal0 = normals[planeIndex];
                         var normal1 = normals[planeIndex];
                         var normal2 = normals[planeIndex];
@@ -376,8 +409,9 @@ namespace PSXPrev.Common.Parsers
             //};
             //reader.BaseStream.Seek(position, SeekOrigin.Begin);
 
-            foreach (var psxModel in objectModels)
+            for (var i = 0; i < objectCount; i++)
             {
+                var psxModel = objectModels[i];
                 foreach (var kvp in groupedTriangles)
                 {
                     if (kvp.Key.Item1 == psxModel.ModelIndex)
@@ -412,7 +446,7 @@ namespace PSXPrev.Common.Parsers
             return rootEntity;
         }
 
-        private class PSXModel
+        private struct PSXModel
         {
             public float X { get; }
             public float Y { get; }

@@ -7,6 +7,10 @@ namespace PSXPrev.Common.Parsers
 {
     public class TMDParser : FileOffsetScanner
     {
+        private ObjBlock[] _objBlocks;
+        private Vector3[] _vertices;
+        private Vector3[] _normals;
+
         public TMDParser(EntityAddedAction entityAdded)
             : base(entityAdded: entityAdded)
         {
@@ -43,7 +47,11 @@ namespace PSXPrev.Common.Parsers
 
             var models = new List<ModelEntity>();
 
-            var objBlocks = new ObjBlock[nObj];
+            if (_objBlocks == null || _objBlocks.Length < nObj)
+            {
+                Array.Resize(ref _objBlocks, (int)nObj);
+            }
+            var objBlocks = _objBlocks;// new ObjBlock[nObj];
 
             var objTop = (uint)(reader.BaseStream.Position - _offset);
 
@@ -85,15 +93,19 @@ namespace PSXPrev.Common.Parsers
                 };
             }
 
-            for (uint o = 0; o < objBlocks.Length; o++)
+            for (uint o = 0; o < nObj; o++)
             {
                 var objBlock = objBlocks[o];
 
-                var vertices = new Vector3[objBlock.NVert];
                 if (Limits.IgnoreTMDVersion && (int)objBlock.VertTop < 0)
                 {
                     return null;
                 }
+                if (_vertices == null || _vertices.Length < objBlock.NVert)
+                {
+                    Array.Resize(ref _vertices, (int)objBlock.NVert);
+                }
+                var vertices = _vertices;// new Vector3[objBlock.NVert];
                 reader.BaseStream.Seek(_offset + objBlock.VertTop, SeekOrigin.Begin);
                 for (var v = 0; v < objBlock.NVert; v++)
                 {
@@ -108,20 +120,18 @@ namespace PSXPrev.Common.Parsers
                             Program.Logger.WriteLine($"Found suspicious pad value of: {pad} at index:{v}");
                         }
                     }
-                    var vertex = new Vector3
-                    {
-                        X = vx,
-                        Y = vy,
-                        Z = vz
-                    };
-                    vertices[v] = vertex;
+                    vertices[v] = new Vector3(vx, vy, vz);
                 }
 
-                var normals = new Vector3[objBlock.NNormal];
                 if (Limits.IgnoreTMDVersion && (int)objBlock.NormalTop < 0)
                 {
                     return null;
                 }
+                if (_normals == null || _normals.Length < objBlock.NNormal)
+                {
+                    Array.Resize(ref _normals, (int)objBlock.NNormal);
+                }
+                var normals = _normals;// new Vector3[objBlock.NNormal];
                 reader.BaseStream.Seek(_offset + objBlock.NormalTop, SeekOrigin.Begin);
                 for (var n = 0; n < objBlock.NNormal; n++)
                 {
@@ -136,17 +146,8 @@ namespace PSXPrev.Common.Parsers
                             Program.Logger.WriteLine($"Found suspicious pad value of: {pad} at index:{n}");
                         }
                     }
-                    var normal = new Vector3
-                    {
-                        X = nx,
-                        Y = ny,
-                        Z = nz
-                    };
-                    normals[n] = normal.Normalized();
+                    normals[n] = new Vector3(nx, ny, nz).Normalized();
                 }
-
-                var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
-                var groupedSprites = new Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>>();
 
                 if (Limits.IgnoreTMDVersion && (int)objBlock.PrimitiveTop < 0)
                 {
@@ -159,9 +160,12 @@ namespace PSXPrev.Common.Parsers
                     Program.Logger.WriteLine($"Primitive count:{objBlock.NPrimitive} {_fileTitle}");
                 }
 
+                var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
+                var groupedSprites = new Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>>();
+
                 Vector3 VertexCallback(uint index)
                 {
-                    if (index >= vertices.Length)
+                    if (index >= objBlock.NVert)
                     {
                         if (Limits.IgnoreTMDVersion)
                         {
@@ -177,7 +181,7 @@ namespace PSXPrev.Common.Parsers
                 }
                 Vector3 NormalCallback(uint index)
                 {
-                    if (index >= normals.Length)
+                    if (index >= objBlock.NNormal)
                     {
                         if (Limits.IgnoreTMDVersion)
                         {

@@ -7,6 +7,10 @@ namespace PSXPrev.Common.Parsers
 {
     public class MODParser : FileOffsetScanner
     {
+        //private Vector3[] _boundingBox;
+        private Vector3[] _vertices;
+        private Vector3[] _normals;
+
         public MODParser(EntityAddedAction entityAdded)
             : base(entityAdded: entityAdded)
         {
@@ -42,7 +46,7 @@ namespace PSXPrev.Common.Parsers
             return new Vector3(x, -z, y);
         }
 
-        private static RootEntity ReadModels(BinaryReader reader)
+        private RootEntity ReadModels(BinaryReader reader)
         {
             var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
 
@@ -85,10 +89,14 @@ namespace PSXPrev.Common.Parsers
                 var radius = reader.ReadInt32() / FIXED_DIV;
 
                 // Bounding box indices: <https://github.com/vs49688/CrocUtils/blob/5e07b7cb60fb5edec465a509d8924ae6682eaba7/libcroc/include/libcroc/moddef.h#L97-L108>
-                var boundingBox = new Vector3[9]; // 0 is the center.
+                //if (_boundingBox == null)
+                //{
+                //    _boundingBox = new Vector3[9];
+                //}
+                //var boundingBox = _boundingBox;// new Vector3[9]; // 0 is the center.
                 for (var j = 0; j < 9; j++)
                 {
-                    boundingBox[j] = ReadVector(reader);
+                    /*boundingBox[j] =*/ ReadVector(reader);
                 }
 
                 // See notes by countFaces.
@@ -97,8 +105,13 @@ namespace PSXPrev.Common.Parsers
                 {
                     return null;
                 }
-                var vertices = new Vector3[countVerts];
-                var normals = new Vector3[countVerts];
+                if (_vertices == null || _vertices.Length < countVerts)
+                {
+                    Array.Resize(ref _vertices, (int)countVerts);
+                    Array.Resize(ref _normals,  (int)countVerts);
+                }
+                var vertices = _vertices;// new Vector3[countVerts];
+                var normals = _normals;// new Vector3[countVerts];
                 for (var j = 0; j < countVerts; j++)
                 {
                     vertices[j] = ReadVector(reader);
@@ -139,7 +152,7 @@ namespace PSXPrev.Common.Parsers
                     //var materialName = Encoding.ASCII.GetString(reader.ReadBytes(64));
 
                     // This vector almost always has a length nearing 1 (more often than the normals list).
-                    // Only two files has been found where the vector length was 0.
+                    // Only two files have been found where the vector length was 0.
                     // (NEPT00.MOD and NEPTD00.MOD, where flags=0x00)
                     // 
                     // My theory is that this is an opportunity to allow using
@@ -240,7 +253,7 @@ namespace PSXPrev.Common.Parsers
                         var b = ((faceInfo >> 16) & 0xff) / 255f;
                         color = new Color(r, g, b);
 
-                        tPage = 0; //todo
+                        tPage = 0;
                     }
 
                     AddTriangle(new Triangle

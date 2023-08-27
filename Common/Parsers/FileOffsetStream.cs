@@ -7,14 +7,19 @@ namespace PSXPrev.Common.Parsers
     // This class assumes that the underlying stream is never moved independent of this wrapper.
     public sealed class FileOffsetStream : Stream
     {
-        private readonly Stream _stream;
+        private Stream _stream;
         private readonly bool _leaveOpen;
         private long _maxPosition;
 
         public FileOffsetStream(Stream stream, bool leaveOpen = false)
         {
-            _stream = stream;
+            _stream = stream ?? throw new ArgumentNullException(nameof(stream));
             _leaveOpen = leaveOpen;
+            if (!stream.CanRead || !stream.CanSeek)
+            {
+                throw new ArgumentException("Stream must be able to Read and Seek", nameof(stream));
+            }
+
             _maxPosition = stream.Position;
         }
 
@@ -23,7 +28,10 @@ namespace PSXPrev.Common.Parsers
         {
             get
             {
-                _maxPosition = Math.Max(_maxPosition, _stream.Position);
+                if (_stream != null)
+                {
+                    _maxPosition = Math.Max(_maxPosition, _stream.Position);
+                }
                 return _maxPosition;
             }
         }
@@ -40,35 +48,52 @@ namespace PSXPrev.Common.Parsers
 
         public override bool CanSeek => _stream.CanSeek;
 
-        public override bool CanWrite => _stream.CanWrite;
+        public override bool CanWrite => false;
 
+
+        public void ResetFarthestPosition()
+        {
+            _maxPosition = 0;
+        }
 
         public override long Seek(long offset, SeekOrigin origin)
         {
-            _maxPosition = Math.Max(_maxPosition, _stream.Position);
+            var oldPosition = _stream.Position;
             var newPosition = _stream.Seek(offset, origin);
-            _maxPosition = Math.Max(_maxPosition, newPosition);
+            _maxPosition = Math.Max(_maxPosition, Math.Max(newPosition, oldPosition));
             return newPosition;
         }
 
-        public override int ReadByte() => _stream.ReadByte();
+        public override int ReadByte()
+        {
+            return _stream.ReadByte();
+        }
 
-        public override void WriteByte(byte value) => _stream.WriteByte(value);
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            return _stream.Read(buffer, offset, count);
+        }
 
-        public override int Read(byte[] buffer, int offset, int count) => _stream.Read(buffer, offset, count);
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException("Stream is not writable");
+        }
 
-        public override void Write(byte[] buffer, int offset, int count) => _stream.Write(buffer, offset, count);
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException("Stream is not writable");
+        }
 
-        public override void Flush() => _stream.Flush();
-
-        public override void SetLength(long value) => _stream.SetLength(value);
+        public override void Flush()
+        {
+        }
 
 
         protected override void Dispose(bool disposing)
         {
             try
             {
-                if (disposing)
+                if (disposing && _stream != null)
                 {
                     try
                     {
@@ -76,11 +101,7 @@ namespace PSXPrev.Common.Parsers
                     }
                     finally
                     {
-                        if (_leaveOpen)
-                        {
-                            _stream.Flush();
-                        }
-                        else
+                        if (!_leaveOpen)
                         {
                             _stream.Close();
                         }
@@ -89,6 +110,7 @@ namespace PSXPrev.Common.Parsers
             }
             finally
             {
+                _stream = null;
                 base.Dispose(disposing);
             }
         }

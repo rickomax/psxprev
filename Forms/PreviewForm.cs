@@ -31,6 +31,8 @@ namespace PSXPrev.Forms
         private const double DefaultElapsedTime = 1d / 60d; // 1 frame (60FPS)
         private const double MaxElapsedTime = 10d / 60d; // 10 frames (60FPS)
 
+        private const bool IncludeAnimationFrameTreeViewNodes = false;
+
         private const int ModelsTabIndex     = 0;
         private const int TexturesTabIndex   = 1;
         private const int VRAMTabIndex       = 2;
@@ -44,7 +46,6 @@ namespace PSXPrev.Forms
         private readonly List<RootEntity> _rootEntities = new List<RootEntity>();
         private readonly List<Texture> _textures = new List<Texture>();
         private readonly List<Animation> _animations = new List<Animation>();
-        private readonly Action<PreviewForm> _refreshAction;
         private readonly Scene _scene;
         private readonly VRAM _vram;
         private readonly AnimationBatch _animationBatch;
@@ -57,9 +58,24 @@ namespace PSXPrev.Forms
         // Timers that are updated during main timer Elapsed event
         private RefreshDelayTimer _animationProgressBarRefreshDelayTimer;
         private RefreshDelayTimer _modelPropertyGridRefreshDelayTimer;
+        private RefreshDelayTimer _scanProgressRefreshDelayTimer;
+        private RefreshDelayTimer _scanPopulateRefreshDelayTimer;
         private float _fps = (float)(1d / DefaultElapsedTime);
         private double _fpsCalcElapsedSeconds;
         private int _fpsCalcElapsedFrames;
+
+        // Scanning
+        private readonly object _scanProgressLock = new object();
+        private Program.ScanProgressReport _scanProgressReport;
+        private string _scanProgressMessage;
+        private bool _drawAllToVRAMAfterScan;
+        private List<RootEntity> _addedRootEntities = new List<RootEntity>();
+        private List<Texture> _addedTextures = new List<Texture>();
+        private List<Animation> _addedAnimations = new List<Animation>();
+        // Swap lists are used so that we don't need to allocate new lists every time we call ScanPopulateItems.
+        private List<RootEntity> _addedRootEntitiesSwap = new List<RootEntity>();
+        private List<Texture> _addedTexturesSwap = new List<Texture>();
+        private List<Animation> _addedAnimationsSwap = new List<Animation>();
 
         // Form state
         private bool _closing;
@@ -108,9 +124,8 @@ namespace PSXPrev.Forms
         private float _gizmoScaleStartDistance;
 
 
-        public PreviewForm(Action<PreviewForm> refreshAction)
+        public PreviewForm()
         {
-            _refreshAction = refreshAction;
             _scene = new Scene();
             _vram = new VRAM(_scene);
             _animationBatch = new AnimationBatch(_scene);
@@ -147,176 +162,214 @@ namespace PSXPrev.Forms
 
         #region Scanning
 
-        public void AddRootEntities(List<RootEntity> rootEntities)
+        private void ScanPopulateItems()
         {
-            if (!IsDisposed && !_closing)
+            // A-B swap between two lists, one used to populate items, and one used to hold items to be populated.
+            lock (_scanProgressLock)
             {
-                foreach (var rootEntity in rootEntities)
-                {
-                    AddRootEntity(rootEntity);
-                }
+                var rootEntitiesSwap = _addedRootEntities;
+                _addedRootEntities = _addedRootEntitiesSwap;
+                _addedRootEntitiesSwap = rootEntitiesSwap;
+
+                var texturesSwap = _addedTextures;
+                _addedTextures = _addedTexturesSwap;
+                _addedTexturesSwap = texturesSwap;
+
+                var animationsSwap = _addedAnimations;
+                _addedAnimations = _addedAnimationsSwap;
+                _addedAnimationsSwap = animationsSwap;
             }
+
+            AddRootEntities(_addedRootEntitiesSwap);
+            AddTextures(_addedTexturesSwap);
+            AddAnimations(_addedAnimationsSwap);
+            _addedRootEntitiesSwap.Clear();
+            _addedTexturesSwap.Clear();
+            _addedAnimationsSwap.Clear();
         }
 
-        public void AddTextures(List<Texture> textures)
+        private void ScanUpdated()
         {
-            if (!IsDisposed && !_closing)
+            Program.ScanProgressReport p;
+            string message;
+            lock (_scanProgressLock)
             {
-                foreach (var texture in textures)
-                {
-                    AddTexture(texture);
-                }
+                p = _scanProgressReport;
+                message = _scanProgressMessage;
+                _scanProgressReport = null;
+                _scanProgressMessage = null;
             }
-        }
-
-        public void AddAnimations(List<Animation> animations)
-        {
-            if (!IsDisposed && !_closing)
-            {
-                foreach (var animation in animations)
-                {
-                    AddAnimation(animation);
-                }
-            }
-        }
-
-        public void ReloadItems()
-        {
-            if (IsDisposed || _closing)
+            if (p == null)
             {
                 return;
             }
-            if (InvokeRequired)
+
+            statusStrip1.SuspendLayout();
+            const int max = 100;
+
+            // Avoid divide-by-zero when scanning 0 files, or a file that's 0 bytes in size.
+            // Update major progress bar, default to 100% when zero files
+            var totalFilesPercent = (p.TotalFiles > 0) ? ((double)p.CurrentFile / p.TotalFiles) : 1d;
+            statusTotalFilesProgressBar.Maximum = max;
+            statusTotalFilesProgressBar.SetValueSafe((int)(totalFilesPercent * max));
+
+            // Update minor progress bar, default to 0% when zero length
+            var currentFilePercent = (p.CurrentLength > 0) ? ((double)p.CurrentPosition / p.CurrentLength) : 0d;
+            statusCurrentFileProgressBar.Maximum = max;
+            statusCurrentFileProgressBar.SetValueSafe((int)(currentFilePercent * max));
+
+            if (message != null)
             {
-                Invoke(new Action(ReloadItems));
+                statusMessageLabel.Text = message;
             }
-            else
+            statusStrip1.ResumeLayout();
+
+            // Instantly update status bar at end of scan, since populating the rest of the views may be a little slow.
+            if (p.State == Program.ScanProgressState.Finished)
             {
-                _refreshAction(this);
-            }
-        }
+                // Vista introduced progress bar animation that slowly moves the bar.
+                // We don't want that when finishing a scan, so force the value to instantly change.
+                statusTotalFilesProgressBar.UpdateValueInstant();
+                statusCurrentFileProgressBar.UpdateValueInstant();
 
-        public void ScanUpdated(long currentPosition, long currentLength, int currentFile, int totalFiles, string message, bool reloadItems)
-        {
-            if (IsDisposed || _closing)
-            {
-                return;
-            }
-            if (InvokeRequired)
-            {
-                var invokeAction = new Action<long, long, int, int, string, bool>(ScanUpdated);
-                Invoke(invokeAction, currentPosition, currentLength, currentFile, totalFiles, message, reloadItems);
-            }
-            else
-            {
-                // Update major progress bar
-                statusTotalFilesProgressBar.Maximum = totalFiles;
-                statusTotalFilesProgressBar.SetValueSafe(currentFile);
-
-                // Update minor progress bar
-                // Avoid divide-by-zero when scanning a file that's 0 bytes in size.
-                var percent = (currentLength > 0) ? ((double)currentPosition / currentLength) : 1d;
-                const int max = 100;
-                statusCurrentFileProgressBar.Maximum = max;
-                statusCurrentFileProgressBar.SetValueSafe((int)(percent * max));
-
-                if (message != null)
-                {
-                    statusMessageLabel.Text = message;
-                }
-
-                if (reloadItems)
-                {
-                    _refreshAction(this);
-                    //ReloadItems();
-                }
-            }
-        }
-
-        public void ScanStarted()
-        {
-            if (IsDisposed || _closing)
-            {
-                return;
-            }
-            if (InvokeRequired)
-            {
-                Invoke(new Action(ScanStarted));
-            }
-            else
-            {
-                pauseScanningToolStripMenuItem.Checked = false;
-                pauseScanningToolStripMenuItem.Enabled = true;
-                stopScanningToolStripMenuItem.Enabled = true;
-                startScanToolStripMenuItem.Enabled = false;
-                clearScanResultsToolStripMenuItem.Enabled = false;
-
-                statusStrip1.SuspendLayout();
-
-                statusTotalFilesProgressBar.Visible = true;
-                statusCurrentFileProgressBar.Visible = true;
-                statusTotalFilesProgressBar.Maximum = 1;
-                statusTotalFilesProgressBar.Value = 0;
-                statusCurrentFileProgressBar.Maximum = 1;
-                statusCurrentFileProgressBar.Value = 1;
-
-                statusMessageLabel.Text = $"Scan Started";
-
-                statusStrip1.ResumeLayout();
                 statusStrip1.Refresh();
             }
         }
 
-        public void ScanFinished(bool drawAllToVRAM)
+        private void ScanStarted()
         {
-            if (IsDisposed || _closing)
+            pauseScanningToolStripMenuItem.Checked = false;
+            pauseScanningToolStripMenuItem.Enabled = true;
+            stopScanningToolStripMenuItem.Enabled = true;
+            startScanToolStripMenuItem.Enabled = false;
+            clearScanResultsToolStripMenuItem.Enabled = false;
+
+            statusStrip1.SuspendLayout();
+
+            // Reset positions back to start, since they may not get updated right away.
+            statusTotalFilesProgressBar.Maximum  = 1;
+            statusTotalFilesProgressBar.Value    = 0;
+            statusCurrentFileProgressBar.Maximum = 1;
+            statusCurrentFileProgressBar.Value   = 0;
+            statusTotalFilesProgressBar.Visible = true;
+            statusCurrentFileProgressBar.Visible = true;
+
+            statusMessageLabel.Text = $"Scan Started";
+
+            statusStrip1.ResumeLayout();
+            statusStrip1.Refresh();
+
+            lock (_scanProgressLock)
             {
-                return;
+                _scanProgressReport = null;
+                _scanProgressMessage = null;
             }
-            if (InvokeRequired)
+            _scanProgressRefreshDelayTimer.Restart();
+            _scanPopulateRefreshDelayTimer.Restart();
+        }
+
+        private void ScanFinished()
+        {
+            _scanProgressRefreshDelayTimer.Reset();
+            _scanPopulateRefreshDelayTimer.Reset();
+
+            ScanUpdated();
+
+            lock (_scanProgressLock)
             {
-                var invokeAction = new Action<bool>(ScanFinished);
-                Invoke(invokeAction, drawAllToVRAM);
+                _scanProgressReport = null;
+                _scanProgressMessage = null;
             }
-            else
+
+            ScanPopulateItems();
+
+            SelectFirstEntity(); // Select something if the user hasn't already done so.
+            if (_drawAllToVRAMAfterScan)
             {
-                SelectFirstEntity(); // Select something if the user hasn't already done so.
-                if (drawAllToVRAM)
+                DrawTexturesToVRAM(_textures, _clutIndex);
+            }
+
+            pauseScanningToolStripMenuItem.Checked = false;
+            pauseScanningToolStripMenuItem.Enabled = false;
+            stopScanningToolStripMenuItem.Enabled = false;
+            startScanToolStripMenuItem.Enabled = true;
+            clearScanResultsToolStripMenuItem.Enabled = true;
+
+            statusStrip1.SuspendLayout();
+
+            statusTotalFilesProgressBar.Visible = false;
+            statusCurrentFileProgressBar.Visible = false;
+
+            statusMessageLabel.Text = $"Models: {_rootEntities.Count}, Textures: {_textures.Count}, Animations: {_animations.Count}";
+
+            statusStrip1.ResumeLayout();
+            statusStrip1.Refresh();
+
+            // Debugging: Quickly export models and animations on startup.
+            /*if (_rootEntities.Count >= 1 && _animations.Count >= 1)
+            {
+                var options = new ExportModelOptions
                 {
-                    DrawTexturesToVRAM(_textures, _clutIndex);
-                }
+                    Path = @"",
+                    Format = ExportModelOptions.GLTF2,
+                    SingleTexture = false,
+                    AttachLimbs = true,
+                    RedrawTextures = true,
+                    ExportAnimations = true,
+                };
+                ExportModelsForm.Export(options, new[] { _rootEntities[0] }, new[] { _animations[0] }, _animationBatch);
+                Close();
+            }*/
+        }
 
-                pauseScanningToolStripMenuItem.Checked = false;
-                pauseScanningToolStripMenuItem.Enabled = false;
-                stopScanningToolStripMenuItem.Enabled = false;
-                startScanToolStripMenuItem.Enabled = true;
-                clearScanResultsToolStripMenuItem.Enabled = true;
+        private void OnScanProgressCallback(Program.ScanProgressReport p)
+        {
+            // WARNING: This function is not called on the UI thread!
+            switch (p.State)
+            {
+                case Program.ScanProgressState.Started:
+                    // Instantly handle starting the scan.
+                    Invoke(new Action(ScanStarted));
+                    break;
 
-                statusStrip1.SuspendLayout();
-
-                statusTotalFilesProgressBar.Visible = false;
-                statusCurrentFileProgressBar.Visible = false;
-
-                statusMessageLabel.Text = $"Models: {_rootEntities.Count}, Textures: {_textures.Count}, Animations: {_animations.Count}";
-
-                statusStrip1.ResumeLayout();
-                statusStrip1.Refresh();
-
-                // Debugging: Quickly export models and animations on startup.
-                /*if (_rootEntities.Count >= 1 && _animations.Count >= 1)
-                {
-                    var options = new ExportModelOptions
+                case Program.ScanProgressState.Finished:
+                    // Instantly refresh the status bar while the scan finishes up.
+                    // Then instantly handle finishing the scan.
+                    lock (_scanProgressLock)
                     {
-                        Path = @"",
-                        Format = ExportModelOptions.GLTF2,
-                        SingleTexture = false,
-                        AttachLimbs = true,
-                        RedrawTextures = true,
-                        ExportAnimations = true,
-                    };
-                    ExportModelsForm.Export(options, new[] { _rootEntities[0] }, new[] { _animations[0] }, _animationBatch);
-                    Close();
-                }*/
+                        _scanProgressMessage = "Scan Finishing";
+                        _scanProgressReport = p;
+                    }
+                    Invoke(new Action(ScanFinished));
+                    break;
+
+                case Program.ScanProgressState.Updated:
+                    // Prepare progress that will be updated in future main timer Elapsed events.
+                    lock (_scanProgressLock)
+                    {
+                        _scanProgressMessage = null;
+
+                        // Added items are reloaded infrequently.
+                        if (p.Result is RootEntity rootEntity)
+                        {
+                            _scanProgressMessage = $"Found {rootEntity.FormatName} Model with {rootEntity.ChildEntities.Length} objects";
+                            _addedRootEntities.Add(rootEntity);
+                        }
+                        else if (p.Result is Texture texture)
+                        {
+                            _scanProgressMessage = $"Found {texture.FormatName} Texture {texture.Width}x{texture.Height} {texture.Bpp}bpp";
+                            _addedTextures.Add(texture);
+                        }
+                        else if (p.Result is Animation animation)
+                        {
+                            _scanProgressMessage = $"Found {animation.FormatName} Animation with {animation.ObjectCount} objects and {animation.FrameCount} frames";
+                            _addedAnimations.Add(animation);
+                        }
+
+                        // Progress bars and status message updates are handled frequently.
+                        _scanProgressReport = p;
+                    }
+                    break;
             }
         }
 
@@ -335,8 +388,10 @@ namespace PSXPrev.Forms
 
         public void LoadSettings()
         {
-            Settings.Load();
-            ReadSettings(Settings.Instance);
+            if (Settings.Load(false))
+            {
+                ReadSettings(Settings.Instance);
+            }
         }
 
         public void SaveSettings()
@@ -396,6 +451,9 @@ namespace PSXPrev.Forms
             animationReverseCheckBox.Checked = settings.AnimationReverse;
             animationSpeedNumericUpDown.SetValueSafe((decimal)settings.AnimationSpeed);
             fastWindowResizeToolStripMenuItem.Checked = settings.FastWindowResize;
+
+            _scanProgressRefreshDelayTimer.Interval = settings.ScanProgressFrequency;
+            _scanPopulateRefreshDelayTimer.Interval = settings.ScanPopulateFrequency;
         }
 
         public void WriteSettings(Settings settings)
@@ -484,6 +542,14 @@ namespace PSXPrev.Forms
 
             _modelPropertyGridRefreshDelayTimer = new RefreshDelayTimer(50d / 1000d); // 50 milliseconds
             _modelPropertyGridRefreshDelayTimer.Elapsed += () => UpdateModelPropertyGrid(true);
+
+            _scanProgressRefreshDelayTimer = new RefreshDelayTimer(); // Interval assigned by settings
+            _scanProgressRefreshDelayTimer.AutoReset = true;
+            _scanProgressRefreshDelayTimer.Elapsed += () => ScanUpdated();
+
+            _scanPopulateRefreshDelayTimer = new RefreshDelayTimer(); // Interval assigned by settings
+            _scanPopulateRefreshDelayTimer.AutoReset = true;
+            _scanPopulateRefreshDelayTimer.Elapsed += () => ScanPopulateItems();
 
 
             // Setup Events
@@ -652,7 +718,8 @@ namespace PSXPrev.Forms
         {
             if (Program.HasCommandLineArguments)
             {
-                Program.ScanCommandLineAsync();
+                _drawAllToVRAMAfterScan = Program.CommandLineOptions.DrawAllToVRAM;
+                Program.ScanCommandLineAsync(OnScanProgressCallback);
             }
             else
             {
@@ -1203,6 +1270,8 @@ namespace PSXPrev.Forms
                 // Update delayed control refreshes
                 _animationProgressBarRefreshDelayTimer.AddTime(deltaSeconds);
                 _modelPropertyGridRefreshDelayTimer.AddTime(deltaSeconds);
+                _scanProgressRefreshDelayTimer.AddTime(deltaSeconds);
+                _scanPopulateRefreshDelayTimer.AddTime(deltaSeconds);
 
 
                 // Update animation
@@ -1243,7 +1312,11 @@ namespace PSXPrev.Forms
                 var node = entitiesTreeView.Nodes[i];
                 if (node.Checked)
                 {
-                    selectedEntities.Add(_rootEntities[i]);
+                    var tagInfo = (EntitiesTreeViewTagInfo)node.Tag;
+                    if (tagInfo.Entity is RootEntity rootEnity)
+                    {
+                        selectedEntities.Add(rootEnity);
+                    }
                 }
             }
             if (selectedEntities.Count == 0 && defaultToSelected)
@@ -1263,9 +1336,13 @@ namespace PSXPrev.Forms
             for (var i = 0; i < animationsTreeView.Nodes.Count; i++)
             {
                 var node = animationsTreeView.Nodes[i];
-                if (node.Checked && node.Tag is Animation animation)
+                if (node.Checked)
                 {
-                    selectedAnimations.Add(animation);
+                    var tagInfo = (AnimationsTreeViewTagInfo)node.Tag;
+                    if (tagInfo.Animation != null)
+                    {
+                        selectedAnimations.Add(tagInfo.Animation);
+                    }
                 }
             }
             if (selectedAnimations.Count == 0 && defaultToSelected)
@@ -1301,29 +1378,89 @@ namespace PSXPrev.Forms
             return _textures[tagInfo.Index];
         }
 
-        private void EntityAdded(RootEntity entity, int index)
+        private TreeNode CreateRootEntityNode(RootEntity rootEntity, int rootIndex)
         {
-            _vram.AssignModelTextures(entity);
-
-            entitiesTreeView.BeginUpdate();
-            var entityNode = entitiesTreeView.Nodes.Add(entity.EntityName);
-            entityNode.Tag = entity;
-            for (var m = 0; m < entity.ChildEntities.Length; m++)
+            var loaded = rootEntity.ChildEntities.Length == 0;
+            var rootEntityNode = new TreeNode(rootEntity.EntityName)
             {
-                var entityChildEntity = entity.ChildEntities[m];
-                var modelNode = new TreeNode(entityChildEntity.EntityName);
-                modelNode.Tag = entityChildEntity;
-                entityNode.Nodes.Add(modelNode);
-                modelNode.HideCheckBox();
-                modelNode.HideCheckBox();
+                Tag = new EntitiesTreeViewTagInfo
+                {
+                    Entity = rootEntity,
+                    RootIndex = rootIndex,
+                    LazyLoaded = loaded,
+                },
+            };
+            if (!loaded)
+            {
+                rootEntityNode.Nodes.Add(string.Empty); // Show plus sign before we've lazy-loaded
             }
-            entitiesTreeView.EndUpdate();
+            return rootEntityNode;
         }
 
-        private void TextureAdded(Texture texture, int index)
+        private TreeNode CreateModelEntityNode(EntityBase modelEntity, int rootIndex, int childIndex)
+        {
+            var modelNode = new TreeNode(modelEntity.EntityName)
+            {
+                Tag = new EntitiesTreeViewTagInfo
+                {
+                    Entity = modelEntity,
+                    RootIndex = rootIndex,
+                    ChildIndex = childIndex,
+                    LazyLoaded = true,
+                },
+            };
+            return modelNode;
+        }
+
+        private void LoadEntityChildNodes(TreeNode entityNode)
+        {
+            var tagInfo = (EntitiesTreeViewTagInfo)entityNode.Tag;
+            var entity = tagInfo.Entity;
+
+            var modelNodes = new TreeNode[entity.ChildEntities.Length];
+            for (var i = 0; i < entity.ChildEntities.Length; i++)
+            {
+                modelNodes[i] = CreateModelEntityNode(entity.ChildEntities[i], tagInfo.RootIndex, i);
+            }
+            entityNode.Nodes.Clear(); // Clear dummy node used to show plus sign
+            entityNode.Nodes.AddRange(modelNodes);
+
+            // We can't hide checkboxes until we've been added to the tree view structure.
+            foreach (var modelNode in modelNodes)
+            {
+                modelNode.HideCheckBox();
+            }
+            tagInfo.LazyLoaded = true;
+        }
+
+        private void EntitiesAdded(IReadOnlyList<RootEntity> rootEntities, int startIndex)
+        {
+            var rootEntityNodes = new TreeNode[rootEntities.Count];
+            for (var i = 0; i < rootEntities.Count; i++)
+            {
+                rootEntityNodes[i] = CreateRootEntityNode(rootEntities[i], startIndex + i);
+            }
+            entitiesTreeView.Nodes.AddRange(rootEntityNodes);
+
+            // Assign textures to models
+            foreach (var rootEntity in rootEntities)
+            {
+                _vram.AssignModelTextures(rootEntity);
+            }
+        }
+
+        private void EntityAdded(RootEntity entity, int index)
+        {
+            entitiesTreeView.Nodes.Add(CreateRootEntityNode(entity, index));
+
+            // Assign texture to model
+            _vram.AssignModelTextures(entity);
+        }
+
+        private ImageListViewItem CreateTextureItem(Texture texture, int index)
         {
             object key = index;
-            texturesListView.Items.Add(new ImageListViewItem(key)
+            var textureItem = new ImageListViewItem(key)
             {
                 //Text = index.ToString(), //debug
                 Text = texture.TextureName,
@@ -1333,68 +1470,153 @@ namespace PSXPrev.Forms
                     Index = index,
                     Found = false,
                 },
-            }, _texturesListViewAdaptor);
+            };
+            return textureItem;
+        }
+
+        private void TexturesAdded(IReadOnlyList<Texture> textures, int startIndex)
+        {
+            var textureItems = new ImageListViewItem[textures.Count];
+            for (var i = 0; i < textures.Count; i++)
+            {
+                textureItems[i] = CreateTextureItem(textures[i], startIndex + i);
+            }
+            texturesListView.Items.AddRange(textureItems, _texturesListViewAdaptor);
+
+            // Change CLUT index to current index
+            foreach (var texture in textures)
+            {
+                texture.SetCLUTIndex(_clutIndex);
+            }
+        }
+
+        private void TextureAdded(Texture texture, int index)
+        {
+            texturesListView.Items.Add(CreateTextureItem(texture, index), _texturesListViewAdaptor);
+
             // Change CLUT index to current index
             texture.SetCLUTIndex(_clutIndex);
         }
 
-        private void AnimationAdded(Animation animation, int index)
+        private TreeNode CreateAnimationNode(Animation animation, int rootIndex)
         {
-            animationsTreeView.BeginUpdate();
-            var animationNode = new TreeNode(animation.AnimationName);
-            animationNode.Tag = animation;
-            animationsTreeView.Nodes.Add(animationNode);
-            AddAnimationObject(animation.RootAnimationObject, animationNode);
-            animationsTreeView.EndUpdate();
+            var loaded = animation.RootAnimationObject.Children.Count == 0;
+            var animationNode = new TreeNode(animation.AnimationName)
+            {
+                Tag = new AnimationsTreeViewTagInfo
+                {
+                    Animation = animation,
+                    LazyLoaded = loaded,
+                    RootIndex = rootIndex,
+                },
+            };
+            if (!loaded)
+            {
+                animationNode.Nodes.Add(string.Empty); // Show plus sign before we've lazy-loaded
+            }
+            return animationNode;
         }
 
-        private void AddAnimationObject(AnimationObject parent, TreeNode parentNode)
+        private TreeNode CreateAnimationObjectNode(AnimationObject animationObject, int rootIndex, int childIndex)
         {
-            var animationObjects = parent.Children;
-            for (var o = 0; o < animationObjects.Count; o++)
+            var loaded = animationObject.Children.Count == 0;
+            if (IncludeAnimationFrameTreeViewNodes)
             {
-                var animationObject = animationObjects[o];
-                var animationObjectNode = new TreeNode("Animation-Object " + o); // 0-indexed like Sub-Models
-                animationObjectNode.Tag = animationObject;
-                parentNode.Nodes.Add(animationObjectNode);
-                AddAnimationObject(animationObject, animationObjectNode);
+                loaded &= animationObject.AnimationFrames.Count == 0;
             }
-#if false
-            var frames = new List<AnimationFrame>(parent.AnimationFrames.Values);
-            frames.Sort((a, b) => a.FrameTime.CompareTo(b.FrameTime));
-            for (var f = 0; f < frames.Count; f++)
+            var animationObjectNode = new TreeNode("Animation-Object " + childIndex) // 0-indexed like Sub-Models
             {
-                var animationFrame = frames[f];
-                var animationFrameNode = new TreeNode("Animation-Frame " + animationFrame.FrameTime);
-                animationFrameNode.Tag = animationFrame;
-                parentNode.Nodes.Add(animationFrameNode);
+                Tag = new AnimationsTreeViewTagInfo
+                {
+                    AnimationObject = animationObject,
+                    LazyLoaded = loaded,
+                    RootIndex = rootIndex,
+                    ChildIndex = childIndex,
+                },
+            };
+            if (!loaded)
+            {
+                animationObjectNode.Nodes.Add(string.Empty); // Show plus sign before we've lazy-loaded
             }
-#endif
+            return animationObjectNode;
+        }
+
+        private TreeNode CreateAnimationFrameNode(AnimationFrame animationFrame, int rootIndex, int childIndex)
+        {
+            var frameNumber = animationFrame.FrameTime; //childIndex;
+            var animationFrameNode = new TreeNode("Animation-Frame " + frameNumber)
+            {
+                Tag = new AnimationsTreeViewTagInfo
+                {
+                    AnimationFrame = animationFrame,
+                    LazyLoaded = true,
+                    RootIndex = rootIndex,
+                    ChildIndex = childIndex,
+                },
+            };
+            return animationFrameNode;
+        }
+
+        private void LoadAnimationChildNodes(TreeNode animationNode)
+        {
+            var tagInfo = (AnimationsTreeViewTagInfo)animationNode.Tag;
+            var animationObject = tagInfo.AnimationObject ?? tagInfo.Animation?.RootAnimationObject;
+
+            var frameCount = IncludeAnimationFrameTreeViewNodes ? animationObject.AnimationFrames.Count : 0;
+
+            var animationChildNodes = new TreeNode[animationObject.Children.Count + frameCount];
+            for (var i = 0; i < animationObject.Children.Count; i++)
+            {
+                animationChildNodes[i] = CreateAnimationObjectNode(animationObject.Children[i], tagInfo.RootIndex, i);
+            }
+            if (frameCount > 0)
+            {
+                var frameStart = animationObject.Children.Count;
+                // Sort frames by order of appearance
+                var animationFrames = new List<AnimationFrame>(animationObject.AnimationFrames.Values);
+                animationFrames.Sort((a, b) => a.FrameTime.CompareTo(b.FrameTime));
+                for (var i = 0; i < animationFrames.Count; i++)
+                {
+                    animationChildNodes[frameStart + i] = CreateAnimationFrameNode(animationFrames[i], tagInfo.RootIndex, i);
+                }
+            }
+            animationNode.Nodes.Clear(); // Clear dummy node used to show plus sign
+            animationNode.Nodes.AddRange(animationChildNodes);
+
+            // We can't hide checkboxes until we've been added to the tree view structure.
+            foreach (var animationChildNode in animationChildNodes)
+            {
+                animationChildNode.HideCheckBox();
+            }
+            tagInfo.LazyLoaded = true;
+        }
+
+        private void AnimationsAdded(IReadOnlyList<Animation> animations, int startIndex)
+        {
+            var animationNodes = new TreeNode[animations.Count];
+            for (var i = 0; i < animations.Count; i++)
+            {
+                animationNodes[i] = CreateAnimationNode(animations[i], startIndex + i);
+            }
+            animationsTreeView.Nodes.AddRange(animationNodes);
+        }
+
+        private void AnimationAdded(Animation animation, int index)
+        {
+            animationsTreeView.Nodes.Add(CreateAnimationNode(animation, index));
         }
 
         // Helper functions primarily intended for debugging models made by MeshBuilders.
         private void AddRootEntities(params RootEntity[] rootEntities)
         {
-            foreach (var rootEntity in rootEntities)
-            {
-                AddRootEntity(rootEntity);
-            }
+            AddRootEntities((IReadOnlyList<RootEntity>)rootEntities); // Cast required to avoid calling this same function
         }
 
-        private void AddTextures(params Texture[] textures)
+        private void AddRootEntities(IReadOnlyList<RootEntity> rootEntities)
         {
-            foreach (var texture in textures)
-            {
-                AddTexture(texture);
-            }
-        }
-
-        private void AddAnimations(params Animation[] animations)
-        {
-            foreach (var animation in animations)
-            {
-                AddAnimation(animation);
-            }
+            var startIndex = _rootEntities.Count;
+            _rootEntities.AddRange(rootEntities);
+            EntitiesAdded(rootEntities, startIndex);
         }
 
         private void AddRootEntity(RootEntity rootEntity)
@@ -1403,10 +1625,34 @@ namespace PSXPrev.Forms
             EntityAdded(rootEntity, _rootEntities.Count - 1);
         }
 
+        private void AddTextures(params Texture[] textures)
+        {
+            AddTextures((IReadOnlyList<Texture>)textures); // Cast required to avoid calling this same function
+        }
+
+        private void AddTextures(IReadOnlyList<Texture> textures)
+        {
+            var startIndex = _textures.Count;
+            _textures.AddRange(textures);
+            TexturesAdded(textures, startIndex);
+        }
+
         private void AddTexture(Texture texture)
         {
             _textures.Add(texture);
             TextureAdded(texture, _textures.Count - 1);
+        }
+
+        private void AddAnimations(params Animation[] animations)
+        {
+            AddAnimations((IReadOnlyList<Animation>)animations); // Cast required to avoid calling this same function
+        }
+
+        private void AddAnimations(IReadOnlyList<Animation> animations)
+        {
+            var startIndex = _animations.Count;
+            _animations.AddRange(animations);
+            AnimationsAdded(animations, startIndex);
         }
 
         private void AddAnimation(Animation animation)
@@ -1761,7 +2007,15 @@ namespace PSXPrev.Forms
                 EnterDialog();
                 try
                 {
-                    ScannerForm.Show(this);
+                    var options = ScannerForm.Show(this);
+                    if (options != null)
+                    {
+                        _drawAllToVRAMAfterScan = options.DrawAllToVRAM;
+                        if (!Program.ScanAsync(options, OnScanProgressCallback))
+                        {
+                            MessageBox.Show(this, $"Directory/File not found: {options.Path}", "Scan Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        }
+                    }
                 }
                 finally
                 {
@@ -1903,8 +2157,10 @@ namespace PSXPrev.Forms
             EnterDialog();
             try
             {
-                if (ExportModelsForm.Show(this, entities, animations, _animationBatch))
+                var options = ExportModelsForm.Show(this, entities, animations, _animationBatch);
+                if (options != null)
                 {
+                    ExportModelsForm.Export(options, entities, animations, _animationBatch);
                     MessageBox.Show(this, $"{entities.Length} models exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
@@ -2291,6 +2547,15 @@ namespace PSXPrev.Forms
             }
         }
 
+        private void entitiesTreeView_BeforeExpand(object sender, TreeViewCancelEventArgs e)
+        {
+            var tagInfo = (EntitiesTreeViewTagInfo)e.Node.Tag;
+            if (!tagInfo.LazyLoaded)
+            {
+                LoadEntityChildNodes(e.Node);
+            }
+        }
+
         private void entitiesTreeView_AfterSelect(object sender, TreeViewEventArgs e)
         {
             if (_selectionSource == EntitySelectionSource.None)
@@ -2300,8 +2565,9 @@ namespace PSXPrev.Forms
             var selectedNode = entitiesTreeView.SelectedNode;
             if (selectedNode != null)
             {
-                _selectedRootEntity = selectedNode.Tag as RootEntity;
-                _selectedModelEntity = selectedNode.Tag as ModelEntity;
+                var tagInfo = (EntitiesTreeViewTagInfo)selectedNode.Tag;
+                _selectedRootEntity = tagInfo.Entity as RootEntity;
+                _selectedModelEntity = tagInfo.Entity as ModelEntity;
                 UnselectTriangle();
             }
             var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
@@ -2994,6 +3260,15 @@ namespace PSXPrev.Forms
             }
         }
 
+        private void animationsTreeView_BeforeExpand(object sender, TreeViewCancelEventArgs e)
+        {
+            var tagInfo = (AnimationsTreeViewTagInfo)e.Node.Tag;
+            if (!tagInfo.LazyLoaded)
+            {
+                LoadAnimationChildNodes(e.Node);
+            }
+        }
+
         private void animationsTreeView_AfterSelect(object sender, TreeViewEventArgs e)
         {
             var selectedNode = animationsTreeView.SelectedNode;
@@ -3003,23 +3278,25 @@ namespace PSXPrev.Forms
                 return;
             }
 
-            if (selectedNode.Tag is Animation animation)
+            var tagInfo = (AnimationsTreeViewTagInfo)selectedNode.Tag;
+
+            if (tagInfo.Animation != null)
             {
-                _curAnimation = animation;
+                _curAnimation = tagInfo.Animation;
                 _curAnimationObject = null;
                 _curAnimationFrame = null;
             }
-            else if (selectedNode.Tag is AnimationObject animationObject)
+            else if (tagInfo.AnimationObject != null)
             {
-                _curAnimation = animationObject.Animation;
-                _curAnimationObject = animationObject;
+                _curAnimation = tagInfo.AnimationObject.Animation;
+                _curAnimationObject = tagInfo.AnimationObject;
                 _curAnimationFrame = null;
             }
-            else if (selectedNode.Tag is AnimationFrame animationFrame)
+            else if (tagInfo.AnimationFrame != null)
             {
-                _curAnimation = animationFrame.AnimationObject.Animation;
-                _curAnimationObject = animationFrame.AnimationObject;
-                _curAnimationFrame = animationFrame;
+                _curAnimation = tagInfo.AnimationFrame.AnimationObject.Animation;
+                _curAnimationObject = tagInfo.AnimationFrame.AnimationObject;
+                _curAnimationFrame = tagInfo.AnimationFrame;
             }
 
             if (_autoSelectAnimationModel && _curAnimation.OwnerEntity != null)
@@ -3249,12 +3526,32 @@ namespace PSXPrev.Forms
             Click,
         }
 
+        private class EntitiesTreeViewTagInfo
+        {
+            public EntityBase Entity { get; set; }
+            public int RootIndex { get; set; }
+            public int ChildIndex { get; set; } = -1;
+            public bool IsRoot => ChildIndex == -1;
+            public bool LazyLoaded { get; set; } // True if child nodes have been added
+        }
+
+        private class AnimationsTreeViewTagInfo
+        {
+            public Animation Animation { get; set; }
+            public AnimationObject AnimationObject { get; set; }
+            public AnimationFrame AnimationFrame { get; set; }
+            public int RootIndex { get; set; }
+            public int ChildIndex { get; set; } = -1;
+            public bool IsRoot => ChildIndex == -1;
+            public bool LazyLoaded { get; set; } // True if child nodes have been added
+        }
+
         private class TexturesListViewTagInfo
         {
             //public Texture Texture { get; set; }
             // We need to store index because ImageListViewItem.Index does not represent the original index.
             public int Index { get; set; }
-            public bool Found { get; set; }
+            public bool Found { get; set; } // Search results flag
         }
 
         private class TexturesListViewGrouper : ImageListView.IGrouper
@@ -3325,13 +3622,14 @@ namespace PSXPrev.Forms
             // Time is in seconds
             public bool NeedsRefresh { get; private set; }
             public double ElapsedSeconds { get; private set; }
-            public double DelaySeconds { get; set; }
+            public double Interval { get; set; }
+            public bool AutoReset { get; set; }
 
             public event Action Elapsed;
 
-            public RefreshDelayTimer(double delaySeconds = 1d / 1000d)
+            public RefreshDelayTimer(double interval = 1d / 1000d)
             {
-                DelaySeconds = delaySeconds;
+                Interval = interval;
             }
 
             // Start the timer but keep the current elapsed time
@@ -3355,7 +3653,7 @@ namespace PSXPrev.Forms
             }
 
             // Finish the timer and raise the event if NeedsRefresh is true
-            public bool Finish() => AddTime(DelaySeconds);
+            public bool Finish() => AddTime(Interval);
 
             // Update the timer if NeedsRefresh is true, and raise the event if finished
             public bool AddTime(double seconds)
@@ -3363,9 +3661,9 @@ namespace PSXPrev.Forms
                 if (NeedsRefresh)
                 {
                     ElapsedSeconds += seconds;
-                    if (ElapsedSeconds >= DelaySeconds)
+                    if (ElapsedSeconds >= Interval)
                     {
-                        NeedsRefresh = false;
+                        NeedsRefresh = AutoReset;
                         ElapsedSeconds = 0d;
 
                         Elapsed?.Invoke();
