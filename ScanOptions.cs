@@ -77,7 +77,9 @@ namespace PSXPrev
         [JsonProperty("fileSearchISOContents")]
         public bool ReadISOContents { get; set; } = true; // Disable this by default when parsing command line arguments
         [JsonProperty("fileSearchBINContents")]
-        public bool ReadBINContents { get; set; } = false;
+        public bool ReadBINContents { get; set; } = false; // Read indexed files instead of data of BIN file.
+        [JsonProperty("fileSearchBINSectorData")]
+        public bool ReadBINSectorData { get; set; } = false;
         [JsonProperty("binSectorAlign")]
         public bool BINAlignToSector { get; set; } = false;
 

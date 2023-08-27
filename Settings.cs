@@ -22,6 +22,13 @@ namespace PSXPrev
 
         public static Settings Instance { get; set; } = new Settings();
 
+        public const uint CurrentVersion = 1;
+
+
+        // Any settings that need to be changed beteen versions can be handled with this.
+        [JsonProperty("version")]
+        public uint Version { get; set; } = CurrentVersion;
+
 
         [JsonProperty("gridSnap")]
         public float GridSnap { get; set; } = 1f;
@@ -164,6 +171,12 @@ namespace PSXPrev
         [JsonProperty("scanOptionsShowAdvanced")]
         public bool ShowAdvancedScanOptions { get; set; } = false;
 
+        [JsonProperty("scanProgressFrequency")]
+        public float ScanProgressFrequency { get; set; } = 1f / 60f; // 1 frame (60FPS)
+
+        [JsonProperty("scanPopulateFrequency")]
+        public float ScanPopulateFrequency { get; set; } = 4f; // 4 seconds
+
         [JsonProperty("scanOptions")]
         public ScanOptions ScanOptions { get; set; } = new ScanOptions();
 
@@ -238,16 +251,27 @@ namespace PSXPrev
 
         public void Validate()
         {
-            GridSnap          = ValidateMax(  GridSnap,          Defaults.GridSnap, 0f);
+            if (Version < CurrentVersion)
+            {
+                // Handle changes to how settings are stored here
+
+            }
+            Version = CurrentVersion;
+
+            GridSnap          = ValidateMax(  GridSnap,          Defaults.GridSnap,  0f);
+            AngleSnap         = ValidateMax(  AngleSnap,         Defaults.AngleSnap, 0f);
+            ScaleSnap         = ValidateMax(  ScaleSnap,         Defaults.ScaleSnap, 0f);
             CameraFOV         = ValidateClamp(CameraFOV,         Defaults.CameraFOV, Scene.CameraMinFOV, Scene.CameraMaxFOV);
             LightIntensity    = ValidateMax(  LightIntensity,    Defaults.LightIntensity, 0f);
             LightYaw          = ValidateAngle(LightYaw,          Defaults.LightYaw);
             LightPitch        = ValidateAngle(LightPitch,        Defaults.LightPitch);
             WireframeSize     = ValidateMax(  WireframeSize,     Defaults.WireframeSize, 1f);
             VertexSize        = ValidateMax(  VertexSize,        Defaults.VertexSize,    1f);
+            GizmoType         = ValidateEnum( GizmoType,         Defaults.GizmoType);
             BackgroundColor   = ValidateColor(BackgroundColor,   Defaults.BackgroundColor);
             AmbientColor      = ValidateColor(AmbientColor,      Defaults.AmbientColor);
             MaskColor         = ValidateColor(MaskColor,         Defaults.MaskColor);
+            SolidWireframeVerticesColor = ValidateColor(SolidWireframeVerticesColor, Defaults.SolidWireframeVerticesColor);
             CurrentCLUTIndex  = ValidateClamp(CurrentCLUTIndex,  Defaults.CurrentCLUTIndex, 0, 255);
             AnimationLoopMode = ValidateEnum( AnimationLoopMode, Defaults.AnimationLoopMode);
             AnimationSpeed    = ValidateClamp(AnimationSpeed,    Defaults.AnimationSpeed, 0.01f, 100f);
@@ -256,6 +280,8 @@ namespace PSXPrev
             LogWarningColor         = ValidateEnum(LogWarningColor,         Defaults.LogWarningColor);
             LogErrorColor           = ValidateEnum(LogErrorColor,           Defaults.LogErrorColor);
             LogExceptionPrefixColor = ValidateEnum(LogExceptionPrefixColor, Defaults.LogExceptionPrefixColor);
+            ScanProgressFrequency = ValidateMax(ScanProgressFrequency, Defaults.ScanProgressFrequency, 0f);
+            ScanPopulateFrequency = ValidateMax(ScanPopulateFrequency, Defaults.ScanPopulateFrequency, 0f);
 
             if (ColorDialogCustomColors == null)
             {
@@ -275,62 +301,113 @@ namespace PSXPrev
         public Settings Clone()
         {
             var settings = (Settings)MemberwiseClone();
+            settings.ColorDialogCustomColors = (System.Drawing.Color[])settings.ColorDialogCustomColors?.Clone();
             settings.ScanOptions = settings.ScanOptions?.Clone();
             settings.ExportModelOptions = settings.ExportModelOptions?.Clone();
             return settings;
         }
 
-        public void Save()
+        public bool Save()
         {
             try
             {
+                Version = CurrentVersion;
                 File.WriteAllText(FilePath, JsonConvert.SerializeObject(this, Formatting.Indented));
+                return true;
             }
             catch
             {
                 // Failure to write settings file should not be fatal.
+                return false;
             }
         }
 
-        public static void Load()
+        public static bool Load(bool loadDefaults, bool preserveScanOptions = false, bool preserveExportModelOptions = false)
         {
             try
             {
-                Instance = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(FilePath), new JsonSerializerSettings
+                var errorProperties = new List<string>(); // Unused for now
+                var jsonSettings = new JsonSerializerSettings
                 {
                     // Fix security vulnerability in-case the settings file somehow gets replaced by someone else
                     MaxDepth = 128,
-                });
-                Instance.Validate();
+                    // Allow parsing the rest of the settings, even if a few properties can't be parsed
+                    Error = (sender, e) => {
+                        errorProperties.Add(e.ErrorContext.Path);
+                        e.ErrorContext.Handled = true;
+                    },
+                };
 
-                // Create a settings file if one doesn't already exist.
-                if (!File.Exists(FilePath))
-                {
-                    Instance.Save();
-                }
+                var newInstance = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(FilePath), jsonSettings);
+                newInstance.Validate();
+
+                Preserve(newInstance, false, false, preserveScanOptions, preserveExportModelOptions);
+
+                Instance = newInstance;
+
+                // Correct any errors with properties by saving over settings.
+                Instance.Save();
+                return true;
             }
-            catch
+            catch (Exception exp)
             {
                 // Load default settings on failure.
-                LoadDefaults();
+                if (loadDefaults)
+                {
+                    LoadDefaults(preserveScanOptions, preserveExportModelOptions);
+                    // It's not an error if the file didn't exist
+                    return (exp is FileNotFoundException);
+                }
+                return false;
             }
         }
 
-        public static void LoadDefaults()
+        public static void LoadDefaults(bool preserveScanOptions = false, bool preserveExportModelOptions = false)
         {
-            var oldInstance = Instance;
-            Instance = new Settings();
+            var newInstance = new Settings();
 
             // There's no reason not to preserve color dialog custom colors when resetting settings.
-            if (oldInstance?.ColorDialogCustomColors != null)
-            {
-                Instance.ColorDialogCustomColors = (System.Drawing.Color[])oldInstance.ColorDialogCustomColors.Clone();
-            }
+            Preserve(newInstance, true, true, preserveScanOptions, preserveExportModelOptions);
+
+            Instance = newInstance;
 
             // Create a settings file if one doesn't already exist.
             if (!File.Exists(FilePath))
             {
                 Instance.Save();
+            }
+        }
+
+
+        private static void Preserve(Settings newInstance, bool customColors, bool paths, bool scanOptions, bool exportModelOptions)
+        {
+            if (Instance?.ColorDialogCustomColors != null && customColors)
+            {
+                newInstance.ColorDialogCustomColors = (System.Drawing.Color[])Instance.ColorDialogCustomColors.Clone();
+            }
+
+            if (Instance?.ScanOptions != null)
+            {
+                if (scanOptions)
+                {
+                    newInstance.ScanOptions = Instance.ScanOptions.Clone();
+                }
+                else if (paths)
+                {
+                    newInstance.ScanOptions.Path = Instance.ScanOptions.Path;
+                }
+            }
+
+            if (Instance?.ExportModelOptions != null)
+            {
+                if (exportModelOptions)
+                {
+                    newInstance.ExportModelOptions = Instance.ExportModelOptions.Clone();
+                }
+                else if (paths)
+                {
+                    newInstance.ExportModelOptions.Path = Instance.ExportModelOptions.Path;
+                }
             }
         }
 

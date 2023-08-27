@@ -673,6 +673,58 @@ namespace PSXPrev.Common
             return r < 0 ? r + m : r;
         }
 
+        // Integer division where the result is always rounded down, instead of rounded towards zero.
+        public static int FloorDiv(int x, int y)
+        {
+            // XOR to check if only one value is negative, modulus to avoid cases where the result is alread floored.
+            if (((x < 0) ^ (y < 0)) && (x % y != 0))
+            {
+                return (x / y) - 1;
+            }
+            else
+            {
+                return x / y;
+            }
+        }
+
+        public static long FloorDiv(long x, long y)
+        {
+            // XOR to check if only one value is negative, modulus to avoid cases where the result is alread floored.
+            if (((x < 0) ^ (y < 0)) && (x % y != 0))
+            {
+                return (x / y) - 1;
+            }
+            else
+            {
+                return x / y;
+            }
+        }
+
+        // Combination of FloorDiv and PositiveModulus. result is the remainder.
+        public static int FloorDivRem(int x, int y, out int result)
+        {
+            var div = Math.DivRem(x, y, out result);
+            // XOR to check if only one value is negative, non-zero to avoid cases where the result is alread floored.
+            if (((x < 0) ^ (y < 0)) && result != 0)
+            {
+                result += y;
+                div--;
+            }
+            return div;
+        }
+
+        public static long FloorDivRem(long x, long y, out long result)
+        {
+            var div = Math.DivRem(x, y, out result);
+            // XOR to check if only one value is negative, non-zero to avoid cases where the result is alread floored.
+            if (((x < 0) ^ (y < 0)) && result != 0)
+            {
+                result += y;
+                div--;
+            }
+            return div;
+        }
+
         // Yes, OpenTK.MathHelper.Clamp exists, but only for int, float, and double.
         // Using it when not expecting it to be missing other types is dangerous.
         // Like if using long with MathHelper.Clamp, YOU'LL GET A FLOAT OF ALL THINGS!!!

@@ -3,7 +3,7 @@ using System.IO;
 
 namespace PSXPrev.Common.Parsers
 {
-    public class BinCDStream : Stream
+    public sealed class BinCDStream : Stream
     {
         // 150 skips common data like PS1 logo model
         public const int SectorsFirstIndex = 150;
@@ -17,18 +17,18 @@ namespace PSXPrev.Common.Parsers
         private readonly int _fileSectorUserStart;
         private readonly int _fileSectorUserSize;
 
-        private readonly Stream _stream;
+        private Stream _stream;
         private readonly bool _leaveOpen;
         private readonly byte[] _buffer;
         private readonly long _length;
         private readonly int _sectorCount; // Total number of sectors in the file after _fileSectorsStart
 
         private int _sectorIndex;          // Index of current sector
-        private int _sectorPosition;       // Index inside current sector
+        private int _sectorOffset;       // Index inside current sector
         private int _lastReadSectorIndex;  // Index of last sector that was read into the buffer
 
-        public BinCDStream(string file, bool leaveOpen = false)
-            : this(File.OpenRead(file), leaveOpen)
+        public BinCDStream(string file)
+            : this(File.OpenRead(file), false)
         {
         }
 
@@ -39,8 +39,18 @@ namespace PSXPrev.Common.Parsers
 
         // Set sectorsFirstIndex to 0 to read information like PS1 logo model
         // Set sectorUserSize to 2032 and sectorUserStart to 40 for Star Ocean 2
-        public BinCDStream(string file, int sectorsFirstIndex, int sectorRawSize, int sectorUserStart, int sectorUserSize, bool leaveOpen = false)
-            : this(File.OpenRead(file), sectorsFirstIndex, sectorRawSize, sectorUserStart, sectorUserSize, leaveOpen)
+        public BinCDStream(string file, int sectorsFirstIndex)
+            : this(File.OpenRead(file), sectorsFirstIndex, false)
+        {
+        }
+
+        public BinCDStream(Stream stream, int sectorsFirstIndex, bool leaveOpen = false)
+            : this(stream, sectorsFirstIndex, SectorRawSize, SectorUserStart, SectorUserSize, leaveOpen)
+        {
+        }
+
+        public BinCDStream(string file, int sectorsFirstIndex, int sectorRawSize, int sectorUserStart, int sectorUserSize)
+            : this(File.OpenRead(file), sectorsFirstIndex, sectorRawSize, sectorUserStart, sectorUserSize, false)
         {
         }
 
@@ -62,7 +72,7 @@ namespace PSXPrev.Common.Parsers
             _sectorCount = Math.Max(0, SectorIndexFromRawPosition(stream.Length));
             _length = SectorIndexToUserPosition(_sectorCount);
             _sectorIndex = 0;
-            _sectorPosition = 0;
+            _sectorOffset = 0;
             _lastReadSectorIndex = -1; // No sectors read into buffer
         }
 
@@ -84,13 +94,9 @@ namespace PSXPrev.Common.Parsers
         }
 
 
-        public int SectorIndex => _sectorIndex;
-
-        public int SectorCount => _sectorCount;
-
         public override long Position
         {
-            get => SectorIndexToUserPosition(_sectorIndex) + _sectorPosition;
+            get => SectorIndexToUserPosition(_sectorIndex) + _sectorOffset;
             set => Seek(value, SeekOrigin.Begin);
         }
 
@@ -114,11 +120,15 @@ namespace PSXPrev.Common.Parsers
                     offset += _length;
                     break;
             }
-            offset = GeomMath.Clamp(offset, 0, _length);
+            if (offset < 0)
+            {
+                throw new IOException("An attempt was made to move the file pointer before the beginning of the file.");
+            }
 
-            _sectorIndex = SectorIndexFromUserPosition(offset);
-            _sectorPosition = SectorPositionFromUserPosition(offset);
-            return Position;
+            // Seek is somewhat performance critical code, so we're implementing SectorFromUserPosition by hand.
+            _sectorIndex = (int)Math.DivRem(offset, _fileSectorUserSize, out var longSectorOffset);
+            _sectorOffset = (int)longSectorOffset;
+            return offset;
         }
 
         public override int ReadByte()
@@ -127,7 +137,7 @@ namespace PSXPrev.Common.Parsers
             {
                 return -1; // End of stream
             }
-            return _buffer[_sectorPosition++];
+            return _buffer[_sectorOffset++];
         }
 
         public override int Read(byte[] buffer, int offset, int count)
@@ -143,12 +153,12 @@ namespace PSXPrev.Common.Parsers
                 {
                     break; // End of stream
                 }
-                var sectorLeft = _fileSectorUserSize - _sectorPosition;
+                var sectorLeft = _fileSectorUserSize - _sectorOffset;
                 var sectorRead = Math.Min(sectorLeft, count);
-                Buffer.BlockCopy(_buffer, _sectorPosition, buffer, offset + bytesRead, sectorRead);
+                Buffer.BlockCopy(_buffer, _sectorOffset, buffer, offset + bytesRead, sectorRead);
                 bytesRead += sectorRead;
                 count -= sectorRead;
-                _sectorPosition += sectorRead;
+                _sectorOffset += sectorRead;
             }
             return bytesRead;
         }
@@ -158,13 +168,13 @@ namespace PSXPrev.Common.Parsers
             throw new NotSupportedException("Stream is not writable");
         }
 
-        public override void Flush()
-        {
-        }
-
         public override void SetLength(long value)
         {
             throw new NotSupportedException("Stream is not writable");
+        }
+
+        public override void Flush()
+        {
         }
 
 
@@ -172,13 +182,14 @@ namespace PSXPrev.Common.Parsers
         {
             try
             {
-                if (disposing && !_leaveOpen)
+                if (disposing && !_leaveOpen && _stream != null)
                 {
                     _stream.Close();
                 }
             }
             finally
             {
+                _stream = null;
                 base.Dispose(disposing);
             }
         }
@@ -187,13 +198,13 @@ namespace PSXPrev.Common.Parsers
         private bool PrepareSectorForRead()
         {
             // Increment the sector if we've reached the end
-            if (_sectorPosition == _fileSectorUserSize)
+            if (_sectorOffset == _fileSectorUserSize)
             {
                 _sectorIndex++;
-                _sectorPosition = 0;
+                _sectorOffset = 0;
             }
             // Check if we've reached EOF
-            if (_sectorIndex == _sectorCount)
+            if (_sectorIndex >= _sectorCount)
             {
                 return false; // Nothing more to read
             }
@@ -202,6 +213,7 @@ namespace PSXPrev.Common.Parsers
             {
                 // We always need to seek, since we need to skip non-user data between sectors
                 var rawPosition = SectorIndexToRawPosition(_sectorIndex);
+                _lastReadSectorIndex = -1; // Set to invalid sector in-case an exception occurs during Seek/Read
                 _stream.Seek(rawPosition, SeekOrigin.Begin);
                 _stream.Read(_buffer, 0, _fileSectorUserSize);
                 _lastReadSectorIndex = _sectorIndex;
@@ -209,15 +221,16 @@ namespace PSXPrev.Common.Parsers
             return true;
         }
 
-
-        private int SectorPositionFromUserPosition(long position)
+        private int SectorOffsetFromUserPosition(long position)
         {
-            return (int)(position % _fileSectorUserSize);
+            return (int)GeomMath.PositiveModulus(position, _fileSectorUserSize);
+            //return (int)(position % _fileSectorUserSize);
         }
 
         private int SectorIndexFromUserPosition(long position)
         {
-            return (int)(position / _fileSectorUserSize);
+            return (int)GeomMath.FloorDiv(position, _fileSectorUserSize);
+            //return (int)(position / _fileSectorUserSize);
         }
 
         private long SectorIndexToUserPosition(int sectorIndex)
@@ -225,14 +238,24 @@ namespace PSXPrev.Common.Parsers
             return ((long)sectorIndex * _fileSectorUserSize);
         }
 
-        /*private int SectorPositionFromRawPosition(long rawPosition)
+        // Returns sectorIndex and outputs sectorOffset
+        private int SectorFromUserPosition(long position, out int sectorOffset)
         {
-            return (int)((rawPosition - _fileSectorsStart) % _fileSectorRawSize) - _fileSectorUserStart;
+            var sectorIndex = (int)GeomMath.FloorDivRem(position, _fileSectorUserSize, out var longSectorOffset);
+            sectorOffset = (int)longSectorOffset;
+            return sectorIndex;
+        }
+
+        /*private int SectorOffsetFromRawPosition(long rawPosition)
+        {
+            return (int)GeomMath.PositiveModulus(rawPosition - _fileSectorsStart, _fileSectorRawSize) - _fileSectorUserStart;
+            //return (int)((rawPosition - _fileSectorsStart) % _fileSectorRawSize) - _fileSectorUserStart;
         }*/
 
         private int SectorIndexFromRawPosition(long rawPosition)
         {
-            return (int)((rawPosition - _fileSectorsStart) / _fileSectorRawSize);
+            return (int)GeomMath.FloorDiv(rawPosition - _fileSectorsStart, _fileSectorRawSize);
+            //return (int)((rawPosition - _fileSectorsStart) / _fileSectorRawSize);
         }
 
         private long SectorIndexToRawPosition(int sectorIndex)
@@ -248,19 +271,15 @@ namespace PSXPrev.Common.Parsers
             //return _fileSectorsStart + rawAdditional + position;
             // Longer verion: Easier to read.
             var rawPosition = SectorIndexToRawPosition(sectorIndex);
-            var sectorPosition = SectorPositionFromUserPosition(position);
-            return rawPosition + SECTOR_USER_START + sectorPosition;
+            var sectorOffset = SectorOffsetFromUserPosition(position);
+            return rawPosition + sectorOffset + _fileSectorUserStart;
         }
 
         private long UserPositionFromRawPosition(long rawPosition)
         {
             var sectorIndex = SectorIndexFromRawPosition(rawPosition);
-            if (sectorIndex < 0)
-            {
-                return 0;
-            }
-            var sectorPosition = GeomMath.Clamp(SectorPositionFromRawPosition(rawPosition), 0, _fileSectorUserSize);
-            return SectorIndexToUserPosition(sectorIndex) + sectorPosition;
+            var sectorOffset = GeomMath.Clamp(SectorOffsetFromRawPosition(rawPosition), 0, _fileSectorUserSize);
+            return SectorIndexToUserPosition(sectorIndex) + sectorOffset;
         }*/
     }
 }

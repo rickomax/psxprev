@@ -314,6 +314,7 @@ namespace PSXPrev.Forms
             this.entitiesTreeView.Size = new System.Drawing.Size(330, 200);
             this.entitiesTreeView.TabIndex = 9;
             this.entitiesTreeView.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.entitiesTreeView_AfterCheck);
+            this.entitiesTreeView.BeforeExpand += new System.Windows.Forms.TreeViewCancelEventHandler(this.entitiesTreeView_BeforeExpand);
             this.entitiesTreeView.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.entitiesTreeView_AfterSelect);
             this.entitiesTreeView.NodeMouseClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.entitiesTreeView_NodeMouseClick);
             // 
@@ -715,6 +716,7 @@ namespace PSXPrev.Forms
             this.animationsTreeView.Name = "animationsTreeView";
             this.animationsTreeView.Size = new System.Drawing.Size(330, 400);
             this.animationsTreeView.TabIndex = 10;
+            this.animationsTreeView.BeforeExpand += new System.Windows.Forms.TreeViewCancelEventHandler(this.animationsTreeView_BeforeExpand);
             this.animationsTreeView.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.animationsTreeView_AfterSelect);
             // 
             // animationPropertyGrid

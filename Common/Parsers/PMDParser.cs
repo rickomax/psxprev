@@ -273,10 +273,16 @@ namespace PSXPrev.Common.Parsers
                 ReadSharedVertices(reader, vo3, out v3x, out v3y, out v3z);
                 reader.BaseStream.Seek(position, SeekOrigin.Begin);
             }
-            var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_gt4, false, false, null, null, 0, 0, 0, 0, 0,
-                0, r0, g0, b0, r1, g1, b1, r2, g2, b2, u0, v0, u1, v1, u2, v2, v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
-            var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_gt4, false, false, null, null, 0, 0, 0, 0, 0,
-             0, r1, g1, b1, r3, g3, b3, r2, g2, b2, u1, v1, u3, v3, u2, v2, v1x, v1y, v1z, v3x, v3y, v3z, v2x, v2y, v2z);
+            var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_gt4, false, false, null, null,
+                                                  0, 0, 0, 0, 0, 0,
+                                                  r0, g0, b0, r1, g1, b1, r2, g2, b2,
+                                                  u0, v0, u1, v1, u2, v2,
+                                                  v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
+            var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_gt4, false, false, null, null,
+                                                  0, 0, 0, 0, 0, 0,
+                                                  r1, g1, b1, r3, g3, b3, r2, g2, b2,
+                                                  u1, v1, u3, v3, u2, v2,
+                                                  v1x, v1y, v1z, v3x, v3y, v3z, v2x, v2y, v2z);
             return new[] { triangle1, triangle2 };
         }
 
@@ -345,10 +351,16 @@ namespace PSXPrev.Common.Parsers
                 reader.BaseStream.Seek(position, SeekOrigin.Begin);
             }
 
-            var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_g4, false, false, null, null, 0, 0, 0, 0, 0,
-                0, r0, g0, b0, r1, g1, b1, r2, g2, b2, 0, 0, 0, 0, 0, 0, v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
-            var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_g4, false, false, null, null, 0, 0, 0, 0, 0,
-             0, r1, g1, b1, r3, g3, b3, r2, g2, b2, 0, 0, 0, 0, 0, 0, v1x, v1y, v1z, v3x, v3y, v3z, v2x, v2y, v2z);
+            var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_g4, false, false, null, null,
+                                                  0, 0, 0, 0, 0, 0,
+                                                  r0, g0, b0, r1, g1, b1, r2, g2, b2,
+                                                  0, 0, 0, 0, 0, 0,
+                                                  v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
+            var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_g4, false, false, null, null,
+                                                  0, 0, 0, 0, 0, 0,
+                                                  r1, g1, b1, r3, g3, b3, r2, g2, b2,
+                                                  0, 0, 0, 0, 0, 0,
+                                                  v1x, v1y, v1z, v3x, v3y, v3z, v2x, v2y, v2z);
             return new[] { triangle1, triangle2 };
         }
 
@@ -419,10 +431,16 @@ namespace PSXPrev.Common.Parsers
                 ReadSharedVertices(reader, vo3, out v3x, out v3y, out v3z);
                 reader.BaseStream.Seek(position, SeekOrigin.Begin);
             }
-            var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_ft4, false, false, null, null, 0, 0, 0, 0, 0,
-                0, r, g, b, r, g, b, r, g, b, u0, v0, u1, v1, u2, v2, v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
-            var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_ft4, false, false, null, null, 0, 0, 0, 0, 0,
-               0, r, g, b, r, g, b, r, g, b, u1, v1, u3, v3, u2, v2, v1x, v1y, v1z, v3x, v3y, v3z, v2x, v2y, v2z);
+            var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_ft4, false, false, null, null,
+                                                  0, 0, 0, 0, 0, 0,
+                                                  r, g, b, r, g, b, r, g, b,
+                                                  u0, v0, u1, v1, u2, v2,
+                                                  v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
+            var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_ft4, false, false, null, null,
+                                                  0, 0, 0, 0, 0, 0,
+                                                  r, g, b, r, g, b, r, g, b,
+                                                  u1, v1, u3, v3, u2, v2,
+                                                  v1x, v1y, v1z, v3x, v3y, v3z, v2x, v2y, v2z);
             return new[] { triangle1, triangle2 };
         }
 
@@ -476,10 +494,16 @@ namespace PSXPrev.Common.Parsers
                 reader.BaseStream.Seek(position, SeekOrigin.Begin);
             }
 
-            var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_f4, false, false, null, null, 0, 0, 0, 0, 0,
-                0, r0, g0, b0, r0, g0, b0, r0, g0, b0, 0, 0, 0, 0, 0, 0, v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
-            var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_f4, false, false, null, null, 0, 0, 0, 0, 0,
-            0, r0, g0, b0, r0, g0, b0, r0, g0, b0, 0, 0, 0, 0, 0, 0, v1x, v1y, v1z, v3x, v3y, v3z, v2x, v2y, v2z);
+            var triangle1 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_f4, false, false, null, null,
+                                                  0, 0, 0, 0, 0, 0,
+                                                  r0, g0, b0, r0, g0, b0, r0, g0, b0,
+                                                  0, 0, 0, 0, 0, 0,
+                                                  v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
+            var triangle2 = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_f4, false, false, null, null,
+                                                  0, 0, 0, 0, 0, 0,
+                                                  r0, g0, b0, r0, g0, b0, r0, g0, b0,
+                                                  0, 0, 0, 0, 0, 0,
+                                                  v1x, v1y, v1z, v3x, v3y, v3z, v2x, v2y, v2z);
             return new[] { triangle1, triangle2 };
         }
 
@@ -550,8 +574,11 @@ namespace PSXPrev.Common.Parsers
                 reader.BaseStream.Seek(position, SeekOrigin.Begin);
             }
 
-            var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_gt3, false, false, null, null, 0, 0, 0, 0, 0,
-                0, r0, g0, b0, r1, g1, b1, r2, g2, b2, u0, v0, u1, v1, u2, v2, v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
+            var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_gt3, false, false, null, null,
+                                                 0, 0, 0, 0, 0, 0,
+                                                 r0, g0, b0, r1, g1, b1, r2, g2, b2,
+                                                 u0, v0, u1, v1, u2, v2,
+                                                 v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
             return triangle;
         }
 
@@ -597,8 +624,11 @@ namespace PSXPrev.Common.Parsers
                 ReadSharedVertices(reader, vo2, out v2x, out v2y, out v2z);
                 reader.BaseStream.Seek(position, SeekOrigin.Begin);
             }
-            var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_f3, false, false, null, null, 0, 0, 0, 0, 0,
-                0, r0, g0, b0, r0, g0, b0, r0, g0, b0, 0, 0, 0, 0, 0, 0, v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
+            var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_f3, false, false, null, null,
+                                                 0, 0, 0, 0, 0, 0,
+                                                 r0, g0, b0, r0, g0, b0, r0, g0, b0,
+                                                 0, 0, 0, 0, 0, 0,
+                                                 v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
             return triangle;
         }
 
@@ -655,8 +685,11 @@ namespace PSXPrev.Common.Parsers
                 reader.BaseStream.Seek(position, SeekOrigin.Begin);
             }
 
-            var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_g3, false, false, null, null, 0, 0, 0, 0, 0,
-                0, r0, g0, b0, r1, g1, b1, r2, g2, b2, 0, 0, 0, 0, 0, 0, v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
+            var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_g3, false, false, null, null,
+                                                 0, 0, 0, 0, 0, 0,
+                                                 r0, g0, b0, r1, g1, b1, r2, g2, b2,
+                                                 0, 0, 0, 0, 0, 0,
+                                                 v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
             return triangle;
         }
 
@@ -717,8 +750,11 @@ namespace PSXPrev.Common.Parsers
                 ReadSharedVertices(reader, vo2, out v2x, out v2y, out v2z);
                 reader.BaseStream.Seek(position, SeekOrigin.Begin);
             }
-            var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_ft3, false, false, null, null, 0, 0, 0, 0, 0,
-                0, r, g, b, r, g, b, r, g, b, u0, v0, u1, v1, u2, v2, v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
+            var triangle = TriangleFromPrimitive(Triangle.PrimitiveTypeEnum._poly_ft3, false, false, null, null,
+                                                 0, 0, 0, 0, 0, 0,
+                                                 r, g, b, r, g, b, r, g, b,
+                                                 u0, v0, u1, v1, u2, v2,
+                                                 v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
             return triangle;
         }
 
