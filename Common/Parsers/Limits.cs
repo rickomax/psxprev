@@ -11,6 +11,9 @@
         public static uint MaxANJoints = 512;
         public static uint MaxANFrames = 5000;
 
+        public static ulong MaxBFFPackets = 60000;
+        public static ulong MaxBFFVertices = 50000;
+
         public static ulong MaxHMDBlockCount = 1024;
         public static ulong MaxHMDCoordCount = 1024; // Same as BlockCount, because they're related
         public static ulong MaxHMDTypeCount = 1024;

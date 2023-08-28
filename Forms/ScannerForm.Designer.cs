@@ -212,7 +212,7 @@
             this.checkBFFCheckBox.Size = new System.Drawing.Size(45, 17);
             this.checkBFFCheckBox.TabIndex = 5;
             this.checkBFFCheckBox.Text = "BFF";
-            this.toolTip.SetToolTip(this.checkBFFCheckBox, "Work in Progress");
+            this.toolTip.SetToolTip(this.checkBFFCheckBox, "Frogger 2 / Chicken Run");
             this.checkBFFCheckBox.UseVisualStyleBackColor = true;
             // 
             // checkPSXCheckBox
