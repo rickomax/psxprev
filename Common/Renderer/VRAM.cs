@@ -9,6 +9,8 @@ namespace PSXPrev.Common.Renderer
     {
         public const int PageCount = 32;
         public const int PageSize = 256;
+        public const int PackAlign = 8;
+        public const int PackBlocks = PageSize / PackAlign;
         private const int PageSemiTransparencyX = PageSize;
 
         public static readonly System.Drawing.Color DefaultBackgroundColor = System.Drawing.Color.White;
@@ -20,6 +22,9 @@ namespace PSXPrev.Common.Renderer
         private readonly bool[] _modifiedPages = new bool[PageCount];
         // Pages that have textures drawn to them (not reset unless cleared).
         private readonly bool[] _usedPages = new bool[PageCount];
+
+        private readonly bool[,,] _packedPageBlocks = new bool[PageCount, PackBlocks, PackBlocks]; // [Page,X,Y]
+        private readonly int[] _freePageBlocks = new int[PageCount];
 
         public System.Drawing.Color BackgroundColor { get; set; } = DefaultBackgroundColor;
 
@@ -88,10 +93,13 @@ namespace PSXPrev.Common.Renderer
 
         public void AssignModelTextures(ModelEntity model)
         {
-            model.TexturePage = ClampTexturePage(model.TexturePage);
-            if (model.IsTextured)
+            if (model.IsTextured && ContainsPage(model.TexturePage))
             {
                 model.Texture = _vramPages[model.TexturePage];
+            }
+            else
+            {
+                model.Texture = null;
             }
         }
 
@@ -109,6 +117,28 @@ namespace PSXPrev.Common.Renderer
         public bool ContainsPage(int index)
         {
             return index >= 0 && index < PageCount;
+        }
+
+        public void ClearPagePacking(uint index) => ClearPagePacking((int)index);
+
+        public void ClearPagePacking(int index)
+        {
+            for (var px = 0; px < PackBlocks; px++)
+            {
+                for (var py = 0; py < PackBlocks; py++)
+                {
+                    _packedPageBlocks[index, px, py] = false;
+                }
+            }
+            _freePageBlocks[index] = PackBlocks * PackBlocks;
+        }
+
+        public void ClearAllPagePacking()
+        {
+            for (var i = 0; i < PageCount; i++)
+            {
+                ClearPagePacking(i);
+            }
         }
 
         // Update page textures in the scene.
@@ -155,6 +185,15 @@ namespace PSXPrev.Common.Renderer
                 }
             }
 
+            for (var px = 0; px < PackBlocks; px++)
+            {
+                for (var py = 0; py < PackBlocks; py++)
+                {
+                    _packedPageBlocks[index, px, py] = false;
+                }
+            }
+            _freePageBlocks[index] = PackBlocks * PackBlocks;
+
             _usedPages[index] = false;
             if (suppressUpdate)
             {
@@ -180,6 +219,19 @@ namespace PSXPrev.Common.Renderer
             var index = ClampTexturePage(texture.TexturePage);
             DrawTexture(_vramPages[index], texture);
 
+            GetTexturePackBounds(texture, out var startX, out var startY, out var endX, out var endY);
+            for (var px = startX; px <= endX; px++)
+            {
+                for (var py = startY; py <= endY; py++)
+                {
+                    if (!_packedPageBlocks[index, px, py])
+                    {
+                        _packedPageBlocks[index, px, py] = true;
+                        _freePageBlocks[index]--;
+                    }
+                }
+            }
+
             _usedPages[index] = true;
             if (suppressUpdate)
             {
@@ -189,6 +241,78 @@ namespace PSXPrev.Common.Renderer
             {
                 UpdatePage(index, true);
             }
+        }
+
+        // Frees up packing space used by this texture
+        public void RemoveTexturePacking(Texture texture)
+        {
+            var index = ClampTexturePage(texture.TexturePage);
+
+            GetTexturePackBounds(texture, out var startX, out var startY, out var endX, out var endY);
+            for (var px = startX; px <= endX; px++)
+            {
+                for (var py = startY; py <= endY; py++)
+                {
+                    if (_packedPageBlocks[index, px, py])
+                    {
+                        _packedPageBlocks[index, px, py] = false;
+                        _freePageBlocks[index]++;
+                    }
+                }
+            }
+        }
+
+        // Finds an unused area of VRAM to pack this texture into
+        public bool FindPackLocation(Texture texture, out int page, out int x, out int y)
+        {
+            var packWidth  = Math.Max(1, (texture.Width  + PackAlign - 1) / PackAlign);
+            var packHeight = Math.Max(1, (texture.Height + PackAlign - 1) / PackAlign);
+            var packBlocks = packWidth * packHeight;
+            var endX = PackBlocks - packWidth;
+            var endY = PackBlocks - packHeight;
+            for (var i = 0; i < PageCount; i++)
+            {
+                if (_freePageBlocks[i] < packBlocks)
+                {
+                    continue;
+                }
+                for (var px = 0; px <= endX; px++)
+                {
+                    for (var py = 0; py <= endY; py++)
+                    {
+                        var obstructed = false;
+                        for (var tx = 0; !obstructed && tx < packWidth; tx++)
+                        {
+                            for (var ty = 0; !obstructed && ty < packHeight; ty++)
+                            {
+                                if (_packedPageBlocks[i, px + tx, py + ty])
+                                {
+                                    obstructed = true;
+                                }
+                            }
+                        }
+                        if (!obstructed)
+                        {
+                            page = i;
+                            x = px * PackAlign;
+                            y = py * PackAlign;
+                            return true;
+                        }
+                    }
+                }
+            }
+            page = 0;
+            x = 0;
+            y = 0;
+            return false;
+        }
+
+        private static void GetTexturePackBounds(Texture texture, out int startX, out int startY, out int endX, out int endY)
+        {
+            startX = Math.Max(0, texture.X / PackAlign);
+            startY = Math.Max(0, texture.Y / PackAlign);
+            endX = Math.Min(PackBlocks - 1, (texture.X + texture.Width  - 1) / PackAlign);
+            endY = Math.Min(PackBlocks - 1, (texture.Y + texture.Height - 1) / PackAlign);
         }
 
 

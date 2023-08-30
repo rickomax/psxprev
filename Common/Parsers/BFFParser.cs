@@ -10,9 +10,11 @@ namespace PSXPrev.Common.Parsers
         private readonly uint[] _headerValues = new uint[13];
         private readonly uint[] _sections = new uint[6 * 2]; // count/top pairs
         private Vector3[] _vertices;
-        //private Vector2[] _uvs; // uses _vertexCount
         private uint _vertexCount;
+        private uint[] _textureMapCRCs;
+        private uint _textureMapCount;
         private readonly Dictionary<RenderInfo, List<Triangle>> _groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
+        private readonly Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>> _groupedSprites = new Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>>();
         private readonly List<ModelEntity> _models = new List<ModelEntity>();
 
         public BFFParser(EntityAddedAction entityAdded)
@@ -25,6 +27,7 @@ namespace PSXPrev.Common.Parsers
         protected override void Parse(BinaryReader reader)
         {
             _groupedTriangles.Clear();
+            _groupedSprites.Clear();
             _models.Clear();
 
             var rootEntity = ReadModels(reader);
@@ -160,30 +163,34 @@ namespace PSXPrev.Common.Parsers
             {
                 return null;
             }
-            var nameCrc = reader.ReadUInt32();
+            var nameCRC = reader.ReadUInt32();
 
             var headerSize = 0; // Size including stop value in zeroForm
             if (zeroForm)
             {
                 // Header uses following format: (may exclude unk0 and unk1)
-                // uint32 unk0
-                // int32 unk1
+                // uint32 flags
+                // int32 shift
                 // int32 minX
                 // int32 minY
                 // int32 minZ
                 // int32 maxX
                 // int32 maxY
                 // int32 maxZ
-                // uint32 unk2 = 0
-                // uint32 unk3 = 0
-                // uint32 unk4 = 0
-                // uint32 unk5 = 0
-                // uint32 stop = 0x10000000
+                // int32 posX = 0
+                // int32 posY = 0
+                // int32 posZ = 0
+                // int16 rotX = 0
+                // int16 rotY = 0
+                // int16 rotZ = 0
+                // int16 rotW = 0x1000 (stop = 0x10000000)
                 for (var i = 0; i < 13; i++)
                 {
                     var headerValue = reader.ReadUInt32();
-                    //_headerValues[i] = headerValue;
-                    if (headerValue == 0x10000000) // This might actually be a Fixed28 for Rotation W
+                    _headerValues[i] = headerValue;
+                    // todo: This relies entirely on rotW being 1f, and will break otherwise.
+                    // See if there's another way to determine why there are different-sized headers.
+                    if (headerValue == 0x10000000)
                     {
                         headerSize = i + 1;
                         break;
@@ -201,36 +208,40 @@ namespace PSXPrev.Common.Parsers
 
                 for (var i = 0; i < 11; i++)
                 {
-                    /*_headerValues[i] =*/ reader.ReadUInt32();
+                    _headerValues[i] = reader.ReadUInt32();
                 }
 
-                /*var minX = reader.ReadInt32();
-                var minY = reader.ReadInt32();
-                var minZ = reader.ReadInt32();
-                var maxX = reader.ReadInt32();
-                var maxY = reader.ReadInt32();
-                var maxZ = reader.ReadInt32();*/
-                //
-                //var offsetX = reader.ReadInt32();
-                //var offsetY = reader.ReadInt32();
-                //var offsetZ = reader.ReadInt32();
-                //var rotX = reader.ReadInt16();
-                //var rotY = reader.ReadInt16();
-                //var rotZ = reader.ReadInt16();
-                //var rotW = reader.ReadInt16();
-
-                /*reader.ReadUInt32(); // Unknown (could be after polyListTop, or might be offset)
-                reader.ReadUInt32();
-                reader.ReadUInt32();
-
-                //var dummy1 = reader.ReadUInt16();
+                /*//var dummy1 = reader.ReadUInt16();
                 //var dummy2 = reader.ReadUInt16();
                 var polyListTop = reader.ReadUInt32();
                 var dummy1 = reader.ReadUInt16();
                 var dummy2 = reader.ReadUInt16();*/
             }
+            var headerExtra = headerSize - 11;
 
-            var radius = reader.ReadUInt32();
+            // Bounding box
+            var minX = (int)_headerValues[headerExtra + 0];
+            var minY = (int)_headerValues[headerExtra + 1];
+            var minZ = (int)_headerValues[headerExtra + 2];
+            var maxX = (int)_headerValues[headerExtra + 3];
+            var maxY = (int)_headerValues[headerExtra + 4];
+            var maxZ = (int)_headerValues[headerExtra + 5];
+
+            // We only know these values are accurate for Frogger 2.
+            var posX = (int)_headerValues[headerExtra + 6];
+            var posY = (int)_headerValues[headerExtra + 7];
+            var posZ = (int)_headerValues[headerExtra + 8];
+            var rotX = ((short)(_headerValues[headerExtra +  9] >>  0)) / 4096f;
+            var rotY = ((short)(_headerValues[headerExtra +  9] >> 16)) / 4096f;
+            var rotZ = ((short)(_headerValues[headerExtra + 10] >>  0)) / 4096f;
+            var rotW = ((short)(_headerValues[headerExtra + 10] >> 16)) / 4096f;
+
+            if (rotX == 0f && rotY == 0f && rotZ == 0f && rotW == 0f)
+            {
+                rotW = 1f; // Change to identity
+            }
+
+            var radius = reader.ReadUInt32(); // extraDepth used by engine for sorting
 
             var sectionIndex = 0;
             var sectionCount = 0;
@@ -247,6 +258,7 @@ namespace PSXPrev.Common.Parsers
                 }
             }
 
+            int textureMapSectionIndex;
             if (zeroForm)
             {
                 if (sectionCount == 4)
@@ -261,6 +273,11 @@ namespace PSXPrev.Common.Parsers
                 {
                     return null; // Unexpected number of sections
                 }
+                textureMapSectionIndex = sectionCount - 1;
+            }
+            else
+            {
+                textureMapSectionIndex = 3;
             }
 
 
@@ -276,19 +293,34 @@ namespace PSXPrev.Common.Parsers
             if (_vertices == null || _vertices.Length < _vertexCount)
             {
                 Array.Resize(ref _vertices, (int)_vertexCount);
-                //Array.Resize(ref _uvs,      (int)_vertexCount);
             }
             var vertices = _vertices;// new Vector3[_vertexCount];
-            //var uvs = _uvs;// new Vector2[_vertexCount];
             for (var i = 0; i < _vertexCount; i++)
             {
                 var x = reader.ReadInt16();
                 var y = reader.ReadInt16();
                 var z = reader.ReadInt16();
-                var tu = reader.ReadByte();
-                var tv = reader.ReadByte();
+                var pad = reader.ReadUInt16(); //pad
                 vertices[i] = new Vector3(x, y, z);
-                //uvs[i] = GeomMath.ConvertUV(tu, tv);
+            }
+
+
+            _textureMapCount  = _sections[(textureMapSectionIndex * 2) + 0];
+            var textureMapTop = _sections[(textureMapSectionIndex * 2) + 1];
+            if (_textureMapCount > Limits.MaxBFFTextureMaps)
+            {
+                return null;
+            }
+
+            reader.BaseStream.Seek(_offset + textureMapTop, SeekOrigin.Begin);
+            if (_textureMapCRCs == null || _textureMapCRCs.Length < _textureMapCount)
+            {
+                Array.Resize(ref _textureMapCRCs, (int)_textureMapCount);
+            }
+            var textureMapCRCs = _textureMapCRCs;// new uint[_textureMapCount];
+            for (var i = 0; i < _textureMapCount; i++)
+            {
+                textureMapCRCs[i] = reader.ReadUInt32();
             }
 
 
@@ -354,67 +386,35 @@ namespace PSXPrev.Common.Parsers
             }
 
 
-            uint numTMaps = 0; // Each tmap is 4-bytes long
-            uint tMapsTop = 0;
-            if (!zeroForm)
-            {
-                numTMaps = _sections[(sectionIndex * 2) + 0];
-                tMapsTop = _sections[(sectionIndex * 2) + 1];
-                sectionIndex++;
-            }
-
             if (zeroForm)
             {
                 if (shortForm)
                 {
-                    var numF3s = _sections[(sectionIndex * 2) + 0];
-                    var f3Top  = _sections[(sectionIndex * 2) + 1];
+                    var numSprs = _sections[(sectionIndex * 2) + 0];
+                    var sprTop  = _sections[(sectionIndex * 2) + 1];
                     sectionIndex++;
-                    if (numF3s > Limits.MaxBFFPackets)
+                    if (numSprs > Limits.MaxBFFPackets)
                     {
                         return null;
                     }
 
-                    // Not sure how to read these, usually it's just one value, and a singularity,
-                    // But some have vertex indices that are out of bounds. Each packet is 24 bytes long.
-                    // Example bytes from FROGGER.DAT:
-                    // @93b1f4 [0]: (128, 128, 128, 40,   0,   0, 220, 0,  0,   0, 3, 0, 0, 0, 128, 0, 0, 128, 128, 128, 0, 0, 80, 80)
-
-                    // @b606bc [0]: (128, 128, 128, 40, 110,   0,  54, 1, 80,   0, 1, 0, 0, 0, 128, 0, 0, 128, 128, 128, 0, 0, 20, 20)
-                    // @b606bc [1]: (128, 128, 128, 40, 146, 255,  54, 1, 80,   0, 1, 0, 0, 0, 128, 0, 0, 128, 128, 128, 0, 0, 20, 20)
-                    // @b606bc [2]: (128, 128, 128, 40,   0,   0, 240, 0, 80,   0, 5, 0, 0, 0, 128, 0, 0, 128, 128, 128, 0, 0, 60, 60)
-                    // @b606bc [3]: (128, 128, 128, 40,   0,   0, 184, 1,  0,   0, 5, 0, 0, 0, 128, 0, 0, 128, 128, 128, 0, 0, 60, 60)
-                    // @b606bc [4]: (128, 128, 128, 40,  80,   0,  54, 1, 56, 255, 1, 0, 0, 0, 128, 0, 0, 128, 128, 128, 0, 0, 16, 16)
-                    // @b606bc [5]: (128, 128, 128, 40, 186, 255,  54, 1, 46, 255, 1, 0, 0, 0, 128, 0, 0, 128, 128, 128, 0, 0, 16, 16)
-
-                    /*reader.BaseStream.Seek(_offset + f3Top, SeekOrigin.Begin);
-                    for (var i = 0; i < numF3s; i++) //FMA_???
+                    reader.BaseStream.Seek(_offset + sprTop, SeekOrigin.Begin);
+                    for (var i = 0; i < numSprs; i++) //FMA_SPR
                     {
-                        var r0 = reader.ReadByte();
-                        var g0 = reader.ReadByte();
-                        var b0 = reader.ReadByte();
-                        var mode = reader.ReadByte();
-
-                        var vertexIndex0 = ReadIndex(reader, shortForm);
-                        var vertexIndex1 = ReadIndex(reader, shortForm);
-                        var vertexIndex2 = ReadIndex(reader, shortForm);
-                        var vertexIndex3 = ReadIndexPad(reader, shortForm); //pad
-
-                        var triangle = TriangleFromPrimitive(
-                            vertexIndex0, vertexIndex1, vertexIndex2,
-                            r0, g0, b0,
-                            r0, g0, b0,
-                            r0, g0, b0,
-                            0, 0,
-                            0, 0,
-                            0, 0);
-
-                        AddTriangle(triangle, 0, RenderFlags.None);
-                    }*/
+                        ReadFMASPR(reader);
+                    }
                 }
+
+
+                // Skip texture maps, we already read those.
+                sectionIndex++;
             }
             else
             {
+                // Skip texture maps, we already read those.
+                sectionIndex++;
+
+
                 var numG3s = _sections[(sectionIndex * 2) + 0];
                 var g3Top  = _sections[(sectionIndex * 2) + 1];
                 sectionIndex++;
@@ -428,17 +428,8 @@ namespace PSXPrev.Common.Parsers
                 {
                     ReadFMAPacket(reader, false, false, shortForm);
                 }
-            }
 
 
-            if (zeroForm)
-            {
-                numTMaps = _sections[(sectionIndex * 2) + 0];
-                tMapsTop = _sections[(sectionIndex * 2) + 1];
-                sectionIndex++;
-            }
-            else
-            {
                 var numG4s = _sections[(sectionIndex * 2) + 0];
                 var g4Top  = _sections[(sectionIndex * 2) + 1];
                 sectionIndex++;
@@ -454,6 +445,13 @@ namespace PSXPrev.Common.Parsers
                 }
             }
 
+            var localMatrix = Matrix4.Identity;
+            // todo: Not sure if this is the same for non-zeroForms
+            //if (zeroForm)
+            {
+                localMatrix = Matrix4.CreateFromQuaternion(new Quaternion(rotX, rotY, rotZ, rotW)) *
+                              Matrix4.CreateTranslation(posX, posY, posZ);
+            }
 
             foreach (var kvp in _groupedTriangles)
             {
@@ -462,10 +460,42 @@ namespace PSXPrev.Common.Parsers
                 var model = new ModelEntity
                 {
                     Triangles = triangles.ToArray(),
-                    TexturePage = renderInfo.TexturePage,
+                    TexturePage = 0,
+                    TextureLookup = renderInfo.RenderFlags.HasFlag(RenderFlags.Textured)
+                        ? new TextureLookup
+                        {
+                            ID = renderInfo.TexturePage, // CRC-32 of name
+                            ExpectedFormat = SPTParser.FormatNameConst,
+                        }
+                        : null,
                     RenderFlags = renderInfo.RenderFlags,
                     MixtureRate = renderInfo.MixtureRate,
                     TMDID = 0, // Only one model per BFF
+                    OriginalLocalMatrix = localMatrix,
+                };
+                _models.Add(model);
+            }
+            foreach (var kvp in _groupedSprites)
+            {
+                var spriteCenter = kvp.Key.Item1;
+                var renderInfo = kvp.Key.Item2;
+                var triangles = kvp.Value;
+                var model = new ModelEntity
+                {
+                    Triangles = triangles.ToArray(),
+                    TexturePage = 0,
+                    TextureLookup = renderInfo.RenderFlags.HasFlag(RenderFlags.Textured)
+                        ? new TextureLookup
+                        {
+                            ID = renderInfo.TexturePage, // CRC-32 of name
+                            ExpectedFormat = SPTParser.FormatNameConst,
+                        }
+                        : null,
+                    RenderFlags = renderInfo.RenderFlags,
+                    MixtureRate = renderInfo.MixtureRate,
+                    SpriteCenter = spriteCenter,
+                    TMDID = 0,
+                    OriginalLocalMatrix = localMatrix,
                 };
                 _models.Add(model);
             }
@@ -528,8 +558,11 @@ namespace PSXPrev.Common.Parsers
             {
                 u1 = reader.ReadByte();
                 v1 = reader.ReadByte();
-                var tsb = reader.ReadUInt16();
-                TMDHelper.ParseTSB(tsb, out tPage, out var pmode, out var mixtureRate);
+                var tMapIndex = reader.ReadUInt16();
+                if (tMapIndex < _textureMapCount)
+                {
+                    tPage = _textureMapCRCs[tMapIndex];
+                }
             }
 
             var r2 = reader.ReadByte();
@@ -579,6 +612,77 @@ namespace PSXPrev.Common.Parsers
             }
         }
 
+        private void ReadFMASPR(BinaryReader reader)
+        {
+            var r0 = reader.ReadByte();
+            var g0 = reader.ReadByte();
+            var b0 = reader.ReadByte();
+            var mode = reader.ReadByte();
+
+            var x = reader.ReadInt16();
+            var y = reader.ReadInt16();
+            var z = reader.ReadInt16();
+            var tMapIndex = reader.ReadUInt16();
+            uint tPage = 0;
+            if (tMapIndex < _textureMapCount)
+            {
+                tPage = _textureMapCRCs[tMapIndex];
+            }
+
+            var u0 = reader.ReadByte();
+            var v0 = reader.ReadByte();
+            var u1 = reader.ReadByte();
+            var v1 = reader.ReadByte();
+            var u2 = reader.ReadByte();
+            var v2 = reader.ReadByte();
+            var u3 = reader.ReadByte();
+            var v3 = reader.ReadByte();
+
+            var cba = reader.ReadUInt16();
+            //TMDHelper.ParseCBA(cba, out var clutX, out var clutY);
+
+            // Not sure on the exact value for this, but 2.0-2.5 seems to look correct with Frogger 2.
+            var scale = Settings.Instance.DebugBFFSpriteScale;// 2.5f;
+            var width  = reader.ReadByte() * scale;
+            var height = reader.ReadByte() * scale;
+
+            var uv0 = GeomMath.ConvertUV(u0, v0);
+            var uv1 = GeomMath.ConvertUV(u1, v1);
+            var uv2 = GeomMath.ConvertUV(u2, v2);
+            var uv3 = GeomMath.ConvertUV(u3, v3);
+
+            var color = new Color(r0 / 255f, g0 / 255f, b0 / 255f);
+            // Coordinates are inverted for some reason.
+            var center = new Vector3(-x, -y, -z);
+
+            // Remember that Y-up is negative, so height values are negated compared to what we set for UVs.
+            // Note that these vertex coordinates also assume the default orientation of the view is (0, 0, -1).
+            var vertex0 = center + new Vector3(-width,  height, 0f);
+            var vertex1 = center + new Vector3( width,  height, 0f);
+            var vertex2 = center + new Vector3(-width, -height, 0f);
+            var vertex3 = center + new Vector3( width, -height, 0f);
+
+            var renderFlags = RenderFlags.Textured | RenderFlags.Sprite;
+
+            AddSpriteTriangle(new Triangle
+            {
+                Vertices = new[] { vertex0, vertex1, vertex2 },
+                Normals = Triangle.EmptyNormals,
+                Colors = new[] { color, color, color },
+                Uv = new[] { uv0, uv1, uv2 },
+                AttachableIndices = Triangle.EmptyAttachableIndices,
+            }, center, tPage, renderFlags);
+
+            AddSpriteTriangle(new Triangle
+            {
+                Vertices = new[] { vertex1, vertex3, vertex2 },
+                Normals = Triangle.EmptyNormals,
+                Colors = new[] { color, color, color },
+                Uv = new[] { uv1, uv3, uv2 },
+                AttachableIndices = Triangle.EmptyAttachableIndices,
+            }, center, tPage, renderFlags);
+        }
+
         private void ReadPolyGT3(BinaryReader reader, uint vertexIndex0, uint vertexIndex1, uint vertexIndex2)
         {
             // Same structure as seen in PMD format, but not repeated twice
@@ -605,8 +709,12 @@ namespace PSXPrev.Common.Parsers
             var y1 = reader.ReadInt16();
             var u1 = reader.ReadByte();
             var v1 = reader.ReadByte();
-            var tsb = reader.ReadUInt16();
-            TMDHelper.ParseTSB(tsb, out var tPage, out var pmode, out var mixtureRate);
+            var tMapIndex = reader.ReadUInt16();
+            uint tPage = 0;
+            if (tMapIndex < _textureMapCount)
+            {
+                tPage = _textureMapCRCs[tMapIndex];
+            }
 
             var r2 = reader.ReadByte();
             var g2 = reader.ReadByte();
@@ -645,9 +753,9 @@ namespace PSXPrev.Common.Parsers
             var vertex1 = _vertices[vertexIndex1];
             var vertex2 = _vertices[vertexIndex2];
 
-            var color0 = new Color(r0/255f, g0/255f, b0/255f);
-            var color1 = new Color(r1/255f, g1/255f, b1/255f);
-            var color2 = new Color(r2/255f, g2/255f, b2/255f);
+            var color0 = new Color(r0 / 255f, g0 / 255f, b0 / 255f);
+            var color1 = new Color(r1 / 255f, g1 / 255f, b1 / 255f);
+            var color2 = new Color(r2 / 255f, g2 / 255f, b2 / 255f);
 
             var uv0 = GeomMath.ConvertUV(u0, v0);
             var uv1 = GeomMath.ConvertUV(u1, v1);
@@ -667,7 +775,7 @@ namespace PSXPrev.Common.Parsers
 
         private void AddTriangle(Triangle triangle, uint tPage, RenderFlags renderFlags)
         {
-            renderFlags |= RenderFlags.DoubleSided; //todo
+            renderFlags |= RenderFlags.Unlit | RenderFlags.DoubleSided;
             if (renderFlags.HasFlag(RenderFlags.Textured))
             {
                 triangle.CorrectUVTearing();
@@ -677,6 +785,23 @@ namespace PSXPrev.Common.Parsers
             {
                 triangles = new List<Triangle>();
                 _groupedTriangles.Add(renderInfo, triangles);
+            }
+            triangles.Add(triangle);
+        }
+
+        private void AddSpriteTriangle(Triangle triangle, Vector3 center, uint tPage, RenderFlags renderFlags)
+        {
+            renderFlags |= RenderFlags.Unlit;
+            if (renderFlags.HasFlag(RenderFlags.Textured))
+            {
+                triangle.CorrectUVTearing();
+            }
+            var renderInfo = new RenderInfo(tPage, renderFlags);
+            var tuple = new Tuple<Vector3, RenderInfo>(center, renderInfo);
+            if (!_groupedSprites.TryGetValue(tuple, out var triangles))
+            {
+                triangles = new List<Triangle>();
+                _groupedSprites.Add(tuple, triangles);
             }
             triangles.Add(triangle);
         }

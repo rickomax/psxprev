@@ -17,7 +17,14 @@ namespace PSXPrev
 
         // Scanner formats:
         [JsonIgnore]
-        public bool CheckAll => !CheckAN && !CheckBFF && !CheckHMD && !CheckMOD && !CheckPMD && !CheckPSX && !CheckTIM && !CheckTMD && !CheckTOD && !CheckVDF;
+        public bool CheckAll
+        {
+            get
+            {
+                return !CheckAN && !CheckBFF && !CheckHMD && !CheckMOD && !CheckPMD && !CheckPSX &&
+                       !CheckSPT && !CheckTIM && !CheckTMD && !CheckTOD && !CheckVDF;
+            }
+        }
 
         [JsonProperty("formatAN")]
         public bool CheckAN { get; set; }
@@ -31,6 +38,8 @@ namespace PSXPrev
         public bool CheckPMD { get; set; }
         [JsonProperty("formatPSX")]
         public bool CheckPSX { get; set; }
+        [JsonProperty("formatSPT")]
+        public bool CheckSPT { get; set; }
         [JsonProperty("formatTIM")]
         public bool CheckTIM { get; set; }
         [JsonProperty("formatTMD")]

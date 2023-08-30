@@ -261,6 +261,7 @@ namespace PSXPrev.Common.Renderer
         public bool AmbientEnabled { get; set; }
         public bool LightEnabled { get; set; }
         public bool TexturesEnabled { get; set; }
+        public bool VertexColorEnabled { get; set; }
         public bool SemiTransparencyEnabled { get; set; }
         public bool ForceDoubleSided { get; set; }
 
@@ -659,6 +660,10 @@ namespace PSXPrev.Common.Renderer
             meshBatch.LightIntensity = null; //LightIntensity;
             meshBatch.AmbientColor = null; //(Color)AmbientColor;
             meshBatch.SolidColor = null;
+            if (!VertexColorEnabled)
+            {
+                meshBatch.SolidColor = Color.Grey;
+            }
 
             if (DrawFaces || (!DrawSolidWireframeVertices && (DrawWireframe || DrawVertices)))
             {

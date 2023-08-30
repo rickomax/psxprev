@@ -208,7 +208,8 @@ namespace PSXPrev.Common.Animator
             // Support using AnimationBatch even if we have no Scene.
             if (!simulate && _scene != null)
             {
-                _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, selectedModelEntity, selectedRootEntity, updateMeshData || _scene.AutoAttach, false);
+                updateMeshData |= _scene.AutoAttach;
+                _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, selectedModelEntity, selectedRootEntity, updateMeshData);
             }
 
             ComputePlaybackFrameTime();

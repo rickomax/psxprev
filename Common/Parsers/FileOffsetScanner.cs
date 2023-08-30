@@ -25,6 +25,8 @@ namespace PSXPrev.Common.Parsers
         protected List<Texture> TextureResults { get; } = new List<Texture>();
         protected List<Animation> AnimationResults { get; } = new List<Animation>();
 
+        protected long MinOffsetIncrement { get; set; } = 1;
+
         public long? StartOffset { get; set; }
         public long? StopOffset { get; set; }
         // Next stream offset will be at the end of the last-read file.
@@ -71,6 +73,7 @@ namespace PSXPrev.Common.Parsers
                     EntityResults.Clear();
                     TextureResults.Clear();
                     AnimationResults.Clear();
+                    MinOffsetIncrement = 1;
 
                     Parse(reader);
 
@@ -128,6 +131,8 @@ namespace PSXPrev.Common.Parsers
                 }
                 catch (Exception exp)
                 {
+                    MinOffsetIncrement = 1; // Change this back on error
+
                     if (Program.ShowErrors)
                     {
                         Program.Logger.WriteExceptionLine(exp, $"Error scanning {FormatName} {AtOffsetString}");
@@ -146,7 +151,7 @@ namespace PSXPrev.Common.Parsers
                     }
                 }
 
-                _offset++; // Always increment by at least one.
+                _offset += Math.Max(1, MinOffsetIncrement); // Always increment by at least one.
                 if (passed && NextOffset)
                 {
                     var endPosition = reader.BaseStream.Position;

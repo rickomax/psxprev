@@ -22,13 +22,15 @@ namespace PSXPrev
 
         public static Settings Instance { get; set; } = new Settings();
 
-        public const uint CurrentVersion = 1;
+        public const uint CurrentVersion = 2;
 
 
         // Any settings that need to be changed beteen versions can be handled with this.
         [JsonProperty("version")]
         public uint Version { get; set; } = CurrentVersion;
 
+        [JsonProperty("antialiasing")]
+        public int Multisampling { get; set; } = 0;
 
         [JsonProperty("gridSnap")]
         public float GridSnap { get; set; } = 1f;
@@ -46,7 +48,7 @@ namespace PSXPrev
         public float CameraFOVRads => CameraFOV * GeomMath.Deg2Rad;
 
         [JsonProperty("lightIntensity")]
-        public float LightIntensity { get; set; } = 100f;
+        public float LightIntensity { get; set; } = 1f;
 
         [JsonProperty("lightYaw")]
         public float LightYaw { get; set; } = 135f;
@@ -61,10 +63,13 @@ namespace PSXPrev
         public bool LightEnabled { get; set; } = true;
 
         [JsonProperty("ambientEnabled")]
-        public bool AmbientEnabled { get; set; } = true;
+        public bool AmbientEnabled { get; set; } = true; // We can probably remove this, it's just the same as changing ambient color to black.
 
         [JsonProperty("texturesEnabled")]
         public bool TexturesEnabled { get; set; } = true;
+
+        [JsonProperty("vertexColorEnabled")]
+        public bool VertexColorEnabled { get; set; } = true;
 
         [JsonProperty("semiTransparencyEnabled")]
         public bool SemiTransparencyEnabled { get; set; } = true;
@@ -95,6 +100,21 @@ namespace PSXPrev
 
         [JsonProperty("gizmoTool"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
         public GizmoType GizmoType { get; set; } = GizmoType.Translate;
+
+        [JsonProperty("subModelVisibility"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
+        public SubModelVisibility SubModelVisibility { get; set; } = SubModelVisibility.All;
+
+        [JsonProperty("autoFocusOnRootModel")]
+        public bool AutoFocusOnRootModel { get; set; } = true;
+
+        [JsonProperty("autoFocusOnSubModel")]
+        public bool AutoFocusOnSubModel { get; set; } = false;
+
+        [JsonProperty("autoFocusIncludeWholeModel")]
+        public bool AutoFocusIncludeWholeModel { get; set; } = false;
+
+        [JsonProperty("autoFocusIncludeCheckedModels")]
+        public bool AutoFocusIncludeCheckedModels { get; set; } = true;
 
         [JsonProperty("showBounds")]
         public bool ShowBounds { get; set; } = true;
@@ -135,6 +155,9 @@ namespace PSXPrev
         [JsonProperty("autoDrawModelTextures")]
         public bool AutoDrawModelTextures { get; set; } = false;
 
+        [JsonProperty("autoPackModelTextures")]
+        public bool AutoPackModelTextures { get; set; } = false;
+
         [JsonProperty("autoPlayAnimation")]
         public bool AutoPlayAnimation { get; set; } = false;
 
@@ -149,6 +172,9 @@ namespace PSXPrev
 
         [JsonProperty("animationSpeed")]
         public float AnimationSpeed { get; set; } = 1f;
+
+        [JsonProperty("showFPS")]
+        public bool ShowFPS { get; set; } = false;
 
         [JsonProperty("fastWindowResize")]
         public bool FastWindowResize { get; set; } = false;
@@ -176,6 +202,9 @@ namespace PSXPrev
 
         [JsonProperty("scanPopulateFrequency")]
         public float ScanPopulateFrequency { get; set; } = 4f; // 4 seconds
+
+        [JsonProperty("debugBFFSpriteScale")]
+        public float DebugBFFSpriteScale { get; set; } = 2.5f;
 
         [JsonProperty("scanOptions")]
         public ScanOptions ScanOptions { get; set; } = new ScanOptions();
@@ -254,20 +283,25 @@ namespace PSXPrev
             if (Version < CurrentVersion)
             {
                 // Handle changes to how settings are stored here
-
+                if (Version <= 1)
+                {
+                    LightIntensity /= 100f; // Light intensity is no longer stored as a percent.
+                }
             }
             Version = CurrentVersion;
+
 
             GridSnap          = ValidateMax(  GridSnap,          Defaults.GridSnap,  0f);
             AngleSnap         = ValidateMax(  AngleSnap,         Defaults.AngleSnap, 0f);
             ScaleSnap         = ValidateMax(  ScaleSnap,         Defaults.ScaleSnap, 0f);
             CameraFOV         = ValidateClamp(CameraFOV,         Defaults.CameraFOV, Scene.CameraMinFOV, Scene.CameraMaxFOV);
-            LightIntensity    = ValidateMax(  LightIntensity,    Defaults.LightIntensity, 0f);
+            LightIntensity    = ValidateClamp(LightIntensity,    Defaults.LightIntensity, 0f, 10f);
             LightYaw          = ValidateAngle(LightYaw,          Defaults.LightYaw);
             LightPitch        = ValidateAngle(LightPitch,        Defaults.LightPitch);
             WireframeSize     = ValidateMax(  WireframeSize,     Defaults.WireframeSize, 1f);
             VertexSize        = ValidateMax(  VertexSize,        Defaults.VertexSize,    1f);
             GizmoType         = ValidateEnum( GizmoType,         Defaults.GizmoType);
+            SubModelVisibility = ValidateEnum(SubModelVisibility, Defaults.SubModelVisibility);
             BackgroundColor   = ValidateColor(BackgroundColor,   Defaults.BackgroundColor);
             AmbientColor      = ValidateColor(AmbientColor,      Defaults.AmbientColor);
             MaskColor         = ValidateColor(MaskColor,         Defaults.MaskColor);
@@ -282,6 +316,24 @@ namespace PSXPrev
             LogExceptionPrefixColor = ValidateEnum(LogExceptionPrefixColor, Defaults.LogExceptionPrefixColor);
             ScanProgressFrequency = ValidateMax(ScanProgressFrequency, Defaults.ScanProgressFrequency, 0f);
             ScanPopulateFrequency = ValidateMax(ScanPopulateFrequency, Defaults.ScanPopulateFrequency, 0f);
+
+            // Clamp multisampling to power of two
+            if (Multisampling >= 8)
+            {
+                Multisampling = 8;
+            }
+            else if (Multisampling >= 4)
+            {
+                Multisampling = 4;
+            }
+            else if (Multisampling >= 2)
+            {
+                Multisampling = 2;
+            }
+            else if (Multisampling < 0)
+            {
+                Multisampling = 0;
+            }
 
             if (ColorDialogCustomColors == null)
             {

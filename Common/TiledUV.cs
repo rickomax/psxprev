@@ -2,7 +2,12 @@
 
 namespace PSXPrev.Common
 {
-    public class TiledUV
+    public interface IUVConverter
+    {
+        Vector2 ConvertUV(Vector2 uv);
+    }
+
+    public class TiledUV : IUVConverter
     {
         public Vector2[] BaseUv { get; set; }
         public float X { get; set; } // Position added to BaseUv after wrapping.
@@ -60,15 +65,15 @@ namespace PSXPrev.Common
             var uv = new Vector2[BaseUv.Length];
             for (var i = 0; i < uv.Length; i++)
             {
-                uv[i] = Convert(BaseUv[i], X, Y, Width, Height);
+                uv[i] = ConvertUV(BaseUv[i], X, Y, Width, Height);
             }
             return uv;
         }
 
-        public Vector2 Convert(Vector2 uv) => Convert(uv, X, Y, Width, Height);
+        public Vector2 ConvertUV(Vector2 uv) => ConvertUV(uv, X, Y, Width, Height);
 
 
-        public static Vector2 Convert(Vector2 uv, float x, float y, float width, float height)
+        public static Vector2 ConvertUV(Vector2 uv, float x, float y, float width, float height)
         {
             return new Vector2((width  == 0f ? uv.X : (x + uv.X % width)),
                                (height == 0f ? uv.Y : (y + uv.Y % height)));
