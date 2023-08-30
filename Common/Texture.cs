@@ -131,6 +131,9 @@ namespace PSXPrev.Common
         [DisplayName("Height"), ReadOnly(true)]
         public int Height => Bitmap.Height;
 
+        [DisplayName("Texture ID")]
+        public uint? LookupID { get; set; }
+
         // Usable area of the texture (only different from Width/Height when IsVRAMPage is true).
         [Browsable(false)]
         public int RenderWidth => IsVRAMPage ? VRAM.PageSize : Width;
@@ -152,6 +155,12 @@ namespace PSXPrev.Common
 
         [Browsable(false)]
         public bool IsVRAMPage { get; set; }
+
+        [Browsable(false)]
+        public bool NeedsPacking => LookupID.HasValue; // Texture can be looked up, and requires packing to determine where to draw
+
+        [Browsable(false)]
+        public bool IsPacked { get; set; } // The texture's Page, X, and Y were assigned by packing
 
         [Browsable(false)]
         public Bitmap Bitmap { get; set; }

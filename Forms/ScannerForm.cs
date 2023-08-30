@@ -200,6 +200,7 @@ namespace PSXPrev.Forms
                 CheckHMD = checkHMDCheckBox.Checked,
                 CheckPMD = checkPMDCheckBox.Checked,
                 CheckPSX = checkPSXCheckBox.Checked,
+                CheckSPT = checkSPTCheckBox.Checked,
                 CheckTIM = checkTIMCheckBox.Checked,
                 CheckTMD = checkTMDCheckBox.Checked,
                 CheckTOD = checkTODCheckBox.Checked,
@@ -256,6 +257,7 @@ namespace PSXPrev.Forms
             checkMODCheckBox.Checked = options.CheckMOD;
             checkPMDCheckBox.Checked = options.CheckPMD;
             checkPSXCheckBox.Checked = options.CheckPSX;
+            checkSPTCheckBox.Checked = options.CheckSPT;
             checkTIMCheckBox.Checked = options.CheckTIM;
             checkTMDCheckBox.Checked = options.CheckTMD;
             checkTODCheckBox.Checked = options.CheckTOD;

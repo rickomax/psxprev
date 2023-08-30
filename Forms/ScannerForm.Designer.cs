@@ -55,11 +55,12 @@
             this.offsetStopCheckBox = new System.Windows.Forms.CheckBox();
             this.optionDrawAllToVRAMCheckBox = new System.Windows.Forms.CheckBox();
             this.binSectorCheckBox = new System.Windows.Forms.CheckBox();
+            this.checkSPTCheckBox = new System.Windows.Forms.CheckBox();
             this.formatsGroupBox = new System.Windows.Forms.GroupBox();
+            this.checkANCheckBox = new System.Windows.Forms.CheckBox();
             this.animationsLabel = new System.Windows.Forms.Label();
             this.texturesLabel = new System.Windows.Forms.Label();
             this.modelsLabel = new System.Windows.Forms.Label();
-            this.checkANCheckBox = new System.Windows.Forms.CheckBox();
             this.checkPMDCheckBox = new System.Windows.Forms.CheckBox();
             this.checkTODCheckBox = new System.Windows.Forms.CheckBox();
             this.checkTIMCheckBox = new System.Windows.Forms.CheckBox();
@@ -207,18 +208,18 @@
             // checkBFFCheckBox
             // 
             this.checkBFFCheckBox.AutoSize = true;
-            this.checkBFFCheckBox.Location = new System.Drawing.Point(339, 19);
+            this.checkBFFCheckBox.Location = new System.Drawing.Point(341, 19);
             this.checkBFFCheckBox.Name = "checkBFFCheckBox";
             this.checkBFFCheckBox.Size = new System.Drawing.Size(45, 17);
             this.checkBFFCheckBox.TabIndex = 5;
             this.checkBFFCheckBox.Text = "BFF";
-            this.toolTip.SetToolTip(this.checkBFFCheckBox, "Frogger 2 / Chicken Run");
+            this.toolTip.SetToolTip(this.checkBFFCheckBox, "Frogger 2 / Chicken Run (Uses SPT textures)");
             this.checkBFFCheckBox.UseVisualStyleBackColor = true;
             // 
             // checkPSXCheckBox
             // 
             this.checkPSXCheckBox.AutoSize = true;
-            this.checkPSXCheckBox.Location = new System.Drawing.Point(284, 19);
+            this.checkPSXCheckBox.Location = new System.Drawing.Point(287, 19);
             this.checkPSXCheckBox.Name = "checkPSXCheckBox";
             this.checkPSXCheckBox.Size = new System.Drawing.Size(47, 17);
             this.checkPSXCheckBox.TabIndex = 4;
@@ -229,7 +230,7 @@
             // checkMODCheckBox
             // 
             this.checkMODCheckBox.AutoSize = true;
-            this.checkMODCheckBox.Location = new System.Drawing.Point(229, 19);
+            this.checkMODCheckBox.Location = new System.Drawing.Point(233, 19);
             this.checkMODCheckBox.Name = "checkMODCheckBox";
             this.checkMODCheckBox.Size = new System.Drawing.Size(51, 17);
             this.checkMODCheckBox.TabIndex = 3;
@@ -240,7 +241,7 @@
             // checkHMDCheckBox
             // 
             this.checkHMDCheckBox.AutoSize = true;
-            this.checkHMDCheckBox.Location = new System.Drawing.Point(119, 19);
+            this.checkHMDCheckBox.Location = new System.Drawing.Point(125, 19);
             this.checkHMDCheckBox.Name = "checkHMDCheckBox";
             this.checkHMDCheckBox.Size = new System.Drawing.Size(51, 17);
             this.checkHMDCheckBox.TabIndex = 1;
@@ -394,13 +395,26 @@
             this.binSectorCheckBox.UseVisualStyleBackColor = true;
             this.binSectorCheckBox.CheckedChanged += new System.EventHandler(this.binSectorCheckBox_CheckedChanged);
             // 
+            // checkSPTCheckBox
+            // 
+            this.checkSPTCheckBox.AutoSize = true;
+            this.checkSPTCheckBox.Location = new System.Drawing.Point(125, 42);
+            this.checkSPTCheckBox.Name = "checkSPTCheckBox";
+            this.checkSPTCheckBox.Size = new System.Drawing.Size(47, 17);
+            this.checkSPTCheckBox.TabIndex = 14;
+            this.checkSPTCheckBox.Text = "SPT";
+            this.toolTip.SetToolTip(this.checkSPTCheckBox, "Frogger 2 / Chicken Run (Used by BFF models)\nMust be explicitly checked to scan\nM" +
+        "any false positives unless you set Align to 2048");
+            this.checkSPTCheckBox.UseVisualStyleBackColor = true;
+            // 
             // formatsGroupBox
             // 
+            this.formatsGroupBox.Controls.Add(this.checkSPTCheckBox);
+            this.formatsGroupBox.Controls.Add(this.checkANCheckBox);
             this.formatsGroupBox.Controls.Add(this.animationsLabel);
             this.formatsGroupBox.Controls.Add(this.texturesLabel);
             this.formatsGroupBox.Controls.Add(this.modelsLabel);
             this.formatsGroupBox.Controls.Add(this.checkBFFCheckBox);
-            this.formatsGroupBox.Controls.Add(this.checkANCheckBox);
             this.formatsGroupBox.Controls.Add(this.checkPSXCheckBox);
             this.formatsGroupBox.Controls.Add(this.checkMODCheckBox);
             this.formatsGroupBox.Controls.Add(this.checkPMDCheckBox);
@@ -412,15 +426,25 @@
             this.formatsGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
             this.formatsGroupBox.Location = new System.Drawing.Point(0, 105);
             this.formatsGroupBox.Name = "formatsGroupBox";
-            this.formatsGroupBox.Size = new System.Drawing.Size(394, 70);
+            this.formatsGroupBox.Size = new System.Drawing.Size(394, 93);
             this.formatsGroupBox.TabIndex = 1;
             this.formatsGroupBox.TabStop = false;
             this.formatsGroupBox.Text = "Formats";
             // 
+            // checkANCheckBox
+            // 
+            this.checkANCheckBox.AutoSize = true;
+            this.checkANCheckBox.Location = new System.Drawing.Point(71, 66);
+            this.checkANCheckBox.Name = "checkANCheckBox";
+            this.checkANCheckBox.Size = new System.Drawing.Size(41, 17);
+            this.checkANCheckBox.TabIndex = 7;
+            this.checkANCheckBox.Text = "AN";
+            this.checkANCheckBox.UseVisualStyleBackColor = true;
+            // 
             // animationsLabel
             // 
             this.animationsLabel.AutoSize = true;
-            this.animationsLabel.Location = new System.Drawing.Point(161, 43);
+            this.animationsLabel.Location = new System.Drawing.Point(6, 66);
             this.animationsLabel.Name = "animationsLabel";
             this.animationsLabel.Size = new System.Drawing.Size(61, 13);
             this.animationsLabel.TabIndex = 13;
@@ -444,20 +468,10 @@
             this.modelsLabel.TabIndex = 11;
             this.modelsLabel.Text = "Models:";
             // 
-            // checkANCheckBox
-            // 
-            this.checkANCheckBox.AutoSize = true;
-            this.checkANCheckBox.Location = new System.Drawing.Point(229, 42);
-            this.checkANCheckBox.Name = "checkANCheckBox";
-            this.checkANCheckBox.Size = new System.Drawing.Size(41, 17);
-            this.checkANCheckBox.TabIndex = 7;
-            this.checkANCheckBox.Text = "AN";
-            this.checkANCheckBox.UseVisualStyleBackColor = true;
-            // 
             // checkPMDCheckBox
             // 
             this.checkPMDCheckBox.AutoSize = true;
-            this.checkPMDCheckBox.Location = new System.Drawing.Point(174, 19);
+            this.checkPMDCheckBox.Location = new System.Drawing.Point(179, 19);
             this.checkPMDCheckBox.Name = "checkPMDCheckBox";
             this.checkPMDCheckBox.Size = new System.Drawing.Size(50, 17);
             this.checkPMDCheckBox.TabIndex = 2;
@@ -467,7 +481,7 @@
             // checkTODCheckBox
             // 
             this.checkTODCheckBox.AutoSize = true;
-            this.checkTODCheckBox.Location = new System.Drawing.Point(284, 42);
+            this.checkTODCheckBox.Location = new System.Drawing.Point(125, 66);
             this.checkTODCheckBox.Name = "checkTODCheckBox";
             this.checkTODCheckBox.Size = new System.Drawing.Size(49, 17);
             this.checkTODCheckBox.TabIndex = 8;
@@ -477,7 +491,7 @@
             // checkTIMCheckBox
             // 
             this.checkTIMCheckBox.AutoSize = true;
-            this.checkTIMCheckBox.Location = new System.Drawing.Point(64, 42);
+            this.checkTIMCheckBox.Location = new System.Drawing.Point(71, 42);
             this.checkTIMCheckBox.Name = "checkTIMCheckBox";
             this.checkTIMCheckBox.Size = new System.Drawing.Size(45, 17);
             this.checkTIMCheckBox.TabIndex = 6;
@@ -487,7 +501,7 @@
             // checkVDFCheckBox
             // 
             this.checkVDFCheckBox.AutoSize = true;
-            this.checkVDFCheckBox.Location = new System.Drawing.Point(339, 42);
+            this.checkVDFCheckBox.Location = new System.Drawing.Point(179, 66);
             this.checkVDFCheckBox.Name = "checkVDFCheckBox";
             this.checkVDFCheckBox.Size = new System.Drawing.Size(47, 17);
             this.checkVDFCheckBox.TabIndex = 9;
@@ -497,7 +511,7 @@
             // checkTMDCheckBox
             // 
             this.checkTMDCheckBox.AutoSize = true;
-            this.checkTMDCheckBox.Location = new System.Drawing.Point(64, 19);
+            this.checkTMDCheckBox.Location = new System.Drawing.Point(71, 19);
             this.checkTMDCheckBox.Name = "checkTMDCheckBox";
             this.checkTMDCheckBox.Size = new System.Drawing.Size(50, 17);
             this.checkTMDCheckBox.TabIndex = 0;
@@ -513,7 +527,7 @@
             this.optionsGroupBox.Controls.Add(this.optionNoVerboseCheckBox);
             this.optionsGroupBox.Controls.Add(this.optionLogToFileCheckBox);
             this.optionsGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
-            this.optionsGroupBox.Location = new System.Drawing.Point(0, 175);
+            this.optionsGroupBox.Location = new System.Drawing.Point(0, 198);
             this.optionsGroupBox.Name = "optionsGroupBox";
             this.optionsGroupBox.Size = new System.Drawing.Size(394, 69);
             this.optionsGroupBox.TabIndex = 2;
@@ -595,7 +609,7 @@
             this.showAdvancedMarginPanel.AutoSize = true;
             this.showAdvancedMarginPanel.Controls.Add(this.showAdvancedButton);
             this.showAdvancedMarginPanel.Dock = System.Windows.Forms.DockStyle.Top;
-            this.showAdvancedMarginPanel.Location = new System.Drawing.Point(0, 244);
+            this.showAdvancedMarginPanel.Location = new System.Drawing.Point(0, 267);
             this.showAdvancedMarginPanel.Name = "showAdvancedMarginPanel";
             this.showAdvancedMarginPanel.Padding = new System.Windows.Forms.Padding(3);
             this.showAdvancedMarginPanel.Size = new System.Drawing.Size(394, 29);
@@ -626,7 +640,7 @@
             this.advancedOptionsGroupBox.Controls.Add(this.optionIgnoreTMDVersionCheckBox);
             this.advancedOptionsGroupBox.Controls.Add(this.isoContentsCheckBox);
             this.advancedOptionsGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
-            this.advancedOptionsGroupBox.Location = new System.Drawing.Point(0, 273);
+            this.advancedOptionsGroupBox.Location = new System.Drawing.Point(0, 296);
             this.advancedOptionsGroupBox.Name = "advancedOptionsGroupBox";
             this.advancedOptionsGroupBox.Size = new System.Drawing.Size(394, 98);
             this.advancedOptionsGroupBox.TabIndex = 4;
@@ -703,7 +717,7 @@
             this.advancedOffsetGroupBox.Controls.Add(this.offsetStopUpDown);
             this.advancedOffsetGroupBox.Controls.Add(this.offsetStopCheckBox);
             this.advancedOffsetGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
-            this.advancedOffsetGroupBox.Location = new System.Drawing.Point(0, 371);
+            this.advancedOffsetGroupBox.Location = new System.Drawing.Point(0, 394);
             this.advancedOffsetGroupBox.Name = "advancedOffsetGroupBox";
             this.advancedOffsetGroupBox.Size = new System.Drawing.Size(394, 76);
             this.advancedOffsetGroupBox.TabIndex = 5;
@@ -788,7 +802,7 @@
             this.scanCancelMarginFlowLayoutPanel.Controls.Add(this.scanButton);
             this.scanCancelMarginFlowLayoutPanel.Dock = System.Windows.Forms.DockStyle.Top;
             this.scanCancelMarginFlowLayoutPanel.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
-            this.scanCancelMarginFlowLayoutPanel.Location = new System.Drawing.Point(0, 447);
+            this.scanCancelMarginFlowLayoutPanel.Location = new System.Drawing.Point(0, 470);
             this.scanCancelMarginFlowLayoutPanel.Name = "scanCancelMarginFlowLayoutPanel";
             this.scanCancelMarginFlowLayoutPanel.Padding = new System.Windows.Forms.Padding(0, 6, 11, 7);
             this.scanCancelMarginFlowLayoutPanel.Size = new System.Drawing.Size(394, 36);
@@ -803,7 +817,7 @@
             this.AutoSize = true;
             this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.CancelButton = this.cancelButton;
-            this.ClientSize = new System.Drawing.Size(394, 491);
+            this.ClientSize = new System.Drawing.Size(394, 514);
             this.Controls.Add(this.scanCancelMarginFlowLayoutPanel);
             this.Controls.Add(this.advancedOffsetGroupBox);
             this.Controls.Add(this.advancedOptionsGroupBox);
@@ -901,5 +915,6 @@
         private System.Windows.Forms.Button cancelButton;
         private System.Windows.Forms.FlowLayoutPanel scanCancelMarginFlowLayoutPanel;
         private System.Windows.Forms.Label binSectorInvalidLabel;
+        private System.Windows.Forms.CheckBox checkSPTCheckBox;
     }
 }

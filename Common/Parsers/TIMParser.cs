@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using PSXPrev.Common.Animator;
 
 namespace PSXPrev.Common.Parsers
 {
@@ -533,6 +532,40 @@ namespace PSXPrev.Common.Parsers
         public static uint GetModeFromNoClut()
         {
             return 2u;
+        }
+
+        public static uint GetModeFromBpp(int bpp)
+        {
+            switch (bpp)
+            {
+                case  4: return 0;
+                case  8: return 1;
+                case 16: return 2;
+                case 24: return 3;
+            }
+            throw new ArgumentException("Unsupported BPP", nameof(bpp));
+        }
+
+        public uint GetClutWidth(uint pmode)
+        {
+            switch (pmode)
+            {
+                case 0: return 16;
+                case 1: return 256;
+            }
+            return 0;
+        }
+
+        public ushort GetStride(uint pmode, uint width)
+        {
+            switch (pmode)
+            {
+                case 0: return (ushort)(width / 4);
+                case 1: return (ushort)(width / 2);
+                case 2: return (ushort)width;
+                case 3: return (ushort)((width * 3 + 1) / 2);
+            }
+            return 0;
         }
 
         public static int GetBpp(uint pmode)

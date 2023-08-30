@@ -93,6 +93,36 @@ namespace PSXPrev.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap CheckBox_Checked {
+            get {
+                object obj = ResourceManager.GetObject("CheckBox_Checked", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap CheckBox_Unchecked {
+            get {
+                object obj = ResourceManager.GetObject("CheckBox_Unchecked", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap CheckBoxes {
+            get {
+                object obj = ResourceManager.GetObject("CheckBoxes", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap ColorBackground {
             get {
                 object obj = ResourceManager.GetObject("ColorBackground", resourceCulture);
@@ -166,6 +196,16 @@ namespace PSXPrev.Properties {
         internal static System.Drawing.Bitmap File_FastWindowResize {
             get {
                 object obj = ResourceManager.GetObject("File_FastWindowResize", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap File_ShowFPS {
+            get {
+                object obj = ResourceManager.GetObject("File_ShowFPS", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -333,6 +373,16 @@ namespace PSXPrev.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap Models_EnableVertexColor {
+            get {
+                object obj = ResourceManager.GetObject("Models_EnableVertexColor", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Models_Export {
             get {
                 object obj = ResourceManager.GetObject("Models_Export", resourceCulture);
@@ -346,6 +396,56 @@ namespace PSXPrev.Properties {
         internal static System.Drawing.Bitmap Models_Export_All {
             get {
                 object obj = ResourceManager.GetObject("Models_Export_All", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Models_Focus {
+            get {
+                object obj = ResourceManager.GetObject("Models_Focus", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Models_Focus_AutoFocusOnRootModel {
+            get {
+                object obj = ResourceManager.GetObject("Models_Focus_AutoFocusOnRootModel", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Models_Focus_AutoFocusOnSubModel {
+            get {
+                object obj = ResourceManager.GetObject("Models_Focus_AutoFocusOnSubModel", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Models_Focus_IncludeCheckedModels {
+            get {
+                object obj = ResourceManager.GetObject("Models_Focus_IncludeCheckedModels", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Models_Focus_IncludeWholeModel {
+            get {
+                object obj = ResourceManager.GetObject("Models_Focus_IncludeWholeModel", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -423,6 +523,46 @@ namespace PSXPrev.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap Models_SubModelVisibility {
+            get {
+                object obj = ResourceManager.GetObject("Models_SubModelVisibility", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Models_SubModelVisibility_All {
+            get {
+                object obj = ResourceManager.GetObject("Models_SubModelVisibility_All", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Models_SubModelVisibility_Selected {
+            get {
+                object obj = ResourceManager.GetObject("Models_SubModelVisibility_Selected", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Models_SubModelVisibility_WithSameTMDID {
+            get {
+                object obj = ResourceManager.GetObject("Models_SubModelVisibility_WithSameTMDID", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Pause {
             get {
                 object obj = ResourceManager.GetObject("Pause", resourceCulture);
@@ -486,6 +626,16 @@ namespace PSXPrev.Properties {
         internal static System.Drawing.Bitmap Textures_AutoDrawTextures {
             get {
                 object obj = ResourceManager.GetObject("Textures_AutoDrawTextures", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Textures_AutoPackTextures {
+            get {
+                object obj = ResourceManager.GetObject("Textures_AutoPackTextures", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

@@ -5,6 +5,13 @@ using OpenTK.Graphics.OpenGL;
 
 namespace PSXPrev.Common.Renderer
 {
+    public enum SubModelVisibility
+    {
+        All,
+        Selected,
+        WithSameTMDID,
+    }
+
     public enum RenderPass
     {
         Pass1Opaque,
@@ -79,15 +86,14 @@ namespace PSXPrev.Common.Renderer
         }
 
 
-        public void SetupMultipleEntityBatch(RootEntity[] checkedEntities = null, ModelEntity selectedModelEntity = null, RootEntity selectedRootEntity = null, bool updateMeshData = true, bool focus = false, bool tmdidOfSelected = false)
+        public void SetupMultipleEntityBatch(RootEntity[] checkedEntities = null, ModelEntity selectedModelEntity = null, RootEntity selectedRootEntity = null, bool updateMeshData = true, SubModelVisibility subModelVisibility = SubModelVisibility.All)
         {
-            if (selectedModelEntity == null && selectedRootEntity == null)
-            {
-                return;
-            }
+            // Allow clearing selection and not drawing anything
+            //if (selectedModelEntity == null && selectedRootEntity == null)
+            //{
+            //    return;
+            //}
             selectedRootEntity = selectedRootEntity ?? selectedModelEntity.GetRootEntity();
-
-            var bounds = focus ? new BoundingBox() : null;
 
             //count the selected entity
             var modelCount = 1;
@@ -98,37 +104,29 @@ namespace PSXPrev.Common.Renderer
                 {
                     if (checkedEntity == selectedRootEntity)
                     {
-                        continue; // We'll count models and add bounds for selectedRootEntity later on in the function.
+                        continue; // We'll count models for selectedRootEntity later on in the function.
                     }
                     modelCount += checkedEntity.ChildEntities.Length;
-                    if (focus)
-                    {
-                        bounds.AddBounds(checkedEntity.Bounds3D);
-                    }
                 }
             }
-            //focus
+
             if (selectedRootEntity != null)
             {
-                if (selectedModelEntity != null && tmdidOfSelected)
+                if (selectedModelEntity != null && subModelVisibility != SubModelVisibility.All)
                 {
-                    var tmdidModels = selectedRootEntity.GetModelsWithTMDID(selectedModelEntity.TMDID);
-                    modelCount += tmdidModels.Count;
-                    foreach (var modelEntity in tmdidModels)
+                    if (subModelVisibility == SubModelVisibility.WithSameTMDID)
                     {
-                        if (focus && (modelEntity.Triangles.Length > 0 && (!modelEntity.AttachedOnly || modelEntity.IsAttached)))
-                        {
-                            bounds.AddBounds(modelEntity.Bounds3D);
-                        }
+                        var models = selectedRootEntity.GetModelsWithTMDID(selectedModelEntity.TMDID);
+                        modelCount += models.Count;
+                    }
+                    else if (subModelVisibility == SubModelVisibility.Selected)
+                    {
+                        modelCount++;
                     }
                 }
                 else
                 {
                     modelCount += selectedRootEntity.ChildEntities.Length;
-                    if (focus)
-                    {
-                        bounds.AddBounds(selectedRootEntity.Bounds3D);
-                    }
                 }
             }
             //reset
@@ -156,16 +154,25 @@ namespace PSXPrev.Common.Renderer
                     }
                 }
             }
-            //if not animating
-            //if (!hasAnimation)
-            //{
+
             //root entity
             if (selectedRootEntity != null)
             {
-                IEnumerable<EntityBase> models;
-                if (selectedModelEntity != null && tmdidOfSelected)
+                IReadOnlyList<EntityBase> models;
+                if (selectedModelEntity != null && subModelVisibility != SubModelVisibility.All)
                 {
-                    models = selectedRootEntity.GetModelsWithTMDID(selectedModelEntity.TMDID);
+                    if (subModelVisibility == SubModelVisibility.Selected)
+                    {
+                        models = new ModelEntity[] { selectedModelEntity };
+                    }
+                    else if (subModelVisibility == SubModelVisibility.WithSameTMDID)
+                    {
+                        models = selectedRootEntity.GetModelsWithTMDID(selectedModelEntity.TMDID);
+                    }
+                    else
+                    {
+                        models = new ModelEntity[0];
+                    }
                 }
                 else
                 {
@@ -177,12 +184,6 @@ namespace PSXPrev.Common.Renderer
                         modelEntity.InitialVertices, modelEntity.InitialNormals,
                         modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
                 }
-            }
-            //}
-            // do focus
-            if (focus)
-            {
-                _scene.FocusOnBounds(bounds);
             }
         }
 
@@ -258,10 +259,6 @@ namespace PSXPrev.Common.Renderer
                                    Vector3[] initialVertices = null, Vector3[] initialNormals = null,
                                    Vector3[] finalVertices = null, Vector3[] finalNormals = null, float interpolator = 0f)
         {
-            if (!modelEntity.Visible)
-            {
-                return;
-            }
             var mesh = GetMesh(MeshIndex++);
             if (mesh == null)
             {
@@ -273,7 +270,8 @@ namespace PSXPrev.Common.Renderer
             if (updateMeshData)
             {
                 var isLines = _scene.VibRibbonWireframe || mesh.RenderFlags.HasFlag(RenderFlags.Line);
-                UpdateTriangleMeshData(mesh, modelEntity.Triangles, isLines,
+                var uvConverter = modelEntity.TextureLookup;
+                UpdateTriangleMeshData(mesh, modelEntity.Triangles, isLines, uvConverter,
                     initialVertices, initialNormals, finalVertices, finalNormals, interpolator);
             }
         }
@@ -381,7 +379,7 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        private void UpdateTriangleMeshData(Mesh mesh, IReadOnlyList<Triangle> triangles, bool isLines,
+        private void UpdateTriangleMeshData(Mesh mesh, IReadOnlyList<Triangle> triangles, bool isLines, IUVConverter uvConverter = null,
                                             Vector3[] initialVertices = null, Vector3[] initialNormals = null,
                                             Vector3[] finalVertices = null, Vector3[] finalNormals = null, float interpolator = 0f)
         {
@@ -440,6 +438,10 @@ namespace PSXPrev.Common.Renderer
 
                     // If we're tiled, then the shader needs the base UV, not the converted UV.
                     var uv = triangle.TiledUv?.BaseUv[i] ?? triangle.Uv[i];
+                    if (uvConverter != null)
+                    {
+                        uv = uvConverter.ConvertUV(uv);
+                    }
                     uvList[index2d + 0] = uv.X;
                     uvList[index2d + 1] = uv.Y;
 

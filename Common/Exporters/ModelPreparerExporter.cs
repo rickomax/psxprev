@@ -166,7 +166,7 @@ namespace PSXPrev.Common.Exporters
                         var uvs = new Vector2[3];
                         for (var j = 0; j < 3; j++)
                         {
-                            uvs[j] = tiledInfo.Convert(baseUv[j]);
+                            uvs[j] = tiledInfo.ConvertUV(baseUv[j]);
                         }
                         triangle.Uv = uvs;
                         triangle.TiledUv = null; // We're not tiled anymore.
@@ -217,7 +217,7 @@ namespace PSXPrev.Common.Exporters
                             var uvs = new Vector2[3];
                             for (var j = 0; j < 3; j++)
                             {
-                                uvs[j] = uvConverter.Convert(origUv[j]);
+                                uvs[j] = uvConverter.ConvertUV(origUv[j]);
                             }
                             triangle.Uv = uvs;
                             triangle.TiledUv = null; // We're not tiled anymore.
@@ -446,7 +446,7 @@ namespace PSXPrev.Common.Exporters
             // Use this as an alignment since texture tiling is always in units of 8.
             private const int PACKED_ALIGN = 8;
 
-            public class PackedTextureInfo
+            public class PackedTextureInfo : IUVConverter
             {
                 //public Texture Texture;
                 public float OffsetX;
@@ -454,7 +454,7 @@ namespace PSXPrev.Common.Exporters
                 public float ScalarX;
                 public float ScalarY;
 
-                public Vector2 Convert(Vector2 origUv)
+                public Vector2 ConvertUV(Vector2 origUv)
                 {
                     return new Vector2(OffsetX + origUv.X * ScalarX, OffsetY + origUv.Y * ScalarY);
                 }
@@ -676,7 +676,7 @@ namespace PSXPrev.Common.Exporters
         }
 
 
-        private class TiledTextureInfo : IDisposable
+        private class TiledTextureInfo : IUVConverter, IDisposable
         {
             public Texture OriginalTexture { get; }
             public float X { get; } // Position added to BaseUv after wrapping.
@@ -707,7 +707,7 @@ namespace PSXPrev.Common.Exporters
             }
 
 
-            public Vector2 Convert(Vector2 baseUv)
+            public Vector2 ConvertUV(Vector2 baseUv)
             {
                 return new Vector2(baseUv.X * _scalarX, baseUv.Y * _scalarY);
             }

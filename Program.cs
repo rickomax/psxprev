@@ -131,13 +131,14 @@ namespace PSXPrev
             Console.WriteLine("  PATH   : folder or file path to scan");
             Console.WriteLine("  FILTER : wildcard filter for files to include (default: \"" + ScanOptions.DefaultFilter + "\")");
             Console.WriteLine();
-            Console.WriteLine("scanner formats: (default: all formats)");
+            Console.WriteLine("scanner formats: (default: all formats except SPT)");
             Console.WriteLine("  -an        : scan for AN animations");
             Console.WriteLine("  -bff       : scan for BFF models");
             Console.WriteLine("  -hmd       : scan for HMD models, textures, and animations");
             Console.WriteLine("  -mod/-croc : scan for MOD (Croc) models");
             Console.WriteLine("  -pmd       : scan for PMD models");
             Console.WriteLine("  -psx       : scan for PSX models (just another format)");
+            Console.WriteLine("  -spt       : scan for SPT textures");
             Console.WriteLine("  -tim       : scan for TIM textures");
             Console.WriteLine("  -tmd       : scan for TMD models");
             Console.WriteLine("  -tod       : scan for TOD animations");
@@ -242,6 +243,9 @@ namespace PSXPrev
                     break;
                 case "-psx":
                     options.CheckPSX = true;
+                    break;
+                case "-spt":
+                    options.CheckSPT = true;
                     break;
                 case "-tim":
                     options.CheckTIM = true;
@@ -987,6 +991,11 @@ namespace PSXPrev
             if (_options.CheckAll || _options.CheckPSX)
             {
                 parsers.Add(() => new PSXParser(AddEntity));
+            }
+            // SPT produces too many false positives to be enabled by default
+            if (/*_options.CheckAll ||*/ _options.CheckSPT)
+            {
+                parsers.Add(() => new SPTParser(AddTexture));
             }
             if (_options.CheckAll || _options.CheckTIM)
             {

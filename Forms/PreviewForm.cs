@@ -28,6 +28,8 @@ namespace PSXPrev.Forms
 
         private const double AnimationProgressPrecision = 200d;
 
+        private const int CheckAllNodesWarningCount = 100;
+
         private const double DefaultElapsedTime = 1d / 60d; // 1 frame (60FPS)
         private const double MaxElapsedTime = 10d / 60d; // 10 frames (60FPS)
 
@@ -45,6 +47,7 @@ namespace PSXPrev.Forms
 
         private readonly List<RootEntity> _rootEntities = new List<RootEntity>();
         private readonly List<Texture> _textures = new List<Texture>();
+        private readonly List<Texture> _packedTextures = new List<Texture>();
         private readonly List<Animation> _animations = new List<Animation>();
         private readonly Scene _scene;
         private readonly VRAM _vram;
@@ -82,7 +85,9 @@ namespace PSXPrev.Forms
         private bool _inDialog; // Prevent timers from performing updates while true
         private bool _resizeLayoutSuspended; // True if we need to ResumeLayout during ResizeEnd event
         private object _cancelMenuCloseItemClickedSender; // Prevent closing menus on certain click events (like separators)
+        private bool _busyChecking; // Checking or unchecking multiple tree view items, and events need to be delayed
 
+        private string _baseWindowTitle;
         private Animation _curAnimation;
         private AnimationObject _curAnimationObject;
         private AnimationFrame _curAnimationFrame;
@@ -107,9 +112,14 @@ namespace PSXPrev.Forms
         private float _texturePreviewScale = 1f;
         private float _vramPageScale = 1f;
         private bool _autoDrawModelTextures;
+        private bool _autoPackModelTextures;
         private bool _autoSelectAnimationModel;
         private bool _autoPlayAnimations;
-        private bool _onlyModelsWithSameTMDID;
+        private SubModelVisibility _subModelVisibility;
+        private bool _autoFocusOnRootModel;
+        private bool _autoFocusOnSubModel;
+        private bool _autoFocusIncludeWholeModel;
+        private bool _autoFocusIncludeCheckedModels;
 
         private GizmoType _gizmoType;
         private GizmoId _hoveredGizmo;
@@ -305,6 +315,13 @@ namespace PSXPrev.Forms
             statusStrip1.ResumeLayout();
             statusStrip1.Refresh();
 
+
+            if (_autoPackModelTextures)
+            {
+                // Ensure model is redrawn with packed textures applied.
+                UpdateSelectedEntity();
+            }
+
             // Debugging: Quickly export models and animations on startup.
             /*if (_rootEntities.Count >= 1 && _animations.Count >= 1)
             {
@@ -381,9 +398,6 @@ namespace PSXPrev.Forms
         {
             Settings.LoadDefaults();
             ReadSettings(Settings.Instance);
-
-            // temp: Add this here until its a proper feature
-            _onlyModelsWithSameTMDID = false;
         }
 
         public void LoadSettings()
@@ -423,6 +437,7 @@ namespace PSXPrev.Forms
             }
             _scene.AmbientEnabled = settings.AmbientEnabled;
             enableTexturesToolStripMenuItem.Checked = settings.TexturesEnabled;
+            enableVertexColorToolStripMenuItem.Checked = settings.VertexColorEnabled;
             enableSemiTransparencyToolStripMenuItem.Checked = settings.SemiTransparencyEnabled;
             forceDoubleSidedToolStripMenuItem.Checked = settings.ForceDoubleSided;
             autoAttachLimbsToolStripMenuItem.Checked = settings.AutoAttachLimbs;
@@ -433,6 +448,11 @@ namespace PSXPrev.Forms
             wireframeSizeUpDown.SetValueSafe((decimal)settings.WireframeSize);
             vertexSizeUpDown.SetValueSafe((decimal)settings.VertexSize);
             SetGizmoType(settings.GizmoType, force: true);
+            SetSubModelVisibility(settings.SubModelVisibility, force: true);
+            autoFocusOnRootModelToolStripMenuItem.Checked = settings.AutoFocusOnRootModel;
+            autoFocusOnSubModelToolStripMenuItem.Checked = settings.AutoFocusOnSubModel;
+            autoFocusIncludeWholeModelToolStripMenuItem.Checked = settings.AutoFocusIncludeWholeModel;
+            autoFocusIncludeCheckedModelsToolStripMenuItem.Checked = settings.AutoFocusIncludeCheckedModels;
             showBoundsToolStripMenuItem.Checked = settings.ShowBounds;
             _scene.ShowLightRotationRay = settings.ShowLightRotationRay;
             _scene.ShowDebugVisuals = settings.ShowDebugVisuals;
@@ -445,11 +465,13 @@ namespace PSXPrev.Forms
             SetCurrentCLUTIndex(settings.CurrentCLUTIndex);
             showUVToolStripMenuItem.Checked = settings.ShowUVsInVRAM;
             autoDrawModelTexturesToolStripMenuItem.Checked = settings.AutoDrawModelTextures;
+            autoPackModelTexturesToolStripMenuItem.Checked = settings.AutoPackModelTextures;
             autoPlayAnimationsToolStripMenuItem.Checked = settings.AutoPlayAnimation;
             autoSelectAnimationModelToolStripMenuItem.Checked = settings.AutoSelectAnimationModel;
             animationLoopModeComboBox.SelectedIndex = (int)settings.AnimationLoopMode;
             animationReverseCheckBox.Checked = settings.AnimationReverse;
             animationSpeedNumericUpDown.SetValueSafe((decimal)settings.AnimationSpeed);
+            showFPSToolStripMenuItem.Checked = settings.ShowFPS;
             fastWindowResizeToolStripMenuItem.Checked = settings.FastWindowResize;
 
             _scanProgressRefreshDelayTimer.Interval = settings.ScanProgressFrequency;
@@ -470,6 +492,7 @@ namespace PSXPrev.Forms
             settings.LightEnabled = enableLightToolStripMenuItem.Checked;
             settings.AmbientEnabled = _scene.AmbientEnabled;
             settings.TexturesEnabled = enableTexturesToolStripMenuItem.Checked;
+            settings.VertexColorEnabled = enableVertexColorToolStripMenuItem.Checked;
             settings.SemiTransparencyEnabled = enableSemiTransparencyToolStripMenuItem.Checked;
             settings.ForceDoubleSided = forceDoubleSidedToolStripMenuItem.Checked;
             settings.AutoAttachLimbs = autoAttachLimbsToolStripMenuItem.Checked;
@@ -480,6 +503,11 @@ namespace PSXPrev.Forms
             settings.WireframeSize = (float)wireframeSizeUpDown.Value;
             settings.VertexSize = (float)vertexSizeUpDown.Value;
             settings.GizmoType = _gizmoType;
+            settings.SubModelVisibility = _subModelVisibility;
+            settings.AutoFocusOnRootModel = autoFocusOnRootModelToolStripMenuItem.Checked;
+            settings.AutoFocusOnSubModel = autoFocusOnSubModelToolStripMenuItem.Checked;
+            settings.AutoFocusIncludeWholeModel = autoFocusIncludeWholeModelToolStripMenuItem.Checked;
+            settings.AutoFocusIncludeCheckedModels = autoFocusIncludeCheckedModelsToolStripMenuItem.Checked;
             settings.ShowBounds = showBoundsToolStripMenuItem.Checked;
             settings.ShowLightRotationRay = _scene.ShowLightRotationRay;
             settings.ShowDebugVisuals = _scene.ShowDebugVisuals;
@@ -492,11 +520,13 @@ namespace PSXPrev.Forms
             settings.CurrentCLUTIndex = _clutIndex;
             settings.ShowUVsInVRAM = showUVToolStripMenuItem.Checked;
             settings.AutoDrawModelTextures = autoDrawModelTexturesToolStripMenuItem.Checked;
+            settings.AutoPackModelTextures = autoPackModelTexturesToolStripMenuItem.Checked;
             settings.AutoPlayAnimation = autoPlayAnimationsToolStripMenuItem.Checked;
             settings.AutoSelectAnimationModel = autoSelectAnimationModelToolStripMenuItem.Checked;
             settings.AnimationLoopMode = (AnimationLoopMode)animationLoopModeComboBox.SelectedIndex;
             settings.AnimationReverse = animationReverseCheckBox.Checked;
             settings.AnimationSpeed = (float)animationSpeedNumericUpDown.Value;
+            settings.ShowFPS = showFPSToolStripMenuItem.Checked;
             settings.FastWindowResize = fastWindowResizeToolStripMenuItem.Checked;
         }
 
@@ -508,11 +538,26 @@ namespace PSXPrev.Forms
         private void SetupControls()
         {
             // Set window title to format: PSXPrev #.#.#.#
-            Text = $"{Text} {GetVersionString()}";
+            _baseWindowTitle = $"{Text} {GetVersionString()}";
+            Text = _baseWindowTitle;
 
 
             // Setup GLControl
-            _openTkControl = new GLControl { Name = "openTKControl", TabIndex = 15 };
+            try
+            {
+                // 24-bit depth buffer fixes issues where lower-end laptops
+                // with integrated graphics render larger models horribly.
+                var samples = Settings.Instance.Multisampling;
+                var graphicsMode = new OpenTK.Graphics.GraphicsMode(32, 24, 0, samples);
+                _openTkControl = new GLControl(graphicsMode);
+            }
+            catch
+            {
+                // Don't know if an unsupported graphics mode can throw, but let's play it safe.
+                _openTkControl = new GLControl();
+            }
+            _openTkControl.Name = "openTKControl";
+            _openTkControl.TabIndex = 15;
             _openTkControl.BackColor = Color.Black;
             _openTkControl.BorderStyle = BorderStyle.FixedSingle;
             _openTkControl.Dock = DockStyle.Fill;
@@ -557,8 +602,9 @@ namespace PSXPrev.Forms
             texturePanel.MouseWheel += TexturePanelOnMouseWheel;
             vramPanel.MouseWheel += VramPanelOnMouseWheel;
 
-            // Allow changing multiple draw modes while holding shift down.
-            drawModeToolStripMenuItem.DropDown.Closing += OnDrawModeMenuClosing;
+            // Allow changing multiple checkboxes while holding shift down.
+            drawModeToolStripMenuItem.DropDown.Closing += OnCancelMenuCloseWhileHoldingShift;
+            autoFocusToolStripMenuItem.DropDown.Closing += OnCancelMenuCloseWhileHoldingShift;
 
             // Ensure numeric up downs display the same value that they store internally.
             SetupNumericUpDownValidateEvents(this);
@@ -646,6 +692,7 @@ namespace PSXPrev.Forms
                     texture.Dispose();
                 }
                 _textures.Clear();
+                _packedTextures.Clear();
                 _animations.Clear();
                 _vram.ClearAllPages();
 
@@ -675,6 +722,18 @@ namespace PSXPrev.Forms
             var assembly = Assembly.GetExecutingAssembly();
             var fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
             return fileVersionInfo.FileVersion;
+        }
+
+        private void UpdateFPSLabel()
+        {
+            if (showFPSToolStripMenuItem.Checked)
+            {
+                Text = $"{_baseWindowTitle} (FPS: {_fps:0.0})";
+            }
+            else
+            {
+                Text = _baseWindowTitle;
+            }
         }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -864,13 +923,6 @@ namespace PSXPrev.Forms
                             }
                             e.Handled = true;
                         }
-                        break;
-
-                    case Keys.M when state && sceneFocused:
-                        _onlyModelsWithSameTMDID = !_onlyModelsWithSameTMDID;
-                        Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"_onlyModelsWithSameTMDID: {_onlyModelsWithSameTMDID}");
-                        UpdateSelectedEntity();
-                        e.Handled = true;
                         break;
 
                     case Keys.Oemplus when state && textureFocused:
@@ -1230,6 +1282,16 @@ namespace PSXPrev.Forms
             }
         }
 
+        private void OnCancelMenuCloseWhileHoldingShift(object sender, ToolStripDropDownClosingEventArgs e)
+        {
+            if (IsShiftDown && e.CloseReason == ToolStripDropDownCloseReason.ItemClicked)
+            {
+                // Allow changing multiple draw modes without re-opening the menu.
+                // A hacky solution until we have draw modes somewhere else like a toolbar.
+                e.Cancel = true;
+            }
+        }
+
         private void _mainTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             if (IsDisposed || _closing)
@@ -1263,6 +1325,10 @@ namespace PSXPrev.Forms
                     _fpsCalcElapsedFrames = 0;
                     //Console.WriteLine($"FPS: {_fps:0.00}");
                     // todo: Update a label or something here
+                    if (showFPSToolStripMenuItem.Checked)
+                    {
+                        UpdateFPSLabel();
+                    }
                 }
                 _fpsCalcElapsedFrames++;
 
@@ -1449,12 +1515,12 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void EntityAdded(RootEntity entity, int index)
+        private void EntityAdded(RootEntity rootEntity, int index)
         {
-            entitiesTreeView.Nodes.Add(CreateRootEntityNode(entity, index));
+            entitiesTreeView.Nodes.Add(CreateRootEntityNode(rootEntity, index));
 
             // Assign texture to model
-            _vram.AssignModelTextures(entity);
+            _vram.AssignModelTextures(rootEntity);
         }
 
         private ImageListViewItem CreateTextureItem(Texture texture, int index)
@@ -2013,7 +2079,7 @@ namespace PSXPrev.Forms
                         _drawAllToVRAMAfterScan = options.DrawAllToVRAM;
                         if (!Program.ScanAsync(options, OnScanProgressCallback))
                         {
-                            MessageBox.Show(this, $"Directory/File not found: {options.Path}", "Scan Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            ShowMessageBox($"Directory/File not found: {options.Path}", "Scan Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         }
                     }
                 }
@@ -2071,7 +2137,7 @@ namespace PSXPrev.Forms
                     {
                         return true; // OK (valid page)
                     }
-                    MessageBox.Show(this, $"Please type in a valid VRAM Page index between 0 and {VRAM.PageCount-1}", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ShowMessageBox($"Please type in a valid VRAM Page index between 0 and {VRAM.PageCount-1}", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
                 return false; // Canceled / OK (invalid page)
             }
@@ -2095,7 +2161,7 @@ namespace PSXPrev.Forms
                     {
                         return true; // OK (valid page)
                     }
-                    MessageBox.Show(this, $"Please type in a valid Palette index between 0 and 255", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ShowMessageBox($"Please type in a valid Palette index between 0 and 255", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
                 return false; // Canceled / OK (invalid page)
             }
@@ -2148,7 +2214,7 @@ namespace PSXPrev.Forms
             if (entities == null || entities.Length == 0)
             {
                 var message = all ? "No models to export" : "No models checked or selected to export";
-                MessageBox.Show(this, message, "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ShowMessageBox(message, "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -2161,7 +2227,7 @@ namespace PSXPrev.Forms
                 if (options != null)
                 {
                     ExportModelsForm.Export(options, entities, animations, _animationBatch);
-                    MessageBox.Show(this, $"{entities.Length} models exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ShowMessageBox($"{entities.Length} models exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             finally
@@ -2219,7 +2285,7 @@ namespace PSXPrev.Forms
                 {
                     message = all ? "No textures to export" : "No textures selected to export";
                 }
-                MessageBox.Show(this, message, "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ShowMessageBox(message, "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -2234,15 +2300,85 @@ namespace PSXPrev.Forms
                         {
                             pngExporter.Export(texture, $"vram{texture.TexturePage}", path);
                         }
-                        MessageBox.Show(this, $"{textures.Length} VRAM pages exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        ShowMessageBox($"{textures.Length} VRAM pages exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                     else
                     {
                         pngExporter.Export(textures, path);
-                        MessageBox.Show(this, $"{textures.Length} textures exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        ShowMessageBox($"{textures.Length} textures exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                 }
             });
+        }
+
+        private DialogResult ShowMessageBox(string text)
+        {
+            return ShowMessageBox(text, "PSXPrev");
+        }
+
+        private DialogResult ShowMessageBox(string text, string title)
+        {
+            EnterDialog();
+            try
+            {
+                return MessageBox.Show(this, text, title);
+            }
+            finally
+            {
+                LeaveDialog();
+            }
+        }
+
+        private DialogResult ShowMessageBox(string text, string title, MessageBoxButtons buttons)
+        {
+            EnterDialog();
+            try
+            {
+                return MessageBox.Show(this, text, title, buttons);
+            }
+            finally
+            {
+                LeaveDialog();
+            }
+        }
+
+        private DialogResult ShowMessageBox(string text, string title, MessageBoxButtons buttons, MessageBoxIcon icon)
+        {
+            EnterDialog();
+            try
+            {
+                return MessageBox.Show(this, text, title, buttons, icon);
+            }
+            finally
+            {
+                LeaveDialog();
+            }
+        }
+
+        private DialogResult ShowMessageBox(string text, string title, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxDefaultButton defaultButton)
+        {
+            EnterDialog();
+            try
+            {
+                return MessageBox.Show(this, text, title, buttons, icon, defaultButton);
+            }
+            finally
+            {
+                LeaveDialog();
+            }
+        }
+
+        private DialogResult ShowMessageBox(string text, string title, MessageBoxButtons buttons, MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options)
+        {
+            EnterDialog();
+            try
+            {
+                return MessageBox.Show(this, text, title, buttons, icon, defaultButton, options);
+            }
+            finally
+            {
+                LeaveDialog();
+            }
         }
 
         private void EnterDialog()
@@ -2433,6 +2569,11 @@ namespace PSXPrev.Forms
                     var rootIndex = _rootEntities.IndexOf(rootEntityFromSub);
                     var rootNode = entitiesTreeView.Nodes[rootIndex];
                     var subIndex = Array.IndexOf(rootEntityFromSub.ChildEntities, entity);
+                    var tagInfo = (EntitiesTreeViewTagInfo)rootNode.Tag;
+                    if (!tagInfo.LazyLoaded)
+                    {
+                        LoadEntityChildNodes(rootNode);
+                    }
                     newNode = rootNode.Nodes[subIndex];
                 }
             }
@@ -2478,7 +2619,7 @@ namespace PSXPrev.Forms
             return IsShiftDown;
         }
 
-        private void UpdateSelectedEntity(bool updateMeshData = true, bool noDelayUpdatePropertyGrid = true)
+        private void UpdateSelectedEntity(bool updateMeshData = true, bool noDelayUpdatePropertyGrid = true, bool focus = false)
         {
             _scene.BoundsBatch.Reset(1);
             var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
@@ -2499,11 +2640,117 @@ namespace PSXPrev.Forms
             {
                 selectedEntityBase.ComputeBoundsRecursively();
                 _scene.BoundsBatch.BindEntityBounds(selectedEntityBase);
-                updateMeshData |= _scene.AutoAttach;
-                // todo: Ensure we focus when switching to a different root entity, even if the selected entity is a sub-model.
-                var focus = _selectionSource == EntitySelectionSource.TreeView && _selectedModelEntity == null;
+
                 var checkedEntities = GetCheckedEntities();
-                _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, _selectedModelEntity, _selectedRootEntity, updateMeshData, focus, tmdidOfSelected: _onlyModelsWithSameTMDID);
+
+                if (_autoDrawModelTextures || _autoPackModelTextures)
+                {
+                    if (_autoPackModelTextures)
+                    {
+                        // Check if the models being drawn have packed textures. If they do, 
+                        // then we'll removed all current packed textures from VRAM to ensure we
+                        // have room for new ones. This is an ugly way to do it, but it's simple.
+                        var hasPacking = false;
+                        if (checkedEntities != null)
+                        {
+                            foreach (var checkedEntity in checkedEntities)
+                            {
+                                foreach (ModelEntity model in checkedEntity.ChildEntities)
+                                {
+                                    if (model.IsTextured && model.TextureLookup != null)
+                                    {
+                                        hasPacking = true;
+                                        break;
+                                    }
+                                }
+                                if (hasPacking)
+                                {
+                                    break;
+                                }
+                            }
+                        }
+                        if (rootEntity != null && !hasPacking)
+                        {
+                            foreach (ModelEntity model in rootEntity.ChildEntities)
+                            {
+                                if (model.IsTextured && model.TextureLookup != null)
+                                {
+                                    hasPacking = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (hasPacking)
+                        {
+                            // Packed textures found, clear existing ones from VRAM.
+                            RemoveAllPackedTexturesFromVRAM();
+                        }
+                    }
+
+                    if (_autoDrawModelTextures)
+                    {
+                        if (checkedEntities != null)
+                        {
+                            foreach (var checkedEntity in checkedEntities)
+                            {
+                                DrawModelTexturesToVRAM(rootEntity, _clutIndex);
+                            }
+                        }
+                        if (rootEntity != null)
+                        {
+                            // Selected entity gets drawing priority over checked entities.
+                            DrawModelTexturesToVRAM(rootEntity, _clutIndex);
+                        }
+                    }
+                    if (_autoPackModelTextures)
+                    {
+                        if (rootEntity != null)
+                        {
+                            // Selected entity gets packing priority over checked entities.
+                            AssignModelLookupTexturesAndPackInVRAM(rootEntity, true);
+                        }
+                        if (checkedEntities != null)
+                        {
+                            foreach (var checkedEntity in checkedEntities)
+                            {
+                                AssignModelLookupTexturesAndPackInVRAM(checkedEntity, true);
+                            }
+                        }
+                        _vram.UpdateAllPages();
+                    }
+                }
+                if (checkedEntities != null)
+                {
+                    foreach (var checkedEntity in checkedEntities)
+                    {
+                        AssignModelLookupTextures(checkedEntity);
+                    }
+                }
+                if (rootEntity != null)
+                {
+                    AssignModelLookupTextures(rootEntity);
+                }
+
+                updateMeshData |= _scene.AutoAttach;
+                _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, _selectedModelEntity, _selectedRootEntity, updateMeshData, subModelVisibility: _subModelVisibility);
+
+                // todo: Ensure we focus when switching to a different root entity, even if the selected entity is a sub-model.
+                if (focus)
+                {
+                    if (_selectedModelEntity == null)
+                    {
+                        focus = _autoFocusOnRootModel;
+                    }
+                    else if (_selectedModelEntity != null)
+                    {
+                        focus = _autoFocusOnSubModel;
+                    }
+
+                    if (focus)
+                    {
+                        _scene.FocusOnBounds(GetFocusBounds(checkedEntities));
+                    }
+                }
             }
             else
             {
@@ -2547,6 +2794,75 @@ namespace PSXPrev.Forms
             }
         }
 
+        private void SetSubModelVisibility(SubModelVisibility visibility, bool force = false)
+        {
+            if (force || _subModelVisibility != visibility)
+            {
+                _subModelVisibility = visibility;
+
+                subModelVisibilityAllToolStripMenuItem.Checked = _subModelVisibility == SubModelVisibility.All;
+                subModelVisibilitySelectedToolStripMenuItem.Checked = _subModelVisibility == SubModelVisibility.Selected;
+                subModelVisibilityWithSameTMDIDToolStripMenuItem.Checked = _subModelVisibility == SubModelVisibility.WithSameTMDID;
+
+                UpdateSelectedEntity();
+            }
+        }
+
+        private BoundingBox GetFocusBounds(RootEntity[] checkedEntities)
+        {
+            var bounds = new BoundingBox();
+            var selectedRootEntity = _selectedRootEntity ?? _selectedModelEntity.GetRootEntity();
+
+            if (_autoFocusIncludeCheckedModels && checkedEntities != null)
+            {
+                foreach (var checkedEntity in checkedEntities)
+                {
+                    if (checkedEntity == selectedRootEntity)
+                    {
+                        continue; // We'll add bounds for selectedRootEntity later on in the function.
+                    }
+                    bounds.AddBounds(checkedEntity.Bounds3D);
+                }
+            }
+
+            if (selectedRootEntity != null)
+            {
+                if (_selectedModelEntity != null && (!_autoFocusIncludeWholeModel || _subModelVisibility != SubModelVisibility.All))
+                {
+                    IReadOnlyList<ModelEntity> models;
+                    if (!_autoFocusIncludeWholeModel || _subModelVisibility == SubModelVisibility.Selected)
+                    {
+                        models = new ModelEntity[] { _selectedModelEntity };
+                    }
+                    else if (_subModelVisibility == SubModelVisibility.WithSameTMDID)
+                    {
+                        models = selectedRootEntity.GetModelsWithTMDID(_selectedModelEntity.TMDID);
+                    }
+                    else
+                    {
+                        models = new ModelEntity[0];
+                    }
+                    foreach (var model in models)
+                    {
+                        if (model.Triangles.Length > 0 && (!model.AttachedOnly || model.IsAttached))
+                        {
+                            bounds.AddBounds(model.Bounds3D);
+                        }
+                    }
+                }
+                else
+                {
+                    bounds.AddBounds(selectedRootEntity.Bounds3D);
+                }
+            }
+
+            if (!bounds.IsSet)
+            {
+                bounds.AddPoint(Vector3.Zero);
+            }
+            return bounds;
+        }
+
         private void entitiesTreeView_BeforeExpand(object sender, TreeViewCancelEventArgs e)
         {
             var tagInfo = (EntitiesTreeViewTagInfo)e.Node.Tag;
@@ -2571,16 +2887,15 @@ namespace PSXPrev.Forms
                 UnselectTriangle();
             }
             var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
-            if (rootEntity != null && _autoDrawModelTextures)
-            {
-                DrawModelTexturesToVRAM(rootEntity, _clutIndex);
-            }
-            UpdateSelectedEntity();
+            UpdateSelectedEntity(focus: _selectionSource == EntitySelectionSource.TreeView);
         }
 
         private void entitiesTreeView_AfterCheck(object sender, TreeViewEventArgs e)
         {
-            UpdateSelectedEntity();
+            if (!_busyChecking)
+            {
+                UpdateSelectedEntity(focus: _autoFocusIncludeCheckedModels);
+            }
         }
 
         private void entitiesTreeView_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
@@ -2612,6 +2927,55 @@ namespace PSXPrev.Forms
                 selectedEntityBase.Translation = SnapToGrid(selectedEntityBase.Translation);
             }
             UpdateSelectedEntity(false);
+        }
+
+        private void checkAllModelsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (entitiesTreeView.Nodes.Count > CheckAllNodesWarningCount)
+            {
+                var result = ShowMessageBox($"You are about to check over {CheckAllNodesWarningCount} models. Displaying too many models may cause problems. Do you want to continue?",
+                    "Check All", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                if (result != DialogResult.Yes)
+                {
+                    return;
+                }
+            }
+            entitiesTreeView.BeginUpdate();
+            _busyChecking = true;
+            try
+            {
+                for (var i = 0; i < entitiesTreeView.Nodes.Count; i++)
+                {
+                    var node = entitiesTreeView.Nodes[i];
+                    node.Checked = true;
+                }
+            }
+            finally
+            {
+                _busyChecking = false;
+                entitiesTreeView.EndUpdate();
+            }
+            UpdateSelectedEntity(focus: _autoFocusIncludeCheckedModels);
+        }
+
+        private void uncheckAllModelsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            entitiesTreeView.BeginUpdate();
+            _busyChecking = true;
+            try
+            {
+                for (var i = 0; i < entitiesTreeView.Nodes.Count; i++)
+                {
+                    var node = entitiesTreeView.Nodes[i];
+                    node.Checked = false;
+                }
+            }
+            finally
+            {
+                _busyChecking = false;
+                entitiesTreeView.EndUpdate();
+            }
+            UpdateSelectedEntity(focus: _autoFocusIncludeCheckedModels);
         }
 
         private void resetWholeModelToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2654,16 +3018,6 @@ namespace PSXPrev.Forms
         private void gizmoToolScaleToolStripMenuItem_Click(object sender, EventArgs e)
         {
             SetGizmoType(GizmoType.Scale);
-        }
-
-        private void OnDrawModeMenuClosing(object sender, ToolStripDropDownClosingEventArgs e)
-        {
-            if (IsShiftDown && e.CloseReason == ToolStripDropDownCloseReason.ItemClicked)
-            {
-                // Allow changing multiple draw modes without re-opening the menu.
-                // A hacky solution until we have draw modes somewhere else like a toolbar.
-                e.Cancel = true;
-            }
         }
 
         private void drawModeFacesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
@@ -2730,6 +3084,12 @@ namespace PSXPrev.Forms
             Redraw();
         }
 
+        private void enableVertexColorToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.VertexColorEnabled = enableVertexColorToolStripMenuItem.Checked;
+            Redraw();
+        }
+
         private void enableSemiTransparencyToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _scene.SemiTransparencyEnabled = enableSemiTransparencyToolStripMenuItem.Checked;
@@ -2746,6 +3106,41 @@ namespace PSXPrev.Forms
         {
             _scene.AutoAttach = autoAttachLimbsToolStripMenuItem.Checked;
             UpdateSelectedEntity(); // Update mesh data, since limb vertices may have changed
+        }
+
+        private void subModelVisibilityAllToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SetSubModelVisibility(SubModelVisibility.All);
+        }
+
+        private void subModelVisibilitySelectedToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SetSubModelVisibility(SubModelVisibility.Selected);
+        }
+
+        private void subModelVisibilityWithSameTMDIDToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SetSubModelVisibility(SubModelVisibility.WithSameTMDID);
+        }
+
+        private void autoFocusOnRootModelToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _autoFocusOnRootModel = autoFocusOnRootModelToolStripMenuItem.Checked;
+        }
+
+        private void autoFocusOnSubModelToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _autoFocusOnSubModel = autoFocusOnSubModelToolStripMenuItem.Checked;
+        }
+
+        private void autoFocusIncludeWholeModelToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _autoFocusIncludeWholeModel = autoFocusIncludeWholeModelToolStripMenuItem.Checked;
+        }
+
+        private void autoFocusIncludeCheckedModelsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _autoFocusIncludeCheckedModels = autoFocusIncludeCheckedModelsToolStripMenuItem.Checked;
         }
 
         private void lineRendererToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
@@ -2776,8 +3171,23 @@ namespace PSXPrev.Forms
 
         private void lightIntensityNumericUpDown_ValueChanged(object sender, EventArgs e)
         {
-            _scene.LightIntensity = (float)lightIntensityNumericUpDown.Value / 100f;
+            _scene.LightIntensity = (float)lightIntensityNumericUpDown.Value;
             lightIntensityNumericUpDown.Refresh(); // Too slow to refresh number normally if using the arrow keys
+        }
+
+        private void gridSnapUpDown_ValueChanged(object sender, EventArgs e)
+        {
+            gridSnapUpDown.Refresh();
+        }
+
+        private void angleSnapUpDown_ValueChanged(object sender, EventArgs e)
+        {
+            angleSnapUpDown.Refresh();
+        }
+
+        private void scaleSnapUpDown_ValueChanged(object sender, EventArgs e)
+        {
+            scaleSnapUpDown.Refresh();
         }
 
         private void vertexSizeUpDown_ValueChanged(object sender, EventArgs e)
@@ -2802,16 +3212,137 @@ namespace PSXPrev.Forms
 
         #region Textures/VRAM
 
-        private void DrawTexturesToVRAM(IEnumerable<Texture> textures, int? clutIndex)
+        private int AssignModelLookupTextures(RootEntity rootEntity)
         {
+            var locateFailedCount = 0;
+            foreach (ModelEntity model in rootEntity.ChildEntities)
+            {
+                if (!AssignModelLookupTextures(model))
+                {
+                    locateFailedCount++;
+                }
+            }
+            return locateFailedCount;
+        }
+
+        private bool AssignModelLookupTextures(ModelEntity model)
+        {
+            if (!model.IsTextured || model.TextureLookup == null)
+            {
+                return true;
+            }
+            model.TexturePage = 0;
+            model.TextureLookup.Texture = null;
+
+            var expectedFormat = model.TextureLookup.ExpectedFormat;
+            var id = model.TextureLookup.ID;
+            foreach (var texture in _packedTextures)
+            {
+                if (expectedFormat != null)
+                {
+                    if (texture.FormatName == null || texture.FormatName != expectedFormat)
+                    {
+                        continue;
+                    }
+                }
+                if (texture.LookupID.Value == id)
+                {
+                    model.TexturePage = (uint)texture.TexturePage;
+                    model.TextureLookup.Texture = texture;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private int AssignModelLookupTexturesAndPackInVRAM(RootEntity rootEntity, bool suppressUpdate = false)
+        {
+            var locateOrPackFailedCount = 0;
+            foreach (ModelEntity model in rootEntity.ChildEntities)
+            {
+                if (!AssignModelLookupTexturesAndPackInVRAM(model, suppressUpdate))
+                {
+                    locateOrPackFailedCount++;
+                }
+            }
+            return locateOrPackFailedCount;
+        }
+
+        private bool AssignModelLookupTexturesAndPackInVRAM(ModelEntity model, bool suppressUpdate = false)
+        {
+            if (!model.IsTextured || model.TextureLookup == null)
+            {
+                return true;
+            }
+            model.TexturePage = 0;
+            model.TextureLookup.Texture = null;
+
+            var expectedFormat = model.TextureLookup.ExpectedFormat;
+            var id = model.TextureLookup.ID;
+            foreach (var texture in _textures)
+            {
+                if (!texture.NeedsPacking)
+                {
+                    continue; // This isn't a locatable texture
+                }
+                if (expectedFormat != null)
+                {
+                    if (texture.FormatName == null || texture.FormatName != expectedFormat)
+                    {
+                        continue;
+                    }
+                }
+                if (texture.LookupID.Value == id)
+                {
+                    if (texture.IsPacked)
+                    {
+                        model.TexturePage = (uint)texture.TexturePage;
+                        model.TextureLookup.Texture = texture;
+                        return true;
+                    }
+                    else if (PackTextureInVRAM(texture))
+                    {
+                        _vram.DrawTexture(texture, suppressUpdate);
+                        model.TexturePage = (uint)texture.TexturePage;
+                        model.TextureLookup.Texture = texture;
+                        return true;
+                    }
+                    break; // Failed to pack texture
+                }
+            }
+            return false;
+        }
+
+        // Returns number of textures that could not be packed
+        private int DrawTexturesToVRAM(IEnumerable<Texture> textures, int? clutIndex)
+        {
+            var packedChanged = false;
+            var packFailedCount = 0;
             foreach (var texture in textures)
             {
+                // Textures that need packing must find a location to pack first
+                if (texture.NeedsPacking)
+                {
+                    if (texture.IsPacked)
+                    {
+                        continue; // Texture is already drawn
+                    }
+                    if (!PackTextureInVRAM(texture))
+                    {
+                        packFailedCount++;
+                        continue; // No place to pack this texture, can't draw
+                    }
+                    packedChanged = true;
+                }
+
                 var oldClutIndex = texture.CLUTIndex;
                 if (clutIndex.HasValue && texture.CLUTCount > 1)
                 {
                     texture.SetCLUTIndex(clutIndex.Value);
                 }
+
                 _vram.DrawTexture(texture, true); // Suppress updates to scene until all textures are drawn.
+
                 if (clutIndex.HasValue && texture.CLUTCount > 1)
                 {
                     texture.SetCLUTIndex(clutIndex.Value);
@@ -2822,26 +3353,105 @@ namespace PSXPrev.Forms
                 vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
                 UpdateVRAMComboBoxPageItems();
             }
+
+            if (packedChanged)
+            {
+                UpdateSelectedEntity();
+            }
+            return packFailedCount;
         }
 
-        private void DrawModelTexturesToVRAM(RootEntity rootEntity, int? clutIndex)
+        private int DrawModelTexturesToVRAM(RootEntity rootEntity, int? clutIndex)
         {
             // Note: We can't just use ModelEntity.Texture, since that just points to the VRAM page.
-            DrawTexturesToVRAM(rootEntity.OwnedTextures, clutIndex);
+            return DrawTexturesToVRAM(rootEntity.OwnedTextures, clutIndex);
+        }
+
+        private bool PackTextureInVRAM(Texture texture)
+        {
+            if (!texture.NeedsPacking || texture.IsPacked)
+            {
+                return true;
+            }
+            if (_vram.FindPackLocation(texture, out var packPage, out var packX, out var packY))
+            {
+                texture.IsPacked = true;
+                texture.TexturePage = packPage;
+                texture.X = packX;
+                texture.Y = packY;
+                _packedTextures.Add(texture);
+                return true;
+            }
+            return false;
         }
 
         private void ClearVRAMPage(int index)
         {
+            var packedChanged = false;
             _vram.ClearPage(index);
+            for (var i = 0; i < _packedTextures.Count; i++)
+            {
+                var texture = _packedTextures[i];
+                if (texture.TexturePage == index)
+                {
+                    packedChanged = true;
+                    texture.IsPacked = false;
+                    texture.TexturePage = 0;
+                    texture.X = 0;
+                    texture.Y = 0;
+                    _packedTextures.RemoveAt(i);
+                    i--;
+                }
+            }
             vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
             UpdateVRAMComboBoxPageItems();
+
+            if (packedChanged)
+            {
+                UpdateSelectedEntity();
+            }
         }
 
         private void ClearAllVRAMPages()
         {
+            var packedChanged = _packedTextures.Count > 0;
             _vram.ClearAllPages();
+            foreach (var texture in _packedTextures)
+            {
+                texture.IsPacked = false;
+                texture.TexturePage = 0;
+                texture.X = 0;
+                texture.Y = 0;
+            }
+            _packedTextures.Clear();
             vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
             UpdateVRAMComboBoxPageItems();
+
+            if (packedChanged)
+            {
+                UpdateSelectedEntity();
+            }
+        }
+
+        private void RemoveAllPackedTexturesFromVRAM()
+        {
+            var packedChanged = _packedTextures.Count > 0;
+            foreach (var texture in _packedTextures)
+            {
+                _vram.RemoveTexturePacking(texture);
+                texture.IsPacked = false;
+                texture.TexturePage = 0;
+                texture.X = 0;
+                texture.Y = 0;
+            }
+            _packedTextures.Clear();
+            vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
+            UpdateVRAMComboBoxPageItems();
+
+            if (packedChanged)
+            {
+                UpdateSelectedEntity();
+            }
         }
 
         private void SetCurrentCLUTIndex(int clutIndex)
@@ -2878,20 +3488,37 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void DrawUVLines(Graphics graphics, Pen pen, Vector2[] uvs)
+        private void DrawUVLines(Graphics graphics, Pen pen, Vector2[] uvs, IUVConverter uvConverter)
         {
             var scalar = GeomMath.UVScalar * _vramPageScale;
+            var uvLast = uvs[uvs.Length - 1];
+            if (uvConverter != null)
+            {
+                uvLast = uvConverter.ConvertUV(uvLast);
+            }
             for (var i = 0; i < uvs.Length; i++)
             {
-                var i2 = (i + 1) % uvs.Length;
-                graphics.DrawLine(pen, uvs[i].X * scalar, uvs[i].Y * scalar, uvs[i2].X * scalar, uvs[i2].Y * scalar);
+                var uv = uvs[i];
+                if (uvConverter != null)
+                {
+                    uv = uvConverter.ConvertUV(uv);
+                }
+                graphics.DrawLine(pen, uvLast.X * scalar, uvLast.Y * scalar, uv.X * scalar, uv.Y * scalar);
+                uvLast = uv;
             }
         }
 
-        private void DrawTiledUVRectangle(Graphics graphics, Pen pen, TiledUV tiledUv)
+        private void DrawTiledUVRectangle(Graphics graphics, Pen pen, TiledUV tiledUv, IUVConverter uvConverter)
         {
             var scalar = GeomMath.UVScalar * _vramPageScale;
-            graphics.DrawRectangle(pen, tiledUv.X * scalar, tiledUv.Y * scalar, tiledUv.Width * scalar, tiledUv.Height * scalar);
+            var offset = tiledUv.Offset;
+            var size   = tiledUv.Size;
+            if (uvConverter != null)
+            {
+                offset = uvConverter.ConvertUV(offset);
+                size   = uvConverter.ConvertUV(size);
+            }
+            graphics.DrawRectangle(pen, offset.X * scalar, offset.Y * scalar, size.X * scalar, size.Y * scalar);
         }
 
         private void DrawUV(EntityBase entity, Graphics graphics)
@@ -2903,17 +3530,19 @@ namespace PSXPrev.Forms
             // Don't draw UVs for this model unless it uses the same texture page that we're on.
             if (entity is ModelEntity model && model.IsTextured && model.TexturePage == _vramSelectedPage)
             {
+                var uvConverter = model.TextureLookup;
+
                 // Draw all black outlines before inner fill lines, so that black outline edges don't overlap fill lines.
                 foreach (var triangle in model.Triangles)
                 {
                     if (triangle.IsTiled)
                     {
                         // Triangle.Uv is useless when tiled, so draw the TiledUv area instead.
-                        DrawTiledUVRectangle(graphics, Black3Px, triangle.TiledUv);
+                        DrawTiledUVRectangle(graphics, Black3Px, triangle.TiledUv, uvConverter);
                     }
                     else
                     {
-                        DrawUVLines(graphics, Black3Px, triangle.Uv);
+                        DrawUVLines(graphics, Black3Px, triangle.Uv, uvConverter);
                     }
                 }
 
@@ -2922,11 +3551,11 @@ namespace PSXPrev.Forms
                     if (triangle.IsTiled)
                     {
                         // Different color for tiled area.
-                        DrawTiledUVRectangle(graphics, Cyan1Px, triangle.TiledUv);
+                        DrawTiledUVRectangle(graphics, Cyan1Px, triangle.TiledUv, uvConverter);
                     }
                     else
                     {
-                        DrawUVLines(graphics, White1Px, triangle.Uv);
+                        DrawUVLines(graphics, White1Px, triangle.Uv, uvConverter);
                     }
                 }
             }
@@ -3103,15 +3732,25 @@ namespace PSXPrev.Forms
             var selectedItems = texturesListView.SelectedItems;
             if (selectedItems.Count == 0)
             {
-                MessageBox.Show(this, "Select textures to draw to VRAM first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ShowMessageBox("Select textures to draw to VRAM first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            DrawTexturesToVRAM(GetSelectedTextures(), null); // Null to draw selected textures of any clut index
+            var packFailedCount = DrawTexturesToVRAM(GetSelectedTextures(), null); // Null to draw selected textures of any clut index
+            WarnPackFailedCount(packFailedCount);
         }
 
         private void drawAllToVRAM_Click(object sender, EventArgs e)
         {
-            DrawTexturesToVRAM(_textures, _clutIndex);
+            var packFailedCount = DrawTexturesToVRAM(_textures, _clutIndex);
+            WarnPackFailedCount(packFailedCount);
+        }
+
+        private void WarnPackFailedCount(int packFailedCount)
+        {
+            if (packFailedCount > 0)
+            {
+                ShowMessageBox($"Not enough room to pack remaining {packFailedCount} textures.\nTry clearing VRAM pages first.", "Packing Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void findTextureByVRAMPage_Click(object sender, EventArgs e)
@@ -3132,7 +3771,7 @@ namespace PSXPrev.Forms
                 }
                 texturesListView.GroupColumn = found > 0 ? 0 : 1; // Set primary group to "Found" (only if any items were found)
                 texturesListView.Sort(); // Sort items added to "Found" group (is this necessary?)
-                MessageBox.Show(this, found > 0 ? $"Found {found} items" : "Nothing found", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ShowMessageBox(found > 0 ? $"Found {found} items" : "Nothing found", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
@@ -3145,7 +3784,7 @@ namespace PSXPrev.Forms
             }
             texturesListView.GroupColumn = 1; // Set primary group back to "Textures"
             texturesListView.Sort(); // Re-sort now that "Found" group has been merged back with "Textures" group
-            MessageBox.Show(this, "Results cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ShowMessageBox("Results cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void setPaletteIndexToolStripMenuItem_Click(object sender, EventArgs e)
@@ -3190,22 +3829,27 @@ namespace PSXPrev.Forms
             var index = _vramSelectedPage;
             if (index <= -1)
             {
-                MessageBox.Show(this, "Select a page first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ShowMessageBox("Select a page first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             ClearVRAMPage(index);
-            MessageBox.Show(this, "Page cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            //ShowMessageBox("Page cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void clearAllVRAMPages_Click(object sender, EventArgs e)
         {
             ClearAllVRAMPages();
-            MessageBox.Show(this, "Pages cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            //ShowMessageBox("Pages cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void autoDrawModelTexturesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _autoDrawModelTextures = autoDrawModelTexturesToolStripMenuItem.Checked;
+        }
+
+        private void autoPackModelTexturesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _autoPackModelTextures = autoPackModelTexturesToolStripMenuItem.Checked;
         }
 
         private void showUVToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
@@ -3370,6 +4014,44 @@ namespace PSXPrev.Forms
             _animationBatch.Reverse = animationReverseCheckBox.Checked;
         }
 
+        private void checkAllAnimationsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            animationsTreeView.BeginUpdate();
+            _busyChecking = true;
+            try
+            {
+                for (var i = 0; i < animationsTreeView.Nodes.Count; i++)
+                {
+                    var node = animationsTreeView.Nodes[i];
+                    node.Checked = true;
+                }
+            }
+            finally
+            {
+                _busyChecking = false;
+                animationsTreeView.EndUpdate();
+            }
+        }
+
+        private void uncheckAllAnimationsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            animationsTreeView.BeginUpdate();
+            _busyChecking = true;
+            try
+            {
+                for (var i = 0; i < animationsTreeView.Nodes.Count; i++)
+                {
+                    var node = animationsTreeView.Nodes[i];
+                    node.Checked = false;
+                }
+            }
+            finally
+            {
+                _busyChecking = false;
+                animationsTreeView.EndUpdate();
+            }
+        }
+
         private void autoPlayAnimationsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _autoPlayAnimations = autoPlayAnimationsToolStripMenuItem.Checked;
@@ -3384,7 +4066,7 @@ namespace PSXPrev.Forms
         {
             if (_curAnimation == null)
             {
-                MessageBox.Show(this, "Please select an Animation first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ShowMessageBox("Please select an Animation first", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             else
             {
@@ -3405,7 +4087,7 @@ namespace PSXPrev.Forms
         {
             if (!Program.IsScanning && (_rootEntities.Count > 0 || _textures.Count > 0 || _animations.Count > 0))
             {
-                var result = MessageBox.Show(this, "Are you sure you want to clear scan results?", "Clear Scan Results", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                var result = ShowMessageBox("Are you sure you want to clear scan results?", "Clear Scan Results", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
                 if (result == DialogResult.Yes)
                 {
                     ClearScanResults();
@@ -3426,7 +4108,7 @@ namespace PSXPrev.Forms
         {
             if (Program.IsScanning && !Program.IsScanCanceling)
             {
-                var result = MessageBox.Show(this, "Are you sure you want to cancel the current scan?", "Stop Scanning", MessageBoxButtons.YesNo);
+                var result = ShowMessageBox("Are you sure you want to cancel the current scan?", "Stop Scanning", MessageBoxButtons.YesNo);
                 if (result == DialogResult.Yes)
                 {
                     var canceled = Program.CancelScan();
@@ -3440,6 +4122,11 @@ namespace PSXPrev.Forms
             }
         }
 
+        private void showFPSToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            UpdateFPSLabel();
+        }
+
         private void showSideBarToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             var visible = showSideBarToolStripMenuItem.Checked;
@@ -3451,7 +4138,7 @@ namespace PSXPrev.Forms
 
         private void defaultSettingsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var result = MessageBox.Show(this, "Are you sure you want to reset settings to their default values?", "Reset Settings", MessageBoxButtons.YesNo);
+            var result = ShowMessageBox("Are you sure you want to reset settings to their default values?", "Reset Settings", MessageBoxButtons.YesNo);
             if (result == DialogResult.Yes)
             {
                 LoadDefaultSettings();
@@ -3460,7 +4147,7 @@ namespace PSXPrev.Forms
 
         private void loadSettingsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var result = MessageBox.Show(this, "Are you sure you want to reload settings from file?", "Reload Settings", MessageBoxButtons.YesNo);
+            var result = ShowMessageBox("Are you sure you want to reload settings from file?", "Reload Settings", MessageBoxButtons.YesNo);
             if (result == DialogResult.Yes)
             {
                 LoadSettings();
@@ -3497,7 +4184,7 @@ namespace PSXPrev.Forms
             var message = "PSXPrev - PlayStation (PSX) Files Previewer/Extractor\n" +
                           "\u00a9 PSXPrev Contributors - 2020-2023\n" +
                           $"Version {GetVersionString()}";
-            MessageBox.Show(this, message, "About", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ShowMessageBox(message, "About", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         #endregion

@@ -5,12 +5,39 @@ using OpenTK;
 
 namespace PSXPrev.Common
 {
+    public class TextureLookup : IUVConverter
+    {
+        [Browsable(false)]
+        public uint ID { get; set; } // Required, matches LookupID of texture
+
+        [Browsable(false)]
+        public string ExpectedFormat { get; set; } // Optional, matches FormatName of texture
+
+        [Browsable(false)]
+        public Texture Texture { get; set; } // Matched texture
+
+        public Vector2 ConvertUV(Vector2 uv)
+        {
+            if (Texture != null && Texture.IsPacked)
+            {
+                var offset = GeomMath.ConvertUV((uint)Texture.X, (uint)Texture.Y);
+                var scalar = new Vector2((float)Texture.Width  / Renderer.VRAM.PageSize * 2f,
+                                         (float)Texture.Height / Renderer.VRAM.PageSize * 2f);
+                return offset + uv * scalar;
+            }
+            return uv;
+        }
+    }
+
     public class ModelEntity : EntityBase
     {
         private Triangle[] _triangles;
 
         [DisplayName("VRAM Page")]
         public uint TexturePage { get; set; }
+
+        [DisplayName("Texture ID")]
+        public uint? TextureLookupID => TextureLookup?.ID;
 
         // Use default flags for when a reader doesn't assign any.
         [DisplayName("Render Flags")]
@@ -69,7 +96,10 @@ namespace PSXPrev.Common
 
         [Browsable(false)]
         public Texture Texture { get; set; }
-        
+
+        [Browsable(false)]
+        public TextureLookup TextureLookup { get; set; }
+
         [DisplayName("TMD ID")]
         public uint TMDID { get; set; }
 
