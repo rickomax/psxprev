@@ -395,7 +395,12 @@ namespace PSXPrev.Common.Renderer
             var tiledAreaList = new float[numElements * 4]; // Vector4
             foreach (var triangle in triangles)
             {
+                var isTiled = triangle.IsTiled;
                 var tiledArea = triangle.TiledUv?.Area ?? Vector4.Zero;
+                if (isTiled && uvConverter != null)
+                {
+                    tiledArea = uvConverter.ConvertTiledArea(tiledArea);
+                }
                 for (var i = 0; i < verticesPerElement; i++)
                 {
                     var index2d = baseIndex * 2;
@@ -440,7 +445,7 @@ namespace PSXPrev.Common.Renderer
                     var uv = triangle.TiledUv?.BaseUv[i] ?? triangle.Uv[i];
                     if (uvConverter != null)
                     {
-                        uv = uvConverter.ConvertUV(uv);
+                        uv = uvConverter.ConvertUV(uv, isTiled);
                     }
                     uvList[index2d + 0] = uv.X;
                     uvList[index2d + 1] = uv.Y;
@@ -697,9 +702,17 @@ namespace PSXPrev.Common.Renderer
                 }
             }
 
-            if (TexturesEnabled && mesh.RenderFlags.HasFlag(RenderFlags.Textured))
+            var noMissing = mesh.MissingTexture && !_scene.ShowMissingTextures;
+            if (TexturesEnabled && !noMissing && mesh.RenderFlags.HasFlag(RenderFlags.Textured))
             {
-                GL.Uniform1(Scene.UniformTextureMode, 0); // Enable texture
+                if (mesh.MissingTexture)
+                {
+                    GL.Uniform1(Scene.UniformTextureMode, 2); // Missing texture
+                }
+                else
+                {
+                    GL.Uniform1(Scene.UniformTextureMode, 0); // Enable texture
+                }
             }
             else
             {
@@ -717,20 +730,47 @@ namespace PSXPrev.Common.Renderer
             }
 
             var modelMatrix = mesh.WorldMatrix;
-            if (mesh.RenderFlags.HasFlag(RenderFlags.Sprite))
+            if (mesh.RenderFlags.HasFlag(RenderFlags.Sprite) || mesh.RenderFlags.HasFlag(RenderFlags.SpriteNoPitch))
             {
                 // Sprites always face the camera
                 // THIS MATH IS NOT 100% CORRECT! It's not accurate when we have parent transforms, and I think
                 // also local transforms. But it will still correctly face the camera regardless. I think.
                 var center = mesh.SpriteCenter;
-                var spriteRotation = Matrix4.CreateFromQuaternion(_scene.CameraRotation);
+                Quaternion quaternion;
+                if (mesh.RenderFlags.HasFlag(RenderFlags.Sprite))
+                {
+                    quaternion = _scene.CameraRotation;
+                }
+                else
+                {
+                    quaternion = _scene.CameraYawRotation;
+                }
+                var spriteRotation = Matrix4.CreateFromQuaternion(quaternion);
                 // Rotate sprite around its center
                 var spriteMatrix = Matrix4.CreateTranslation(-center) * spriteRotation * Matrix4.CreateTranslation(center);
                 // Remove rotation applied by world matrix
-                spriteMatrix *= Matrix4.CreateFromQuaternion(modelMatrix.ExtractRotationSafe().Inverted());
+                //if (mesh.RenderFlags.HasFlag(RenderFlags.Sprite))
+                {
+                    spriteMatrix *= Matrix4.CreateFromQuaternion(modelMatrix.ExtractRotationSafe().Inverted());
+                }
+                //else
+                //{
+                //    // todo: How to remove everything but pitch rotation?
+                //    spriteMatrix *= Matrix4.CreateFromQuaternion(modelMatrix.ExtractRotationSafe().Inverted());
+                //}
                 // Apply transform before world matrix transform
                 modelMatrix = spriteMatrix * modelMatrix;
             }
+
+            if (!mesh.TextureAnimation.IsZero())
+            {
+                // This isn't used at all and is still experimental (requires tiled textures).
+                // Currently using % 1.0 is not correct if the tiled texture is not a power of 2.
+                var animX = mesh.TextureAnimation.X != 0f ? (float)(_scene.Time * mesh.TextureAnimation.X) % 1f : 0f;
+                var animY = mesh.TextureAnimation.Y != 0f ? (float)(_scene.Time * mesh.TextureAnimation.Y) % 1f : 0f;
+                GL.Uniform2(Scene.UniformUVOffset, new Vector2(animX, animY));
+            }
+
             // Use Inverted() since it checks determinant to avoid singular matrix exception.
             var normalMatrix = new Matrix3(modelMatrix).Inverted();
             normalMatrix.Transpose();
@@ -740,6 +780,11 @@ namespace PSXPrev.Common.Renderer
             GL.UniformMatrix4(Scene.UniformMVPMatrix, false, ref mvpMatrix);
 
             mesh.Draw(TextureBinder, DrawFaces, DrawWireframe, DrawVertices, WireframeSize, VertexSize);
+
+            if (!mesh.TextureAnimation.IsZero())
+            {
+                GL.Uniform2(Scene.UniformUVOffset, Vector2.Zero);
+            }
         }
 
 

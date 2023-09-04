@@ -82,6 +82,7 @@ namespace PSXPrev.Common.Parsers
                         var offsetPostfix = (_offset > 0 ? $"_{_offset:X}" : string.Empty);
                         var name = $"{fileTitle}{offsetPostfix}";
 
+                        var resultIndex = 0;
                         foreach (var entity in EntityResults)
                         {
                             if (entity == null)
@@ -91,11 +92,15 @@ namespace PSXPrev.Common.Parsers
                             passed = true;
                             entity.EntityName = name;
                             entity.FormatName = FormatName;
+                            entity.FileOffset = _offset;
+                            entity.ResultIndex = resultIndex++;
                             _entityAddedAction(this, entity, _offset);
 
                             Program.Logger.WritePositiveLine($"Found {FormatName} Model {AtOffsetString}");
                         }
+
                         // Enumerate textures differently so that we know whether to dispose of them or not.
+                        resultIndex = 0;
                         while (TextureResults.Count > 0)
                         {
                             var texture = TextureResults[0]; // Pop (but remove later on)
@@ -108,12 +113,16 @@ namespace PSXPrev.Common.Parsers
                             passed = true;
                             texture.TextureName = name;
                             texture.FormatName = FormatName;
+                            texture.FileOffset = _offset;
+                            texture.ResultIndex = resultIndex++;
                             _textureAddedAction(this, texture, _offset);
 
                             TextureResults.RemoveAt(0); // We should no longer dispose of this during an exception
 
                             Program.Logger.WritePositiveLine($"Found {FormatName} Texture {AtOffsetString}");
                         }
+
+                        resultIndex = 0;
                         foreach (var animation in AnimationResults)
                         {
                             if (animation == null)
@@ -123,6 +132,8 @@ namespace PSXPrev.Common.Parsers
                             passed = true;
                             animation.AnimationName = name;
                             animation.FormatName = FormatName;
+                            animation.FileOffset = _offset;
+                            animation.ResultIndex = resultIndex++;
                             _animationAddedAction(this, animation, _offset);
 
                             Program.Logger.WritePositiveLine($"Found {FormatName} Animation {AtOffsetString}");

@@ -88,17 +88,14 @@ namespace PSXPrev.Common.Renderer
             {
                 triangles[i] = Lines[i].ToTriangle();
             }
-            return new ModelEntity
+            var model = new ModelEntity
             {
-                TexturePage = TexturePage,
-                RenderFlags = RenderFlags | RenderFlags.Line,
-                MixtureRate = MixtureRate,
-                SpriteCenter = SpriteCenter,
-                Visible = Visible,
-                DebugMeshRenderInfo = new MeshRenderInfo(this),
                 Triangles = triangles,
                 OriginalLocalMatrix = modelMatrix ?? Matrix4.Identity,
             };
+            CopyTo(model);
+            model.RenderFlags |= RenderFlags.Line;
+            return model;
         }
 
         internal RootEntity CreateRootEntity(Matrix4? modelMatrix = null, string rootEntityName = null)

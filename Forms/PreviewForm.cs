@@ -120,6 +120,9 @@ namespace PSXPrev.Forms
         private bool _autoFocusOnSubModel;
         private bool _autoFocusIncludeWholeModel;
         private bool _autoFocusIncludeCheckedModels;
+        private bool _showTexturePalette;
+        private bool _showTextureSemiTransparency;
+        private bool _boundsEntityPicking;
 
         private GizmoType _gizmoType;
         private GizmoId _hoveredGizmo;
@@ -398,6 +401,7 @@ namespace PSXPrev.Forms
         {
             Settings.LoadDefaults();
             ReadSettings(Settings.Instance);
+            UpdateSelectedEntity();
         }
 
         public void LoadSettings()
@@ -405,6 +409,7 @@ namespace PSXPrev.Forms
             if (Settings.Load(false))
             {
                 ReadSettings(Settings.Instance);
+                UpdateSelectedEntity();
             }
         }
 
@@ -464,6 +469,7 @@ namespace PSXPrev.Forms
             SetSolidWireframeVerticesColor(settings.SolidWireframeVerticesColor);
             SetCurrentCLUTIndex(settings.CurrentCLUTIndex);
             showUVToolStripMenuItem.Checked = settings.ShowUVsInVRAM;
+            _scene.ShowMissingTextures = settings.ShowMissingTextures;
             autoDrawModelTexturesToolStripMenuItem.Checked = settings.AutoDrawModelTextures;
             autoPackModelTexturesToolStripMenuItem.Checked = settings.AutoPackModelTextures;
             autoPlayAnimationsToolStripMenuItem.Checked = settings.AutoPlayAnimation;
@@ -606,6 +612,12 @@ namespace PSXPrev.Forms
             drawModeToolStripMenuItem.DropDown.Closing += OnCancelMenuCloseWhileHoldingShift;
             autoFocusToolStripMenuItem.DropDown.Closing += OnCancelMenuCloseWhileHoldingShift;
 
+            // Debug information helpers
+#if DEBUG
+            texturePreviewPictureBox.MouseMove += OnTexturePreviewPictureBoxMouseMove;
+            vramPagePictureBox.MouseMove += OnVramPagePictureBoxMouseMove;
+#endif
+
             // Ensure numeric up downs display the same value that they store internally.
             SetupNumericUpDownValidateEvents(this);
 
@@ -709,6 +721,8 @@ namespace PSXPrev.Forms
                 UpdateAnimationProgressLabel();
 
                 TMDBindingsForm.CloseTool();
+
+                GC.Collect(); // It's my memory and I need it now!
             }
         }
 
@@ -761,6 +775,56 @@ namespace PSXPrev.Forms
                     return true; // Enter key handled
                 }
             }
+            
+#if ENABLE_CLIPBOARD
+            if (keyData == (Keys.Control | Keys.C))
+            {
+                var copied = false;
+                if (_openTkControl.Focused)
+                {
+                    var width  = _openTkControl.ClientSize.Width;
+                    var height = _openTkControl.ClientSize.Height;
+                    var rect = new Rectangle(0, 0, width, height);
+                    using (var bitmap = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                    {
+                        var bmpData = bitmap.LockBits(rect, System.Drawing.Imaging.ImageLockMode.WriteOnly, bitmap.PixelFormat);
+                        try
+                        {
+                            OpenTK.Graphics.OpenGL.GL.ReadPixels(0, 0, width, height, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, OpenTK.Graphics.OpenGL.PixelType.UnsignedByte, bmpData.Scan0);
+                        }
+                        finally
+                        {
+                            bitmap.UnlockBits(bmpData);
+                        }
+                        bitmap.RotateFlip(RotateFlipType.RotateNoneFlipY);
+                        Clipboard.SetImage(bitmap);
+                    }
+                }
+                else if (menusTabControl.SelectedIndex == TexturesTabIndex && !texturePropertyGrid.Focused)
+                {
+                    var width  = texturePreviewPictureBox.Width;
+                    var height = texturePreviewPictureBox.Height;
+                    var rect = new Rectangle(0, 0, width, height);
+                    using (var bitmap = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                    {
+                        texturePreviewPictureBox.DrawToBitmap(bitmap, rect);
+                        Clipboard.SetImage(bitmap);
+                    }
+                }
+                else if (menusTabControl.SelectedIndex == VRAMTabIndex)
+                {
+                    var width  = vramPagePictureBox.Width;
+                    var height = vramPagePictureBox.Height;
+                    var rect = new Rectangle(0, 0, width, height);
+                    using (var bitmap = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                    {
+                        vramPagePictureBox.DrawToBitmap(bitmap, rect);
+                        Clipboard.SetImage(bitmap);
+                    }
+                }
+                Program.ConsoleLogger.WriteLine("Copied to clipboard");
+            }
+#endif
             return base.ProcessCmdKey(ref msg, keyData);
         }
 
@@ -883,11 +947,31 @@ namespace PSXPrev.Forms
             {
                 var state = eventType == KeyEventType.Down;
                 var sceneFocused = _openTkControl.Focused;
+                var vramTab = menusTabControl.SelectedIndex == VRAMTabIndex;
                 var textureTab = menusTabControl.SelectedIndex == TexturesTabIndex;
+                var vramFocused = vramTab && (vramPagePictureBox.Focused || vramListBox.Focused);
                 var textureFocused = textureTab && (texturePreviewPictureBox.Focused || texturesListView.Focused);
-                    
+
                 switch (e.KeyCode)
                 {
+                    // Press space to focus on the currently-selected model
+                    case Keys.Space when state && sceneFocused:
+                        if (_selectedRootEntity != null || _selectedModelEntity != null)
+                        {
+                            _scene.FocusOnBounds(GetFocusBounds(GetCheckedEntities()));
+                            e.Handled = true;
+                        }
+                        break;
+
+                    case Keys.B when state && sceneFocused:
+                        if (!IsControlDown)
+                        {
+                            _boundsEntityPicking = !_boundsEntityPicking;
+                            Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"_boundsEntityPicking: {_boundsEntityPicking}");
+                            e.Handled = true;
+                        }
+                        break;
+
                     // Gizmo tools
                     // We can't set these shortcut keys in the designer because it
                     // considers them "invalid" for not having modifier keys.
@@ -936,6 +1020,28 @@ namespace PSXPrev.Forms
                         if (_clutIndex > 0)
                         {
                             SetCurrentCLUTIndex(_clutIndex - 1);
+                            e.Handled = true;
+                        }
+                        break;
+
+                    case Keys.P when state && textureFocused:
+                        if (!IsControlDown)
+                        {
+                            _showTexturePalette = !_showTexturePalette;
+                            Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"_showTexturePalette: {_showTexturePalette}");
+                            UpdateTexturePreviewSize();
+                            texturePreviewPictureBox.Invalidate();
+                            e.Handled = true;
+                        }
+                        break;
+
+                    case Keys.T when state && (textureFocused || vramFocused):
+                        if (!IsControlDown)
+                        {
+                            _showTextureSemiTransparency = !_showTextureSemiTransparency;
+                            Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"_showTextureSemiTransparency: {_showTextureSemiTransparency}");
+                            texturePreviewPictureBox.Invalidate();
+                            vramPagePictureBox.Invalidate();
                             e.Handled = true;
                         }
                         break;
@@ -2453,6 +2559,7 @@ namespace PSXPrev.Forms
 
         private void SetBackgroundColor(Color color)
         {
+            _openTkControl.BackColor = _scene.ClearColor;
             _scene.ClearColor = color;
             setBackgroundColorToolStripMenuItem.Image = DrawColorIcon(ref _backgroundColorBitmap, color);
         }
@@ -2643,92 +2750,95 @@ namespace PSXPrev.Forms
 
                 var checkedEntities = GetCheckedEntities();
 
-                if (_autoDrawModelTextures || _autoPackModelTextures)
+                if (updateMeshData)
                 {
-                    if (_autoPackModelTextures)
+                    if (_autoDrawModelTextures || _autoPackModelTextures)
                     {
-                        // Check if the models being drawn have packed textures. If they do, 
-                        // then we'll removed all current packed textures from VRAM to ensure we
-                        // have room for new ones. This is an ugly way to do it, but it's simple.
-                        var hasPacking = false;
-                        if (checkedEntities != null)
+                        if (_autoPackModelTextures)
                         {
-                            foreach (var checkedEntity in checkedEntities)
+                            // Check if the models being drawn have packed textures. If they do, 
+                            // then we'll removed all current packed textures from VRAM to ensure we
+                            // have room for new ones. This is an ugly way to do it, but it's simple.
+                            var hasPacking = false;
+                            if (checkedEntities != null)
                             {
-                                foreach (ModelEntity model in checkedEntity.ChildEntities)
+                                foreach (var checkedEntity in checkedEntities)
                                 {
-                                    if (model.IsTextured && model.TextureLookup != null)
+                                    foreach (ModelEntity model in checkedEntity.ChildEntities)
+                                    {
+                                        if (model.NeedsTextureLookup)
+                                        {
+                                            hasPacking = true;
+                                            break;
+                                        }
+                                    }
+                                    if (hasPacking)
+                                    {
+                                        break;
+                                    }
+                                }
+                            }
+                            if (rootEntity != null && !hasPacking)
+                            {
+                                foreach (ModelEntity model in rootEntity.ChildEntities)
+                                {
+                                    if (model.NeedsTextureLookup)
                                     {
                                         hasPacking = true;
                                         break;
                                     }
                                 }
-                                if (hasPacking)
-                                {
-                                    break;
-                                }
                             }
-                        }
-                        if (rootEntity != null && !hasPacking)
-                        {
-                            foreach (ModelEntity model in rootEntity.ChildEntities)
+                            if (hasPacking)
                             {
-                                if (model.IsTextured && model.TextureLookup != null)
-                                {
-                                    hasPacking = true;
-                                    break;
-                                }
+                                // Packed textures found, clear existing ones from VRAM.
+                                RemoveAllPackedTexturesFromVRAM(updateSelectedEntity: false);
                             }
                         }
-                        if (hasPacking)
-                        {
-                            // Packed textures found, clear existing ones from VRAM.
-                            RemoveAllPackedTexturesFromVRAM();
-                        }
-                    }
 
-                    if (_autoDrawModelTextures)
-                    {
-                        if (checkedEntities != null)
+                        if (_autoDrawModelTextures)
                         {
-                            foreach (var checkedEntity in checkedEntities)
+                            if (checkedEntities != null)
                             {
-                                DrawModelTexturesToVRAM(rootEntity, _clutIndex);
+                                foreach (var checkedEntity in checkedEntities)
+                                {
+                                    DrawModelTexturesToVRAM(rootEntity, _clutIndex, updateSelectedEntity: false);
+                                }
+                            }
+                            if (rootEntity != null)
+                            {
+                                // Selected entity gets drawing priority over checked entities.
+                                DrawModelTexturesToVRAM(rootEntity, _clutIndex, updateSelectedEntity: false);
                             }
                         }
-                        if (rootEntity != null)
+                        if (_autoPackModelTextures)
                         {
-                            // Selected entity gets drawing priority over checked entities.
-                            DrawModelTexturesToVRAM(rootEntity, _clutIndex);
-                        }
-                    }
-                    if (_autoPackModelTextures)
-                    {
-                        if (rootEntity != null)
-                        {
-                            // Selected entity gets packing priority over checked entities.
-                            AssignModelLookupTexturesAndPackInVRAM(rootEntity, true);
-                        }
-                        if (checkedEntities != null)
-                        {
-                            foreach (var checkedEntity in checkedEntities)
+                            if (rootEntity != null)
                             {
-                                AssignModelLookupTexturesAndPackInVRAM(checkedEntity, true);
+                                // Selected entity gets packing priority over checked entities.
+                                AssignModelLookupTexturesAndPackInVRAM(rootEntity, true);
                             }
+                            if (checkedEntities != null)
+                            {
+                                foreach (var checkedEntity in checkedEntities)
+                                {
+                                    AssignModelLookupTexturesAndPackInVRAM(checkedEntity, true);
+                                }
+                            }
+                            _vram.UpdateAllPages();
                         }
-                        _vram.UpdateAllPages();
                     }
-                }
-                if (checkedEntities != null)
-                {
-                    foreach (var checkedEntity in checkedEntities)
+                    if (checkedEntities != null)
                     {
-                        AssignModelLookupTextures(checkedEntity);
+                        foreach (var checkedEntity in checkedEntities)
+                        {
+                            AssignModelLookupTextures(checkedEntity);
+                        }
                     }
-                }
-                if (rootEntity != null)
-                {
-                    AssignModelLookupTextures(rootEntity);
+                    if (rootEntity != null)
+                    {
+                        AssignModelLookupTextures(rootEntity);
+                    }
                 }
 
                 updateMeshData |= _scene.AutoAttach;
@@ -3227,18 +3337,23 @@ namespace PSXPrev.Forms
 
         private bool AssignModelLookupTextures(ModelEntity model)
         {
-            if (!model.IsTextured || model.TextureLookup == null)
+            if (!model.NeedsTextureLookup)
             {
                 return true;
             }
             model.TexturePage = 0;
             model.TextureLookup.Texture = null;
+            _vram.AssignModelTextures(model);
 
             var expectedFormat = model.TextureLookup.ExpectedFormat;
             var id = model.TextureLookup.ID;
+            if (!id.HasValue)
+            {
+                return false;
+            }
             foreach (var texture in _packedTextures)
             {
-                if (expectedFormat != null)
+                if (!string.IsNullOrEmpty(expectedFormat))
                 {
                     if (texture.FormatName == null || texture.FormatName != expectedFormat)
                     {
@@ -3249,6 +3364,7 @@ namespace PSXPrev.Forms
                 {
                     model.TexturePage = (uint)texture.TexturePage;
                     model.TextureLookup.Texture = texture;
+                    _vram.AssignModelTextures(model);
                     return true;
                 }
             }
@@ -3270,22 +3386,27 @@ namespace PSXPrev.Forms
 
         private bool AssignModelLookupTexturesAndPackInVRAM(ModelEntity model, bool suppressUpdate = false)
         {
-            if (!model.IsTextured || model.TextureLookup == null)
+            if (!model.NeedsTextureLookup)
             {
                 return true;
             }
             model.TexturePage = 0;
             model.TextureLookup.Texture = null;
+            _vram.AssignModelTextures(model);
 
             var expectedFormat = model.TextureLookup.ExpectedFormat;
             var id = model.TextureLookup.ID;
+            if (!id.HasValue)
+            {
+                return false;
+            }
             foreach (var texture in _textures)
             {
                 if (!texture.NeedsPacking)
                 {
                     continue; // This isn't a locatable texture
                 }
-                if (expectedFormat != null)
+                if (!string.IsNullOrEmpty(expectedFormat))
                 {
                     if (texture.FormatName == null || texture.FormatName != expectedFormat)
                     {
@@ -3298,6 +3419,7 @@ namespace PSXPrev.Forms
                     {
                         model.TexturePage = (uint)texture.TexturePage;
                         model.TextureLookup.Texture = texture;
+                        _vram.AssignModelTextures(model);
                         return true;
                     }
                     else if (PackTextureInVRAM(texture))
@@ -3305,6 +3427,7 @@ namespace PSXPrev.Forms
                         _vram.DrawTexture(texture, suppressUpdate);
                         model.TexturePage = (uint)texture.TexturePage;
                         model.TextureLookup.Texture = texture;
+                        _vram.AssignModelTextures(model);
                         return true;
                     }
                     break; // Failed to pack texture
@@ -3314,7 +3437,7 @@ namespace PSXPrev.Forms
         }
 
         // Returns number of textures that could not be packed
-        private int DrawTexturesToVRAM(IEnumerable<Texture> textures, int? clutIndex)
+        private int DrawTexturesToVRAM(IEnumerable<Texture> textures, int? clutIndex, bool updateSelectedEntity = true)
         {
             var packedChanged = false;
             var packFailedCount = 0;
@@ -3354,17 +3477,17 @@ namespace PSXPrev.Forms
                 UpdateVRAMComboBoxPageItems();
             }
 
-            if (packedChanged)
+            if (packedChanged && updateSelectedEntity)
             {
                 UpdateSelectedEntity();
             }
             return packFailedCount;
         }
 
-        private int DrawModelTexturesToVRAM(RootEntity rootEntity, int? clutIndex)
+        private int DrawModelTexturesToVRAM(RootEntity rootEntity, int? clutIndex, bool updateSelectedEntity = true)
         {
             // Note: We can't just use ModelEntity.Texture, since that just points to the VRAM page.
-            return DrawTexturesToVRAM(rootEntity.OwnedTextures, clutIndex);
+            return DrawTexturesToVRAM(rootEntity.OwnedTextures, clutIndex, updateSelectedEntity);
         }
 
         private bool PackTextureInVRAM(Texture texture)
@@ -3385,7 +3508,7 @@ namespace PSXPrev.Forms
             return false;
         }
 
-        private void ClearVRAMPage(int index)
+        private void ClearVRAMPage(int index, bool updateSelectedEntity = true)
         {
             var packedChanged = false;
             _vram.ClearPage(index);
@@ -3406,13 +3529,13 @@ namespace PSXPrev.Forms
             vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
             UpdateVRAMComboBoxPageItems();
 
-            if (packedChanged)
+            if (packedChanged && updateSelectedEntity)
             {
                 UpdateSelectedEntity();
             }
         }
 
-        private void ClearAllVRAMPages()
+        private void ClearAllVRAMPages(bool updateSelectedEntity = true)
         {
             var packedChanged = _packedTextures.Count > 0;
             _vram.ClearAllPages();
@@ -3427,13 +3550,13 @@ namespace PSXPrev.Forms
             vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
             UpdateVRAMComboBoxPageItems();
 
-            if (packedChanged)
+            if (packedChanged && updateSelectedEntity)
             {
                 UpdateSelectedEntity();
             }
         }
 
-        private void RemoveAllPackedTexturesFromVRAM()
+        private void RemoveAllPackedTexturesFromVRAM(bool updateSelectedEntity = true)
         {
             var packedChanged = _packedTextures.Count > 0;
             foreach (var texture in _packedTextures)
@@ -3448,7 +3571,7 @@ namespace PSXPrev.Forms
             vramPagePictureBox.Invalidate(); // Invalidate to make sure we redraw.
             UpdateVRAMComboBoxPageItems();
 
-            if (packedChanged)
+            if (packedChanged && updateSelectedEntity)
             {
                 UpdateSelectedEntity();
             }
@@ -3468,6 +3591,26 @@ namespace PSXPrev.Forms
             texturesListView.Invalidate();
             texturePreviewPictureBox.Invalidate();
             texturePropertyGrid.SelectedObject = texturePropertyGrid.SelectedObject;
+        }
+
+        private void UpdateTexturePreviewSize()
+        {
+            var texture = _texturePreviewImage;
+            if (texture == null)
+            {
+                texturePreviewPictureBox.Width  = 1;
+                texturePreviewPictureBox.Height = 1;
+                return;
+            }
+            var width  = texture.Width;
+            var height = texture.Height;
+            if (_showTexturePalette && texture.Palettes != null)
+            {
+                var units = texture.Bpp == 4 ? 4 : 16;
+                width = height = units * 8;
+            }
+            texturePreviewPictureBox.Width  = (int)(width  * _texturePreviewScale);
+            texturePreviewPictureBox.Height = (int)(height * _texturePreviewScale);
         }
 
         private static int CompareTexturesListViewItems(ImageListViewItem a, ImageListViewItem b)
@@ -3494,14 +3637,14 @@ namespace PSXPrev.Forms
             var uvLast = uvs[uvs.Length - 1];
             if (uvConverter != null)
             {
-                uvLast = uvConverter.ConvertUV(uvLast);
+                uvLast = uvConverter.ConvertUV(uvLast, false);
             }
             for (var i = 0; i < uvs.Length; i++)
             {
                 var uv = uvs[i];
                 if (uvConverter != null)
                 {
-                    uv = uvConverter.ConvertUV(uv);
+                    uv = uvConverter.ConvertUV(uv, false);
                 }
                 graphics.DrawLine(pen, uvLast.X * scalar, uvLast.Y * scalar, uv.X * scalar, uv.Y * scalar);
                 uvLast = uv;
@@ -3511,14 +3654,12 @@ namespace PSXPrev.Forms
         private void DrawTiledUVRectangle(Graphics graphics, Pen pen, TiledUV tiledUv, IUVConverter uvConverter)
         {
             var scalar = GeomMath.UVScalar * _vramPageScale;
-            var offset = tiledUv.Offset;
-            var size   = tiledUv.Size;
+            var tiledArea = tiledUv.Area;
             if (uvConverter != null)
             {
-                offset = uvConverter.ConvertUV(offset);
-                size   = uvConverter.ConvertUV(size);
+                tiledArea = uvConverter.ConvertTiledArea(tiledArea);
             }
-            graphics.DrawRectangle(pen, offset.X * scalar, offset.Y * scalar, size.X * scalar, size.Y * scalar);
+            graphics.DrawRectangle(pen, tiledArea.X * scalar, tiledArea.Y * scalar, tiledArea.Z * scalar, tiledArea.W * scalar);
         }
 
         private void DrawUV(EntityBase entity, Graphics graphics)
@@ -3528,7 +3669,7 @@ namespace PSXPrev.Forms
                 return;
             }
             // Don't draw UVs for this model unless it uses the same texture page that we're on.
-            if (entity is ModelEntity model && model.IsTextured && model.TexturePage == _vramSelectedPage)
+            if (entity is ModelEntity model && model.IsTextured && !model.MissingTexture && model.TexturePage == _vramSelectedPage)
             {
                 var uvConverter = model.TextureLookup;
 
@@ -3569,6 +3710,62 @@ namespace PSXPrev.Forms
             }
         }
 
+        private void DrawSemiTransparencyLine(Graphics graphics, float x, float y, float width, float height, Color backColor, bool transparent)
+        {
+            if (width < 2 || height < 2)
+            {
+                return; // Too small to draw
+            }
+            var penColor = Color.FromArgb((backColor.R + 128) % 255, (backColor.G + 128) % 255, (backColor.B + 128) % 255);
+            using (var pen = new Pen(penColor, 1f))
+            {
+                if (transparent)
+                {
+                    graphics.DrawLine(pen, x + width, y, x, y + height);
+                }
+                else
+                {
+                    graphics.DrawLine(pen, x, y, x + width, y + height);
+                }
+            }
+        }
+
+        private void DrawAllSemiTransparencyLines(Graphics graphics, Texture texture, float scale, Color backColor)
+        {
+            if (scale <= 2.0f)
+            {
+                return; // Too small to draw
+            }
+            texture.Lock();
+            try
+            {
+                var width  = texture.RenderWidth;
+                var height = texture.RenderHeight;
+                for (var y = 0; y < height; y++)
+                {
+                    for (var x = 0; x < width; x++)
+                    {
+                        var xx = (x * scale);
+                        var yy = (y * scale);
+                        var solidColor = texture.GetPixel(x, y, out var stp, out var paletteIndex);
+                        var transparent = (!stp && solidColor.R == 0 && solidColor.G == 0 && solidColor.B == 0);
+                        if (transparent)
+                        {
+                            solidColor = backColor;
+                        }
+                        if (transparent || stp)
+                        {
+                            DrawSemiTransparencyLine(graphics, xx, yy, scale, scale, solidColor, transparent);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                texture.Unlock();
+            }
+        }
+
         private void texturePreviewPictureBox_Paint(object sender, PaintEventArgs e)
         {
             if (_texturePreviewImage == null)
@@ -3579,13 +3776,59 @@ namespace PSXPrev.Forms
             var srcRect = new Rectangle(0, 0, _texturePreviewImage.Width, _texturePreviewImage.Height);
 
             e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-            // Despite what it sounds like, we want Half. Otherwise we end up drawing half a pixel back.
-            e.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
-            e.Graphics.DrawImage(
-                _texturePreviewImage.Bitmap,
-                dstRect,
-                srcRect,
-                GraphicsUnit.Pixel);
+            if (_showTexturePalette)
+            {
+                var texture = _texturePreviewImage;
+                if (texture?.Palettes != null)
+                {
+                    var palette = texture.Palettes[texture.CLUTIndex];
+                    var origPalette = texture.OriginalPalettes?[texture.CLUTIndex] ?? palette;
+                    var units = texture.Bpp == 4 ? 4 : 16;
+                    var index = 0;
+                    var width  = Math.Max(1, texturePreviewPictureBox.Width  / units);
+                    var height = Math.Max(1, texturePreviewPictureBox.Height / units);
+                    for (var y = 0; y < units; y++)
+                    {
+                        for (var x = 0; x < units; x++, index++)
+                        {
+                            var color = palette[index];
+                            var solidColor = TexturePalette.ToColor(origPalette[index], noTransparent: true);// color);
+                            var xx = x * width;
+                            var yy = y * height;
+                            using (var brush = new SolidBrush(solidColor))
+                            {
+                                e.Graphics.FillRectangle(brush, new Rectangle(xx, yy, width, height));
+                            }
+                            var transparent = color == TexturePalette.Transparent;
+                            if (transparent || TexturePalette.GetStp(color))
+                            {
+                                if (transparent && texture.OriginalPalettes == null)
+                                {
+                                    // We don't have the original unmasked color, default to showing behind the palette
+                                    solidColor = texturePreviewPictureBox.BackColor;
+                                }
+                                DrawSemiTransparencyLine(e.Graphics, xx, yy, width, height, solidColor, transparent);
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Despite what it sounds like, we want Half. Otherwise we end up drawing half a pixel back.
+                e.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
+                e.Graphics.DrawImage(
+                    _texturePreviewImage.Bitmap,
+                    dstRect,
+                    srcRect,
+                    GraphicsUnit.Pixel);
+
+                if (_showTextureSemiTransparency)
+                {
+                    DrawAllSemiTransparencyLines(e.Graphics, _texturePreviewImage, _texturePreviewScale,
+                                                 texturePreviewPictureBox.BackColor);
+                }
+            }
 
             // Reset drawing mode back to default.
             e.Graphics.InterpolationMode = InterpolationMode.Default;
@@ -3609,6 +3852,12 @@ namespace PSXPrev.Forms
                 dstRect,
                 srcRect,
                 GraphicsUnit.Pixel);
+
+            if (_showTextureSemiTransparency)
+            {
+                DrawAllSemiTransparencyLines(e.Graphics, _vram[_vramSelectedPage], _vramPageScale,
+                                             vramPagePictureBox.BackColor);
+            }
 
             if (_showUv)
             {
@@ -3645,19 +3894,13 @@ namespace PSXPrev.Forms
             {
                 _texturePreviewScale *= 2f;
             }
-            else
+            else if (e.Delta < 0)
             {
                 _texturePreviewScale /= 2f;
             }
-            _texturePreviewScale = GeomMath.Clamp(_texturePreviewScale, 0.25f, 8.0f);
-            var texture = GetSelectedTexture();
-            if (texture == null)
-            {
-                return;
-            }
-            texturePreviewPictureBox.Width  = (int)(texture.Width  * _texturePreviewScale);
-            texturePreviewPictureBox.Height = (int)(texture.Height * _texturePreviewScale);
+            _texturePreviewScale = GeomMath.Clamp(_texturePreviewScale, 0.25f, 16.0f);
             texturesZoomLabel.Text = $"{_texturePreviewScale:P0}"; // Percent format
+            UpdateTexturePreviewSize();
         }
 
         private void VramPanelOnMouseWheel(object sender, MouseEventArgs e)
@@ -3667,14 +3910,47 @@ namespace PSXPrev.Forms
             {
                 _vramPageScale *= 2f;
             }
-            else
+            else if (e.Delta < 0)
             {
                 _vramPageScale /= 2f;
             }
-            _vramPageScale = GeomMath.Clamp(_vramPageScale, 0.25f, 8.0f);
+            _vramPageScale = GeomMath.Clamp(_vramPageScale, 0.25f, 16.0f);
             vramPagePictureBox.Width  = (int)(VRAM.PageSize * _vramPageScale);
             vramPagePictureBox.Height = (int)(VRAM.PageSize * _vramPageScale);
             vramZoomLabel.Text = $"{_vramPageScale:P0}"; // Percent format
+        }
+
+        private void OnTexturePreviewPictureBoxMouseMove(object sender, MouseEventArgs e)
+        {
+            if (IsControlDown && _texturePreviewImage != null)
+            {
+                PrintPixelInTexture(_texturePreviewImage, _texturePreviewScale, e.X, e.Y);
+            }
+        }
+
+        private void OnVramPagePictureBoxMouseMove(object sender, MouseEventArgs e)
+        {
+            if (IsControlDown && _vramSelectedPage != -1)
+            {
+                PrintPixelInTexture(_vram[_vramSelectedPage], _vramPageScale, e.X, e.Y);
+            }
+        }
+
+        private void PrintPixelInTexture(Texture texture, float scale, int mouseX, int mouseY)
+        {
+            var x = (int)(mouseX / scale);
+            var y = (int)(mouseY / scale);
+            if (x >= 0 && y >= 0 && x < texture.Width && y < texture.Height)
+            {
+                var pixel = texture.GetPixel(x, y, out var stp, out var paletteIndex);
+                Program.ConsoleLogger.Write($"({x,3},{y,3}): r={pixel.R,3} g={pixel.G,3} b={pixel.B,3} a={pixel.A,3}");
+                if (paletteIndex.HasValue)
+                {
+                    var paletteColor = texture.Palettes[texture.CLUTIndex][paletteIndex.Value];
+                    Program.ConsoleLogger.Write($"  idx={paletteIndex,3} value=0x{paletteColor:x04}");
+                }
+                Program.ConsoleLogger.WriteLine();
+            }
         }
 
         private void texturesListView_SelectedIndexChanged(object sender, EventArgs e)
@@ -3694,8 +3970,7 @@ namespace PSXPrev.Forms
             _texturePreviewImage = texture;
             // Uncomment this line if you want to restore the blur shadow that draws around textures when zoomed in.
             //texturePreviewPictureBox.Image = texture.Bitmap;
-            texturePreviewPictureBox.Width  = (int)(texture.Width  * _texturePreviewScale);
-            texturePreviewPictureBox.Height = (int)(texture.Height * _texturePreviewScale);
+            UpdateTexturePreviewSize();
             texturePreviewPictureBox.Refresh();
             texturePropertyGrid.SelectedObject = texture;
         }

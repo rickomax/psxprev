@@ -166,7 +166,7 @@ namespace PSXPrev.Common.Exporters
                         var uvs = new Vector2[3];
                         for (var j = 0; j < 3; j++)
                         {
-                            uvs[j] = tiledInfo.ConvertUV(baseUv[j]);
+                            uvs[j] = tiledInfo.ConvertUV(baseUv[j], false);
                         }
                         triangle.Uv = uvs;
                         triangle.TiledUv = null; // We're not tiled anymore.
@@ -217,7 +217,7 @@ namespace PSXPrev.Common.Exporters
                             var uvs = new Vector2[3];
                             for (var j = 0; j < 3; j++)
                             {
-                                uvs[j] = uvConverter.ConvertUV(origUv[j]);
+                                uvs[j] = uvConverter.ConvertUV(origUv[j], false);
                             }
                             triangle.Uv = uvs;
                             triangle.TiledUv = null; // We're not tiled anymore.
@@ -454,10 +454,13 @@ namespace PSXPrev.Common.Exporters
                 public float ScalarX;
                 public float ScalarY;
 
-                public Vector2 ConvertUV(Vector2 origUv)
+                public Vector2 ConvertUV(Vector2 origUv, bool tiled)
                 {
-                    return new Vector2(OffsetX + origUv.X * ScalarX, OffsetY + origUv.Y * ScalarY);
+                    return new Vector2((tiled ? 0f : OffsetX) + origUv.X * ScalarX,
+                                       (tiled ? 0f : OffsetY) + origUv.Y * ScalarY);
                 }
+
+                Vector4 IUVConverter.ConvertTiledArea(Vector4 tiledArea) => throw new NotImplementedException();
             }
 
             public List<Texture> OriginalTextures { get; } = new List<Texture>();
@@ -707,10 +710,12 @@ namespace PSXPrev.Common.Exporters
             }
 
 
-            public Vector2 ConvertUV(Vector2 baseUv)
+            public Vector2 ConvertUV(Vector2 baseUv, bool tiled)
             {
                 return new Vector2(baseUv.X * _scalarX, baseUv.Y * _scalarY);
             }
+
+            Vector4 IUVConverter.ConvertTiledArea(Vector4 tiledArea) => throw new NotImplementedException();
 
             public void SetupTiledTexture(Vector2 maxUv, bool powerOfTwo)
             {

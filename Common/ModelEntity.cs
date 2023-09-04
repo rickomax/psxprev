@@ -5,27 +5,82 @@ using OpenTK;
 
 namespace PSXPrev.Common
 {
+    public enum TextureUVConversion
+    {
+        Absolute,     // UVs are already stored with page-size
+        TextureSpace, // UVs need to be converted from texture-size to page-size
+    }
+
+    [TypeConverter(typeof(ExpandableObjectConverter))]
     public class TextureLookup : IUVConverter
     {
-        [Browsable(false)]
-        public uint ID { get; set; } // Required, matches LookupID of texture
+        [DisplayName("Texture ID")]
+        public uint? ID { get; set; } // Required, matches LookupID of texture
 
-        [Browsable(false)]
+        [DisplayName("Expected Format")]
         public string ExpectedFormat { get; set; } // Optional, matches FormatName of texture
 
+        [DisplayName("UV Conversion")]
+        public TextureUVConversion UVConversion { get; set; } // Conversion used for UV size
+
+        [DisplayName("Tiled Area Conversion")]
+        public TextureUVConversion TiledAreaConversion { get; set; }
+
         [Browsable(false)]
+        public bool UVClamp { get; set; } // Cap U or V at 1f if it goes above.
+
+        [DisplayName("Found Texture"), ReadOnly(true), TypeConverter(typeof(ExpandableObjectConverter))]
         public Texture Texture { get; set; } // Matched texture
 
-        public Vector2 ConvertUV(Vector2 uv)
+        [DisplayName("Enabled")]
+        public bool Enabled { get; set; } = true; // Intended for use in property grid to turn off lookup
+
+
+        private Vector2 UVTextureOffset => new Vector2((float)Texture.X / Renderer.VRAM.PageSize,
+                                                       (float)Texture.Y / Renderer.VRAM.PageSize);
+
+        private Vector2 UVTextureSize   => new Vector2((float)Texture.Width  / Renderer.VRAM.PageSize,
+                                                       (float)Texture.Height / Renderer.VRAM.PageSize);
+
+        public Vector2 ConvertUV(Vector2 uv, bool tiled)
         {
-            if (Texture != null && Texture.IsPacked)
+            if (Enabled && Texture != null && Texture.IsPacked)
             {
-                var offset = GeomMath.ConvertUV((uint)Texture.X, (uint)Texture.Y);
-                var scalar = new Vector2((float)Texture.Width  / Renderer.VRAM.PageSize * 2f,
-                                         (float)Texture.Height / Renderer.VRAM.PageSize * 2f);
-                return offset + uv * scalar;
+                if (UVConversion == TextureUVConversion.TextureSpace)
+                {
+                    uv *= UVTextureSize;
+                }
+                if (!tiled)
+                {
+                    uv += UVTextureOffset;
+
+                    if (UVClamp)
+                    {
+                        if (uv.X > 1f) uv.X = 1f;
+                        if (uv.Y > 1f) uv.Y = 1f;
+                    }
+                }
             }
             return uv;
+        }
+
+        public Vector4 ConvertTiledArea(Vector4 tiledArea)
+        {
+            if (Enabled && Texture != null && Texture.IsPacked)
+            {
+                if (TiledAreaConversion == TextureUVConversion.TextureSpace)
+                {
+                    var size = UVTextureSize;
+                    tiledArea.X *= size.X;
+                    tiledArea.Y *= size.Y;
+                    tiledArea.Z *= size.X;
+                    tiledArea.W *= size.Y;
+                }
+                var offset = UVTextureOffset;
+                tiledArea.X += offset.X;
+                tiledArea.Y += offset.Y;
+            }
+            return tiledArea;
         }
     }
 
@@ -36,8 +91,8 @@ namespace PSXPrev.Common
         [DisplayName("VRAM Page")]
         public uint TexturePage { get; set; }
 
-        [DisplayName("Texture ID")]
-        public uint? TextureLookupID => TextureLookup?.ID;
+        [Browsable(false)]
+        public bool MissingTexture => NeedsTextureLookup && TextureLookup.Texture == null;
 
         // Use default flags for when a reader doesn't assign any.
         [DisplayName("Render Flags")]
@@ -46,6 +101,7 @@ namespace PSXPrev.Common
         [DisplayName("Mixture Rate")]
         public MixtureRate MixtureRate { get; set; }
 
+        [DisplayName("Visible")]
         public bool Visible { get; set; } = true;
 
         [Browsable(false)]
@@ -97,8 +153,11 @@ namespace PSXPrev.Common
         [Browsable(false)]
         public Texture Texture { get; set; }
 
-        [Browsable(false)]
+        [DisplayName("Texture Lookup")]
         public TextureLookup TextureLookup { get; set; }
+
+        [Browsable(false)]
+        public bool NeedsTextureLookup => IsTextured && (TextureLookup?.Enabled ?? false);
 
         [DisplayName("TMD ID")]
         public uint TMDID { get; set; }
@@ -116,6 +175,10 @@ namespace PSXPrev.Common
                 return false;
             }
         }
+
+        // Animation speed of texture in UV units per second
+        [Browsable(false)]
+        public Vector2 TextureAnimation { get; set; }
 
         [Browsable(false)]
         public bool NeedsTiled

@@ -19,6 +19,12 @@ namespace PSXPrev.Common
         [DisplayName("Format"), ReadOnly(true)]
         public string FormatName { get; set; }
 
+        [Browsable(false)]
+        public long FileOffset { get; set; }
+
+        [Browsable(false)]
+        public int ResultIndex { get; set; }
+
         [DisplayName("Total Triangles"), ReadOnly(false)]
         public int TotalTriangles
         {

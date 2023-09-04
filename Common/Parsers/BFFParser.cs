@@ -5,14 +5,21 @@ using OpenTK;
 
 namespace PSXPrev.Common.Parsers
 {
+    // Blitz Games: .BFF model library format
+    // This format is a series of ID/Length/Hash/Data sections, but we currently only scan by individual sections.
     public class BFFParser : FileOffsetScanner
     {
+        // UVs are in texture space, and are stored in units of 2, so that 128
+        // can be used to reach the last row/column of the texture.
+        private const float UVConst = 2f;
+
+        private float _scaleDivisor;
         private readonly uint[] _headerValues = new uint[13];
         private readonly uint[] _sections = new uint[6 * 2]; // count/top pairs
         private Vector3[] _vertices;
         private uint _vertexCount;
-        private uint[] _textureMapCRCs;
-        private uint _textureMapCount;
+        private uint[] _textureHashes;
+        private uint _textureHashCount;
         private readonly Dictionary<RenderInfo, List<Triangle>> _groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
         private readonly Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>> _groupedSprites = new Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>>();
         private readonly List<ModelEntity> _models = new List<ModelEntity>();
@@ -26,18 +33,15 @@ namespace PSXPrev.Common.Parsers
 
         protected override void Parse(BinaryReader reader)
         {
+            _scaleDivisor = Settings.Instance.AdvancedBFFScaleDivisor;
             _groupedTriangles.Clear();
             _groupedSprites.Clear();
             _models.Clear();
 
-            var rootEntity = ReadModels(reader);
-            if (rootEntity != null)
-            {
-                EntityResults.Add(rootEntity);
-            }
+            ReadBFF(reader);
         }
 
-        private RootEntity ReadModels(BinaryReader reader)
+        private bool ReadBFF(BinaryReader reader)
         {
             //var id0 = (char)reader.ReadByte();
             //var id1 = (char)reader.ReadByte();
@@ -45,7 +49,7 @@ namespace PSXPrev.Common.Parsers
             //var id3 = reader.ReadByte();
             //if (id0 != 'P' || id1 != 'S' || id2 != 'I' || id3 != 1)
             //{
-            //    return null;
+            //    return false;
             //}
             //
             //var version = reader.ReadUInt32();
@@ -65,7 +69,6 @@ namespace PSXPrev.Common.Parsers
             //var radius = reader.ReadUInt32();
             //var pad = reader.ReadBytes(192 - 88);
             //
-            //var models = new List<ModelEntity>();
             //var position = reader.BaseStream.Position;
             //{
             //    reader.BaseStream.Seek(_offset + firstMeshOff, SeekOrigin.Begin);
@@ -124,7 +127,7 @@ namespace PSXPrev.Common.Parsers
             var id3 = reader.ReadByte();
             if (id0 != 'F' || id1 != 'M' || id2 != 'M')
             {
-                return null;
+                return false;
             }
 
             var zeroForm = false; // slightly different structure, and needs guesswork to determine format
@@ -150,7 +153,7 @@ namespace PSXPrev.Common.Parsers
             }
             else
             {
-                return null;
+                return false;
             }
 
             // // Version 1 mesh headers include flat-poly information. Like what skies used to.
@@ -161,7 +164,7 @@ namespace PSXPrev.Common.Parsers
             var length = reader.ReadUInt32(); // Length from start of file
             if (_offset + length > reader.BaseStream.Length)
             {
-                return null;
+                return false;
             }
             var nameCRC = reader.ReadUInt32();
 
@@ -199,7 +202,7 @@ namespace PSXPrev.Common.Parsers
 
                 if (headerSize != 11 && headerSize != 13)
                 {
-                    return null; // Unexpected header size
+                    return false; // Unexpected header size
                 }
             }
             else
@@ -220,20 +223,20 @@ namespace PSXPrev.Common.Parsers
             var headerExtra = headerSize - 11;
 
             // Bounding box
-            var minX = (int)_headerValues[headerExtra + 0];
-            var minY = (int)_headerValues[headerExtra + 1];
-            var minZ = (int)_headerValues[headerExtra + 2];
-            var maxX = (int)_headerValues[headerExtra + 3];
-            var maxY = (int)_headerValues[headerExtra + 4];
-            var maxZ = (int)_headerValues[headerExtra + 5];
+            var minX = (int)_headerValues[headerExtra + 0] / _scaleDivisor;
+            var minY = (int)_headerValues[headerExtra + 1] / _scaleDivisor;
+            var minZ = (int)_headerValues[headerExtra + 2] / _scaleDivisor;
+            var maxX = (int)_headerValues[headerExtra + 3] / _scaleDivisor;
+            var maxY = (int)_headerValues[headerExtra + 4] / _scaleDivisor;
+            var maxZ = (int)_headerValues[headerExtra + 5] / _scaleDivisor;
 
             // We only know these values are accurate for Frogger 2.
-            var posX = (int)_headerValues[headerExtra + 6];
-            var posY = (int)_headerValues[headerExtra + 7];
-            var posZ = (int)_headerValues[headerExtra + 8];
-            var rotX = ((short)(_headerValues[headerExtra +  9] >>  0)) / 4096f;
+            var posX = (int)_headerValues[headerExtra + 6] / _scaleDivisor;
+            var posY = (int)_headerValues[headerExtra + 7] / _scaleDivisor;
+            var posZ = (int)_headerValues[headerExtra + 8] / _scaleDivisor;
+            var rotX = ((short)(_headerValues[headerExtra +  9]      )) / 4096f;
             var rotY = ((short)(_headerValues[headerExtra +  9] >> 16)) / 4096f;
-            var rotZ = ((short)(_headerValues[headerExtra + 10] >>  0)) / 4096f;
+            var rotZ = ((short)(_headerValues[headerExtra + 10]      )) / 4096f;
             var rotW = ((short)(_headerValues[headerExtra + 10] >> 16)) / 4096f;
 
             if (rotX == 0f && rotY == 0f && rotZ == 0f && rotW == 0f)
@@ -258,7 +261,7 @@ namespace PSXPrev.Common.Parsers
                 }
             }
 
-            int textureMapSectionIndex;
+            int textureHashSectionIndex;
             if (zeroForm)
             {
                 if (sectionCount == 4)
@@ -271,13 +274,13 @@ namespace PSXPrev.Common.Parsers
                 }
                 else
                 {
-                    return null; // Unexpected number of sections
+                    return false; // Unexpected number of sections
                 }
-                textureMapSectionIndex = sectionCount - 1;
+                textureHashSectionIndex = sectionCount - 1;
             }
             else
             {
-                textureMapSectionIndex = 3;
+                textureHashSectionIndex = 3;
             }
 
 
@@ -286,7 +289,7 @@ namespace PSXPrev.Common.Parsers
             sectionIndex++;
             if (_vertexCount == 0 || _vertexCount > Limits.MaxBFFVertices)
             {
-                return null;
+                return false;
             }
 
             reader.BaseStream.Seek(_offset + vertsTop, SeekOrigin.Begin);
@@ -294,55 +297,53 @@ namespace PSXPrev.Common.Parsers
             {
                 Array.Resize(ref _vertices, (int)_vertexCount);
             }
-            var vertices = _vertices;// new Vector3[_vertexCount];
             for (var i = 0; i < _vertexCount; i++)
             {
-                var x = reader.ReadInt16();
-                var y = reader.ReadInt16();
-                var z = reader.ReadInt16();
+                var x = reader.ReadInt16() / _scaleDivisor;
+                var y = reader.ReadInt16() / _scaleDivisor;
+                var z = reader.ReadInt16() / _scaleDivisor;
                 var pad = reader.ReadUInt16(); //pad
-                vertices[i] = new Vector3(x, y, z);
+                _vertices[i] = new Vector3(x, y, z);
             }
 
 
-            _textureMapCount  = _sections[(textureMapSectionIndex * 2) + 0];
-            var textureMapTop = _sections[(textureMapSectionIndex * 2) + 1];
-            if (_textureMapCount > Limits.MaxBFFTextureMaps)
+            _textureHashCount    = _sections[(textureHashSectionIndex * 2) + 0];
+            var textureHashesTop = _sections[(textureHashSectionIndex * 2) + 1];
+            if (_textureHashCount > Limits.MaxBFFTextureHashes)
             {
-                return null;
+                return false;
             }
 
-            reader.BaseStream.Seek(_offset + textureMapTop, SeekOrigin.Begin);
-            if (_textureMapCRCs == null || _textureMapCRCs.Length < _textureMapCount)
+            reader.BaseStream.Seek(_offset + textureHashesTop, SeekOrigin.Begin);
+            if (_textureHashes == null || _textureHashes.Length < _textureHashCount)
             {
-                Array.Resize(ref _textureMapCRCs, (int)_textureMapCount);
+                Array.Resize(ref _textureHashes, (int)_textureHashCount);
             }
-            var textureMapCRCs = _textureMapCRCs;// new uint[_textureMapCount];
-            for (var i = 0; i < _textureMapCount; i++)
+            for (var i = 0; i < _textureHashCount; i++)
             {
-                textureMapCRCs[i] = reader.ReadUInt32();
+                _textureHashes[i] = reader.ReadUInt32();
             }
 
 
-            var numGT3s = _sections[(sectionIndex * 2) + 0];
-            var gt3Top  = _sections[(sectionIndex * 2) + 1];
+            var gt3Count = _sections[(sectionIndex * 2) + 0];
+            var gt3sTop  = _sections[(sectionIndex * 2) + 1];
             sectionIndex++;
-            if (numGT3s > Limits.MaxBFFPackets)
+            if (gt3Count > Limits.MaxBFFPackets)
             {
-                return null;
+                return false;
             }
 
-            reader.BaseStream.Seek(_offset + gt3Top, SeekOrigin.Begin);
+            reader.BaseStream.Seek(_offset + gt3sTop, SeekOrigin.Begin);
             if (!polyGT3Form)
             {
-                for (var i = 0; i < numGT3s; i++) //FMA_GT3
+                for (var i = 0; i < gt3Count; i++) //FMA_GT3
                 {
                     ReadFMAPacket(reader, false, true, shortForm);
                 }
             }
             else
             {
-                for (var i = 0; i < numGT3s; i++)
+                for (var i = 0; i < gt3Count; i++)
                 {
                     var vertexIndex0 = ReadIndex(reader, shortForm);
                     var vertexIndex1 = ReadIndex(reader, shortForm);
@@ -354,25 +355,25 @@ namespace PSXPrev.Common.Parsers
             }
 
 
-            var numGT4s = _sections[(sectionIndex * 2) + 0];
-            var gt4Top  = _sections[(sectionIndex * 2) + 1];
+            var gt4Count = _sections[(sectionIndex * 2) + 0];
+            var gt4sTop  = _sections[(sectionIndex * 2) + 1];
             sectionIndex++;
-            if (numGT4s > Limits.MaxBFFPackets)
+            if (gt4Count > Limits.MaxBFFPackets)
             {
-                return null;
+                return false;
             }
 
-            reader.BaseStream.Seek(_offset + gt4Top, SeekOrigin.Begin);
+            reader.BaseStream.Seek(_offset + gt4sTop, SeekOrigin.Begin);
             if (!polyGT3Form)
             {
-                for (var i = 0; i < numGT4s; i++) //FMA_GT4
+                for (var i = 0; i < gt4Count; i++) //FMA_GT4
                 {
                     ReadFMAPacket(reader, true, true, shortForm);
                 }
             }
             else
             {
-                for (var i = 0; i < numGT4s; i++)
+                for (var i = 0; i < gt4Count; i++)
                 {
                     var vertexIndex0 = ReadIndex(reader, shortForm);
                     var vertexIndex1 = ReadIndex(reader, shortForm);
@@ -390,16 +391,16 @@ namespace PSXPrev.Common.Parsers
             {
                 if (shortForm)
                 {
-                    var numSprs = _sections[(sectionIndex * 2) + 0];
-                    var sprTop  = _sections[(sectionIndex * 2) + 1];
+                    var sprCount = _sections[(sectionIndex * 2) + 0];
+                    var sprsTop  = _sections[(sectionIndex * 2) + 1];
                     sectionIndex++;
-                    if (numSprs > Limits.MaxBFFPackets)
+                    if (sprCount > Limits.MaxBFFPackets)
                     {
-                        return null;
+                        return false;
                     }
 
-                    reader.BaseStream.Seek(_offset + sprTop, SeekOrigin.Begin);
-                    for (var i = 0; i < numSprs; i++) //FMA_SPR
+                    reader.BaseStream.Seek(_offset + sprsTop, SeekOrigin.Begin);
+                    for (var i = 0; i < sprCount; i++) //FMA_SPR
                     {
                         ReadFMASPR(reader);
                     }
@@ -415,31 +416,31 @@ namespace PSXPrev.Common.Parsers
                 sectionIndex++;
 
 
-                var numG3s = _sections[(sectionIndex * 2) + 0];
-                var g3Top  = _sections[(sectionIndex * 2) + 1];
+                var g3Count = _sections[(sectionIndex * 2) + 0];
+                var g3sTop  = _sections[(sectionIndex * 2) + 1];
                 sectionIndex++;
-                if (numG3s > Limits.MaxBFFPackets)
+                if (g3Count > Limits.MaxBFFPackets)
                 {
-                    return null;
+                    return false;
                 }
 
-                reader.BaseStream.Seek(_offset + g3Top, SeekOrigin.Begin);
-                for (var i = 0; i < numG3s; i++) //FMA_G3
+                reader.BaseStream.Seek(_offset + g3sTop, SeekOrigin.Begin);
+                for (var i = 0; i < g3Count; i++) //FMA_G3
                 {
                     ReadFMAPacket(reader, false, false, shortForm);
                 }
 
 
-                var numG4s = _sections[(sectionIndex * 2) + 0];
-                var g4Top  = _sections[(sectionIndex * 2) + 1];
+                var g4Count = _sections[(sectionIndex * 2) + 0];
+                var g4sTop  = _sections[(sectionIndex * 2) + 1];
                 sectionIndex++;
-                if (numG4s > Limits.MaxBFFPackets)
+                if (g4Count > Limits.MaxBFFPackets)
                 {
-                    return null;
+                    return false;
                 }
 
-                reader.BaseStream.Seek(_offset + g4Top, SeekOrigin.Begin);
-                for (var i = 0; i < numG4s; i++) //FMA_G4
+                reader.BaseStream.Seek(_offset + g4sTop, SeekOrigin.Begin);
+                for (var i = 0; i < g4Count; i++) //FMA_G4
                 {
                     ReadFMAPacket(reader, true, false, shortForm);
                 }
@@ -452,63 +453,18 @@ namespace PSXPrev.Common.Parsers
                 localMatrix = Matrix4.CreateFromQuaternion(new Quaternion(rotX, rotY, rotZ, rotW)) *
                               Matrix4.CreateTranslation(posX, posY, posZ);
             }
-
-            foreach (var kvp in _groupedTriangles)
-            {
-                var renderInfo = kvp.Key;
-                var triangles = kvp.Value;
-                var model = new ModelEntity
-                {
-                    Triangles = triangles.ToArray(),
-                    TexturePage = 0,
-                    TextureLookup = renderInfo.RenderFlags.HasFlag(RenderFlags.Textured)
-                        ? new TextureLookup
-                        {
-                            ID = renderInfo.TexturePage, // CRC-32 of name
-                            ExpectedFormat = SPTParser.FormatNameConst,
-                        }
-                        : null,
-                    RenderFlags = renderInfo.RenderFlags,
-                    MixtureRate = renderInfo.MixtureRate,
-                    TMDID = 0, // Only one model per BFF
-                    OriginalLocalMatrix = localMatrix,
-                };
-                _models.Add(model);
-            }
-            foreach (var kvp in _groupedSprites)
-            {
-                var spriteCenter = kvp.Key.Item1;
-                var renderInfo = kvp.Key.Item2;
-                var triangles = kvp.Value;
-                var model = new ModelEntity
-                {
-                    Triangles = triangles.ToArray(),
-                    TexturePage = 0,
-                    TextureLookup = renderInfo.RenderFlags.HasFlag(RenderFlags.Textured)
-                        ? new TextureLookup
-                        {
-                            ID = renderInfo.TexturePage, // CRC-32 of name
-                            ExpectedFormat = SPTParser.FormatNameConst,
-                        }
-                        : null,
-                    RenderFlags = renderInfo.RenderFlags,
-                    MixtureRate = renderInfo.MixtureRate,
-                    SpriteCenter = spriteCenter,
-                    TMDID = 0,
-                    OriginalLocalMatrix = localMatrix,
-                };
-                _models.Add(model);
-            }
+            FlushModels(0, localMatrix);
 
             if (_models.Count > 0)
             {
-                var entity = new RootEntity();
-                entity.ChildEntities = _models.ToArray();
-                entity.ComputeBounds();
-                return entity;
+                var rootEntity = new RootEntity();
+                rootEntity.ChildEntities = _models.ToArray();
+                rootEntity.ComputeBounds();
+                EntityResults.Add(rootEntity);
+                return true;
             }
 
-            return null;
+            return false;
         }
 
         private static uint ReadIndex(BinaryReader reader, bool shortForm)
@@ -558,10 +514,10 @@ namespace PSXPrev.Common.Parsers
             {
                 u1 = reader.ReadByte();
                 v1 = reader.ReadByte();
-                var tMapIndex = reader.ReadUInt16();
-                if (tMapIndex < _textureMapCount)
+                var textureIndex = reader.ReadUInt16();
+                if (textureIndex < _textureHashCount)
                 {
-                    tPage = _textureMapCRCs[tMapIndex];
+                    tPage = _textureHashes[textureIndex];
                 }
             }
 
@@ -598,35 +554,37 @@ namespace PSXPrev.Common.Parsers
 
             var triangle1 = TriangleFromPrimitive(vertexIndex0, vertexIndex1, vertexIndex2,
                                                   r0, g0, b0, r1, g1, b1, r2, g2, b2,
-                                                  u0, v0, u1, v1, u2, v2);
+                                                  u0, v0, u1, v1, u2, v2,
+                                                  textured);
 
-            AddTriangle(triangle1, tPage, renderFlags);
+            AddTriangle(triangle1, null, tPage, renderFlags);
 
             if (quad)
             {
                 var triangle2 = TriangleFromPrimitive(vertexIndex1, vertexIndex3, vertexIndex2,
                                                       r1, g1, b1, r3, g3, b3, r2, g2, b2,
-                                                      u1, v1, u3, v3, u2, v2);
+                                                      u1, v1, u3, v3, u2, v2,
+                                                      textured);
 
-                AddTriangle(triangle2, tPage, renderFlags);
+                AddTriangle(triangle2, null, tPage, renderFlags);
             }
         }
 
         private void ReadFMASPR(BinaryReader reader)
         {
-            var r0 = reader.ReadByte();
-            var g0 = reader.ReadByte();
-            var b0 = reader.ReadByte();
+            var r = reader.ReadByte();
+            var g = reader.ReadByte();
+            var b = reader.ReadByte();
             var mode = reader.ReadByte();
 
-            var x = reader.ReadInt16();
-            var y = reader.ReadInt16();
-            var z = reader.ReadInt16();
-            var tMapIndex = reader.ReadUInt16();
+            var x = reader.ReadInt16() / _scaleDivisor;
+            var y = reader.ReadInt16() / _scaleDivisor;
+            var z = reader.ReadInt16() / _scaleDivisor;
+            var textureIndex = reader.ReadUInt16();
             uint tPage = 0;
-            if (tMapIndex < _textureMapCount)
+            if (textureIndex < _textureHashCount)
             {
-                tPage = _textureMapCRCs[tMapIndex];
+                tPage = _textureHashes[textureIndex];
             }
 
             var u0 = reader.ReadByte();
@@ -642,16 +600,17 @@ namespace PSXPrev.Common.Parsers
             //TMDHelper.ParseCBA(cba, out var clutX, out var clutY);
 
             // Not sure on the exact value for this, but 2.0-2.5 seems to look correct with Frogger 2.
-            var scale = Settings.Instance.DebugBFFSpriteScale;// 2.5f;
-            var width  = reader.ReadByte() * scale;
-            var height = reader.ReadByte() * scale;
+            var scale = Settings.Instance.AdvancedBFFSpriteScale;// 2.5f;
+            var width  = reader.ReadByte() / _scaleDivisor * scale;
+            var height = reader.ReadByte() / _scaleDivisor * scale;
 
-            var uv0 = GeomMath.ConvertUV(u0, v0);
-            var uv1 = GeomMath.ConvertUV(u1, v1);
-            var uv2 = GeomMath.ConvertUV(u2, v2);
-            var uv3 = GeomMath.ConvertUV(u3, v3);
+            var color = new Color(r / 255f, g / 255f, b / 255f);
 
-            var color = new Color(r0 / 255f, g0 / 255f, b0 / 255f);
+            var uv0 = GeomMath.ConvertUV(u0, v0) * UVConst;
+            var uv1 = GeomMath.ConvertUV(u1, v1) * UVConst;
+            var uv2 = GeomMath.ConvertUV(u2, v2) * UVConst;
+            var uv3 = GeomMath.ConvertUV(u3, v3) * UVConst;
+
             // Coordinates are inverted for some reason.
             var center = new Vector3(-x, -y, -z);
 
@@ -664,23 +623,31 @@ namespace PSXPrev.Common.Parsers
 
             var renderFlags = RenderFlags.Textured | RenderFlags.Sprite;
 
-            AddSpriteTriangle(new Triangle
+            var triangle1 = new Triangle
             {
                 Vertices = new[] { vertex0, vertex1, vertex2 },
                 Normals = Triangle.EmptyNormals,
                 Colors = new[] { color, color, color },
                 Uv = new[] { uv0, uv1, uv2 },
                 AttachableIndices = Triangle.EmptyAttachableIndices,
-            }, center, tPage, renderFlags);
+            };
+            triangle1.TiledUv = new TiledUV(triangle1.Uv, 0f, 0f, 1f, 1f);
+            triangle1.Uv = (Vector2[])triangle1.Uv.Clone();
 
-            AddSpriteTriangle(new Triangle
+            AddTriangle(triangle1, center, tPage, renderFlags);
+
+            var triangle2 = new Triangle
             {
                 Vertices = new[] { vertex1, vertex3, vertex2 },
                 Normals = Triangle.EmptyNormals,
                 Colors = new[] { color, color, color },
                 Uv = new[] { uv1, uv3, uv2 },
                 AttachableIndices = Triangle.EmptyAttachableIndices,
-            }, center, tPage, renderFlags);
+            };
+            triangle2.TiledUv = new TiledUV(triangle2.Uv, 0f, 0f, 1f, 1f);
+            triangle2.Uv = (Vector2[])triangle2.Uv.Clone();
+
+            AddTriangle(triangle2, center, tPage, renderFlags);
         }
 
         private void ReadPolyGT3(BinaryReader reader, uint vertexIndex0, uint vertexIndex1, uint vertexIndex2)
@@ -709,11 +676,11 @@ namespace PSXPrev.Common.Parsers
             var y1 = reader.ReadInt16();
             var u1 = reader.ReadByte();
             var v1 = reader.ReadByte();
-            var tMapIndex = reader.ReadUInt16();
+            var textureIndex = reader.ReadUInt16();
             uint tPage = 0;
-            if (tMapIndex < _textureMapCount)
+            if (textureIndex < _textureHashCount)
             {
-                tPage = _textureMapCRCs[tMapIndex];
+                tPage = _textureHashes[textureIndex];
             }
 
             var r2 = reader.ReadByte();
@@ -729,9 +696,10 @@ namespace PSXPrev.Common.Parsers
 
             var triangle = TriangleFromPrimitive(vertexIndex0, vertexIndex1, vertexIndex2,
                                                  r0, g0, b0, r1, g1, b1, r2, g2, b2,
-                                                 u0, v0, u1, v1, u2, v2);
+                                                 u0, v0, u1, v1, u2, v2,
+                                                 true);
 
-            AddTriangle(triangle, tPage, RenderFlags.Textured);
+            AddTriangle(triangle, null, tPage, RenderFlags.Textured);
         }
 
         private Triangle TriangleFromPrimitive(
@@ -741,8 +709,8 @@ namespace PSXPrev.Common.Parsers
             byte r2, byte g2, byte b2,
             byte u0, byte v0,
             byte u1, byte v1,
-            byte u2, byte v2
-            )
+            byte u2, byte v2,
+            bool textured)
         {
             if (vertexIndex0 >= _vertexCount || vertexIndex1 >= _vertexCount || vertexIndex2 >= _vertexCount)
             {
@@ -757,9 +725,9 @@ namespace PSXPrev.Common.Parsers
             var color1 = new Color(r1 / 255f, g1 / 255f, b1 / 255f);
             var color2 = new Color(r2 / 255f, g2 / 255f, b2 / 255f);
 
-            var uv0 = GeomMath.ConvertUV(u0, v0);
-            var uv1 = GeomMath.ConvertUV(u1, v1);
-            var uv2 = GeomMath.ConvertUV(u2, v2);
+            var uv0 = GeomMath.ConvertUV(u0, v0) * UVConst;
+            var uv1 = GeomMath.ConvertUV(u1, v1) * UVConst;
+            var uv2 = GeomMath.ConvertUV(u2, v2) * UVConst;
 
             var triangle = new Triangle
             {
@@ -769,41 +737,100 @@ namespace PSXPrev.Common.Parsers
                 Uv = new[] { uv0, uv1, uv2 },
                 AttachableIndices = Triangle.EmptyAttachableIndices,
             };
+            if (textured)
+            {
+                triangle.TiledUv = new TiledUV(triangle.Uv, 0f, 0f, 1f, 1f);
+                triangle.Uv = (Vector2[])triangle.Uv.Clone();
+            }
 
             return triangle;
         }
 
-        private void AddTriangle(Triangle triangle, uint tPage, RenderFlags renderFlags)
+        private void FlushModels(uint modelIndex, Matrix4 localMatrix)
         {
-            renderFlags |= RenderFlags.Unlit | RenderFlags.DoubleSided;
-            if (renderFlags.HasFlag(RenderFlags.Textured))
+            foreach (var kvp in _groupedTriangles)
             {
-                triangle.CorrectUVTearing();
+                var renderInfo = kvp.Key;
+                var triangles = kvp.Value;
+                var model = new ModelEntity
+                {
+                    Triangles = triangles.ToArray(),
+                    TexturePage = 0,
+                    TextureLookup = CreateTextureLookup(renderInfo),
+                    RenderFlags = renderInfo.RenderFlags,
+                    MixtureRate = renderInfo.MixtureRate,
+                    TMDID = modelIndex + 1u, // Only one model per BFF
+                    OriginalLocalMatrix = localMatrix,
+                };
+                _models.Add(model);
             }
-            var renderInfo = new RenderInfo(tPage, renderFlags);
-            if (!_groupedTriangles.TryGetValue(renderInfo, out var triangles))
+            foreach (var kvp in _groupedSprites)
             {
-                triangles = new List<Triangle>();
-                _groupedTriangles.Add(renderInfo, triangles);
+                var spriteCenter = kvp.Key.Item1;
+                var renderInfo = kvp.Key.Item2;
+                var triangles = kvp.Value;
+                var model = new ModelEntity
+                {
+                    Triangles = triangles.ToArray(),
+                    TexturePage = 0,
+                    TextureLookup = CreateTextureLookup(renderInfo),
+                    RenderFlags = renderInfo.RenderFlags,
+                    MixtureRate = renderInfo.MixtureRate,
+                    SpriteCenter = spriteCenter,
+                    TMDID = modelIndex + 1u, // Only one model per BFF
+                    OriginalLocalMatrix = localMatrix,
+                };
+                _models.Add(model);
             }
-            triangles.Add(triangle);
+            _groupedTriangles.Clear();
+            _groupedSprites.Clear();
         }
 
-        private void AddSpriteTriangle(Triangle triangle, Vector3 center, uint tPage, RenderFlags renderFlags)
+        private static TextureLookup CreateTextureLookup(RenderInfo renderInfo)
         {
-            renderFlags |= RenderFlags.Unlit;
+            if (renderInfo.RenderFlags.HasFlag(RenderFlags.Textured))
+            {
+                return new TextureLookup
+                {
+                    ID = renderInfo.TexturePage, // CRC-32 of name
+                    ExpectedFormat = SPTParser.FormatNameConst,
+                    UVConversion = TextureUVConversion.TextureSpace,
+                    TiledAreaConversion = TextureUVConversion.TextureSpace,
+                    // Real clamp seen in source assigns to 8px, which doesn't make much sense,
+                    // likely an error value to make it easy to spot.
+                    UVClamp = true,
+                };
+            }
+            return null;
+        }
+
+        private void AddTriangle(Triangle triangle, Vector3? spriteCenter, uint tPage, RenderFlags renderFlags, MixtureRate mixtureRate = MixtureRate.None)
+        {
+            renderFlags |= RenderFlags.Unlit; // BFF has no normals, so there's no lighting
             if (renderFlags.HasFlag(RenderFlags.Textured))
             {
                 triangle.CorrectUVTearing();
             }
-            var renderInfo = new RenderInfo(tPage, renderFlags);
-            var tuple = new Tuple<Vector3, RenderInfo>(center, renderInfo);
-            if (!_groupedSprites.TryGetValue(tuple, out var triangles))
+            var renderInfo = new RenderInfo(tPage, renderFlags, mixtureRate);
+            if (!spriteCenter.HasValue)
             {
-                triangles = new List<Triangle>();
-                _groupedSprites.Add(tuple, triangles);
+                if (!_groupedTriangles.TryGetValue(renderInfo, out var triangles))
+                {
+                    triangles = new List<Triangle>();
+                    _groupedTriangles.Add(renderInfo, triangles);
+                }
+                triangles.Add(triangle);
             }
-            triangles.Add(triangle);
+            else
+            {
+                var tuple = new Tuple<Vector3, RenderInfo>(spriteCenter.Value, renderInfo);
+                if (!_groupedSprites.TryGetValue(tuple, out var triangles))
+                {
+                    triangles = new List<Triangle>();
+                    _groupedSprites.Add(tuple, triangles);
+                }
+                triangles.Add(triangle);
+            }
         }
     }
 }

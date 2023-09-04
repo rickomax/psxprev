@@ -660,8 +660,8 @@ namespace PSXPrev.Common.Parsers
 
             var imageIndex = reader.ReadUInt32() * 4;
             uint pmode;
-            int[][] palettes;
-            bool[][] semiTransparentPalettes;
+            ushort[][] palettes = null;
+            bool? hasSemiTransparency = null;
             if (hasClut)
             {
                 var clutX = reader.ReadUInt16();
@@ -674,7 +674,7 @@ namespace PSXPrev.Common.Parsers
 
                 reader.BaseStream.Seek(_offset + clutTop + clutIndex, SeekOrigin.Begin);
                 // Allow out of bounds to support HMDs with invalid image data, but valid model data.
-                palettes = TIMParser.ReadPalettes(reader, pmode, clutWidth, clutHeight, out semiTransparentPalettes, true);
+                palettes = TIMParser.ReadPalettes(reader, pmode, clutWidth, clutHeight, out hasSemiTransparency, true);
                 if (palettes == null)
                 {
                     return null;
@@ -683,13 +683,11 @@ namespace PSXPrev.Common.Parsers
             else
             {
                 pmode = TIMParser.GetModeFromNoClut();
-                palettes = null;
-                semiTransparentPalettes = null;
             }
 
             reader.BaseStream.Seek(_offset + imageTop + imageIndex, SeekOrigin.Begin);
             // Allow out of bounds to support HMDs with invalid image data, but valid model data.
-            var texture = TIMParser.ReadTexture(reader, stride, height, x, y, pmode, 0, palettes, semiTransparentPalettes, true);
+            var texture = TIMParser.ReadTexture(reader, stride, height, x, y, pmode, 0, palettes, hasSemiTransparency, true);
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
             return texture;
         }

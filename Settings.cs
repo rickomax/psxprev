@@ -152,6 +152,9 @@ namespace PSXPrev
         [JsonProperty("showUVsInVRAM")]
         public bool ShowUVsInVRAM { get; set; } = true;
 
+        [JsonProperty("showMissingTextures")]
+        public bool ShowMissingTextures { get; set; } = true;
+
         [JsonProperty("autoDrawModelTextures")]
         public bool AutoDrawModelTextures { get; set; } = false;
 
@@ -194,8 +197,25 @@ namespace PSXPrev
         [JsonProperty("logExceptionPrefixColor"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
         public ConsoleColor LogExceptionPrefixColor { get; set; } = ConsoleColor.DarkGray;
 
-        [JsonProperty("scanOptionsShowAdvanced")]
-        public bool ShowAdvancedScanOptions { get; set; } = false;
+
+        [JsonProperty("advancedBFFSpriteScale")]
+        public float AdvancedBFFSpriteScale { get; set; } = 2.5f;
+
+        // Unknown what the real divisor is, but the default setting creates very large models.
+        [JsonProperty("advancedBFFScaleDivisor")]
+        public float AdvancedBFFScaleDivisor { get; set; } = 1.0f;
+
+        // The real divisor is supposedly 4096f, but that creates VERY SMALL models.
+        [JsonProperty("advancedMODScaleDivisor")]
+        public float AdvancedMODScaleDivisor { get; set; } = 16.0f;
+
+        // The real divisor is supposedly 4096f, but that creates VERY SMALL models.
+        [JsonProperty("advancedPSXScaleDivisor")]
+        public float AdvancedPSXScaleDivisor { get; set; } = 2.25f;
+
+        [JsonProperty("advancedPSXIncludeInvisible")]
+        public bool AdvancedPSXIncludeInvisible { get; set; } = false;
+
 
         [JsonProperty("scanProgressFrequency")]
         public float ScanProgressFrequency { get; set; } = 1f / 60f; // 1 frame (60FPS)
@@ -203,8 +223,8 @@ namespace PSXPrev
         [JsonProperty("scanPopulateFrequency")]
         public float ScanPopulateFrequency { get; set; } = 4f; // 4 seconds
 
-        [JsonProperty("debugBFFSpriteScale")]
-        public float DebugBFFSpriteScale { get; set; } = 2.5f;
+        [JsonProperty("scanOptionsShowAdvanced")]
+        public bool ShowAdvancedScanOptions { get; set; } = false;
 
         [JsonProperty("scanOptions")]
         public ScanOptions ScanOptions { get; set; } = new ScanOptions();
@@ -309,16 +329,27 @@ namespace PSXPrev
             CurrentCLUTIndex  = ValidateClamp(CurrentCLUTIndex,  Defaults.CurrentCLUTIndex, 0, 255);
             AnimationLoopMode = ValidateEnum( AnimationLoopMode, Defaults.AnimationLoopMode);
             AnimationSpeed    = ValidateClamp(AnimationSpeed,    Defaults.AnimationSpeed, 0.01f, 100f);
+
             LogStandardColor        = ValidateEnum(LogStandardColor,        Defaults.LogStandardColor);
             LogPositiveColor        = ValidateEnum(LogPositiveColor,        Defaults.LogPositiveColor);
             LogWarningColor         = ValidateEnum(LogWarningColor,         Defaults.LogWarningColor);
             LogErrorColor           = ValidateEnum(LogErrorColor,           Defaults.LogErrorColor);
             LogExceptionPrefixColor = ValidateEnum(LogExceptionPrefixColor, Defaults.LogExceptionPrefixColor);
+
+            AdvancedBFFSpriteScale  = ValidateMax(AdvancedBFFSpriteScale,  Defaults.AdvancedBFFSpriteScale,  0.000001f);
+            AdvancedBFFScaleDivisor = ValidateMax(AdvancedBFFScaleDivisor, Defaults.AdvancedBFFScaleDivisor, 0.000001f);
+            AdvancedMODScaleDivisor = ValidateMax(AdvancedMODScaleDivisor, Defaults.AdvancedMODScaleDivisor, 0.000001f);
+            AdvancedPSXScaleDivisor = ValidateMax(AdvancedPSXScaleDivisor, Defaults.AdvancedPSXScaleDivisor, 0.000001f);
+
             ScanProgressFrequency = ValidateMax(ScanProgressFrequency, Defaults.ScanProgressFrequency, 0f);
             ScanPopulateFrequency = ValidateMax(ScanPopulateFrequency, Defaults.ScanPopulateFrequency, 0f);
 
             // Clamp multisampling to power of two
-            if (Multisampling >= 8)
+            if (Multisampling >= 16)
+            {
+                Multisampling = 16;
+            }
+            else if (Multisampling >= 8)
             {
                 Multisampling = 8;
             }

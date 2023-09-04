@@ -82,7 +82,7 @@ namespace PSXPrev.Forms
         }
 
         private void pasteBindingsToolStripMenuItem_Click(object sender, EventArgs e)
-        {;
+        {
             if (_clipboard is Dictionary<uint, uint> dataObject)
             {
                 _currentAnimation.TMDBindings.Clear();

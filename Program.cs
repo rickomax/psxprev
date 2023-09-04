@@ -990,7 +990,7 @@ namespace PSXPrev
             }
             if (_options.CheckAll || _options.CheckPSX)
             {
-                parsers.Add(() => new PSXParser(AddEntity));
+                parsers.Add(() => new PSXParser(AddEntity, AddTexture));
             }
             // SPT produces too many false positives to be enabled by default
             if (/*_options.CheckAll ||*/ _options.CheckSPT)
@@ -1059,7 +1059,6 @@ namespace PSXPrev
             {
                 return ProcessCDContents(cdReader, filter, parsers, false);
             }
-            return false;
         }
 
         private static bool ProcessBINContents(string binPath, string filter, List<Func<FileOffsetScanner>> parsers)

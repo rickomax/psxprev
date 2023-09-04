@@ -224,7 +224,7 @@
             this.checkPSXCheckBox.Size = new System.Drawing.Size(47, 17);
             this.checkPSXCheckBox.TabIndex = 4;
             this.checkPSXCheckBox.Text = "PSX";
-            this.toolTip.SetToolTip(this.checkPSXCheckBox, "Tony Hawk\'s Pro Scater / Apocalypse / Spiderman");
+            this.toolTip.SetToolTip(this.checkPSXCheckBox, "Tony Hawk\'s Pro SKater / Apocalypse / Spiderman");
             this.checkPSXCheckBox.UseVisualStyleBackColor = true;
             // 
             // checkMODCheckBox
