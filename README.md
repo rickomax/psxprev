@@ -55,7 +55,7 @@ Treat this as an experimental release and use this tool at your own risk. Warnin
 ---
 
 **Supported formats:**
-- Models: TMD, PMD, HMD, BFF\*, MOD (Croc), PSX (format)
+- Models: TMD, PMD, HMD, BFF\* (Blitz Games), MOD (Croc), PSX (Neversoft)
 - Textures: TIM, HMD
 - Animations: AN, TOD, VDF, HMD
 

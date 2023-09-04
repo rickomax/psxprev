@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -133,12 +134,12 @@ namespace PSXPrev
             Console.WriteLine();
             Console.WriteLine("scanner formats: (default: all formats except SPT)");
             Console.WriteLine("  -an        : scan for AN animations");
-            Console.WriteLine("  -bff       : scan for BFF models");
+            Console.WriteLine("  -bff       : scan for BFF models (Blitz Games)");
             Console.WriteLine("  -hmd       : scan for HMD models, textures, and animations");
             Console.WriteLine("  -mod/-croc : scan for MOD (Croc) models");
             Console.WriteLine("  -pmd       : scan for PMD models");
-            Console.WriteLine("  -psx       : scan for PSX models (just another format)");
-            Console.WriteLine("  -spt       : scan for SPT textures");
+            Console.WriteLine("  -psx       : scan for PSX models and textures (Neversoft)");
+            Console.WriteLine("  -spt       : scan for SPT textures (Blitz Games)");
             Console.WriteLine("  -tim       : scan for TIM textures");
             Console.WriteLine("  -tmd       : scan for TMD models");
             Console.WriteLine("  -tod       : scan for TOD animations");
@@ -154,13 +155,13 @@ namespace PSXPrev
             Console.WriteLine("  -range [START],[STOP] : shorthand for [-start <START>] [-stop <STOP>]");
             Console.WriteLine("  -startonly  : shorthand for -stop <START+1>");
             Console.WriteLine("  -nextoffset : continue scan at end of previous match");
+            Console.WriteLine("  -regex      : treat FILTER as Regular Expression");
             Console.WriteLine("  -depthlast  : scan files at lower folder depths first");
             Console.WriteLine("  -syncscan   : disable multi-threaded scanning per format");
             Console.WriteLine("  -scaniso    : scan individual files inside .iso files");
-            Console.WriteLine("  -scanbin    : scan individual files inside raw PS1 .bin files (experimental)");
+            Console.WriteLine("  -scanbin    : scan individual files inside raw PS1 .bin files");
             Console.WriteLine("                not all files may be listed in a .bin file, use -databin as a fallback");
-            Console.WriteLine("  -databin    : scan data contents of raw PS1 .bin files (experimental)");
-            Console.WriteLine("  -binalign   : scan .bin file offsets at sector size increments");
+            Console.WriteLine("  -databin    : scan data contents of raw PS1 .bin files");
             Console.WriteLine("  -binsector <START>,<SIZE> : change sector reading of .bin files (default: 24,2048)");
             Console.WriteLine("                              combined values must not exceed " + BinCDStream.SectorRawSize);
             Console.WriteLine();
@@ -331,6 +332,9 @@ namespace PSXPrev
                     options.NextOffset = true;
                     break;
 
+                case "-regex":
+                    options.UseRegex = true;
+                    break;
                 case "-depthlast":
                     options.TopDownFileSearch = false;
                     break;
@@ -346,8 +350,6 @@ namespace PSXPrev
                 case "-databin":
                     options.ReadBINSectorData = true;
                     break;
-                case "-binalign":
-                    options.BINAlignToSector = true;
                     break;
                 case "-binsector":
                     parameterCount++;
@@ -520,20 +522,23 @@ namespace PSXPrev
                 }
             }
 
+            string filter = null;
             // Still parse when -help to check for -debug
             //if (!help)
             {
                 // Parse positional arguments PATH and FILTER.
                 options.Path = args[0];
 
-                options.Filter = args.Length > 1 ? args[1] : ScanOptions.DefaultFilter;
+                if (args.Length > 1)
+                {
+                    filter = args[1];
+                }
                 // If we want, we can make FILTER truly optional by checking TryParseOption, and skipping FILTER if one was found.
                 // However, this would prevent the user from specifying a filter that matches a command line option.
                 // This is a pretty unlikely scenario, but it's worth considering.
-                //options.Filter = ScanOptions.DefaultFilter;
                 //if (args.Length > 1 && !TryParseOption(args, 1, options, ref help, out _, out _))
                 //{
-                //    options.Filter = args[1];
+                //    filter = args[1];
                 //}
 
 
@@ -561,7 +566,7 @@ namespace PSXPrev
                         else if (a == 1)
                         {
                             // If we want to make filter optional, then handle it here.
-                            options.Filter = args[a];
+                            filter = args[a];
                         }
                         else
                         {
@@ -572,6 +577,15 @@ namespace PSXPrev
                     // Skip consumed extra arguments (parameterCount does not include the base argument).
                     a += parameterCount;
                 }
+            }
+
+            if (!options.UseRegex)
+            {
+                options.WildcardFilter = !string.IsNullOrWhiteSpace(filter) ? filter : ScanOptions.EmptyFilter;
+            }
+            else
+            {
+                options.RegexPattern = !string.IsNullOrWhiteSpace(filter) ? filter : ScanOptions.DefaultRegexPattern;
             }
 
             // Show help and quit.
@@ -686,6 +700,17 @@ namespace PSXPrev
             if (!Directory.Exists(options.Path) && !File.Exists(options.Path))
             {
                 Program.ConsoleLogger.WriteErrorLine($"Directory/File not found: {options.Path}");
+                return false;
+            }
+            try
+            {
+                // Ensure regex pattern is valid
+                options.GetRegexFilter(false);
+            }
+            catch (Exception exp)
+            {
+                // Message starts as "parsing ...", so prefix with "Error "
+                Program.ConsoleLogger.WriteErrorLine($"Invalid filter: Error {exp.Message}");
                 return false;
             }
 
@@ -947,9 +972,13 @@ namespace PSXPrev
             return file;
         }
 
-        private static bool ShouldIncludeFile(string file)
+        private static bool ShouldIncludeFile(string file, Regex regex)
         {
-            return !HasFileExtension(file, IgnoreFileExtensions);
+            if (!HasFileExtension(file, IgnoreFileExtensions))
+            {
+                return regex?.IsMatch(Path.GetFileName(file)) ?? true;
+            }
+            return false;
         }
 
         private static bool ShouldProcessISOContents(string file)
@@ -1014,31 +1043,33 @@ namespace PSXPrev
                 parsers.Add(() => new VDFParser(AddAnimation));
             }
 
+            var regex = _options.GetRegexFilter(true);
+
             if (File.Exists(_options.Path))
             {
                 _totalFiles = 1;
-                if (!ProcessFileOrContents(_options.Path, _options.Filter, parsers))
+                if (!ProcessFileOrContents(_options.Path, regex, parsers))
                 {
                     _currentFileIndex++;
                 }
             }
             else
             {
-                ProcessDirectoryContents(_options.Path, _options.Filter, parsers);
+                ProcessDirectoryContents(_options.Path, regex, parsers);
             }
         }
 
-        private static bool ProcessFileOrContents(string file, string filter, List<Func<FileOffsetScanner>> parsers)
+        private static bool ProcessFileOrContents(string file, Regex regex, List<Func<FileOffsetScanner>> parsers)
         {
             try
             {
                 if (ShouldProcessISOContents(file))
                 {
-                    return ProcessISOContents(file, filter, parsers);
+                    return ProcessISOContents(file, regex, parsers);
                 }
                 else if (ShouldProcessBINContents(file))
                 {
-                    return ProcessBINContents(file, filter, parsers);
+                    return ProcessBINContents(file, regex, parsers);
                 }
                 else
                 {
@@ -1052,16 +1083,16 @@ namespace PSXPrev
             }
         }
 
-        private static bool ProcessISOContents(string isoPath, string filter, List<Func<FileOffsetScanner>> parsers)
+        private static bool ProcessISOContents(string isoPath, Regex regex, List<Func<FileOffsetScanner>> parsers)
         {
             using (var isoStream = File.OpenRead(isoPath))
             using (var cdReader = new CDReader(isoStream, true))
             {
-                return ProcessCDContents(cdReader, filter, parsers, false);
+                return ProcessCDContents(cdReader, regex, parsers, false);
             }
         }
 
-        private static bool ProcessBINContents(string binPath, string filter, List<Func<FileOffsetScanner>> parsers)
+        private static bool ProcessBINContents(string binPath, Regex regex, List<Func<FileOffsetScanner>> parsers)
         {
             if (_options.ReadBINContents)
             {
@@ -1077,7 +1108,7 @@ namespace PSXPrev
                     using (var binStream = new BinCDStream(File.OpenRead(binPath), 0, rawSize, userStart, userSize))
                     using (var cdReader = new CDReader(binStream, true))
                     {
-                        return ProcessCDContents(cdReader, filter, parsers, true);
+                        return ProcessCDContents(cdReader, regex, parsers, true);
                     }
                 }
                 catch
@@ -1104,13 +1135,13 @@ namespace PSXPrev
                 }
 
                 // Process all data of the BIN file.
-                return ProcessFile(binPath, binPath, parsers, true, true, OpenBINFile);
+                return ProcessFile(binPath, binPath, parsers, true, OpenBINFile);
             }
 
             return false;
         }
 
-        private static bool ProcessCDContents(CDReader cdReader, string filter, List<Func<FileOffsetScanner>> parsers, bool isBin)
+        private static bool ProcessCDContents(CDReader cdReader, Regex regex, List<Func<FileOffsetScanner>> parsers, bool isBin)
         {
             Stream OpenDiscFileInfo(DiscFileInfo fileInfo)
             {
@@ -1119,22 +1150,15 @@ namespace PSXPrev
                 return fileInfo.OpenRead();
             }
 
-            // ISSUE: Because of the ";1" postfix, files that normally don't have an extension
-            // are given an empty one. We can't exactly solve this with the wildcard filter...
-
-            // Make sure we properly filter BIN contents, since file names always end with ";1".
-            if (isBin && !filter.EndsWith(BINPostfix))
-            {
-                filter += BINPostfix;
-            }
-
-            var files = cdReader.GetFiles("", filter, SearchOption.AllDirectories);
+            var files = cdReader.GetFiles("");
             var fileInfoList = new List<DiscFileInfo>();
             foreach (var file in files)
             {
+                var fullName = isBin ? StripBINPostfix(file) : file;
+
                 var fileInfo = cdReader.GetFileInfo(file);
                 // fileInfo.Exists is here for a reason (unsure what that reason was)
-                if (ShouldIncludeFile(file) && fileInfo.Exists)
+                if (ShouldIncludeFile(fullName, regex) && fileInfo.Exists)
                 {
                     fileInfoList.Add(fileInfo);
                 }
@@ -1146,7 +1170,7 @@ namespace PSXPrev
                 var fullName = isBin ? StripBINPostfix(fileInfo.FullName) : fileInfo.FullName;
 
                 // False to disable async processing, since one underlying stream is being used to read the CD.
-                if (ProcessFile(fileInfo, fullName, parsers, false, false, OpenDiscFileInfo))
+                if (ProcessFile(fileInfo, fullName, parsers, false, OpenDiscFileInfo))
                 {
                     return true; // Canceled
                 }
@@ -1170,10 +1194,12 @@ namespace PSXPrev
                     continue;
                 }
 
-                foreach (var fileInfo in directoryInfo.GetFiles(filter))
+                foreach (var fileInfo in directoryInfo.GetFiles())
                 {
+                    var fullName = isBin ? StripBINPostfix(fileInfo.FullName) : fileInfo.FullName;
+
                     // fileInfo.Exists is here for a reason (unsure what that reason was)
-                    if (ShouldIncludeFile(fileInfo.FullName) && fileInfo.Exists)
+                    if (ShouldIncludeFile(fullName, regex) && fileInfo.Exists)
                     {
                         fileInfoList.Add(fileInfo);
                     }
@@ -1204,7 +1230,7 @@ namespace PSXPrev
                 var fullName = isBin ? StripBINPostfix(fileInfo.FullName) : fileInfo.FullName;
 
                 // False to disable async processing, since one underlying stream is being used to read the CD.
-                if (ProcessFile(fileInfo, fullName, parsers, false, false, false, OpenDiscFileInfo))
+                if (ProcessFile(fileInfo, fullName, parsers, false, false, OpenDiscFileInfo))
                 {
                     return true; // Canceled
                 }
@@ -1214,7 +1240,7 @@ namespace PSXPrev
             return false;
         }
 
-        private static bool ProcessDirectoryContents(string basePath, string filter, List<Func<FileOffsetScanner>> parsers)
+        private static bool ProcessDirectoryContents(string basePath, Regex regex, List<Func<FileOffsetScanner>> parsers)
         {
             // Note: We can also just use SearchOption.AllDirectories as the third argument to GetFiles,
             // but that might be slow if there are A LOT of files to get. And we can't use EnumerateFiles
@@ -1230,9 +1256,9 @@ namespace PSXPrev
                 var path = directoryList[0]; // Pop/Dequeue
                 directoryList.RemoveAt(0);
 
-                foreach (var file in Directory.GetFiles(path, filter))
+                foreach (var file in Directory.GetFiles(path))
                 {
-                    if (ShouldIncludeFile(file))
+                    if (ShouldIncludeFile(file, regex))
                     {
                         fileList.Add(file);
                     }
@@ -1257,7 +1283,7 @@ namespace PSXPrev
             _totalFiles += fileList.Count; // Use += in-case this isn't the only selected path
             foreach (var file in fileList)
             {
-                if (ProcessFileOrContents(file, filter, parsers))
+                if (ProcessFileOrContents(file, regex, parsers))
                 {
                     return true; // Canceled
                 }
@@ -1273,10 +1299,10 @@ namespace PSXPrev
                 return new FilePositionCacheStream(File.OpenRead(filePath));
             }
 
-            return ProcessFile(file, file, parsers, true, false, OpenFile);
+            return ProcessFile(file, file, parsers, true, OpenFile);
         }
 
-        private static bool ProcessFile<TFile>(TFile fileInfo, string file, List<Func<FileOffsetScanner>> parsers, bool @async, bool isBin, Func<TFile, Stream> openFile)
+        private static bool ProcessFile<TFile>(TFile fileInfo, string file, List<Func<FileOffsetScanner>> parsers, bool @async, Func<TFile, Stream> openFile)
         {
             ResetFileProgress(false); // Start of file
             if (@async && _options.AsyncFileScan && parsers.Count > 1)
@@ -1290,7 +1316,7 @@ namespace PSXPrev
                     using (var fs = openFile(fileInfo))
                     using (var stream = new BufferedStream(fs))
                     {
-                        ScanFile(stream, file, isBin, parser);
+                        ScanFile(stream, file, parser);
                     }
                 });
             }
@@ -1308,7 +1334,7 @@ namespace PSXPrev
                             return true; // Canceled
                         }
                         stream.Seek(0, SeekOrigin.Begin);
-                        ScanFile(stream, file, isBin, parser);
+                        ScanFile(stream, file, parser);
                     }
                 }
                 /*foreach (var parser in parsers)
@@ -1321,14 +1347,14 @@ namespace PSXPrev
                     using (var fs = openFile(fileInfo))
                     using (var stream = new BufferedStream(fs))
                     {
-                        ScanFile(stream, file, isBin, parser);
+                        ScanFile(stream, file, parser);
                     }
                 }*/
             }
             return false;
         }
 
-        private static void ScanFile(Stream stream, string file, bool isBin, Func<FileOffsetScanner> parser)
+        private static void ScanFile(Stream stream, string file, Func<FileOffsetScanner> parser)
         {
             using (var reader = new BinaryReader(stream, Encoding.BigEndianUnicode, true))
             //using (var fos = new FileOffsetStream(stream, true))
@@ -1356,10 +1382,6 @@ namespace PSXPrev
                     scanner.StopOffset  = _options.StartOffsetOnly ? _options.StartOffset + 1 : _options.StopOffset;
                     scanner.NextOffset  = _options.NextOffset;
                     scanner.Alignment   = _options.Alignment;
-                    if (isBin && _options.BINAlignToSector)
-                    {
-                        scanner.Alignment = _options.BINSectorUserSize;
-                    }
 
                     scanner.ProgressCallback = ProgressCallback;
                     scanner.BytesPerProgress = 1 * 1024 * 1024; // 1MB

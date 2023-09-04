@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Drawing;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using PSXPrev.Forms.Utils;
@@ -9,6 +11,11 @@ namespace PSXPrev.Forms
     public partial class ScannerForm : Form
     {
         private bool _showAdvanved;
+        private string _wildcardFilter = ScanOptions.DefaultFilter;
+        private string _regexFilter = ScanOptions.DefaultRegexPattern;
+        private string _regexFilterError;
+        private Color _originalFilterForeColor;
+        private string _originalFilterToolTip;
 
         public ScanOptions Options { get; private set; }
 
@@ -17,6 +24,9 @@ namespace PSXPrev.Forms
             InitializeComponent();
 
             DoubleBuffered = true;
+
+            _originalFilterForeColor = filterTextBox.ForeColor;
+            _originalFilterToolTip = toolTip.GetToolTip(filterTextBox);
 
             // Add events that are not browsable in the designer.
             binSectorStartUpDown.TextChanged += binSectorStartSizeUpDown_ValueChanged;
@@ -34,6 +44,39 @@ namespace PSXPrev.Forms
             }
 
             ReadSettings(Settings.Instance, Settings.Instance.ScanOptions);
+        }
+
+        private void ValidateCanScan()
+        {
+            var pathExists = File.Exists(filePathTextBox.Text) || Directory.Exists(filePathTextBox.Text);
+            var validRegex = !filterUseRegexCheckBox.Checked || _regexFilterError == null;
+            scanButton.Enabled = pathExists && validRegex;
+        }
+
+        private void ValidateFilter()
+        {
+            if (filterUseRegexCheckBox.Checked)
+            {
+                try
+                {
+                    var pattern = filterTextBox.Text;
+                    if (string.IsNullOrWhiteSpace(pattern))
+                    {
+                        pattern = ScanOptions.DefaultRegexPattern;
+                    }
+                    new Regex(pattern, RegexOptions.IgnoreCase);
+                    _regexFilterError = null;
+                }
+                catch (Exception exp)
+                {
+                    _regexFilterError = $"Error {exp.Message}"; // Message starts as "parsing ...", so prefix with "Error "
+                    filterTextBox.ForeColor = Color.Red;
+                    toolTip.SetToolTip(filterTextBox, _regexFilterError);
+                    return;
+                }
+            }
+            filterTextBox.ForeColor = _originalFilterForeColor;
+            toolTip.SetToolTip(filterTextBox, _originalFilterToolTip);
         }
 
         private void SetShowAdvanced(bool show)
@@ -109,7 +152,42 @@ namespace PSXPrev.Forms
 
         private void filePathTextBox_TextChanged(object sender, EventArgs e)
         {
-            scanButton.Enabled = File.Exists(filePathTextBox.Text) || Directory.Exists(filePathTextBox.Text);
+            ValidateCanScan();
+        }
+
+        private void filterTextBox_TextChanged(object sender, EventArgs e)
+        {
+            if (filterUseRegexCheckBox.Checked)
+            {
+                _regexFilter = filterTextBox.Text;
+                ValidateFilter();
+                ValidateCanScan();
+            }
+            else
+            {
+                _wildcardFilter = filterTextBox.Text;
+            }
+        }
+
+        private void filterTextBox_MouseEnter(object sender, EventArgs e)
+        {
+            // Prevent WinForms moment where tooltip sometimes doesn't want to show over textboxes...
+            toolTip.Active = false;
+            toolTip.Active = true;
+        }
+
+        private void filterUseRegexCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            if (filterUseRegexCheckBox.Checked)
+            {
+                filterTextBox.Text = _regexFilter;
+            }
+            else
+            {
+                filterTextBox.Text = _wildcardFilter;
+            }
+            ValidateFilter();
+            ValidateCanScan();
         }
 
         private void binContentsCheckBox_CheckedChanged(object sender, EventArgs e)
@@ -129,8 +207,6 @@ namespace PSXPrev.Forms
 
         private void binSectorStartSizeUpDown_ValueChanged(object sender, EventArgs e)
         {
-            //var userStart = (int)binSectorStartUpDown.Value;
-            //var userSize  = (int)binSectorSizeUpDown.Value;
             // Parse text to show invalid message while typing
             var startText = binSectorStartUpDown.Text;
             var sizeText  = binSectorSizeUpDown.Text;
@@ -192,7 +268,9 @@ namespace PSXPrev.Forms
             {
                 // These settings are only present for loading and saving purposes.
                 Path = filePathTextBox.Text,
-                Filter = filterTextBox.Text,
+                WildcardFilter = _wildcardFilter,
+                RegexPattern = _regexFilter,
+                UseRegex = filterUseRegexCheckBox.Checked,
 
                 CheckAN = checkANCheckBox.Checked,
                 CheckBFF = checkBFFCheckBox.Checked,
@@ -223,7 +301,6 @@ namespace PSXPrev.Forms
                 ReadISOContents = isoContentsCheckBox.Checked,
                 ReadBINContents = false, //todo
                 ReadBINSectorData = binContentsCheckBox.Checked,
-                //BINAlignToSector = false, // Just enter size into Align, don't add to reduce UI clutter
                 BINSectorUserStartSizeHasValue = binSectorCheckBox.Checked,
                 BINSectorUserStartValue = (int)binSectorStartUpDown.Value,
                 BINSectorUserSizeValue  = (int)binSectorSizeUpDown.Value,
@@ -249,7 +326,10 @@ namespace PSXPrev.Forms
             }
 
             filePathTextBox.Text = options.Path ?? string.Empty;
-            filterTextBox.Text = options.Filter ?? ScanOptions.DefaultFilter;
+            _wildcardFilter = options.WildcardFilter ?? ScanOptions.EmptyFilter;
+            _regexFilter    = options.RegexPattern   ?? ScanOptions.DefaultRegexPattern;
+            filterTextBox.Text = !options.UseRegex ? _wildcardFilter : _regexFilter;
+            filterUseRegexCheckBox.Checked = options.UseRegex;
 
             checkANCheckBox.Checked = options.CheckAN;
             checkBFFCheckBox.Checked = options.CheckBFF;
