@@ -19,7 +19,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;ENABLE_CLIPBOARD</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>1</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -120,7 +120,9 @@
     <Compile Include="Common\Renderer\Scene.cs" />
     <Compile Include="Common\Renderer\TextureBinder.cs" />
     <Compile Include="Common\Renderer\VRAM.cs" />
+    <Compile Include="Common\TexturePalette.cs" />
     <Compile Include="Common\Utils\BinaryReaderExtensions.cs" />
+    <Compile Include="Common\Utils\CollectionExtensions.cs" />
     <Compile Include="Common\Utils\DrawingExtensions.cs" />
     <Compile Include="Common\Utils\FInt.cs" />
     <Compile Include="Common\Utils\JsonStringColorConverter.cs" />

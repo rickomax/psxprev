@@ -26,6 +26,19 @@ namespace PSXPrev.Common.Animator
         [DisplayName("Format"), ReadOnly(true)]
         public string FormatName { get; set; }
 
+#if DEBUG
+        [DisplayName("Debug Data"), ReadOnly(true)]
+#else
+        [Browsable(false)]
+#endif
+        public string[] DebugData { get; set; }
+
+        [Browsable(false)]
+        public long FileOffset { get; set; }
+
+        [Browsable(false)]
+        public int ResultIndex { get; set; }
+
         [DisplayName("Frame Count"), ReadOnly(true)]
         public uint FrameCount { get; set; }
 

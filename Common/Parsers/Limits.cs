@@ -13,7 +13,7 @@
 
         public static ulong MaxBFFPackets = 40000;
         public static ulong MaxBFFVertices = 20000;
-        public static ulong MaxBFFTextureMaps = 10000;
+        public static ulong MaxBFFTextureHashes = 10000;
 
         public static ulong MaxHMDBlockCount = 1024;
         public static ulong MaxHMDCoordCount = 1024; // Same as BlockCount, because they're related
@@ -41,6 +41,11 @@
         public static ulong MaxPMDPackets = 4000;
 
         public static ulong MaxPSXObjectCount = 1024;
+        public static ulong MaxPSXTaggedChunks = 256;
+        public static ulong MaxPSXTextureHashes = 10000;
+        public static ulong MaxPSXTextures = 2048;
+        public static ulong MaxPSXVertices = 20000;
+        public static ulong MaxPSXFaces = 10000;
 
         public static ulong MaxSPTSprites = 1024;
 

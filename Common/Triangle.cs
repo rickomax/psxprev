@@ -115,6 +115,14 @@ namespace PSXPrev.Common
         [Browsable(false)]
         public float IntersectionDistance { get; set; }
 
+#if DEBUG
+        [DisplayName("Debug Data"), ReadOnly(true)]
+#else
+        [Browsable(false)]
+#endif
+        public string[] DebugData { get; set; }
+
+
         public Triangle()
         {
 
@@ -213,6 +221,26 @@ namespace PSXPrev.Common
 #endif
             }
             return this;
+        }
+
+        // Shorthand for returning an array, but only if there are indices with attachments.
+        public static uint[] CreateAttachedIndices(uint attachedIndex0, uint attachedIndex1, uint attachedIndex2)
+        {
+            if (attachedIndex0 != NoAttachment || attachedIndex1 != NoAttachment || attachedIndex2 != NoAttachment)
+            {
+                return new[] { attachedIndex0, attachedIndex1, attachedIndex2 };
+            }
+            return null;
+        }
+
+        // Shorthand for returning an array, but only if there are indices that are attachable.
+        public static uint[] CreateAttachableIndices(uint attachableIndex0, uint attachableIndex1, uint attachableIndex2)
+        {
+            if (attachableIndex0 != NoAttachment || attachableIndex1 != NoAttachment || attachableIndex2 != NoAttachment)
+            {
+                return new[] { attachableIndex0, attachableIndex1, attachableIndex2 };
+            }
+            return EmptyAttachableIndices;
         }
     }
 }

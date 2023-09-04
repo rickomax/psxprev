@@ -28,7 +28,10 @@ namespace PSXPrev.Common.Renderer
         public Color AmbientColor { get; set; } // Overrides Scene's or MeshBatch's ambient color
         public Color SolidColor { get; set; } // Overrides Mesh's vertex colors
         public Vector3 SpriteCenter { get; set; }
+        public Vector2 TextureAnimation { get; set; } // Animation speed of texture in UV units per second
+        public bool MissingTexture { get; set; }
         public bool Visible { get; set; } = true;
+
 
         public bool IsTextured => RenderFlags.HasFlag(RenderFlags.Textured);
 
@@ -46,6 +49,24 @@ namespace PSXPrev.Common.Renderer
             CopyFrom(fromRenderInfo);
         }
 
+        public void CopyTo(ModelEntity modelEntity)
+        {
+            if (modelEntity.DebugMeshRenderInfo == null)
+            {
+                modelEntity.DebugMeshRenderInfo = new MeshRenderInfo();
+            }
+            modelEntity.DebugMeshRenderInfo.CopyFrom(this);
+
+            // Always use the settings built into ModelEntity over MeshRenderInfo.
+            modelEntity.TexturePage = TexturePage;
+            modelEntity.RenderFlags = RenderFlags;
+            modelEntity.MixtureRate = MixtureRate;
+            modelEntity.SpriteCenter = SpriteCenter;
+            modelEntity.TextureAnimation = TextureAnimation;
+            //modelEntity.MissingTexture = MissingTexture; // Read-only property
+            modelEntity.Visible = Visible;
+        }
+
         public void CopyFrom(ModelEntity modelEntity)
         {
             if (modelEntity.DebugMeshRenderInfo != null)
@@ -57,7 +78,17 @@ namespace PSXPrev.Common.Renderer
             RenderFlags = modelEntity.RenderFlags;
             MixtureRate = modelEntity.MixtureRate;
             SpriteCenter = modelEntity.SpriteCenter;
-            Visible     = modelEntity.Visible;
+            var uvConverter = modelEntity.TextureLookup;
+            if (uvConverter != null)
+            {
+                TextureAnimation = uvConverter.ConvertUV(modelEntity.TextureAnimation, true);
+            }
+            else
+            {
+                TextureAnimation = modelEntity.TextureAnimation;
+            }
+            MissingTexture = modelEntity.MissingTexture;
+            Visible = modelEntity.Visible;
         }
 
         public void CopyFrom(MeshRenderInfo renderInfo)
@@ -72,6 +103,8 @@ namespace PSXPrev.Common.Renderer
             AmbientColor = renderInfo.AmbientColor;
             SolidColor = renderInfo.SolidColor;
             SpriteCenter = renderInfo.SpriteCenter;
+            TextureAnimation = renderInfo.TextureAnimation;
+            MissingTexture = renderInfo.MissingTexture;
             Visible = renderInfo.Visible;
         }
     }

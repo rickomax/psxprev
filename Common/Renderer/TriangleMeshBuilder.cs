@@ -119,17 +119,13 @@ namespace PSXPrev.Common.Renderer
         // Debug functions for testing built models in the PSXPrev scene viewer.
         internal ModelEntity CreateModelEntity(Matrix4? modelMatrix = null)
         {
-            return new ModelEntity
+            var model = new ModelEntity
             {
-                TexturePage = TexturePage,
-                RenderFlags = RenderFlags,
-                MixtureRate = MixtureRate,
-                SpriteCenter = SpriteCenter,
-                Visible = Visible,
-                DebugMeshRenderInfo = new MeshRenderInfo(this),
                 Triangles = Triangles.ToArray(),
                 OriginalLocalMatrix = modelMatrix ?? Matrix4.Identity,
             };
+            CopyTo(model);
+            return model;
         }
 
         internal RootEntity CreateRootEntity(Matrix4? modelMatrix = null, string rootEntityName = null)

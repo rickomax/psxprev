@@ -3,6 +3,7 @@ using System.IO;
 
 namespace PSXPrev.Common.Parsers
 {
+    // Blitz Games: .SPT texture library format
     // Not to be confused with model sprites that always face the camera.
     public class SPTParser : FileOffsetScanner
     {
@@ -96,21 +97,24 @@ namespace PSXPrev.Common.Parsers
 
                 var clut256 = (s.Flags & 0x2) != 0;
 
-                var pmode     = !clut256 ? 0u : 1u;
-                var clutWidth = !clut256 ? 16u : 256u;
-                var stride = (ushort)(s.Width / (!clut256 ? 4 : 2));
+                var pmode     = TIMParser.GetModeFromBpp(!clut256 ? 4 : 8);
+                var clutWidth = TIMParser.GetClutWidth(pmode);
+                var stride    = TIMParser.GetStride(pmode, s.Width);
 
                 reader.BaseStream.Seek(_offset + s.CLUTTop, SeekOrigin.Begin);
-                var palettes = TIMParser.ReadPalettes(reader, pmode, clutWidth, 1, out var semiTransparentPalettes, false, false);
+                var palettes = TIMParser.ReadPalettes(reader, pmode, clutWidth, 1, out var hasSemiTransparency, false, false);
                 if (palettes == null)
                 {
                     return false;
                 }
-                
+                var maskMagenta = TexturePalette.FromComponents(248, 0, 248, false);
+                hasSemiTransparency |= TexturePalette.MaskColor(palettes, maskMagenta, true, true); // todo: Should we be ignoring stp bit?
+
+
                 reader.BaseStream.Seek(_offset + s.ImageTop, SeekOrigin.Begin);
                 var unknown1 = reader.ReadUInt32();
                 // Sprites don't define X/Y, that's determined by packing.
-                var texture = TIMParser.ReadTexture(reader, stride, s.Height, 0, 0, pmode, 0, palettes, semiTransparentPalettes, true);
+                var texture = TIMParser.ReadTexture2(reader, stride, s.Width, s.Height, 0, 0, 0, pmode, 0, palettes, hasSemiTransparency, true);
                 if (texture == null)
                 {
                     return false;

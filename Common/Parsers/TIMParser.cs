@@ -48,8 +48,8 @@ namespace PSXPrev.Common.Parsers
             //    return null;
             //}
 
-            int[][] palettes = null;
-            bool[][] semiTransparentPalettes = null;
+            ushort[][] palettes = null;
+            bool? hasSemiTransparency = null;
             if (hasClut)
             {
                 var clutBnum = reader.ReadUInt32(); // Size of clut data starting at this field
@@ -68,7 +68,7 @@ namespace PSXPrev.Common.Parsers
                     pmode = 1; // 8bpp (256clut)
                 }
 
-                palettes = ReadPalettes(reader, pmode, clutWidth, clutHeight, out semiTransparentPalettes, false);
+                palettes = ReadPalettes(reader, pmode, clutWidth, clutHeight, out hasSemiTransparency, false);
             }
 
             if (pmode < 2 && palettes == null)
@@ -82,12 +82,12 @@ namespace PSXPrev.Common.Parsers
             var imgStride = reader.ReadUInt16(); // Stride in units of 2 bytes
             var imgHeight = reader.ReadUInt16();
 
-            return ReadTexture(reader, imgStride, imgHeight, imgDx, imgDy, pmode, 0, palettes, semiTransparentPalettes, false);
+            return ReadTexture(reader, imgStride, imgHeight, imgDx, imgDy, pmode, 0, palettes, hasSemiTransparency, false);
         }
 
-        public static int[] ReadPalette(BinaryReader reader, uint pmode, uint clutWidth, out bool[] semiTransparentPalette, bool allowOutOfBounds)
+        public static ushort[] ReadPalette(BinaryReader reader, uint pmode, uint clutWidth, out bool hasSemiTransparency, bool allowOutOfBounds)
         {
-            semiTransparentPalette = null;
+            hasSemiTransparency = false;
 
             if (clutWidth == 0 || clutWidth > 256)
             {
@@ -106,65 +106,38 @@ namespace PSXPrev.Common.Parsers
             }
 
             // We should probably allocate the full 16clut or 256clut in-case an image pixel has bad data.
-            var count = pmode == 0 ? 16 : 256; // clutWidth;
-            int[] palette = null;
+            var paletteSize = pmode == 0 ? 16 : 256; // clutWidth;
+            var palette = new ushort[paletteSize];
 
-            for (var c = 0; c < count; c++)
+            for (var c = 0; c < paletteSize; c++)
             {
-                int argb;
                 if (c >= clutWidth)
                 {
                     // Use default masking black as fallback color.
                     // No need to assign empty color
-                    //argb = (0 << 24) | (0 << 16) | (0 << 8) | 0;
+                    //palette[c] = 0;
                 }
                 else
                 {
                     var data = reader.ReadUInt16();
-                    var r = ((data      ) & 0x1f) << 3;
-                    var g = ((data >>  5) & 0x1f) << 3;
-                    var b = ((data >> 10) & 0x1f) << 3;
                     var stp = ((data >> 15) & 0x1) == 1; // Semi-transparency: 0-Off, 1-On
-                    var a = 255;
 
                     // Note: stpMode (not stp) is defined on a per polygon basis. We can't apply alpha now, only during rendering.
-                    if (stp)
-                    {
-                        if (semiTransparentPalette == null)
-                        {
-                            semiTransparentPalette = new bool[count];
-                        }
-                        semiTransparentPalette[c] = true;
-                    }
-                    else if (r == 0 && g == 0 && b == 0)
-                    {
-                        a = 0; // Transparent when black and !stp
-                    }
+                    hasSemiTransparency |= stp;
 
                     if (data != 0)
                     {
-                        argb = (a << 24) | (r << 16) | (g << 8) | b;
-
-                        if (palette == null)
-                        {
-                            palette = new int[count];
-                        }
-                        palette[c] = argb;
+                        palette[c] = data;
                     }
                 }
-            }
-
-            if (palette == null)
-            {
-                palette = pmode == 0 ? Texture.EmptyPalette16 : Texture.EmptyPalette256;
             }
 
             return palette;
         }
 
-        public static int[][] ReadPalettes(BinaryReader reader, uint pmode, uint clutWidth, uint clutHeight, out bool[][] semiTransparentPalettes, bool allowOutOfBounds, bool firstOnly = false)
+        public static ushort[][] ReadPalettes(BinaryReader reader, uint pmode, uint clutWidth, uint clutHeight, out bool? hasSemiTransparency, bool allowOutOfBounds, bool firstOnly = false)
         {
-            semiTransparentPalettes = null;
+            hasSemiTransparency = false;
 
             if (clutWidth == 0 || clutHeight == 0 || clutWidth > 256 || clutHeight > 256)
             {
@@ -183,22 +156,14 @@ namespace PSXPrev.Common.Parsers
             }
 
             var count = firstOnly ? 1 : clutHeight;
-            var palettes = new int[count][];
-            semiTransparentPalettes = null;
+            var palettes = new ushort[count][];
 
             for (var i = 0; i < clutHeight; i++)
             {
                 if (i < count)
                 {
-                    palettes[i] = ReadPalette(reader, pmode, clutWidth, out var semiTransparentPalette, allowOutOfBounds);
-                    if (semiTransparentPalette != null)
-                    {
-                        if (semiTransparentPalettes == null)
-                        {
-                            semiTransparentPalettes = new bool[count][];
-                        }
-                        semiTransparentPalettes[i] = semiTransparentPalette;
-                    }
+                    palettes[i] = ReadPalette(reader, pmode, clutWidth, out var stp, allowOutOfBounds);
+                    hasSemiTransparency |= stp;
                 }
                 else
                 {
@@ -206,21 +171,11 @@ namespace PSXPrev.Common.Parsers
                     reader.BaseStream.Seek(clutWidth * 2, SeekOrigin.Current);
                 }
             }
-            if (semiTransparentPalettes != null)
-            {
-                for (var i = 0; i < count; i++)
-                {
-                    if (semiTransparentPalettes[i] == null)
-                    {
-                        semiTransparentPalettes[i] = pmode == 0 ? Texture.EmptySemiTransparentPalette16 : Texture.EmptySemiTransparentPalette256;
-                    }
-                }
-            }
 
             return palettes;
         }
 
-        public static Texture ReadTexture(BinaryReader reader, ushort stride, ushort height, ushort dx, ushort dy, uint pmode, int clutIndex, int[][] palettes, bool[][] semiTransparentPalettes, bool allowOutOfBounds)
+        public static Texture ReadTexture(BinaryReader reader, ushort stride, ushort height, ushort dx, ushort dy, uint pmode, int clutIndex, ushort[][] palettes, bool? hasSemiTransparency, bool allowOutOfBounds)
         {
             if ((pmode == 0 || pmode == 1) && palettes == null)
             {
@@ -265,26 +220,56 @@ namespace PSXPrev.Common.Parsers
             var textureX = (dx - textureOffsetX) * 16 / textureBpp;// Math.Min(16, textureBpp); // todo: Or is this the same as textureWidth?
             var textureY = (dy - textureOffsetY);
 
-            var texture = new Texture(textureWidth, textureHeight, textureX, textureY, textureBpp, texturePage, clutIndex, palettes, semiTransparentPalettes);
+            return ReadTexture2(reader, stride, textureWidth, textureHeight, textureX, textureY, texturePage, pmode, clutIndex,
+                palettes, hasSemiTransparency, allowOutOfBounds);
+
+        }
+
+        public static Texture ReadTexture2(BinaryReader reader, ushort stride, int width, int height, int x, int y, int page, uint pmode, int clutIndex, ushort[][] palettes, bool? hasSemiTransparency, bool allowOutOfBounds, Func<ushort, ushort> maskPixel16 = null)
+        {
+            if ((pmode == 0 || pmode == 1) && palettes == null)
+            {
+                return null; // No palette for clut format
+            }
+            if (pmode == 4 || pmode > 4)
+            {
+                return null; // Mixed format not supported, or invalid pmode
+            }
+
+            var bpp = GetBpp(pmode);
+
+            if (width == 0 || height == 0 || width > (int)Limits.MaxTIMResolution || height > (int)Limits.MaxTIMResolution)
+            {
+                return null;
+            }
+
+            // HMD: Support models with invalid image data, but valid model data.
+            var textureDataSize = (height * stride * 2);
+            if (allowOutOfBounds && textureDataSize + reader.BaseStream.Position > reader.BaseStream.Length)
+            {
+                return null;
+            }
+
+            var texture = new Texture(width, height, x, y, bpp, page, clutIndex, palettes, hasSemiTransparency);
 
             BitmapData bmpData = null;
             BitmapData stpData = null;
             try
             {
                 var bitmap = texture.Bitmap;
-                if (pmode <= 2 || semiTransparentPalettes != null)
+                if (pmode <= 2 || (hasSemiTransparency ?? true))
                 {
                     texture.SetupSemiTransparentMap();
                 }
 
-                var rect = new Rectangle(0, 0, textureWidth, textureHeight);
+                var rect = new Rectangle(0, 0, width, height);
                 var pixelFormat = texture.Bitmap.PixelFormat; //Texture.GetPixelFormat(textureBpp);
                 bmpData = texture.Bitmap.LockBits(rect, ImageLockMode.WriteOnly, pixelFormat);
-                if (pmode <= 2 || semiTransparentPalettes != null)
+                if (texture.SemiTransparentMap != null)
                 {
                     stpData = texture.SemiTransparentMap.LockBits(rect, ImageLockMode.WriteOnly, pixelFormat);
                 }
-                
+
                 switch (pmode)
                 {
                     case 0: // 4bpp (16clut)
@@ -292,11 +277,12 @@ namespace PSXPrev.Common.Parsers
                         break;
 
                     case 1: // 8bpp (256clut)
+                        stride = (ushort)((width + 3) / 4);
                         Read8BppTexture(reader, texture, stride, bmpData, stpData);
                         break;
 
                     case 2: // 16bpp (5/5/5)
-                        Read16BppTexture(reader, texture, stride, bmpData, stpData);
+                        Read16BppTexture(reader, texture, stride, bmpData, stpData, maskPixel16);
                         break;
 
                     case 3: // 24bpp
@@ -368,16 +354,17 @@ namespace PSXPrev.Common.Parsers
         {
             var width  = texture.Width;
             var height = texture.Height;
+            var readPadding = (stride * 2) - ((width + 1) / 2);
 
             // This expects 4bpp Textures to use 4bpp indexed format
-            var writeStride = width / 2;
+            var writeStride = (width + 1) / 2;
             var expectedFormat = PixelFormat.Format4bppIndexed;
             var p = (byte*)GetPixelData(texture, bmpData, writeStride, expectedFormat, out var bmpPadding, true);
             var s = (byte*)GetPixelData(texture, stpData, writeStride, expectedFormat, out var stpPadding, false);
 
             for (var y = 0; y < height; y++)
             {
-                for (var x = 0; x < width / 2; x++)
+                for (var x = 0; x < (width + 1) / 2; x++)
                 {
                     // Swap order of 4-bit indices in bytes
                     var data = reader.ReadByte();
@@ -397,6 +384,11 @@ namespace PSXPrev.Common.Parsers
                 {
                     s += stpPadding;
                 }
+
+                for (var pad = 0; pad < readPadding; pad++)
+                {
+                    reader.ReadByte();
+                }
             }
         }
 
@@ -404,6 +396,7 @@ namespace PSXPrev.Common.Parsers
         {
             var width  = texture.Width;
             var height = texture.Height;
+            var readPadding = (stride * 2) - width;
 
             // This expects 8bpp Textures to use 8bpp indexed format
             var writeStride = width;
@@ -428,10 +421,15 @@ namespace PSXPrev.Common.Parsers
                 {
                     s += stpPadding;
                 }
+
+                for (var pad = 0; pad < readPadding; pad++)
+                {
+                    reader.ReadByte();
+                }
             }
         }
 
-        private static unsafe void Read16BppTexture(BinaryReader reader, Texture texture, ushort stride, BitmapData bmpData, BitmapData stpData)
+        private static unsafe void Read16BppTexture(BinaryReader reader, Texture texture, ushort stride, BitmapData bmpData, BitmapData stpData, Func<ushort, ushort> maskPixel)
         {
             var width  = texture.Width;
             var height = texture.Height;
@@ -449,11 +447,15 @@ namespace PSXPrev.Common.Parsers
             {
                 for (var x = 0; x < width; x++)
                 {
-                    var data = reader.ReadUInt16();
-                    var r = ((data      ) & 0x1f) << 3;
-                    var g = ((data >>  5) & 0x1f) << 3;
-                    var b = ((data >> 10) & 0x1f) << 3;
-                    var stp = ((data >> 15) & 0x1) == 1; // Semi-transparency: 0-Off, 1-On
+                    var color = reader.ReadUInt16();
+                    if (maskPixel != null)
+                    {
+                        color = maskPixel(color);
+                    }
+                    var r = ((color      ) & 0x1f) << 3;
+                    var g = ((color >>  5) & 0x1f) << 3;
+                    var b = ((color >> 10) & 0x1f) << 3;
+                    var stp = ((color >> 15) & 0x1) == 1; // Semi-transparency: 0-Off, 1-On
                     var a = 255;
 
                     // Note: stpMode (not stp) is defined on a per polygon basis. We can't apply alpha now, only during rendering.
@@ -546,7 +548,7 @@ namespace PSXPrev.Common.Parsers
             throw new ArgumentException("Unsupported BPP", nameof(bpp));
         }
 
-        public uint GetClutWidth(uint pmode)
+        public static uint GetClutWidth(uint pmode)
         {
             switch (pmode)
             {
@@ -556,12 +558,12 @@ namespace PSXPrev.Common.Parsers
             return 0;
         }
 
-        public ushort GetStride(uint pmode, uint width)
+        public static ushort GetStride(uint pmode, uint width)
         {
             switch (pmode)
             {
-                case 0: return (ushort)(width / 4);
-                case 1: return (ushort)(width / 2);
+                case 0: return (ushort)((width + 3) / 4);
+                case 1: return (ushort)((width + 1) / 2);
                 case 2: return (ushort)width;
                 case 3: return (ushort)((width * 3 + 1) / 2);
             }

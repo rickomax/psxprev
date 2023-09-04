@@ -15,8 +15,15 @@ namespace PSXPrev.Common
 
         [DisplayName("Name")]
         public string EntityName { get; set; }
-        
-        [ReadOnly(true), DisplayName("Bounds")]
+
+#if DEBUG
+        [DisplayName("Debug Data"), ReadOnly(true)]
+#else
+        [Browsable(false)]
+#endif
+        public string[] DebugData { get; set; }
+
+        [DisplayName("Bounds"), ReadOnly(true)]
         public BoundingBox Bounds3D { get; set; }
 
         // Store original transform so that gizmo translations can be reset by the user.
@@ -168,7 +175,8 @@ namespace PSXPrev.Common
             set => Rotation = new Quaternion(Rotation.X, Rotation.Y, Rotation.Z, value);
         }
 
-        [ReadOnly(true), DisplayName("Sub-Models")]
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [DisplayName("Sub-Models"), ReadOnly(true)]
         public string ChildCount => ChildEntities == null ? "0" : ChildEntities.Length.ToString(NumberFormatInfo.InvariantInfo);
 
         [Browsable(false)]

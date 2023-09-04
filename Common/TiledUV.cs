@@ -1,10 +1,13 @@
-﻿using OpenTK;
+﻿using System;
+using OpenTK;
 
 namespace PSXPrev.Common
 {
     public interface IUVConverter
     {
-        Vector2 ConvertUV(Vector2 uv);
+        Vector2 ConvertUV(Vector2 uv, bool tiled);
+
+        Vector4 ConvertTiledArea(Vector4 tiledArea);
     }
 
     public class TiledUV : IUVConverter
@@ -70,7 +73,12 @@ namespace PSXPrev.Common
             return uv;
         }
 
-        public Vector2 ConvertUV(Vector2 uv) => ConvertUV(uv, X, Y, Width, Height);
+        public Vector2 ConvertUV(Vector2 uv, bool tiled)
+        {
+            return ConvertUV(uv, tiled ? 0f : X, tiled ? 0f : Y, Width, Height);
+        }
+
+        Vector4 IUVConverter.ConvertTiledArea(Vector4 tiledArea) => throw new NotImplementedException();
 
 
         public static Vector2 ConvertUV(Vector2 uv, float x, float y, float width, float height)

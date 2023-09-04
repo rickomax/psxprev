@@ -154,6 +154,7 @@ namespace PSXPrev.Common.Renderer
         public static int UniformMaskColor;
         public static int UniformAmbientColor;
         public static int UniformSolidColor;
+        public static int UniformUVOffset;
         public static int UniformLightMode;
         public static int UniformColorMode;
         public static int UniformTextureMode;
@@ -174,6 +175,7 @@ namespace PSXPrev.Common.Renderer
         public const string UniformMaskColorName = "maskColor";
         public const string UniformAmbientColorName = "ambientColor";
         public const string UniformSolidColorName = "solidColor";
+        public const string UniformUVOffsetName = "uvOffset";
         public const string UniformLightModeName = "lightMode";
         public const string UniformColorModeName = "colorMode";
         public const string UniformTextureModeName = "textureMode";
@@ -230,7 +232,8 @@ namespace PSXPrev.Common.Renderer
             set
             {
                 _clearColor = value;
-                GL.ClearColor(value.R / 255f, value.G / 255f, value.B / 255f, 0.0f);
+                // Use 1.0 alpha so that clear color shows up when using GL.ReadPixels.
+                GL.ClearColor(value.R / 255f, value.G / 255f, value.B / 255f, 1f);
             }
         }
 
@@ -250,6 +253,8 @@ namespace PSXPrev.Common.Renderer
 
         public bool VibRibbonWireframe { get; set; }
 
+        public bool ShowMissingTextures { get; set; }
+
         public bool ShowGizmos { get; set; }
         public bool ShowBounds { get; set; }
         public bool ShowLightRotationRay { get; set; }
@@ -266,6 +271,8 @@ namespace PSXPrev.Common.Renderer
         public bool ForceDoubleSided { get; set; }
 
         public float LightIntensity { get; set; }
+
+        public double Time => _time;
 
         public float ViewportWidth { get; private set; } = 1f;
         public float ViewportHeight { get; private set; } = 1f;
@@ -384,6 +391,8 @@ namespace PSXPrev.Common.Renderer
             }
         }
         //public Quaternion CameraRotationOld => _viewOriginMatrix.Inverted().ExtractRotation();
+
+        public Quaternion CameraYawRotation => Quaternion.FromAxisAngle(Vector3.UnitY, _cameraYaw).Inverted();
 
         public Vector3 CameraDirection => CameraRotation * Vector3.UnitZ;
 
@@ -548,6 +557,7 @@ namespace PSXPrev.Common.Renderer
             UniformMaskColor = GL.GetUniformLocation(_shaderProgram, UniformMaskColorName);
             UniformAmbientColor = GL.GetUniformLocation(_shaderProgram, UniformAmbientColorName);
             UniformSolidColor = GL.GetUniformLocation(_shaderProgram, UniformSolidColorName);
+            UniformUVOffset = GL.GetUniformLocation(_shaderProgram, UniformUVOffsetName);
             UniformLightMode = GL.GetUniformLocation(_shaderProgram, UniformLightModeName);
             UniformColorMode = GL.GetUniformLocation(_shaderProgram, UniformColorModeName);
             UniformTextureMode = GL.GetUniformLocation(_shaderProgram, UniformTextureModeName);
@@ -697,6 +707,7 @@ namespace PSXPrev.Common.Renderer
             GL.UseProgram(_shaderProgram);
 
             GL.Uniform3(UniformMaskColor, MaskColor.ToVector3());
+            GL.Uniform2(UniformUVOffset, Vector2.Zero);
 
 
             foreach (var pass in MeshBatch.GetPasses())
@@ -942,7 +953,7 @@ namespace PSXPrev.Common.Renderer
             rayBatch.BindTriangleMesh(originBuilder, originMatrix, updateMeshData);
         }
 
-        public EntityBase GetEntityUnderMouse(RootEntity[] checkedEntities, RootEntity selectedRootEntity, int x, int y, bool selectRoot = false)
+        public EntityBase GetEntityUnderMouse(RootEntity[] checkedEntities, RootEntity selectedRootEntity, int x, int y, bool selectRoot = false, bool boundsPicking = true)
         {
             UpdatePicking(x, y);
             var pickedEntities = new List<EntityBase>();
@@ -956,7 +967,7 @@ namespace PSXPrev.Common.Renderer
                         {
                             foreach (var subEntity in entity.ChildEntities)
                             {
-                                CheckEntity(subEntity, pickedEntities);
+                                CheckEntity(subEntity, pickedEntities, boundsPicking);
                             }
                         }
                     }
@@ -967,7 +978,7 @@ namespace PSXPrev.Common.Renderer
                     {
                         foreach (var subEntity in selectedRootEntity.ChildEntities)
                         {
-                            CheckEntity(subEntity, pickedEntities);
+                            CheckEntity(subEntity, pickedEntities, boundsPicking);
                         }
                     }
                 }
@@ -1093,13 +1104,43 @@ namespace PSXPrev.Common.Renderer
             return true;
         }
 
-        private void CheckEntity(EntityBase entity, List<EntityBase> pickedEntities)
+        private void CheckEntity(EntityBase entity, List<EntityBase> pickedEntities, bool boundsPicking)
         {
-            var intersectionDistance = GeomMath.BoxIntersect2(_rayOrigin, _rayDirection, entity.Bounds3D.Center, entity.Bounds3D.Extents);
-            if (intersectionDistance > 0f)
+            if (boundsPicking && entity is ModelEntity modelEntity)
             {
-                entity.IntersectionDistance = intersectionDistance;
-                pickedEntities.Add(entity);
+                if (modelEntity.Triangles.Length > 0)
+                {
+                    var worldMatrix = modelEntity.WorldMatrix;
+                    // It might be cheaper to just transform the ray, for models with a lot of triangles.
+                    GeomMath.TransformRay(_rayOrigin, _rayDirection, worldMatrix, out var rayOrigin, out var rayDirection);
+                    foreach (var triangle in modelEntity.Triangles)
+                    {
+                        //Vector3.TransformPosition(ref triangle.Vertices[0], ref worldMatrix, out var vertex0);
+                        //Vector3.TransformPosition(ref triangle.Vertices[1], ref worldMatrix, out var vertex1);
+                        //Vector3.TransformPosition(ref triangle.Vertices[2], ref worldMatrix, out var vertex2);
+                        //var intersectionDistance = GeomMath.TriangleIntersect(_rayOrigin, _rayDirection, vertex0, vertex1, vertex2, out _);
+
+                        var vertex0 = triangle.Vertices[0];
+                        var vertex1 = triangle.Vertices[1];
+                        var vertex2 = triangle.Vertices[2];
+                        var intersectionDistance = GeomMath.TriangleIntersect(rayOrigin, rayDirection, vertex0, vertex1, vertex2, out _);
+                        if (intersectionDistance > 0f)
+                        {
+                            triangle.IntersectionDistance = intersectionDistance;
+                            pickedEntities.Add(modelEntity);
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                var intersectionDistance = GeomMath.BoxIntersect2(_rayOrigin, _rayDirection, entity.Bounds3D.Center, entity.Bounds3D.Extents);
+                if (intersectionDistance > 0f)
+                {
+                    entity.IntersectionDistance = intersectionDistance;
+                    pickedEntities.Add(entity);
+                }
             }
         }
 
