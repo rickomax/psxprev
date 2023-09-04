@@ -122,15 +122,15 @@
             // filterUseRegexCheckBox
             // 
             this.filterUseRegexCheckBox.AutoSize = true;
-            this.filterUseRegexCheckBox.Enabled = false;
             this.filterUseRegexCheckBox.Location = new System.Drawing.Point(204, 77);
             this.filterUseRegexCheckBox.Name = "filterUseRegexCheckBox";
             this.filterUseRegexCheckBox.Size = new System.Drawing.Size(139, 17);
             this.filterUseRegexCheckBox.TabIndex = 6;
             this.filterUseRegexCheckBox.Text = "Use Regular Expression";
-            this.toolTip.SetToolTip(this.filterUseRegexCheckBox, "Use regular expressions to filter files instead of wildcard patterns.");
+            this.toolTip.SetToolTip(this.filterUseRegexCheckBox, "Use Regular Expressions to filter files instead of wildcard patterns.\r\nRemember to" +
+        " include ^ and $ if you don\'t want the match to be open-ended.");
             this.filterUseRegexCheckBox.UseVisualStyleBackColor = true;
-            this.filterUseRegexCheckBox.Visible = false;
+            this.filterUseRegexCheckBox.CheckedChanged += new System.EventHandler(this.filterUseRegexCheckBox_CheckedChanged);
             // 
             // filterLabel
             // 
@@ -197,7 +197,9 @@
             this.filterTextBox.Size = new System.Drawing.Size(150, 20);
             this.filterTextBox.TabIndex = 5;
             this.filterTextBox.Text = "*.*";
-            this.toolTip.SetToolTip(this.filterTextBox, "Wildcard pattern to match files.");
+            this.toolTip.SetToolTip(this.filterTextBox, "Wildcard or Regex pattern to match files.");
+            this.filterTextBox.TextChanged += new System.EventHandler(this.filterTextBox_TextChanged);
+            this.filterTextBox.MouseEnter += new System.EventHandler(this.filterTextBox_MouseEnter);
             // 
             // toolTip
             // 
@@ -213,7 +215,7 @@
             this.checkBFFCheckBox.Size = new System.Drawing.Size(45, 17);
             this.checkBFFCheckBox.TabIndex = 5;
             this.checkBFFCheckBox.Text = "BFF";
-            this.toolTip.SetToolTip(this.checkBFFCheckBox, "Frogger 2 / Chicken Run (Uses SPT textures)");
+            this.toolTip.SetToolTip(this.checkBFFCheckBox, "Blitz Games Model Format\r\nFrogger 2 / Chicken Run (Uses SPT textures)");
             this.checkBFFCheckBox.UseVisualStyleBackColor = true;
             // 
             // checkPSXCheckBox
@@ -224,7 +226,7 @@
             this.checkPSXCheckBox.Size = new System.Drawing.Size(47, 17);
             this.checkPSXCheckBox.TabIndex = 4;
             this.checkPSXCheckBox.Text = "PSX";
-            this.toolTip.SetToolTip(this.checkPSXCheckBox, "Tony Hawk\'s Pro SKater / Apocalypse / Spiderman");
+            this.toolTip.SetToolTip(this.checkPSXCheckBox, "Neversoft Model and Textures Format\r\nTony Hawk\'s Pro Skater / Apocalypse / Spiderman");
             this.checkPSXCheckBox.UseVisualStyleBackColor = true;
             // 
             // checkMODCheckBox
@@ -235,7 +237,7 @@
             this.checkMODCheckBox.Size = new System.Drawing.Size(51, 17);
             this.checkMODCheckBox.TabIndex = 3;
             this.checkMODCheckBox.Text = "MOD";
-            this.toolTip.SetToolTip(this.checkMODCheckBox, "Croc");
+            this.toolTip.SetToolTip(this.checkMODCheckBox, "Croc Model Format");
             this.checkMODCheckBox.UseVisualStyleBackColor = true;
             // 
             // checkHMDCheckBox
@@ -246,7 +248,7 @@
             this.checkHMDCheckBox.Size = new System.Drawing.Size(51, 17);
             this.checkHMDCheckBox.TabIndex = 1;
             this.checkHMDCheckBox.Text = "HMD";
-            this.toolTip.SetToolTip(this.checkHMDCheckBox, "Includes Textures and Animations");
+            this.toolTip.SetToolTip(this.checkHMDCheckBox, "Standard Model, Textures, and Animations Format");
             this.checkHMDCheckBox.UseVisualStyleBackColor = true;
             // 
             // optionOldUVAlignmentCheckBox
@@ -403,7 +405,7 @@
             this.checkSPTCheckBox.Size = new System.Drawing.Size(47, 17);
             this.checkSPTCheckBox.TabIndex = 14;
             this.checkSPTCheckBox.Text = "SPT";
-            this.toolTip.SetToolTip(this.checkSPTCheckBox, "Frogger 2 / Chicken Run (Used by BFF models)\nMust be explicitly checked to scan\nM" +
+            this.toolTip.SetToolTip(this.checkSPTCheckBox, "Blitz Games Textures Format\r\nFrogger 2 / Chicken Run (Used by BFF models)\r\nMust be explicitly checked to scan\r\nM" +
         "any false positives unless you set Align to 2048");
             this.checkSPTCheckBox.UseVisualStyleBackColor = true;
             // 
@@ -476,6 +478,7 @@
             this.checkPMDCheckBox.Size = new System.Drawing.Size(50, 17);
             this.checkPMDCheckBox.TabIndex = 2;
             this.checkPMDCheckBox.Text = "PMD";
+            this.toolTip.SetToolTip(this.checkPMDCheckBox, "Standard Model Format");
             this.checkPMDCheckBox.UseVisualStyleBackColor = true;
             // 
             // checkTODCheckBox
@@ -486,6 +489,7 @@
             this.checkTODCheckBox.Size = new System.Drawing.Size(49, 17);
             this.checkTODCheckBox.TabIndex = 8;
             this.checkTODCheckBox.Text = "TOD";
+            this.toolTip.SetToolTip(this.checkTODCheckBox, "Standard Animation Format");
             this.checkTODCheckBox.UseVisualStyleBackColor = true;
             // 
             // checkTIMCheckBox
@@ -496,6 +500,7 @@
             this.checkTIMCheckBox.Size = new System.Drawing.Size(45, 17);
             this.checkTIMCheckBox.TabIndex = 6;
             this.checkTIMCheckBox.Text = "TIM";
+            this.toolTip.SetToolTip(this.checkTIMCheckBox, "Standard Texture Format");
             this.checkTIMCheckBox.UseVisualStyleBackColor = true;
             // 
             // checkVDFCheckBox
@@ -516,6 +521,7 @@
             this.checkTMDCheckBox.Size = new System.Drawing.Size(50, 17);
             this.checkTMDCheckBox.TabIndex = 0;
             this.checkTMDCheckBox.Text = "TMD";
+            this.toolTip.SetToolTip(this.checkTMDCheckBox, "Standard Model Format");
             this.checkTMDCheckBox.UseVisualStyleBackColor = true;
             // 
             // optionsGroupBox

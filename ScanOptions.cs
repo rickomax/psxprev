@@ -1,4 +1,7 @@
-﻿using Newtonsoft.Json;
+﻿using System;
+using System.Text.RegularExpressions;
+using Newtonsoft.Json;
+using PSXPrev.Common.Utils;
 
 namespace PSXPrev
 {
@@ -7,13 +10,22 @@ namespace PSXPrev
     {
         public const string DefaultFilter = "*.*";
         public const string EmptyFilter = "*";
+        public const string DefaultRegexPattern = ".*";
+
+        // Use a timeout to avoid user-specified runaway Regex patterns.
+        private static readonly TimeSpan MatchTimeout = TimeSpan.FromMilliseconds(100);
+
 
         // These settings are only present for loading and saving purposes.
         // File path:
         [JsonProperty("path")]
         public string Path { get; set; } = string.Empty;
-        [JsonProperty("filter")]
-        public string Filter { get; set; } = DefaultFilter;
+        [JsonProperty("wildcardFilter")]
+        public string WildcardFilter { get; set; } = DefaultFilter;
+        [JsonProperty("regexFilter")]
+        public string RegexPattern { get; set; } = DefaultRegexPattern;
+        [JsonProperty("useRegexFilter")]
+        public bool UseRegex { get; set; } = false;
 
         // Scanner formats:
         [JsonIgnore]
@@ -89,8 +101,6 @@ namespace PSXPrev
         public bool ReadBINContents { get; set; } = false; // Read indexed files instead of data of BIN file.
         [JsonProperty("fileSearchBINSectorData")]
         public bool ReadBINSectorData { get; set; } = false;
-        [JsonProperty("binSectorAlign")]
-        public bool BINAlignToSector { get; set; } = false;
 
         // We want nullables, but we also want to preserve the last-used values in the UI when null.
         [JsonProperty("binSectorHasStartSize")]
@@ -123,6 +133,39 @@ namespace PSXPrev
         public bool FixUVAlignment { get; set; } = true;
 
 
+        public Regex GetRegexFilter(bool allowErrors)
+        {
+            try
+            {
+                if (UseRegex)
+                {
+                    var pattern = RegexPattern;
+                    if (string.IsNullOrWhiteSpace(pattern))
+                    {
+                        pattern = DefaultRegexPattern;
+                    }
+                    return new Regex(pattern, RegexOptions.IgnoreCase, MatchTimeout);
+                }
+                else
+                {
+                    var wildcard = WildcardFilter;
+                    if (string.IsNullOrWhiteSpace(wildcard))
+                    {
+                        wildcard = EmptyFilter;
+                    }
+                    return StringUtils.WildcardToRegex(wildcard, MatchTimeout);
+                }
+            }
+            catch
+            {
+                if (!allowErrors)
+                {
+                    throw;
+                }
+                return null;
+            }
+        }
+
         public void Validate()
         {
             if (Path == null)
@@ -130,13 +173,13 @@ namespace PSXPrev
                 Path = string.Empty;
             }
 
-            if (Filter == null)
+            if (WildcardFilter == null)
             {
-                Filter = DefaultFilter;
+                WildcardFilter = DefaultFilter;
             }
-            else if (string.IsNullOrWhiteSpace(Filter))
+            else if (string.IsNullOrWhiteSpace(WildcardFilter))
             {
-                Filter = EmptyFilter; // When filter is empty, default to matching all files (with or without an extension).
+                WildcardFilter = EmptyFilter; // When filter is empty, default to matching all files (with or without an extension).
             }
         }
 
