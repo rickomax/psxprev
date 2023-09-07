@@ -1,4 +1,6 @@
-﻿using System.Windows.Forms;
+﻿using System;
+using System.Collections.Generic;
+using System.Windows.Forms;
 using PSXPrev.Common;
 
 namespace PSXPrev.Forms.Utils
@@ -96,6 +98,34 @@ namespace PSXPrev.Forms.Utils
         }
 
 
+        public static void UpdateDynamicDropDownWidth(this ComboBox comboBox, int padding = 0, int? maxWidth = null)
+        {
+            var width = comboBox.Width; // use combo box width as minimum width
+            if (comboBox.Items.Count > 0)
+            {
+                var font = comboBox.Font;
+                using (var graphics = comboBox.CreateGraphics())
+                {
+                    for (var i = 1; i < comboBox.Items.Count; i++)
+                    {
+                        var text = comboBox.Items[i]?.ToString();
+                        if (text != null)
+                        {
+                            var textWidth = (int)graphics.MeasureString(text, font).Width + padding;
+                            width = Math.Max(width, textWidth);
+                            if (maxWidth.HasValue && width >= maxWidth.Value)
+                            {
+                                width = maxWidth.Value;
+                                break; // We're as big as we want to get
+                            }
+                        }
+                    }
+                }
+            }
+            comboBox.DropDownWidth = width;
+        }
+
+
         public static T GetFocusedControlOfType<T>(this ContainerControl container) where T : Control
         {
             var focusedControl = container.ActiveControl;
@@ -107,6 +137,38 @@ namespace PSXPrev.Forms.Utils
             }
 
             return focusedControl as T;
+        }
+
+
+        public static IEnumerable<Control> EnumerateAllControls(this Control control)
+        {
+            return EnumerateAllControlsOfType<Control>(control);
+        }
+
+        public static IEnumerable<T> EnumerateAllControlsOfType<T>(this Control control) where T : Control
+        {
+            var queue = new Queue<Control>();
+            queue.Enqueue(control);
+
+            while (queue.Count > 0)
+            {
+                var parent = queue.Dequeue();
+
+                foreach (var child in parent.Controls)
+                {
+                    if (child is Control childControl)
+                    {
+                        if (child is T t)
+                        {
+                            yield return t;
+                        }
+                        if (childControl.Controls.Count > 0)
+                        {
+                            queue.Enqueue(childControl);
+                        }
+                    }
+                }
+            }
         }
     }
 }

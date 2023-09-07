@@ -36,7 +36,11 @@ namespace PSXPrev.Common.Animator
         [Browsable(false)]
         public long FileOffset { get; set; }
 
+#if DEBUG
+        [DisplayName("Result Index"), ReadOnly(true)]
+#else
         [Browsable(false)]
+#endif
         public int ResultIndex { get; set; }
 
         [DisplayName("Frame Count"), ReadOnly(true)]
