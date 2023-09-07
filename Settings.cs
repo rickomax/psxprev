@@ -232,6 +232,79 @@ namespace PSXPrev
         [JsonProperty("exportOptions")]
         public ExportModelOptions ExportModelOptions { get; set; } = new ExportModelOptions();
 
+        [JsonProperty("recentScanOptionsMax")]
+        public int ScanHistoryMax { get; set; } = 20;
+
+        // If true when adding scan history, any previous history will be removed if it matches.
+        // Otherwise only the first history will be checked.
+        [JsonProperty("recentScanOptionsRemoveDuplicates")]
+        public bool ScanHistoryRemoveDuplicates { get; set; } = true;
+
+        [JsonProperty("recentScanOptions")]
+        public List<ScanOptions> ScanHistory { get; set; } = new List<ScanOptions>();
+
+
+        public void AddScanHistory(ScanOptions history)
+        {
+            history = history.Clone();
+            history.IsReadOnly = true; // Mark as ReadOnly so that equality checks can be cached
+
+            // Check for duplicate scan histories
+            if (!history.IsBookmarked)
+            {
+                for (var i = 0; i < ScanHistory.Count; i++)
+                {
+                    var historyOther = ScanHistory[i];
+                    if (!historyOther.IsBookmarked && historyOther.Equals(history))
+                    {
+                        ScanHistory.RemoveAt(i);
+                        i--;
+                    }
+                    if (!ScanHistoryRemoveDuplicates)
+                    {
+                        break; // Only check the first history in the list
+                    }
+                }
+            }
+
+            // New history always goes at the top of the list
+            ScanHistory.Insert(0, history);
+
+            // Remove overflow
+            TrimScanHistory();
+        }
+
+        private void TrimScanHistory()
+        {
+            // Count how many histories are bookmarked, and use that to determine how many others to remove.
+            var bookmarkedCount = 0;
+            foreach (var history in ScanHistory)
+            {
+                if (history.IsBookmarked)
+                {
+                    bookmarkedCount++;
+                }
+            }
+
+            var removeStartIndex = Math.Max(0, ScanHistoryMax - bookmarkedCount);
+
+            // Remove non-bookmarked overflow
+            var nonBookmarkedIndex = 0;
+            // Always preserve the most-recent scan history, even if we overflow.
+            for (var i = 1; i < ScanHistory.Count; i++)
+            {
+                var history = ScanHistory[i];
+                if (!history.IsBookmarked)
+                {
+                    if (nonBookmarkedIndex++ >= removeStartIndex)
+                    {
+                        ScanHistory.RemoveAt(i);
+                        i--;
+                    }
+                }
+            }
+        }
+
 
         // Assigns default color to the final index (15) if specified.
         public int[] GetColorDialogCustomColors(System.Drawing.Color? defaultColor = null)
@@ -343,6 +416,7 @@ namespace PSXPrev
 
             ScanProgressFrequency = ValidateMax(ScanProgressFrequency, Defaults.ScanProgressFrequency, 0f);
             ScanPopulateFrequency = ValidateMax(ScanPopulateFrequency, Defaults.ScanPopulateFrequency, 0f);
+            ScanHistoryMax        = ValidateClamp(ScanHistoryMax,      Defaults.ScanHistoryMax, 0, 100);
 
             // Clamp multisampling to power of two
             if (Multisampling >= 16)
@@ -379,6 +453,52 @@ namespace PSXPrev
             {
                 ExportModelOptions = new ExportModelOptions();
             }
+
+            if (ScanHistory == null)
+            {
+                ScanHistory = new List<ScanOptions>();
+            }
+            // Remove null values from history and set ScanOptions.IsReadOnly to true
+            for (var i = 0; i < ScanHistory.Count; i++)
+            {
+                var history = ScanHistory[i];
+                if (history == null)
+                {
+                    ScanHistory.RemoveAt(i);
+                    i--;
+                    continue;
+                }
+                history.IsReadOnly = true; // Mark as ReadOnly so that equality checks can be cached
+            }
+
+            // Remove all duplicate instances of the same history
+            if (ScanHistoryRemoveDuplicates)
+            {
+                for (var i = 0; i < ScanHistory.Count; i++)
+                {
+                    var history = ScanHistory[i];
+                    if (history.IsBookmarked)
+                    {
+                        continue;
+                    }
+                    for (var j = i + 1; j < ScanHistory.Count; j++)
+                    {
+                        var historyOther = ScanHistory[j];
+                        if (historyOther.IsBookmarked)
+                        {
+                            continue;
+                        }
+                        if (historyOther.Equals(history))
+                        {
+                            ScanHistory.RemoveAt(j);
+                            j--;
+                        }
+                    }
+                }
+            }
+
+            // Remove overflow
+            TrimScanHistory();
         }
 
         public Settings Clone()
@@ -394,8 +514,24 @@ namespace PSXPrev
         {
             try
             {
-                Version = CurrentVersion;
-                File.WriteAllText(FilePath, JsonConvert.SerializeObject(this, Formatting.Indented));
+                Version = CurrentVersion; // Ensure we're saving as the current version
+
+                // Use JsonTextWriter instead of JsonConvert so that we
+                // can set the indentation to tabs to reduce file size.
+                using (var streamWriter = File.CreateText(FilePath))
+                using (var jsonWriter = new JsonTextWriter(streamWriter))
+                {
+                    jsonWriter.Formatting = Formatting.Indented;
+                    jsonWriter.Indentation = 1;
+                    jsonWriter.IndentChar = '\t';
+
+                    var jsonSerializer = new JsonSerializer
+                    {
+                        Formatting = Formatting.Indented,
+                    };
+                    jsonSerializer.Serialize(jsonWriter, this);
+                }
+                //File.WriteAllText(FilePath, JsonConvert.SerializeObject(this, Formatting.Indented));
                 return true;
             }
             catch
@@ -510,10 +646,19 @@ namespace PSXPrev
             return float.IsNaN(value) || float.IsInfinity(value) ? @default : GeomMath.Clamp(value, min, max);
         }
 
+        private static int ValidateMax(int value, int @default, int min)
+        {
+            return Math.Max(value, min); // Yeah, this ignores default...
+        }
+
+        private static int ValidateMin(int value, int @default, int max)
+        {
+            return Math.Min(value, max); // Yeah, this ignores default...
+        }
+
         private static int ValidateClamp(int value, int @default, int min, int max)
         {
-            // Yeah, this ignores default...
-            return GeomMath.Clamp(value, min, max);
+            return GeomMath.Clamp(value, min, max); // Yeah, this ignores default...
         }
 
         private static float ValidateAngle(float value, float @default)

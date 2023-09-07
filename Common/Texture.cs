@@ -105,7 +105,11 @@ namespace PSXPrev.Common
         [Browsable(false)]
         public long FileOffset { get; set; }
 
+#if DEBUG
+        [DisplayName("Result Index"), ReadOnly(true)]
+#else
         [Browsable(false)]
+#endif
         public int ResultIndex { get; set; }
 
         [DisplayName("X")]

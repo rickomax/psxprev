@@ -1,21 +1,32 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Timers;
 using System.Windows.Forms;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using PSXPrev.Forms.Dialogs;
 using PSXPrev.Forms.Utils;
+using Timer = System.Timers.Timer;
 
 namespace PSXPrev.Forms
 {
     public partial class ScannerForm : Form
     {
+        private const int HistoryComboBoxDropDownPadding = 5;
+        private const int HistoryComboBoxMaxDropDownWidth = 800;
+
+        private bool _loading;
         private bool _showAdvanved;
         private string _wildcardFilter = ScanOptions.DefaultFilter;
         private string _regexFilter = ScanOptions.DefaultRegexPattern;
         private string _regexFilterError;
         private Color _originalFilterForeColor;
         private string _originalFilterToolTip;
+
+        private readonly List<ScanHistoryItem> _historyItems = new List<ScanHistoryItem>();
+        private int _selectedHistoryIndex;
 
         public ScanOptions Options { get; private set; }
 
@@ -31,6 +42,32 @@ namespace PSXPrev.Forms
             // Add events that are not browsable in the designer.
             binSectorStartUpDown.TextChanged += binSectorStartSizeUpDown_ValueChanged;
             binSectorSizeUpDown.TextChanged  += binSectorStartSizeUpDown_ValueChanged;
+
+            // Register all settings controls to update the current selected history
+            foreach (var control in this.EnumerateAllControls())
+            {
+                if (control.Tag is string tagStr && tagStr == "NOTSETTING")
+                {
+                    continue; // Exclude controls marking themselves as unrelated to settings
+                }
+
+                if (control is CheckBox checkBox)
+                {
+                    checkBox.CheckedChanged += OnSettingsStateChanged;
+                }
+                else if (control is ComboBox comboBox)
+                {
+                    comboBox.SelectedIndexChanged += OnSettingsStateChanged;
+                }
+                else if (control is NumericUpDown numericUpDown)
+                {
+                    numericUpDown.ValueChanged += OnSettingsStateChanged;
+                }
+                else if (control is TextBox textBox)
+                {
+                    textBox.TextChanged += OnSettingsStateChanged;
+                }
+            }
         }
 
         private void ScannerForm_Load(object sender, EventArgs e)
@@ -79,6 +116,75 @@ namespace PSXPrev.Forms
             toolTip.SetToolTip(filterTextBox, _originalFilterToolTip);
         }
 
+        private void UpdateHistoryChanged()
+        {
+            if (!_loading && _selectedHistoryIndex != 0)
+            {
+                // Check if the selected history has been modified, if so, switch back to "Current"
+                var current = CreateOptions();
+                current.IsReadOnly = true;
+                if (!_historyItems[_selectedHistoryIndex].Options.Equals(current))
+                {
+                    _loading = true;
+                    historyComboBox.SelectedIndex = _selectedHistoryIndex = 0;
+                    _loading = false;
+                }
+            }
+        }
+
+        private void PopulateScanHistory(Settings settings, ScanOptions options)
+        {
+            var loadingOld = _loading;
+            _loading = true;
+
+            _historyItems.Clear();
+            historyComboBox.Items.Clear();
+
+            // Add "Current" scan at the top
+            var current = options?.Clone() ?? CreateOptions();
+            current.IsReadOnly = true; // Mark as ReadOnly so that equality checks can be cached
+            var index = 0;
+            AddHistoryItem(current, 0);
+
+            // Add bookmarked scans
+            index = 1;
+            foreach (var history in settings.ScanHistory)
+            {
+                if (history.IsBookmarked)
+                {
+                    AddHistoryItem(history, index++);
+                }
+            }
+
+            // Add recent unbookmarked scans
+            index = 1;
+            foreach (var history in settings.ScanHistory)
+            {
+                if (!history.IsBookmarked)
+                {
+                    AddHistoryItem(history, index++);
+                }
+            }
+
+            historyComboBox.SelectedIndex = _selectedHistoryIndex = 0;
+
+            historyComboBox.UpdateDynamicDropDownWidth(HistoryComboBoxDropDownPadding, HistoryComboBoxMaxDropDownWidth);
+
+            _loading = loadingOld;
+        }
+
+        private void AddHistoryItem(ScanOptions history, int index)
+        {
+            var historyItem = new ScanHistoryItem
+            {
+                Index = index,
+                Options = history,
+            };
+
+            _historyItems.Add(historyItem);
+            historyComboBox.Items.Add(historyItem.ToString());
+        }
+
         private void SetShowAdvanced(bool show)
         {
             SuspendLayout();
@@ -88,6 +194,116 @@ namespace PSXPrev.Forms
             ResumeLayout();
 
             _showAdvanved = show;
+        }
+
+        private void OnSettingsStateChanged(object sender, EventArgs e)
+        {
+            UpdateHistoryChanged();
+        }
+
+        private void historyComboBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (!_loading && historyComboBox.SelectedIndex != _selectedHistoryIndex)
+            {
+                if (_selectedHistoryIndex == 0)
+                {
+                    // If we're switching from the "Current" history item, then update it
+                    var currentHistoryItem = _historyItems[0];
+                    currentHistoryItem.Options = CreateOptions();
+                    currentHistoryItem.Options.IsReadOnly = true; // Mark as ReadOnly so that equality checks can be cached
+                }
+
+                _selectedHistoryIndex = historyComboBox.SelectedIndex;
+                var history = _historyItems[_selectedHistoryIndex].Options;
+                ReadSettings(null, history);
+            }
+            else
+            {
+                _selectedHistoryIndex = historyComboBox.SelectedIndex;
+            }
+            historyRemoveButton.Enabled = _selectedHistoryIndex != 0;
+        }
+
+        private void historyBookmarkButton_Click(object sender, EventArgs e)
+        {
+            string defaultText = null;
+            if (_selectedHistoryIndex != 0)
+            {
+                defaultText = _historyItems[_selectedHistoryIndex].Options.DisplayName;
+            }
+            var actionStr  = _selectedHistoryIndex != 0 ? "Rename" : "Enter a name for";
+            var displayName = InputDialog.Show(this, $"{actionStr} the bookmark, or leave blank.", "Bookmark Scan History", defaultText);
+            if (displayName != null)
+            {
+                displayName = !string.IsNullOrEmpty(displayName) ? displayName : null;
+
+                int newSelectedIndex;
+                ScanOptions history;
+                if (_selectedHistoryIndex != 0)
+                {
+                    newSelectedIndex = -1; // We need to re-locate this item
+                    history = _historyItems[_selectedHistoryIndex].Options;
+                    history.DisplayName = displayName;
+                    history.IsBookmarked = true;
+                }
+                else
+                {
+                    newSelectedIndex = 1;
+                    history = CreateOptions();
+                    history.DisplayName = displayName;
+                    history.IsBookmarked = true;
+                    Settings.Instance.AddScanHistory(history);
+                }
+
+                PopulateScanHistory(Settings.Instance, null);
+
+                var historyNotFound = false;
+                if (newSelectedIndex == -1)
+                {
+                    newSelectedIndex = 0; // Default to 0 on failure, which shouldn't happen
+                    historyNotFound = true;
+                    for (var i = 0; i < _historyItems.Count; i++)
+                    {
+                        // Find by exact instance
+                        if (object.ReferenceEquals(_historyItems[i].Options, history))
+                        {
+                            newSelectedIndex = i;
+                            historyNotFound = false;
+                            break;
+                        }
+                    }
+                }
+                // Change to the selected bookmark index, but we don't need to update settings
+                // (unless we failed to find the item).
+                if (historyNotFound)
+                {
+                    historyComboBox.SelectedIndex = 0;
+                }
+                else
+                {
+                    _loading = !historyNotFound;
+                    historyComboBox.SelectedIndex = _selectedHistoryIndex = newSelectedIndex;
+                    _loading = false;
+                }
+            }
+        }
+
+        private void historyRemoveButton_Click(object sender, EventArgs e)
+        {
+            if (_selectedHistoryIndex != 0)
+            {
+                var result = MessageBox.Show(this, "Are you sure you want to remove this scan history?", "Remove Scan History", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                if (result == DialogResult.Yes)
+                {
+                    var history = _historyItems[_selectedHistoryIndex].Options;
+                    Settings.Instance.ScanHistory.Remove(history);
+
+                    PopulateScanHistory(Settings.Instance, null);
+
+                    // Update to "Current", we need to update settings.
+                    historyComboBox.SelectedIndex = 0;
+                }
+            }
         }
 
         private void showAdvancedButton_Click(object sender, EventArgs e)
@@ -157,6 +373,10 @@ namespace PSXPrev.Forms
 
         private void filterTextBox_TextChanged(object sender, EventArgs e)
         {
+            if (_loading)
+            {
+                return;
+            }
             if (filterUseRegexCheckBox.Checked)
             {
                 _regexFilter = filterTextBox.Text;
@@ -256,7 +476,7 @@ namespace PSXPrev.Forms
             // todo: Should we always save settings?
             //WriteSettings(Settings.Instance, null); // For now, at least save UI settings (Show Advanced).
             var options = CreateOptions();
-            WriteSettings(Settings.Instance, options);
+            WriteSettings(Settings.Instance, options, (DialogResult == DialogResult.OK));
             Settings.Instance.Save();
 
             Options = options;
@@ -325,6 +545,8 @@ namespace PSXPrev.Forms
                 options = new ScanOptions();
             }
 
+            _loading = true;
+
             filePathTextBox.Text = options.Path ?? string.Empty;
             _wildcardFilter = options.WildcardFilter ?? ScanOptions.EmptyFilter;
             _regexFilter    = options.RegexPattern   ?? ScanOptions.DefaultRegexPattern;
@@ -371,16 +593,36 @@ namespace PSXPrev.Forms
             optionDrawAllToVRAMCheckBox.Checked = options.DrawAllToVRAM;
             optionOldUVAlignmentCheckBox.Checked = !options.FixUVAlignment;
 
-            SetShowAdvanced(settings.ShowAdvancedScanOptions);
+            if (settings != null)
+            {
+                SetShowAdvanced(settings.ShowAdvancedScanOptions);
+
+                PopulateScanHistory(settings, options);
+            }
+
+            ValidateFilter();
+            ValidateCanScan();
+
+            _loading = false;
         }
 
-        private void WriteSettings(Settings settings, ScanOptions options)
+        private void WriteSettings(Settings settings, ScanOptions options, bool finished)
         {
             if (options != null)
             {
                 settings.ScanOptions = options.Clone();
             }
-            settings.ShowAdvancedScanOptions = _showAdvanved;
+            if (settings != null)
+            {
+                settings.ShowAdvancedScanOptions = _showAdvanved;
+                // Only add to history if we start scanning.
+                // Don't add to history if *it's bookmarked* ~~we're already using a selected recent history~~.
+                var selectedHistory = _historyItems[_selectedHistoryIndex].Options;
+                if (finished && options != null && (_selectedHistoryIndex == 0 || !selectedHistory.IsBookmarked))
+                {
+                    settings.AddScanHistory(options);
+                }
+            }
         }
 
 
@@ -393,6 +635,37 @@ namespace PSXPrev.Forms
                     return form.Options;
                 }
                 return null;
+            }
+        }
+
+
+        private class ScanHistoryItem
+        {
+            public int Index { get; set; }
+            public ScanOptions Options { get; set; }
+            //public ScanOptions ModifiedOptions { get; set; }
+            public string EqualityString { get; set; }
+            public bool IsModified { get; set; } // Not supported yet
+
+            public bool IsCurrent => Index == 0;
+
+            public override string ToString()
+            {
+                if (IsCurrent)
+                {
+                    return "[Current Scan]";
+                }
+                else
+                {
+                    var modifiedStr = IsModified ? "*" : string.Empty;
+                    var indexStr = Options.IsBookmarked ? "B" : $"{Index}";
+                    var optionsStr = Options.ToString(70);
+                    if (string.IsNullOrEmpty(Options.DisplayName))
+                    {
+                        optionsStr = optionsStr.ToLower();
+                    }
+                    return $"{modifiedStr}[{indexStr}]  {optionsStr}";
+                }
             }
         }
     }

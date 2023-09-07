@@ -196,7 +196,7 @@ namespace PSXPrev.Common.Parsers
                     return normals[index];
                 }
 
-                for (var p = 0; p < objBlock.NPrimitive; p++)
+                for (uint p = 0; p < objBlock.NPrimitive; p++)
                 {
                     var olen = reader.ReadByte();
                     var ilen = reader.ReadByte();

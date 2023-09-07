@@ -31,6 +31,8 @@
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ScannerForm));
             this.fileGroupBox = new System.Windows.Forms.GroupBox();
+            this.historyLabel = new System.Windows.Forms.Label();
+            this.historyComboBox = new System.Windows.Forms.ComboBox();
             this.filterUseRegexCheckBox = new System.Windows.Forms.CheckBox();
             this.filterLabel = new System.Windows.Forms.Label();
             this.selectBINButton = new System.Windows.Forms.Button();
@@ -56,16 +58,16 @@
             this.optionDrawAllToVRAMCheckBox = new System.Windows.Forms.CheckBox();
             this.binSectorCheckBox = new System.Windows.Forms.CheckBox();
             this.checkSPTCheckBox = new System.Windows.Forms.CheckBox();
+            this.checkPMDCheckBox = new System.Windows.Forms.CheckBox();
+            this.checkTODCheckBox = new System.Windows.Forms.CheckBox();
+            this.checkTIMCheckBox = new System.Windows.Forms.CheckBox();
+            this.checkTMDCheckBox = new System.Windows.Forms.CheckBox();
             this.formatsGroupBox = new System.Windows.Forms.GroupBox();
             this.checkANCheckBox = new System.Windows.Forms.CheckBox();
             this.animationsLabel = new System.Windows.Forms.Label();
             this.texturesLabel = new System.Windows.Forms.Label();
             this.modelsLabel = new System.Windows.Forms.Label();
-            this.checkPMDCheckBox = new System.Windows.Forms.CheckBox();
-            this.checkTODCheckBox = new System.Windows.Forms.CheckBox();
-            this.checkTIMCheckBox = new System.Windows.Forms.CheckBox();
             this.checkVDFCheckBox = new System.Windows.Forms.CheckBox();
-            this.checkTMDCheckBox = new System.Windows.Forms.CheckBox();
             this.optionsGroupBox = new System.Windows.Forms.GroupBox();
             this.optionShowErrorsCheckBox = new System.Windows.Forms.CheckBox();
             this.optionDebugCheckBox = new System.Windows.Forms.CheckBox();
@@ -87,6 +89,8 @@
             this.scanButton = new System.Windows.Forms.Button();
             this.cancelButton = new System.Windows.Forms.Button();
             this.scanCancelMarginFlowLayoutPanel = new System.Windows.Forms.FlowLayoutPanel();
+            this.historyRemoveButton = new System.Windows.Forms.Button();
+            this.historyBookmarkButton = new System.Windows.Forms.Button();
             this.fileGroupBox.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.offsetAlignUpDown)).BeginInit();
             this.formatsGroupBox.SuspendLayout();
@@ -103,6 +107,10 @@
             // 
             // fileGroupBox
             // 
+            this.fileGroupBox.Controls.Add(this.historyBookmarkButton);
+            this.fileGroupBox.Controls.Add(this.historyRemoveButton);
+            this.fileGroupBox.Controls.Add(this.historyLabel);
+            this.fileGroupBox.Controls.Add(this.historyComboBox);
             this.fileGroupBox.Controls.Add(this.filterUseRegexCheckBox);
             this.fileGroupBox.Controls.Add(this.filterLabel);
             this.fileGroupBox.Controls.Add(this.selectBINButton);
@@ -114,28 +122,55 @@
             this.fileGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
             this.fileGroupBox.Location = new System.Drawing.Point(0, 0);
             this.fileGroupBox.Name = "fileGroupBox";
-            this.fileGroupBox.Size = new System.Drawing.Size(394, 105);
+            this.fileGroupBox.Size = new System.Drawing.Size(394, 133);
             this.fileGroupBox.TabIndex = 0;
             this.fileGroupBox.TabStop = false;
             this.fileGroupBox.Text = "Files";
             // 
+            // historyLabel
+            // 
+            this.historyLabel.AutoSize = true;
+            this.historyLabel.Location = new System.Drawing.Point(6, 22);
+            this.historyLabel.Name = "historyLabel";
+            this.historyLabel.Size = new System.Drawing.Size(42, 13);
+            this.historyLabel.TabIndex = 12;
+            this.historyLabel.Text = "History:";
+            // 
+            // historyComboBox
+            // 
+            this.historyComboBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.historyComboBox.DropDownHeight = 275;
+            this.historyComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.historyComboBox.FormattingEnabled = true;
+            this.historyComboBox.IntegralHeight = false;
+            this.historyComboBox.ItemHeight = 13;
+            this.historyComboBox.Location = new System.Drawing.Point(54, 19);
+            this.historyComboBox.MaxDropDownItems = 21;
+            this.historyComboBox.Name = "historyComboBox";
+            this.historyComboBox.Size = new System.Drawing.Size(269, 21);
+            this.historyComboBox.TabIndex = 0;
+            this.historyComboBox.Tag = "NOTSETTING";
+            this.toolTip.SetToolTip(this.historyComboBox, "Choose a previous scan from history");
+            this.historyComboBox.SelectedIndexChanged += new System.EventHandler(this.historyComboBox_SelectedIndexChanged);
+            // 
             // filterUseRegexCheckBox
             // 
             this.filterUseRegexCheckBox.AutoSize = true;
-            this.filterUseRegexCheckBox.Location = new System.Drawing.Point(204, 77);
+            this.filterUseRegexCheckBox.Location = new System.Drawing.Point(204, 105);
             this.filterUseRegexCheckBox.Name = "filterUseRegexCheckBox";
             this.filterUseRegexCheckBox.Size = new System.Drawing.Size(139, 17);
-            this.filterUseRegexCheckBox.TabIndex = 6;
+            this.filterUseRegexCheckBox.TabIndex = 9;
             this.filterUseRegexCheckBox.Text = "Use Regular Expression";
-            this.toolTip.SetToolTip(this.filterUseRegexCheckBox, "Use Regular Expressions to filter files instead of wildcard patterns.\r\nRemember to" +
-        " include ^ and $ if you don\'t want the match to be open-ended.");
+            this.toolTip.SetToolTip(this.filterUseRegexCheckBox, "Use Regular Expressions to filter files instead of wildcard patterns.\r\nRemember t" +
+        "o include ^ and $ if you don\'t want the match to be open-ended.");
             this.filterUseRegexCheckBox.UseVisualStyleBackColor = true;
             this.filterUseRegexCheckBox.CheckedChanged += new System.EventHandler(this.filterUseRegexCheckBox_CheckedChanged);
             // 
             // filterLabel
             // 
             this.filterLabel.AutoSize = true;
-            this.filterLabel.Location = new System.Drawing.Point(6, 78);
+            this.filterLabel.Location = new System.Drawing.Point(6, 106);
             this.filterLabel.Name = "filterLabel";
             this.filterLabel.Size = new System.Drawing.Size(32, 13);
             this.filterLabel.TabIndex = 10;
@@ -143,39 +178,39 @@
             // 
             // selectBINButton
             // 
-            this.selectBINButton.Location = new System.Drawing.Point(173, 45);
+            this.selectBINButton.Location = new System.Drawing.Point(173, 73);
             this.selectBINButton.Name = "selectBINButton";
             this.selectBINButton.Size = new System.Drawing.Size(75, 23);
-            this.selectBINButton.TabIndex = 3;
+            this.selectBINButton.TabIndex = 6;
             this.selectBINButton.Text = "Select BIN";
             this.selectBINButton.UseVisualStyleBackColor = true;
             this.selectBINButton.Click += new System.EventHandler(this.selectBINButton_Click);
             // 
             // selectFolderButton
             // 
-            this.selectFolderButton.Location = new System.Drawing.Point(12, 45);
+            this.selectFolderButton.Location = new System.Drawing.Point(12, 73);
             this.selectFolderButton.Name = "selectFolderButton";
             this.selectFolderButton.Size = new System.Drawing.Size(79, 23);
-            this.selectFolderButton.TabIndex = 1;
+            this.selectFolderButton.TabIndex = 4;
             this.selectFolderButton.Text = "Select Folder";
             this.selectFolderButton.Click += new System.EventHandler(this.selectFolderButton_Click);
             // 
             // selectISOButton
             // 
-            this.selectISOButton.Location = new System.Drawing.Point(254, 45);
+            this.selectISOButton.Location = new System.Drawing.Point(254, 73);
             this.selectISOButton.Name = "selectISOButton";
             this.selectISOButton.Size = new System.Drawing.Size(75, 23);
-            this.selectISOButton.TabIndex = 4;
+            this.selectISOButton.TabIndex = 7;
             this.selectISOButton.Text = "Select ISO";
             this.selectISOButton.UseVisualStyleBackColor = true;
             this.selectISOButton.Click += new System.EventHandler(this.selectISOButton_Click);
             // 
             // selectFileButton
             // 
-            this.selectFileButton.Location = new System.Drawing.Point(99, 45);
+            this.selectFileButton.Location = new System.Drawing.Point(99, 73);
             this.selectFileButton.Name = "selectFileButton";
             this.selectFileButton.Size = new System.Drawing.Size(68, 23);
-            this.selectFileButton.TabIndex = 2;
+            this.selectFileButton.TabIndex = 5;
             this.selectFileButton.Text = "Select File";
             this.selectFileButton.UseVisualStyleBackColor = true;
             this.selectFileButton.Click += new System.EventHandler(this.selectFileButton_Click);
@@ -184,18 +219,18 @@
             // 
             this.filePathTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.filePathTextBox.Location = new System.Drawing.Point(12, 19);
+            this.filePathTextBox.Location = new System.Drawing.Point(12, 47);
             this.filePathTextBox.Name = "filePathTextBox";
             this.filePathTextBox.Size = new System.Drawing.Size(370, 20);
-            this.filePathTextBox.TabIndex = 0;
+            this.filePathTextBox.TabIndex = 3;
             this.filePathTextBox.TextChanged += new System.EventHandler(this.filePathTextBox_TextChanged);
             // 
             // filterTextBox
             // 
-            this.filterTextBox.Location = new System.Drawing.Point(44, 75);
+            this.filterTextBox.Location = new System.Drawing.Point(44, 103);
             this.filterTextBox.Name = "filterTextBox";
             this.filterTextBox.Size = new System.Drawing.Size(150, 20);
-            this.filterTextBox.TabIndex = 5;
+            this.filterTextBox.TabIndex = 8;
             this.filterTextBox.Text = "*.*";
             this.toolTip.SetToolTip(this.filterTextBox, "Wildcard or Regex pattern to match files.");
             this.filterTextBox.TextChanged += new System.EventHandler(this.filterTextBox_TextChanged);
@@ -226,7 +261,8 @@
             this.checkPSXCheckBox.Size = new System.Drawing.Size(47, 17);
             this.checkPSXCheckBox.TabIndex = 4;
             this.checkPSXCheckBox.Text = "PSX";
-            this.toolTip.SetToolTip(this.checkPSXCheckBox, "Neversoft Model and Textures Format\r\nTony Hawk\'s Pro Skater / Apocalypse / Spiderman");
+            this.toolTip.SetToolTip(this.checkPSXCheckBox, "Neversoft Model and Textures Format\r\nTony Hawk\'s Pro Skater / Apocalypse / Spider" +
+        "man");
             this.checkPSXCheckBox.UseVisualStyleBackColor = true;
             // 
             // checkMODCheckBox
@@ -405,9 +441,53 @@
             this.checkSPTCheckBox.Size = new System.Drawing.Size(47, 17);
             this.checkSPTCheckBox.TabIndex = 14;
             this.checkSPTCheckBox.Text = "SPT";
-            this.toolTip.SetToolTip(this.checkSPTCheckBox, "Blitz Games Textures Format\r\nFrogger 2 / Chicken Run (Used by BFF models)\r\nMust be explicitly checked to scan\r\nM" +
-        "any false positives unless you set Align to 2048");
+            this.toolTip.SetToolTip(this.checkSPTCheckBox, "Blitz Games Textures Format\r\nFrogger 2 / Chicken Run (Used by BFF models)\r\nMust b" +
+        "e explicitly checked to scan\r\nMany false positives unless you set Align to 2048");
             this.checkSPTCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // checkPMDCheckBox
+            // 
+            this.checkPMDCheckBox.AutoSize = true;
+            this.checkPMDCheckBox.Location = new System.Drawing.Point(179, 19);
+            this.checkPMDCheckBox.Name = "checkPMDCheckBox";
+            this.checkPMDCheckBox.Size = new System.Drawing.Size(50, 17);
+            this.checkPMDCheckBox.TabIndex = 2;
+            this.checkPMDCheckBox.Text = "PMD";
+            this.toolTip.SetToolTip(this.checkPMDCheckBox, "Standard Model Format");
+            this.checkPMDCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // checkTODCheckBox
+            // 
+            this.checkTODCheckBox.AutoSize = true;
+            this.checkTODCheckBox.Location = new System.Drawing.Point(125, 66);
+            this.checkTODCheckBox.Name = "checkTODCheckBox";
+            this.checkTODCheckBox.Size = new System.Drawing.Size(49, 17);
+            this.checkTODCheckBox.TabIndex = 8;
+            this.checkTODCheckBox.Text = "TOD";
+            this.toolTip.SetToolTip(this.checkTODCheckBox, "Standard Animation Format");
+            this.checkTODCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // checkTIMCheckBox
+            // 
+            this.checkTIMCheckBox.AutoSize = true;
+            this.checkTIMCheckBox.Location = new System.Drawing.Point(71, 42);
+            this.checkTIMCheckBox.Name = "checkTIMCheckBox";
+            this.checkTIMCheckBox.Size = new System.Drawing.Size(45, 17);
+            this.checkTIMCheckBox.TabIndex = 6;
+            this.checkTIMCheckBox.Text = "TIM";
+            this.toolTip.SetToolTip(this.checkTIMCheckBox, "Standard Texture Format");
+            this.checkTIMCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // checkTMDCheckBox
+            // 
+            this.checkTMDCheckBox.AutoSize = true;
+            this.checkTMDCheckBox.Location = new System.Drawing.Point(71, 19);
+            this.checkTMDCheckBox.Name = "checkTMDCheckBox";
+            this.checkTMDCheckBox.Size = new System.Drawing.Size(50, 17);
+            this.checkTMDCheckBox.TabIndex = 0;
+            this.checkTMDCheckBox.Text = "TMD";
+            this.toolTip.SetToolTip(this.checkTMDCheckBox, "Standard Model Format");
+            this.checkTMDCheckBox.UseVisualStyleBackColor = true;
             // 
             // formatsGroupBox
             // 
@@ -426,7 +506,7 @@
             this.formatsGroupBox.Controls.Add(this.checkVDFCheckBox);
             this.formatsGroupBox.Controls.Add(this.checkTMDCheckBox);
             this.formatsGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
-            this.formatsGroupBox.Location = new System.Drawing.Point(0, 105);
+            this.formatsGroupBox.Location = new System.Drawing.Point(0, 133);
             this.formatsGroupBox.Name = "formatsGroupBox";
             this.formatsGroupBox.Size = new System.Drawing.Size(394, 93);
             this.formatsGroupBox.TabIndex = 1;
@@ -470,39 +550,6 @@
             this.modelsLabel.TabIndex = 11;
             this.modelsLabel.Text = "Models:";
             // 
-            // checkPMDCheckBox
-            // 
-            this.checkPMDCheckBox.AutoSize = true;
-            this.checkPMDCheckBox.Location = new System.Drawing.Point(179, 19);
-            this.checkPMDCheckBox.Name = "checkPMDCheckBox";
-            this.checkPMDCheckBox.Size = new System.Drawing.Size(50, 17);
-            this.checkPMDCheckBox.TabIndex = 2;
-            this.checkPMDCheckBox.Text = "PMD";
-            this.toolTip.SetToolTip(this.checkPMDCheckBox, "Standard Model Format");
-            this.checkPMDCheckBox.UseVisualStyleBackColor = true;
-            // 
-            // checkTODCheckBox
-            // 
-            this.checkTODCheckBox.AutoSize = true;
-            this.checkTODCheckBox.Location = new System.Drawing.Point(125, 66);
-            this.checkTODCheckBox.Name = "checkTODCheckBox";
-            this.checkTODCheckBox.Size = new System.Drawing.Size(49, 17);
-            this.checkTODCheckBox.TabIndex = 8;
-            this.checkTODCheckBox.Text = "TOD";
-            this.toolTip.SetToolTip(this.checkTODCheckBox, "Standard Animation Format");
-            this.checkTODCheckBox.UseVisualStyleBackColor = true;
-            // 
-            // checkTIMCheckBox
-            // 
-            this.checkTIMCheckBox.AutoSize = true;
-            this.checkTIMCheckBox.Location = new System.Drawing.Point(71, 42);
-            this.checkTIMCheckBox.Name = "checkTIMCheckBox";
-            this.checkTIMCheckBox.Size = new System.Drawing.Size(45, 17);
-            this.checkTIMCheckBox.TabIndex = 6;
-            this.checkTIMCheckBox.Text = "TIM";
-            this.toolTip.SetToolTip(this.checkTIMCheckBox, "Standard Texture Format");
-            this.checkTIMCheckBox.UseVisualStyleBackColor = true;
-            // 
             // checkVDFCheckBox
             // 
             this.checkVDFCheckBox.AutoSize = true;
@@ -513,17 +560,6 @@
             this.checkVDFCheckBox.Text = "VDF";
             this.checkVDFCheckBox.UseVisualStyleBackColor = true;
             // 
-            // checkTMDCheckBox
-            // 
-            this.checkTMDCheckBox.AutoSize = true;
-            this.checkTMDCheckBox.Location = new System.Drawing.Point(71, 19);
-            this.checkTMDCheckBox.Name = "checkTMDCheckBox";
-            this.checkTMDCheckBox.Size = new System.Drawing.Size(50, 17);
-            this.checkTMDCheckBox.TabIndex = 0;
-            this.checkTMDCheckBox.Text = "TMD";
-            this.toolTip.SetToolTip(this.checkTMDCheckBox, "Standard Model Format");
-            this.checkTMDCheckBox.UseVisualStyleBackColor = true;
-            // 
             // optionsGroupBox
             // 
             this.optionsGroupBox.Controls.Add(this.optionShowErrorsCheckBox);
@@ -533,7 +569,7 @@
             this.optionsGroupBox.Controls.Add(this.optionNoVerboseCheckBox);
             this.optionsGroupBox.Controls.Add(this.optionLogToFileCheckBox);
             this.optionsGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
-            this.optionsGroupBox.Location = new System.Drawing.Point(0, 198);
+            this.optionsGroupBox.Location = new System.Drawing.Point(0, 226);
             this.optionsGroupBox.Name = "optionsGroupBox";
             this.optionsGroupBox.Size = new System.Drawing.Size(394, 69);
             this.optionsGroupBox.TabIndex = 2;
@@ -615,7 +651,7 @@
             this.showAdvancedMarginPanel.AutoSize = true;
             this.showAdvancedMarginPanel.Controls.Add(this.showAdvancedButton);
             this.showAdvancedMarginPanel.Dock = System.Windows.Forms.DockStyle.Top;
-            this.showAdvancedMarginPanel.Location = new System.Drawing.Point(0, 267);
+            this.showAdvancedMarginPanel.Location = new System.Drawing.Point(0, 295);
             this.showAdvancedMarginPanel.Name = "showAdvancedMarginPanel";
             this.showAdvancedMarginPanel.Padding = new System.Windows.Forms.Padding(3);
             this.showAdvancedMarginPanel.Size = new System.Drawing.Size(394, 29);
@@ -646,7 +682,7 @@
             this.advancedOptionsGroupBox.Controls.Add(this.optionIgnoreTMDVersionCheckBox);
             this.advancedOptionsGroupBox.Controls.Add(this.isoContentsCheckBox);
             this.advancedOptionsGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
-            this.advancedOptionsGroupBox.Location = new System.Drawing.Point(0, 296);
+            this.advancedOptionsGroupBox.Location = new System.Drawing.Point(0, 324);
             this.advancedOptionsGroupBox.Name = "advancedOptionsGroupBox";
             this.advancedOptionsGroupBox.Size = new System.Drawing.Size(394, 98);
             this.advancedOptionsGroupBox.TabIndex = 4;
@@ -723,7 +759,7 @@
             this.advancedOffsetGroupBox.Controls.Add(this.offsetStopUpDown);
             this.advancedOffsetGroupBox.Controls.Add(this.offsetStopCheckBox);
             this.advancedOffsetGroupBox.Dock = System.Windows.Forms.DockStyle.Top;
-            this.advancedOffsetGroupBox.Location = new System.Drawing.Point(0, 394);
+            this.advancedOffsetGroupBox.Location = new System.Drawing.Point(0, 422);
             this.advancedOffsetGroupBox.Name = "advancedOffsetGroupBox";
             this.advancedOffsetGroupBox.Size = new System.Drawing.Size(394, 76);
             this.advancedOffsetGroupBox.TabIndex = 5;
@@ -808,12 +844,38 @@
             this.scanCancelMarginFlowLayoutPanel.Controls.Add(this.scanButton);
             this.scanCancelMarginFlowLayoutPanel.Dock = System.Windows.Forms.DockStyle.Top;
             this.scanCancelMarginFlowLayoutPanel.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
-            this.scanCancelMarginFlowLayoutPanel.Location = new System.Drawing.Point(0, 470);
+            this.scanCancelMarginFlowLayoutPanel.Location = new System.Drawing.Point(0, 498);
             this.scanCancelMarginFlowLayoutPanel.Name = "scanCancelMarginFlowLayoutPanel";
             this.scanCancelMarginFlowLayoutPanel.Padding = new System.Windows.Forms.Padding(0, 6, 11, 7);
             this.scanCancelMarginFlowLayoutPanel.Size = new System.Drawing.Size(394, 36);
             this.scanCancelMarginFlowLayoutPanel.TabIndex = 6;
             this.scanCancelMarginFlowLayoutPanel.WrapContents = false;
+            // 
+            // historyRemoveButton
+            // 
+            this.historyRemoveButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.historyRemoveButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.historyRemoveButton.Location = new System.Drawing.Point(359, 18);
+            this.historyRemoveButton.Name = "historyRemoveButton";
+            this.historyRemoveButton.Size = new System.Drawing.Size(24, 23);
+            this.historyRemoveButton.TabIndex = 2;
+            this.historyRemoveButton.Text = "−";
+            this.toolTip.SetToolTip(this.historyRemoveButton, "Remove history");
+            this.historyRemoveButton.UseVisualStyleBackColor = true;
+            this.historyRemoveButton.Click += new System.EventHandler(this.historyRemoveButton_Click);
+            // 
+            // historyBookmarkButton
+            // 
+            this.historyBookmarkButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.historyBookmarkButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.historyBookmarkButton.Location = new System.Drawing.Point(329, 18);
+            this.historyBookmarkButton.Name = "historyBookmarkButton";
+            this.historyBookmarkButton.Size = new System.Drawing.Size(24, 23);
+            this.historyBookmarkButton.TabIndex = 1;
+            this.historyBookmarkButton.Text = "+";
+            this.toolTip.SetToolTip(this.historyBookmarkButton, "Bookmark history");
+            this.historyBookmarkButton.UseVisualStyleBackColor = true;
+            this.historyBookmarkButton.Click += new System.EventHandler(this.historyBookmarkButton_Click);
             // 
             // ScannerForm
             // 
@@ -823,7 +885,7 @@
             this.AutoSize = true;
             this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.CancelButton = this.cancelButton;
-            this.ClientSize = new System.Drawing.Size(394, 514);
+            this.ClientSize = new System.Drawing.Size(394, 541);
             this.Controls.Add(this.scanCancelMarginFlowLayoutPanel);
             this.Controls.Add(this.advancedOffsetGroupBox);
             this.Controls.Add(this.advancedOptionsGroupBox);
@@ -922,5 +984,9 @@
         private System.Windows.Forms.FlowLayoutPanel scanCancelMarginFlowLayoutPanel;
         private System.Windows.Forms.Label binSectorInvalidLabel;
         private System.Windows.Forms.CheckBox checkSPTCheckBox;
+        private System.Windows.Forms.ComboBox historyComboBox;
+        private System.Windows.Forms.Label historyLabel;
+        private System.Windows.Forms.Button historyBookmarkButton;
+        private System.Windows.Forms.Button historyRemoveButton;
     }
 }

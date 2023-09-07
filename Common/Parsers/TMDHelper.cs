@@ -8,7 +8,7 @@ namespace PSXPrev.Common.Parsers
 {
     public static class TMDHelper
     {
-        public static PrimitiveData CreateTMDPacketStructure(byte flag, byte mode, BinaryReader reader, int index)
+        public static PrimitiveData CreateTMDPacketStructure(byte flag, byte mode, BinaryReader reader, uint index)
         {
             var lgtBit = ((flag >> 0) & 0x01) == 0; // Light: 0-Lit, 1-Unlit
             var fceBit = ((flag >> 1) & 0x01) == 1; // Both sides: 0-Single sided, 1-Double sided
