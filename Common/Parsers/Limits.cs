@@ -14,6 +14,10 @@
         public static ulong MaxBFFPackets = 40000;
         public static ulong MaxBFFVertices = 20000;
         public static ulong MaxBFFTextureHashes = 10000;
+        public static ulong MaxBFFModels = 1000;
+        public static ulong MaxBFFEntries = 10000;
+        public static ulong MaxBFFKeys = 1000;
+        public static ulong MaxBFFAnimations = 1000;
 
         public static ulong MaxHMDBlockCount = 1024;
         public static ulong MaxHMDCoordCount = 1024; // Same as BlockCount, because they're related

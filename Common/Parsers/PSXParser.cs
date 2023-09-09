@@ -41,7 +41,9 @@ namespace PSXPrev.Common.Parsers
         private readonly Dictionary<uint, PSXSpriteVertexData> _spriteVertices = new Dictionary<uint, PSXSpriteVertexData>();
         private readonly List<ModelEntity> _models = new List<ModelEntity>();
         // Debug:
+#if DEBUG
         private readonly Dictionary<uint, List<string>> _modelDebugData = new Dictionary<uint, List<string>>();
+#endif
 
 
         public PSXParser(EntityAddedAction entityAdded, TextureAddedAction textureAdded)
@@ -60,7 +62,9 @@ namespace PSXPrev.Common.Parsers
             _groupedTriangles.Clear();
             _groupedSprites.Clear();
             _models.Clear();
+#if DEBUG
             _modelDebugData.Clear();
+#endif
 
             if (!ReadPSX(reader))
             {
@@ -467,7 +471,9 @@ namespace PSXPrev.Common.Parsers
             }
             texture.OriginalPalettes = origPalettes;
             texture.LookupID = _textureHashes[textureIndex];
+#if DEBUG
             texture.DebugData = new[] { $"{maskMode}" };
+#endif
             TextureResults.Add(texture);
             return true;
         }
@@ -593,6 +599,7 @@ namespace PSXPrev.Common.Parsers
                 //Coords = coords, // Assigned later on success
             };*/
 
+#if DEBUG
             _modelDebugData[modelIndex] = new List<string> {
                 $"objectFlags: 0x{objectFlags:x08}",
                 $"unk1: 0x{unk1:x08}",
@@ -601,6 +608,7 @@ namespace PSXPrev.Common.Parsers
                 $"tx,ty: {tx}, {ty}",
                 $"paletteTop: 0x{paletteTop:x08}",
             };
+#endif
             return new PSXObject
             {
                 Translation = new Vector3(x, y, z),
@@ -610,12 +618,16 @@ namespace PSXPrev.Common.Parsers
 
         private bool ReadModel(BinaryReader reader, ushort version, uint modelIndex, ref uint attachmentIndex)
         {
+#if DEBUG
             _modelDebugData.TryGetValue(modelIndex, out var modelDebugData);
+#endif
             var modelFlags  = version == 0x04 ? reader.ReadUInt16() : reader.ReadUInt32();
             var vertexCount = version == 0x04 ? reader.ReadUInt16() : reader.ReadUInt32();
             var normalCount = version == 0x04 ? reader.ReadUInt16() : reader.ReadUInt32();
             var faceCount   = version == 0x04 ? reader.ReadUInt16() : reader.ReadUInt32();
+#if DEBUG
             modelDebugData?.Add($"modelFlags: 0x{modelFlags:x08}");
+#endif
 
             if (vertexCount > Limits.MaxPSXVertices || normalCount > Limits.MaxPSXVertices)
             {
@@ -636,7 +648,9 @@ namespace PSXPrev.Common.Parsers
             if (version == 0x04)
             {
                 var unk2 = reader.ReadUInt32();
+#if DEBUG
                 modelDebugData?.Add($"modelUnk2: 0x{unk2:x08}");
+#endif
             }
 
             _attachableIndices.Clear();
@@ -909,6 +923,7 @@ namespace PSXPrev.Common.Parsers
 
                 if (!invisible || Settings.Instance.AdvancedPSXIncludeInvisible)
                 {
+#if DEBUG
                     var extraLength = faceLength - (reader.BaseStream.Position - facePosition);
                     var triangle1DebugData = new List<string>
                     {
@@ -918,6 +933,7 @@ namespace PSXPrev.Common.Parsers
                         $"Position: 0x{reader.BaseStream.Position:x}",
                     };
                     var triangle2DebugData = new List<string>(triangle1DebugData);
+#endif
 
                     var triangle1 = new Triangle
                     {
@@ -929,7 +945,9 @@ namespace PSXPrev.Common.Parsers
                         // Use helper functions to avoid allocating an array if all are "no attachment"
                         AttachedIndices = Triangle.CreateAttachedIndices(attachedIndex0, attachedIndex1, attachedIndex2),
                         AttachableIndices = Triangle.CreateAttachableIndices(attachableIndex0, attachableIndex1, attachableIndex2),
+#if DEBUG
                         DebugData = triangle1DebugData.ToArray(),
+#endif
                     };
                     if (textured)
                     {
@@ -950,7 +968,9 @@ namespace PSXPrev.Common.Parsers
                             // Use helper functions to avoid allocating an array if all are "no attachment"
                             AttachedIndices = Triangle.CreateAttachedIndices(attachedIndex1, attachedIndex3, attachedIndex2),
                             AttachableIndices = Triangle.CreateAttachableIndices(attachableIndex1, attachableIndex3, attachableIndex2),
+#if DEBUG
                             DebugData = triangle2DebugData.ToArray(),
+#endif
                         };
                         if (textured)
                         {
@@ -975,6 +995,9 @@ namespace PSXPrev.Common.Parsers
                 var psxObject = _objects[i];
                 if (psxObject.ModelIndex == modelIndex)
                 {
+#if DEBUG
+                    _modelDebugData.TryGetValue(modelIndex, out var modelDebugData);
+#endif
                     //var coord = _coords[i];
                     //var localMatrix = coord.WorldMatrix;
                     var localMatrix = Matrix4.CreateTranslation(psxObject.Translation);
@@ -982,7 +1005,6 @@ namespace PSXPrev.Common.Parsers
                     {
                         var renderInfo = kvp.Key;
                         var triangles = kvp.Value;
-                        _modelDebugData.TryGetValue(modelIndex, out var modelDebugData);
                         var model = new ModelEntity
                         {
                             Triangles = triangles.ToArray(),
@@ -992,7 +1014,9 @@ namespace PSXPrev.Common.Parsers
                             MixtureRate = renderInfo.MixtureRate,
                             TMDID = modelIndex + 1u,
                             OriginalLocalMatrix = localMatrix,
+#if DEBUG
                             DebugData = modelDebugData?.ToArray(),
+#endif
                         };
                         model.ComputeAttached();
                         _models.Add(model);
@@ -1002,7 +1026,6 @@ namespace PSXPrev.Common.Parsers
                         var spriteCenter = kvp.Key.Item1;
                         var renderInfo = kvp.Key.Item2;
                         var triangles = kvp.Value;
-                        _modelDebugData.TryGetValue(modelIndex, out var modelDebugData);
                         var model = new ModelEntity
                         {
                             Triangles = triangles.ToArray(),
@@ -1013,7 +1036,9 @@ namespace PSXPrev.Common.Parsers
                             SpriteCenter = spriteCenter,
                             TMDID = modelIndex + 1u,
                             OriginalLocalMatrix = localMatrix,
+#if DEBUG
                             DebugData = modelDebugData?.ToArray(),
+#endif
                         };
                         model.ComputeAttached();
                         _models.Add(model);
