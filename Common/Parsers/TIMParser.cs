@@ -18,74 +18,151 @@ namespace PSXPrev.Common.Parsers
 
         protected override void Parse(BinaryReader reader)
         {
-            var id = reader.ReadUInt16();
-            if (id == 0x10)
+            if (!ReadTIM(reader))
             {
-                var version = reader.ReadUInt16();
-                if (Limits.IgnoreTIMVersion || version == 0x00)
-                {
-                    var texture = ParseTim(reader);
-                    if (texture != null)
-                    {
-                        TextureResults.Add(texture);
-                    }
-                }
+                //foreach (var texture in TextureResults)
+                //{
+                //    texture.Dispose();
+                //}
+                //TextureResults.Clear();
             }
         }
 
-        private Texture ParseTim(BinaryReader reader)
+        private bool ReadTIM(BinaryReader reader)
         {
+            var header = reader.ReadUInt32();
+            var id       = (header      ) & 0xff;
+            var version  = (header >>  8) & 0xff;
+            var reserved = (header >> 16);
+            // How we originally ignored version:
+            if (id != 0x10 || version != 0x00 || (!Limits.IgnoreTIMVersion && reserved != 0))
+            //if (id != 0x10 || (!Limits.IgnoreTIMVersion && (version != 0x00 || reserved != 0)))
+            {
+                return false;
+            }
+
             var flag = reader.ReadUInt32();
-            var pmode = (flag & 0x7);
+            var hasClut = (flag & 0x8) != 0;
+            var pmode   = (flag & 0x7);
             if (pmode == 4 || pmode > 4)
             {
-                return null; // Mixed format not supported (check now to speed up TIM scanning), or invalid pmode
+                // As far as I can tell, mixed format (pmode 4) doesn't actually exist.
+                // There's no tools or library functions that support it.
+                return false; // Mixed format not supported (check now to speed up TIM scanning), or invalid pmode
             }
-            var hasClut = (flag & 0x8) != 0;
-            // Reduce false positives, since the hiword of flag should be all zeroes.
-            //if (!Limits.IgnoreTIMVersion && (flag & 0xffff0000) != 0)
+            // Reduce false positives, since the hibits of flag should be all zeroes.
+            //if (!Limits.IgnoreTIMVersion && (flag & ~0xfu) != 0)
             //{
-            //    return null;
+            //    return false;
             //}
 
+            var bpp = GetBppFromMode(pmode);
             ushort[][] palettes = null;
             bool? hasSemiTransparency = null;
             if (hasClut)
             {
-                var clutBnum = reader.ReadUInt32(); // Size of clut data starting at this field
-                var clutDx = reader.ReadUInt16();
+                var clutPosition = reader.BaseStream.Position;
+                var clutSize = reader.ReadUInt32(); // Size of clut data starting at this field
+                var clutDx = reader.ReadUInt16(); // Frame buffer coordinates
                 var clutDy = reader.ReadUInt16();
-                var clutWidth = reader.ReadUInt16();
+                var clutWidth  = reader.ReadUInt16();
                 var clutHeight = reader.ReadUInt16();
+                if (clutSize < 12 + clutHeight * clutWidth * 2)
+                {
+                    return false;
+                }
 
                 // Noted in jpsxdec/CreateTim that some files can claim an unpaletted pmode but still use a palette.
-                if (pmode == 2)
-                {
-                    pmode = GetModeFromClut(clutWidth);
-                }
-                else if (pmode == 3)
-                {
-                    pmode = 1; // 8bpp (256clut)
-                }
+                bpp = InferBppFromClut(pmode, clutWidth);
 
-                palettes = ReadPalettes(reader, pmode, clutWidth, clutHeight, out hasSemiTransparency, false);
+                palettes = ReadPalettes(reader, bpp, clutWidth, clutHeight, out hasSemiTransparency, false);
+                reader.BaseStream.Seek(clutPosition + clutSize, SeekOrigin.Begin);
             }
 
-            if (pmode < 2 && palettes == null)
+            if (bpp <= 8 && palettes == null)
             {
-                return null; // No palette for clut format (check now to speed up TIM scanning)
+                return false; // No palette for clut format (check now to speed up TIM scanning)
             }
 
-            var imgBnum = reader.ReadUInt32(); // Size of image data starting at this field
-            var imgDx = reader.ReadUInt16();
-            var imgDy = reader.ReadUInt16();
-            var imgStride = reader.ReadUInt16(); // Stride in units of 2 bytes
-            var imgHeight = reader.ReadUInt16();
+            var imagePosition = reader.BaseStream.Position;
+            var imageSize = reader.ReadUInt32(); // Size of image data starting at this field
+            var dx = reader.ReadUInt16(); // Frame buffer coordinates
+            var dy = reader.ReadUInt16();
+            var stride = reader.ReadUInt16(); // Stride in units of 2 bytes
+            var height = reader.ReadUInt16();
+            if (imageSize < 12 + height * stride * 2)
+            {
+                return false;
+            }
 
-            return ReadTexture(reader, imgStride, imgHeight, imgDx, imgDy, pmode, 0, palettes, hasSemiTransparency, false);
+            var texture = ReadTexture(reader, bpp, stride, height, dx, dy, 0, palettes, hasSemiTransparency, false);
+            reader.BaseStream.Seek(imagePosition + imageSize, SeekOrigin.Begin);
+            if (texture != null)
+            {
+                TextureResults.Add(texture);
+                return true;
+            }
+
+            return false;
         }
 
-        public static ushort[] ReadPalette(BinaryReader reader, uint pmode, uint clutWidth, out bool hasSemiTransparency, bool allowOutOfBounds)
+        private bool ReadTextureData(BinaryReader reader, uint pmode, bool hasClut)
+        {
+            int bpp;
+            ushort[][] palettes = null;
+            bool? hasSemiTransparency = null;
+            if (hasClut)
+            {
+                var clutPosition = reader.BaseStream.Position;
+                var clutSize = reader.ReadUInt32(); // Size of clut data starting at this field
+                var clutDx = reader.ReadUInt16(); // Frame buffer coordinates
+                var clutDy = reader.ReadUInt16();
+                var clutWidth  = reader.ReadUInt16();
+                var clutHeight = reader.ReadUInt16();
+                if (clutSize < 12 + clutHeight * clutWidth * 2)
+                {
+                    return false;
+                }
+
+                // Noted in jpsxdec/CreateTim that some files can claim an unpaletted pmode but still use a palette.
+                bpp = InferBppFromClut(pmode, clutWidth);
+
+                palettes = ReadPalettes(reader, bpp, clutWidth, clutHeight, out hasSemiTransparency, false);
+                reader.BaseStream.Seek(clutPosition + clutSize, SeekOrigin.Begin);
+            }
+            else
+            {
+                bpp = GetBppFromMode(pmode);
+            }
+
+            if (bpp <= 8 && palettes == null)
+            {
+                return false; // No palette for clut format (check now to speed up TIM scanning)
+            }
+
+            var imagePosition = reader.BaseStream.Position;
+            var imageSize = reader.ReadUInt32(); // Size of image data starting at this field
+            var dx = reader.ReadUInt16(); // Frame buffer coordinates
+            var dy = reader.ReadUInt16();
+            var stride = reader.ReadUInt16(); // Stride in units of 2 bytes
+            var height = reader.ReadUInt16();
+            if (imageSize < 12 + height * stride * 2)
+            {
+                return false;
+            }
+
+            var texture = ReadTexture(reader, bpp, stride, height, dx, dy, 0, palettes, hasSemiTransparency, false);
+            reader.BaseStream.Seek(imagePosition + imageSize, SeekOrigin.Begin);
+            if (texture != null)
+            {
+                TextureResults.Add(texture);
+                return true;
+            }
+
+            return false;
+        }
+
+        public static ushort[] ReadPalette(BinaryReader reader, int bpp, uint clutWidth, out bool hasSemiTransparency, bool allowOutOfBounds)
         {
             hasSemiTransparency = false;
 
@@ -93,7 +170,7 @@ namespace PSXPrev.Common.Parsers
             {
                 return null;
             }
-            if (pmode >= 2)
+            if (bpp > 8)
             {
                 return null; // Not a clut format
             }
@@ -106,7 +183,7 @@ namespace PSXPrev.Common.Parsers
             }
 
             // We should probably allocate the full 16clut or 256clut in-case an image pixel has bad data.
-            var paletteSize = pmode == 0 ? 16 : 256; // clutWidth;
+            var paletteSize = bpp == 4 ? 16 : 256; // clutWidth;
             var palette = new ushort[paletteSize];
 
             for (var c = 0; c < paletteSize; c++)
@@ -119,15 +196,15 @@ namespace PSXPrev.Common.Parsers
                 }
                 else
                 {
-                    var data = reader.ReadUInt16();
-                    var stp = ((data >> 15) & 0x1) == 1; // Semi-transparency: 0-Off, 1-On
+                    var color = reader.ReadUInt16();
+                    var stp = ((color >> 15) & 0x1) == 1; // Semi-transparency: 0-Off, 1-On
 
                     // Note: stpMode (not stp) is defined on a per polygon basis. We can't apply alpha now, only during rendering.
                     hasSemiTransparency |= stp;
 
-                    if (data != 0)
+                    if (color != 0)
                     {
-                        palette[c] = data;
+                        palette[c] = color;
                     }
                 }
             }
@@ -135,7 +212,7 @@ namespace PSXPrev.Common.Parsers
             return palette;
         }
 
-        public static ushort[][] ReadPalettes(BinaryReader reader, uint pmode, uint clutWidth, uint clutHeight, out bool? hasSemiTransparency, bool allowOutOfBounds, bool firstOnly = false)
+        public static ushort[][] ReadPalettes(BinaryReader reader, int bpp, ushort clutWidth, ushort clutHeight, out bool? hasSemiTransparency, bool allowOutOfBounds, bool firstOnly = false)
         {
             hasSemiTransparency = false;
 
@@ -143,7 +220,7 @@ namespace PSXPrev.Common.Parsers
             {
                 return null;
             }
-            if (pmode >= 2)
+            if (bpp > 8)
             {
                 return null; // Not a clut format
             }
@@ -162,7 +239,7 @@ namespace PSXPrev.Common.Parsers
             {
                 if (i < count)
                 {
-                    palettes[i] = ReadPalette(reader, pmode, clutWidth, out var stp, allowOutOfBounds);
+                    palettes[i] = ReadPalette(reader, bpp, clutWidth, out var stp, allowOutOfBounds);
                     hasSemiTransparency |= stp;
                 }
                 else
@@ -175,33 +252,8 @@ namespace PSXPrev.Common.Parsers
             return palettes;
         }
 
-        public static Texture ReadTexture(BinaryReader reader, ushort stride, ushort height, ushort dx, ushort dy, uint pmode, int clutIndex, ushort[][] palettes, bool? hasSemiTransparency, bool allowOutOfBounds)
+        public static Texture ReadTexture(BinaryReader reader, int bpp, ushort stride, ushort height, ushort dx, ushort dy, int clutIndex, ushort[][] palettes, bool? hasSemiTransparency, bool allowOutOfBounds, Func<ushort, ushort> maskPixel16 = null)
         {
-            if ((pmode == 0 || pmode == 1) && palettes == null)
-            {
-                return null; // No palette for clut format
-            }
-            if (pmode == 4 || pmode > 4)
-            {
-                return null; // Mixed format not supported, or invalid pmode
-            }
-
-            var textureBpp = GetBpp(pmode);
-            var textureWidth = stride * 16 / textureBpp;
-            var textureHeight = height;
-
-            if (stride == 0 || height == 0 || textureWidth > (int)Limits.MaxTIMResolution || height > Limits.MaxTIMResolution)
-            {
-                return null;
-            }
-
-            // HMD: Support models with invalid image data, but valid model data.
-            var textureDataSize = (textureHeight * textureWidth * textureBpp / 8);
-            if (allowOutOfBounds && textureDataSize + reader.BaseStream.Position > reader.BaseStream.Length)
-            {
-                return null;
-            }
-
             var texturePageX = dx / 64;
             if (texturePageX > 16)
             {
@@ -216,29 +268,29 @@ namespace PSXPrev.Common.Parsers
             }
             var textureOffsetY = texturePageY * 256;
 
-            var texturePage = (texturePageY * 16) + texturePageX;
-            var textureX = (dx - textureOffsetX) * 16 / textureBpp;// Math.Min(16, textureBpp); // todo: Or is this the same as textureWidth?
-            var textureY = (dy - textureOffsetY);
+            var page = (texturePageY * 16) + texturePageX;
+            var x = (dx - textureOffsetX) * 16 / bpp;// Math.Min(16, bpp); // todo: Or is this the same as textureWidth?
+            var y = (dy - textureOffsetY);
+            var width = stride * 16 / bpp;
 
-            return ReadTexture2(reader, stride, textureWidth, textureHeight, textureX, textureY, texturePage, pmode, clutIndex,
-                palettes, hasSemiTransparency, allowOutOfBounds);
-
+            return ReadTextureInternal(reader, bpp, stride, width, height, x, y, page, clutIndex,
+                palettes, hasSemiTransparency, allowOutOfBounds, maskPixel16);
         }
 
-        public static Texture ReadTexture2(BinaryReader reader, ushort stride, int width, int height, int x, int y, int page, uint pmode, int clutIndex, ushort[][] palettes, bool? hasSemiTransparency, bool allowOutOfBounds, Func<ushort, ushort> maskPixel16 = null)
+        public static Texture ReadTexturePacked(BinaryReader reader, int bpp, int width, int height, int clutIndex, ushort[][] palettes, bool? hasSemiTransparency, bool allowOutOfBounds, Func<ushort, ushort> maskPixel16 = null)
         {
-            if ((pmode == 0 || pmode == 1) && palettes == null)
+            var stride = GetStride(bpp, (uint)width);
+            return ReadTextureInternal(reader, bpp, stride, width, height, 0, 0, 0, clutIndex, palettes, hasSemiTransparency, allowOutOfBounds, maskPixel16);
+        }
+
+        private static Texture ReadTextureInternal(BinaryReader reader, int bpp, ushort stride, int width, int height, int x, int y, int page, int clutIndex, ushort[][] palettes, bool? hasSemiTransparency, bool allowOutOfBounds, Func<ushort, ushort> maskPixel16 = null)
+        {
+            if (bpp <= 8 && palettes == null)
             {
                 return null; // No palette for clut format
             }
-            if (pmode == 4 || pmode > 4)
-            {
-                return null; // Mixed format not supported, or invalid pmode
-            }
 
-            var bpp = GetBpp(pmode);
-
-            if (width == 0 || height == 0 || width > (int)Limits.MaxTIMResolution || height > (int)Limits.MaxTIMResolution)
+            if (stride == 0 || width == 0 || height == 0 || width > (int)Limits.MaxTIMResolution || height > (int)Limits.MaxTIMResolution)
             {
                 return null;
             }
@@ -257,7 +309,7 @@ namespace PSXPrev.Common.Parsers
             try
             {
                 var bitmap = texture.Bitmap;
-                if (pmode <= 2 || (hasSemiTransparency ?? true))
+                if (bpp <= 16 || (hasSemiTransparency ?? true))
                 {
                     texture.SetupSemiTransparentMap();
                 }
@@ -270,22 +322,21 @@ namespace PSXPrev.Common.Parsers
                     stpData = texture.SemiTransparentMap.LockBits(rect, ImageLockMode.WriteOnly, pixelFormat);
                 }
 
-                switch (pmode)
+                switch (bpp)
                 {
-                    case 0: // 4bpp (16clut)
+                    case  4: // 4bpp (16clut)
                         Read4BppTexture(reader, texture, stride, bmpData, stpData);
                         break;
 
-                    case 1: // 8bpp (256clut)
-                        stride = (ushort)((width + 3) / 4);
+                    case  8: // 8bpp (256clut)
                         Read8BppTexture(reader, texture, stride, bmpData, stpData);
                         break;
 
-                    case 2: // 16bpp (5/5/5)
+                    case 16: // 16bpp (5/5/5/stp)
                         Read16BppTexture(reader, texture, stride, bmpData, stpData, maskPixel16);
                         break;
 
-                    case 3: // 24bpp
+                    case 24: // 24bpp
                         Read24BppTexture(reader, texture, stride, bmpData);
                         break;
                 }
@@ -516,7 +567,19 @@ namespace PSXPrev.Common.Parsers
             }
         }
 
-        public static uint GetModeFromClut(ushort clutWidth)
+        public static int GetBppFromMode(uint pmode)
+        {
+            switch (pmode)
+            {
+                case 0: return  4; // 4bpp (16clut)
+                case 1: return  8; // 8bpp (256clut)
+                case 2: return 16; // 16bpp (5/5/5/stp)
+                case 3: return 24; // 24bpp
+            }
+            return -1;
+        }
+
+        public static int GetBppFromClut(ushort clutWidth)
         {
             // NOTE: Width always seems to be 16 or 256.
             //       Specifically width was 16 or 256 and height was 1.
@@ -527,60 +590,46 @@ namespace PSXPrev.Common.Parsers
             // Note that height is different, and is used to count the number of cluts.
 
             // todo: Which is correct?
-            //return (clutWidth <= 16 ? 0u : 1u);
-            return (clutWidth < 256 ? 0u : 1u);
+            //return (clutWidth <= 16 ? 4 : 8);
+            return (clutWidth < 256 ? 4 : 8);
         }
 
-        public static uint GetModeFromNoClut()
+        public static int InferBppFromClut(uint pmode, ushort clutWidth)
         {
-            return 2u;
+            // Noted in jpsxdec/CreateTim that some files can claim an unpaletted pmode but still use a palette.
+            switch (pmode)
+            {
+                default: return GetBppFromMode(pmode);
+                case 2: return GetBppFromClut(clutWidth);
+                case 3: return 8; // 8bpp (256clut)
+            }
         }
 
-        public static uint GetModeFromBpp(int bpp)
+        public static int GetBppFromNoClut()
+        {
+            return 16;
+        }
+
+        public static ushort GetClutWidth(int bpp)
         {
             switch (bpp)
             {
-                case  4: return 0;
-                case  8: return 1;
-                case 16: return 2;
-                case 24: return 3;
-            }
-            throw new ArgumentException("Unsupported BPP", nameof(bpp));
-        }
-
-        public static uint GetClutWidth(uint pmode)
-        {
-            switch (pmode)
-            {
-                case 0: return 16;
-                case 1: return 256;
+                case 4: return 16;
+                case 8: return 256;
             }
             return 0;
         }
 
-        public static ushort GetStride(uint pmode, uint width)
+        public static ushort GetStride(int bpp, uint width)
         {
-            switch (pmode)
+            switch (bpp)
             {
-                case 0: return (ushort)((width + 3) / 4);
-                case 1: return (ushort)((width + 1) / 2);
-                case 2: return (ushort)width;
-                case 3: return (ushort)((width * 3 + 1) / 2);
+                case  4: return (ushort)((width + 3) / 4);
+                case  8: return (ushort)((width + 1) / 2);
+                case 16: return (ushort)width;
+                case 24: return (ushort)((width * 3 + 1) / 2);
             }
             return 0;
-        }
-
-        public static int GetBpp(uint pmode)
-        {
-            switch (pmode)
-            {
-                case 0: return  4; // 4bpp (16clut)
-                case 1: return  8; // 8bpp (256clut)
-                case 2: return 16; // 16bpp (5/5/5)
-                case 3: return 24; // 24bpp
-                case 4: return  0; // Mixed
-            }
-            return -1;
         }
     }
 }

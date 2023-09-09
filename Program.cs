@@ -35,6 +35,9 @@ namespace PSXPrev
         private static readonly List<RootEntity> _allEntities = new List<RootEntity>();
         private static readonly List<Texture> _allTextures = new List<Texture>();
         private static readonly List<Animation> _allAnimations = new List<Animation>();
+        private static int _scannedEntityCount;
+        private static int _scannedTextureCount;
+        private static int _scannedAnimationCount;
 
         // Lock for _currentFileLength and _largestCurrentFilePosition, because longs can't be volatile.
         private static readonly object _fileProgressLock = new object();
@@ -773,9 +776,9 @@ namespace PSXPrev
                 //Program.Logger.WriteLine();
                 Program.Logger.WriteLine("Scan end {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
                 Program.Logger.WriteLine("Scan took {0} hours {1} minutes {2} seconds", hours, minutes, seconds);
-                Program.Logger.WritePositiveLine("Found {0} Models", _allEntities.Count);
-                Program.Logger.WritePositiveLine("Found {0} Textures", _allTextures.Count);
-                Program.Logger.WritePositiveLine("Found {0} Animations", _allAnimations.Count);
+                Program.Logger.WritePositiveLine("Found {0} Models", _scannedEntityCount);
+                Program.Logger.WritePositiveLine("Found {0} Textures", _scannedTextureCount);
+                Program.Logger.WritePositiveLine("Found {0} Animations", _scannedAnimationCount);
 
                 // Scan finished, perform end-of-scan actions specified by the user.
                 _progressCallback?.Invoke(new ScanProgressReport
@@ -875,34 +878,40 @@ namespace PSXPrev
             });
         }
 
-        private static void AddEntity(FileOffsetScanner scanner, RootEntity entity, long fp)
+        private static bool AddEntity(FileOffsetScanner scanner, RootEntity entity, long fp)
         {
             // Prevent another thread from enumerating or modifying the list while adding to it.
             lock (_allEntities)
             {
                 _allEntities.Add(entity);
+                _scannedEntityCount++;
             }
             UpdateFileProgress(scanner, fp, entity);
+            return true;
         }
 
-        private static void AddTexture(FileOffsetScanner scanner, Texture texture, long fp)
+        private static bool AddTexture(FileOffsetScanner scanner, Texture texture, long fp)
         {
             // Prevent another thread from enumerating or modifying the list while adding to it.
             lock (_allTextures)
             {
                 _allTextures.Add(texture);
+                _scannedTextureCount++;
             }
             UpdateFileProgress(scanner, fp, texture);
+            return true;
         }
 
-        private static void AddAnimation(FileOffsetScanner scanner, Animation animation, long fp)
+        private static bool AddAnimation(FileOffsetScanner scanner, Animation animation, long fp)
         {
             // Prevent another thread from enumerating or modifying the list while adding to it.
             lock (_allAnimations)
             {
                 _allAnimations.Add(animation);
+                _scannedAnimationCount++;
             }
             UpdateFileProgress(scanner, fp, animation);
+            return true;
         }
 
         private static void ProgressCallback(FileOffsetScanner scanner, long fp)

@@ -13,9 +13,8 @@ namespace PSXPrev.Common
         public static readonly System.Drawing.Color NoSemiTransparentFlag = System.Drawing.Color.FromArgb(0, 0, 0, 0);
         public static readonly System.Drawing.Color SemiTransparentFlag = System.Drawing.Color.FromArgb(255, 255, 255, 255);
 
-        // Variables needed only for SetupSemiTransparentMap
-        private static readonly ushort[] EmptySemiTransparentPalette16  = new ushort[16];
-        private static readonly ushort[] EmptySemiTransparentPalette256 = new ushort[256];
+        private static readonly ushort[][] EmptyPalettes16  = new ushort[][] { new ushort[16] };
+        private static readonly ushort[][] EmptyPalettes256 = new ushort[][] { new ushort[256] };
 
         private readonly WeakReference<RootEntity> _ownerEntity = new WeakReference<RootEntity>(null);
         private BitmapData _bmpData; // State for locking and unlocking texture to get individual pixels
@@ -168,6 +167,12 @@ namespace PSXPrev.Common
         public bool IsPacked { get; set; } // The texture's Page, X, and Y were assigned by packing
 
         [Browsable(false)]
+        public bool NeedsPalette { get; set; }
+
+        [Browsable(false)]
+        public bool IsPaletteAssigned { get; set; }
+
+        [Browsable(false)]
         public Bitmap Bitmap { get; set; }
 
         [Browsable(false)]
@@ -187,7 +192,7 @@ namespace PSXPrev.Common
         public override string ToString()
         {
             var name = TextureName ?? nameof(Texture);
-            return $"{name} {X},{Y} {Width}x{Height} {Bpp}bpp";
+            return $"{name} {Width}x{Height} {Bpp}bpp";
         }
 
 
@@ -218,7 +223,7 @@ namespace PSXPrev.Common
                     var palette = Palettes?[0];
                     if (palette == null)
                     {
-                        palette =  (Bpp == 4 ? EmptySemiTransparentPalette16 : EmptySemiTransparentPalette256);
+                        palette = GetEmptyPalettes(Bpp)[0];
                     }
                     SetBitmapPalette(null, SemiTransparentMap, palette);
                 }
@@ -437,6 +442,19 @@ namespace PSXPrev.Common
                 case 24:
                 case 32: return System.Drawing.Imaging.PixelFormat.Format32bppArgb;
                 default: return 0;
+            }
+        }
+
+        public static ushort[][] GetEmptyPalettes(int bpp)
+        {
+            switch (bpp)
+            {
+                case  4: return EmptyPalettes16;
+                case  8: return EmptyPalettes256;
+                case 16:
+                case 24:
+                case 32:
+                default: return null;
             }
         }
 
