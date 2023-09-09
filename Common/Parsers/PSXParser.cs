@@ -393,6 +393,10 @@ namespace PSXPrev.Common.Parsers
         private bool ReadTextureData(BinaryReader reader, ushort version)
         {
             var maskMode = reader.ReadUInt32();
+            if (maskMode > 1)
+            {
+                var breakHere = 0;
+            }
             var paletteSize = reader.ReadUInt32();
             var clutHash = reader.ReadUInt32();
             var textureIndex = reader.ReadUInt32();
@@ -415,7 +419,7 @@ namespace PSXPrev.Common.Parsers
                     break;
                 case 0x10000:
                     bpp = 16;
-                    // todo: Magenta masking not handled for this bit depth
+                    // todo: Magenta masking only assumed for this bit depth
                     pixelFormat = reader.ReadUInt32();
                     size        = reader.ReadUInt32();
                     break;
@@ -423,9 +427,6 @@ namespace PSXPrev.Common.Parsers
                 default:
                     return false;
             }
-
-            var pmode  = TIMParser.GetModeFromBpp(bpp);
-            var stride = TIMParser.GetStride(pmode, width);
 
             ushort[][] palettes = null, origPalettes = null;
             bool? hasSemiTransparency = null;
@@ -442,9 +443,9 @@ namespace PSXPrev.Common.Parsers
                 {
                     return false;
                 }
-                var clutWidth = paletteSize;
+                var clutWidth = (ushort)paletteSize;
                 reader.BaseStream.Seek(_offset + clutData.ClutTop, SeekOrigin.Begin);
-                palettes = TIMParser.ReadPalettes(reader, pmode, clutWidth, 1, out hasSemiTransparency, true, false);
+                palettes = TIMParser.ReadPalettes(reader, bpp, clutWidth, 1, out hasSemiTransparency, true, false);
                 if (palettes == null)
                 {
                     return false;
@@ -459,15 +460,15 @@ namespace PSXPrev.Common.Parsers
                 maskPixel16 = MaskPixel;
             }
 
-            var texture = TIMParser.ReadTexture2(reader, stride, width, height, 0, 0, 0, pmode, 0, palettes, hasSemiTransparency, true, maskPixel16);
+            var texture = TIMParser.ReadTexturePacked(reader, bpp, width, height, 0, palettes, hasSemiTransparency, true, maskPixel16);
             if (texture == null)
             {
                 return false;
             }
-            TextureResults.Add(texture);
             texture.OriginalPalettes = origPalettes;
             texture.LookupID = _textureHashes[textureIndex];
             texture.DebugData = new[] { $"{maskMode}" };
+            TextureResults.Add(texture);
             return true;
         }
 

@@ -93,6 +93,7 @@
     <Compile Include="Common\Parsers\ANParser.cs" />
     <Compile Include="Common\Parsers\BFFParser.cs" />
     <Compile Include="Common\Parsers\BinCDStream.cs" />
+    <Compile Include="Common\Parsers\CLTParser.cs" />
     <Compile Include="Common\Parsers\FileOffsetScanner.cs" />
     <Compile Include="Common\Parsers\FileOffsetStream.cs" />
     <Compile Include="Common\Parsers\HMDHelper.cs" />

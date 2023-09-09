@@ -196,7 +196,6 @@ namespace PSXPrev.Common.Parsers
                     if (headerValue == 0x10000000)
                     {
                         headerSize = i + 1;
-                        break;
                     }
                 }
 
@@ -234,17 +233,32 @@ namespace PSXPrev.Common.Parsers
             var posX = (int)_headerValues[headerExtra + 6] / _scaleDivisor;
             var posY = (int)_headerValues[headerExtra + 7] / _scaleDivisor;
             var posZ = (int)_headerValues[headerExtra + 8] / _scaleDivisor;
-            var rotX = ((short)(_headerValues[headerExtra +  9]      )) / 4096f;
-            var rotY = ((short)(_headerValues[headerExtra +  9] >> 16)) / 4096f;
-            var rotZ = ((short)(_headerValues[headerExtra + 10]      )) / 4096f;
-            var rotW = ((short)(_headerValues[headerExtra + 10] >> 16)) / 4096f;
-
-            if (rotX == 0f && rotY == 0f && rotZ == 0f && rotW == 0f)
+            float rotX, rotY, rotZ, rotW;
+            if (zeroForm)
             {
-                rotW = 1f; // Change to identity
+                rotX = ((short)(_headerValues[headerExtra +  9]      )) / 4096f;
+                rotY = ((short)(_headerValues[headerExtra +  9] >> 16)) / 4096f;
+                rotZ = ((short)(_headerValues[headerExtra + 10]      )) / 4096f;
+                rotW = ((short)(_headerValues[headerExtra + 10] >> 16)) / 4096f;
+
+                if (rotX == 0f && rotY == 0f && rotZ == 0f && rotW == 0f)
+                {
+                    rotW = 1f; // Change to identity
+                }
+            }
+            else
+            {
+                rotX = rotY = rotZ = 0f;
+                rotW = 1f;
+
+                // Unused
+                //var polyListPtr = _headerValues[headerExtra + 9];
+                //var dummy3 = ((short)(_headerValues[headerExtra + 10]      ));
+                //var dummy4 = ((short)(_headerValues[headerExtra + 10] >> 16));
             }
 
-            var radius = reader.ReadUInt32(); // extraDepth used by engine for sorting
+            // extraDepth used by engine for sorting in Frogger 2, radius in Chicken Run
+            var radius = reader.ReadUInt32();
 
             var sectionIndex = 0;
             var sectionCount = 0;
@@ -257,13 +271,13 @@ namespace PSXPrev.Common.Parsers
                 if (_offset + top == reader.BaseStream.Position)
                 {
                     sectionCount = i + 1;
-                    break;
                 }
             }
 
             int textureHashSectionIndex;
             if (zeroForm)
             {
+                // This makes an assumption that texture maps always appear after the header.
                 if (sectionCount == 4)
                 {
                     shortForm = false;
@@ -519,6 +533,10 @@ namespace PSXPrev.Common.Parsers
                 {
                     tPage = _textureHashes[textureIndex];
                 }
+                else
+                {
+                    var breakHere = 0;
+                }
             }
 
             var r2 = reader.ReadByte();
@@ -586,6 +604,10 @@ namespace PSXPrev.Common.Parsers
             {
                 tPage = _textureHashes[textureIndex];
             }
+            else
+            {
+                var breakHere = 0;
+            }
 
             var u0 = reader.ReadByte();
             var v0 = reader.ReadByte();
@@ -625,10 +647,10 @@ namespace PSXPrev.Common.Parsers
 
             var triangle1 = new Triangle
             {
-                Vertices = new[] { vertex0, vertex1, vertex2 },
+                Vertices = new[] { vertex2, vertex1, vertex0 },
                 Normals = Triangle.EmptyNormals,
                 Colors = new[] { color, color, color },
-                Uv = new[] { uv0, uv1, uv2 },
+                Uv = new[] { uv2, uv1, uv0 },
                 AttachableIndices = Triangle.EmptyAttachableIndices,
             };
             triangle1.TiledUv = new TiledUV(triangle1.Uv, 0f, 0f, 1f, 1f);
@@ -638,10 +660,10 @@ namespace PSXPrev.Common.Parsers
 
             var triangle2 = new Triangle
             {
-                Vertices = new[] { vertex1, vertex3, vertex2 },
+                Vertices = new[] { vertex2, vertex3, vertex1 },
                 Normals = Triangle.EmptyNormals,
                 Colors = new[] { color, color, color },
-                Uv = new[] { uv1, uv3, uv2 },
+                Uv = new[] { uv2, uv3, uv1 },
                 AttachableIndices = Triangle.EmptyAttachableIndices,
             };
             triangle2.TiledUv = new TiledUV(triangle2.Uv, 0f, 0f, 1f, 1f);
@@ -731,10 +753,10 @@ namespace PSXPrev.Common.Parsers
 
             var triangle = new Triangle
             {
-                Vertices = new[] { vertex0, vertex1, vertex2 },
+                Vertices = new[] { vertex2, vertex1, vertex0 },
                 Normals = Triangle.EmptyNormals,
-                Colors = new[] { color0, color1, color2 },
-                Uv = new[] { uv0, uv1, uv2 },
+                Colors = new[] { color2, color1, color0 },
+                Uv = new[] { uv2, uv1, uv0 },
                 AttachableIndices = Triangle.EmptyAttachableIndices,
             };
             if (textured)
@@ -807,6 +829,10 @@ namespace PSXPrev.Common.Parsers
         private void AddTriangle(Triangle triangle, Vector3? spriteCenter, uint tPage, RenderFlags renderFlags, MixtureRate mixtureRate = MixtureRate.None)
         {
             renderFlags |= RenderFlags.Unlit; // BFF has no normals, so there's no lighting
+            if (!spriteCenter.HasValue)
+            {
+                renderFlags |= RenderFlags.DoubleSided;
+            }
             if (renderFlags.HasFlag(RenderFlags.Textured))
             {
                 triangle.CorrectUVTearing();

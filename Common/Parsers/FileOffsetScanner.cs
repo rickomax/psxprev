@@ -5,9 +5,10 @@ using PSXPrev.Common.Animator;
 
 namespace PSXPrev.Common.Parsers
 {
-    public delegate void EntityAddedAction(FileOffsetScanner scanner, RootEntity rootEntity, long offset);
-    public delegate void AnimationAddedAction(FileOffsetScanner scanner, Animation animation, long offset);
-    public delegate void TextureAddedAction(FileOffsetScanner scanner, Texture texture, long offset);
+    // Return false if the result is ignored, in which case it will be disposed of
+    public delegate bool EntityAddedAction(FileOffsetScanner scanner, RootEntity rootEntity, long offset);
+    public delegate bool AnimationAddedAction(FileOffsetScanner scanner, Animation animation, long offset);
+    public delegate bool TextureAddedAction(FileOffsetScanner scanner, Texture texture, long offset);
     public delegate void ScannerProgressAction(FileOffsetScanner scanner, long offset);
 
     public abstract class FileOffsetScanner : IDisposable
@@ -94,9 +95,10 @@ namespace PSXPrev.Common.Parsers
                             entity.FormatName = FormatName;
                             entity.FileOffset = _offset;
                             entity.ResultIndex = resultIndex++;
-                            _entityAddedAction(this, entity, _offset);
-
-                            Program.Logger.WritePositiveLine($"Found {FormatName} Model {AtOffsetString}");
+                            if (_entityAddedAction(this, entity, _offset))
+                            {
+                                Program.Logger.WritePositiveLine($"Found {FormatName} Model {AtOffsetString}");
+                            }
                         }
 
                         // Enumerate textures differently so that we know whether to dispose of them or not.
@@ -115,11 +117,20 @@ namespace PSXPrev.Common.Parsers
                             texture.FormatName = FormatName;
                             texture.FileOffset = _offset;
                             texture.ResultIndex = resultIndex++;
-                            _textureAddedAction(this, texture, _offset);
+                            if (_textureAddedAction(this, texture, _offset))
+                            {
+                                Program.Logger.WritePositiveLine($"Found {FormatName} Texture {AtOffsetString}");
+                            }
+                            else
+                            {
+                                texture.Dispose();
+                                foreach (var entity in EntityResults)
+                                {
+                                    entity.OwnedTextures.Remove(texture);
+                                }
+                            }
 
                             TextureResults.RemoveAt(0); // We should no longer dispose of this during an exception
-
-                            Program.Logger.WritePositiveLine($"Found {FormatName} Texture {AtOffsetString}");
                         }
 
                         resultIndex = 0;
@@ -134,9 +145,10 @@ namespace PSXPrev.Common.Parsers
                             animation.FormatName = FormatName;
                             animation.FileOffset = _offset;
                             animation.ResultIndex = resultIndex++;
-                            _animationAddedAction(this, animation, _offset);
-
-                            Program.Logger.WritePositiveLine($"Found {FormatName} Animation {AtOffsetString}");
+                            if (_animationAddedAction(this, animation, _offset))
+                            {
+                                Program.Logger.WritePositiveLine($"Found {FormatName} Animation {AtOffsetString}");
+                            }
                         }
                     }
                 }

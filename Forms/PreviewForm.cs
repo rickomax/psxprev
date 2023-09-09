@@ -123,6 +123,7 @@ namespace PSXPrev.Forms
         private bool _showTexturePalette;
         private bool _showTextureSemiTransparency;
         private bool _boundsEntityPicking;
+        private uint? _fallbackTextureID;
 
         private GizmoType _gizmoType;
         private GizmoId _hoveredGizmo;
@@ -469,7 +470,7 @@ namespace PSXPrev.Forms
             SetSolidWireframeVerticesColor(settings.SolidWireframeVerticesColor);
             SetCurrentCLUTIndex(settings.CurrentCLUTIndex);
             showUVToolStripMenuItem.Checked = settings.ShowUVsInVRAM;
-            _scene.ShowMissingTextures = settings.ShowMissingTextures;
+            showMissingTexturesToolStripMenuItem.Checked = settings.ShowMissingTextures;
             autoDrawModelTexturesToolStripMenuItem.Checked = settings.AutoDrawModelTextures;
             autoPackModelTexturesToolStripMenuItem.Checked = settings.AutoPackModelTextures;
             autoPlayAnimationsToolStripMenuItem.Checked = settings.AutoPlayAnimation;
@@ -525,6 +526,7 @@ namespace PSXPrev.Forms
             settings.SolidWireframeVerticesColor = _scene.SolidWireframeVerticesColor;
             settings.CurrentCLUTIndex = _clutIndex;
             settings.ShowUVsInVRAM = showUVToolStripMenuItem.Checked;
+            settings.ShowMissingTextures = showMissingTexturesToolStripMenuItem.Checked;
             settings.AutoDrawModelTextures = autoDrawModelTexturesToolStripMenuItem.Checked;
             settings.AutoPackModelTextures = autoPackModelTexturesToolStripMenuItem.Checked;
             settings.AutoPlayAnimation = autoPlayAnimationsToolStripMenuItem.Checked;
@@ -3351,8 +3353,13 @@ namespace PSXPrev.Forms
             {
                 return false;
             }
+            Texture found = null;
             foreach (var texture in _packedTextures)
             {
+                if (!texture.LookupID.HasValue)
+                {
+                    continue; // This could be changed by the user in the property grid
+                }
                 if (!string.IsNullOrEmpty(expectedFormat))
                 {
                     if (texture.FormatName == null || texture.FormatName != expectedFormat)
@@ -3360,13 +3367,25 @@ namespace PSXPrev.Forms
                         continue;
                     }
                 }
+
                 if (texture.LookupID.Value == id)
                 {
-                    model.TexturePage = (uint)texture.TexturePage;
-                    model.TextureLookup.Texture = texture;
-                    _vram.AssignModelTextures(model);
-                    return true;
+                    found = texture;
+                    break;
                 }
+                else if (_fallbackTextureID.HasValue && texture.LookupID.Value == _fallbackTextureID.Value)
+                {
+                    found = texture;
+                    // Keep looking for the real texture
+                }
+            }
+            if (found != null)
+            {
+                var texture = found;
+                model.TexturePage = (uint)texture.TexturePage;
+                model.TextureLookup.Texture = texture;
+                _vram.AssignModelTextures(model);
+                return true;
             }
             return false;
         }
@@ -3400,6 +3419,7 @@ namespace PSXPrev.Forms
             {
                 return false;
             }
+            Texture found = null;
             foreach (var texture in _textures)
             {
                 if (!texture.NeedsPacking)
@@ -3413,25 +3433,37 @@ namespace PSXPrev.Forms
                         continue;
                     }
                 }
+
                 if (texture.LookupID.Value == id)
                 {
-                    if (texture.IsPacked)
-                    {
-                        model.TexturePage = (uint)texture.TexturePage;
-                        model.TextureLookup.Texture = texture;
-                        _vram.AssignModelTextures(model);
-                        return true;
-                    }
-                    else if (PackTextureInVRAM(texture))
-                    {
-                        _vram.DrawTexture(texture, suppressUpdate);
-                        model.TexturePage = (uint)texture.TexturePage;
-                        model.TextureLookup.Texture = texture;
-                        _vram.AssignModelTextures(model);
-                        return true;
-                    }
-                    break; // Failed to pack texture
+                    found = texture;
+                    break;
                 }
+                else if (_fallbackTextureID.HasValue && texture.LookupID.Value == _fallbackTextureID.Value)
+                {
+                    found = texture;
+                    // Keep looking for the real texture
+                }
+            }
+            if (found != null)
+            {
+                var texture = found;
+                if (texture.IsPacked)
+                {
+                    model.TexturePage = (uint)texture.TexturePage;
+                    model.TextureLookup.Texture = texture;
+                    _vram.AssignModelTextures(model);
+                    return true;
+                }
+                else if (PackTextureInVRAM(texture))
+                {
+                    _vram.DrawTexture(texture, suppressUpdate);
+                    model.TexturePage = (uint)texture.TexturePage;
+                    model.TextureLookup.Texture = texture;
+                    _vram.AssignModelTextures(model);
+                    return true;
+                }
+                // Failed to pack texture
             }
             return false;
         }
@@ -4115,6 +4147,11 @@ namespace PSXPrev.Forms
         {
             ClearAllVRAMPages();
             //ShowMessageBox("Pages cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void showMissingTexturesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _scene.ShowMissingTextures = showMissingTexturesToolStripMenuItem.Checked;
         }
 
         private void autoDrawModelTexturesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)

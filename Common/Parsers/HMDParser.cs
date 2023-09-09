@@ -649,45 +649,45 @@ namespace PSXPrev.Common.Parsers
             ProcessImageDataPrimitiveHeader(reader, primitiveHeaderPointer, out var imageTop, out var clutTop);
             reader.BaseStream.Seek(position, SeekOrigin.Begin); // Seek is redundant, but follows same convention as other Process functions.
 
-            var x = reader.ReadUInt16();
-            var y = reader.ReadUInt16();
+            var dx = reader.ReadUInt16(); // Frame buffer coordinates
+            var dy = reader.ReadUInt16();
             var stride = reader.ReadUInt16();
             var height = reader.ReadUInt16();
             if (stride == 0 || height == 0 || stride > 256 || height > 256)
             {
                 return null;
             }
-
             var imageIndex = reader.ReadUInt32() * 4;
-            uint pmode;
+
+            var bpp = TIMParser.GetBppFromNoClut();
             ushort[][] palettes = null;
             bool? hasSemiTransparency = null;
             if (hasClut)
             {
-                var clutX = reader.ReadUInt16();
-                var clutY = reader.ReadUInt16();
-                var clutWidth = reader.ReadUInt16();
+                var clutDx = reader.ReadUInt16(); // Frame buffer coordinates
+                var clutDy = reader.ReadUInt16();
+                var clutWidth  = reader.ReadUInt16();
                 var clutHeight = reader.ReadUInt16();
+                if (clutHeight == 0)
+                {
+                    return null;
+                }
                 var clutIndex = reader.ReadUInt32() * 4;
 
-                pmode = TIMParser.GetModeFromClut(clutWidth);
+                bpp = TIMParser.GetBppFromClut(clutWidth);
 
                 reader.BaseStream.Seek(_offset + clutTop + clutIndex, SeekOrigin.Begin);
                 // Allow out of bounds to support HMDs with invalid image data, but valid model data.
-                palettes = TIMParser.ReadPalettes(reader, pmode, clutWidth, clutHeight, out hasSemiTransparency, true);
+                palettes = TIMParser.ReadPalettes(reader, bpp, clutWidth, clutHeight, out hasSemiTransparency, true);
                 if (palettes == null)
                 {
                     return null;
                 }
             }
-            else
-            {
-                pmode = TIMParser.GetModeFromNoClut();
-            }
 
             reader.BaseStream.Seek(_offset + imageTop + imageIndex, SeekOrigin.Begin);
             // Allow out of bounds to support HMDs with invalid image data, but valid model data.
-            var texture = TIMParser.ReadTexture(reader, stride, height, x, y, pmode, 0, palettes, hasSemiTransparency, true);
+            var texture = TIMParser.ReadTexture(reader, bpp, stride, height, dx, dy, 0, palettes, hasSemiTransparency, true);
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
             return texture;
         }
