@@ -21,6 +21,8 @@ namespace PSXPrev.Common.Parsers
 
         public override string FormatName => FormatNameConst;
 
+        public override long MinAlignment => 2048; // Prevent eating up gigabytes of memory in 20 seconds flat
+
         protected override void Parse(BinaryReader reader)
         {
             _sprites.Clear();

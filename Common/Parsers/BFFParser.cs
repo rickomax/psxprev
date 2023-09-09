@@ -6,23 +6,28 @@ using OpenTK;
 namespace PSXPrev.Common.Parsers
 {
     // Blitz Games: .BFF model library format
-    // This format is a series of ID/Length/Hash/Data sections, but we currently only scan by individual sections.
-    public class BFFParser : FileOffsetScanner
+    // This format is a series of ID/Length/Hash/Data sections, ~~but we currently only scan by individual sections.~~
+    // We extend PILParser so that we can share the ReadPSI function (without having to construct a separate instance).
+    public class BFFParser : PILParser
     {
         // UVs are in texture space, and are stored in units of 2, so that 128
         // can be used to reach the last row/column of the texture.
-        private const float UVConst = 2f;
+        private const float UVConst = 2f; // UV multiplier for FMM models
 
-        private float _scaleDivisor;
+        //private long _offset2;
+        //private float _scaleDivisor;
         private readonly uint[] _headerValues = new uint[13];
         private readonly uint[] _sections = new uint[6 * 2]; // count/top pairs
-        private Vector3[] _vertices;
-        private uint _vertexCount;
-        private uint[] _textureHashes;
-        private uint _textureHashCount;
-        private readonly Dictionary<RenderInfo, List<Triangle>> _groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
-        private readonly Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>> _groupedSprites = new Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>>();
-        private readonly List<ModelEntity> _models = new List<ModelEntity>();
+        //private Vector3[] _vertices;
+        //private uint _vertexCount;
+        //private uint[] _textureHashes;
+        //private uint _textureHashCount;
+        //private readonly Dictionary<RenderInfo, List<Triangle>> _groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
+        //private readonly Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>> _groupedSprites = new Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>>();
+        //private readonly List<ModelEntity> _models = new List<ModelEntity>();
+        private readonly Dictionary<uint, List<ModelEntity>> _modelHashes = new Dictionary<uint, List<ModelEntity>>();
+        private readonly HashSet<uint> _usedModelHashes = new HashSet<uint>();
+        private readonly List<long> _postProcessPositions = new List<long>();
 
         public BFFParser(EntityAddedAction entityAdded)
             : base(entityAdded: entityAdded)
@@ -33,102 +38,326 @@ namespace PSXPrev.Common.Parsers
 
         protected override void Parse(BinaryReader reader)
         {
-            _scaleDivisor = Settings.Instance.AdvancedBFFScaleDivisor;
-            _groupedTriangles.Clear();
-            _groupedSprites.Clear();
-            _models.Clear();
-
             ReadBFF(reader);
+            //ReadFMM(reader);
         }
+
+        #region BFF
 
         private bool ReadBFF(BinaryReader reader)
         {
-            //var id0 = (char)reader.ReadByte();
-            //var id1 = (char)reader.ReadByte();
-            //var id2 = (char)reader.ReadByte();
-            //var id3 = reader.ReadByte();
-            //if (id0 != 'P' || id1 != 'S' || id2 != 'I' || id3 != 1)
-            //{
-            //    return false;
-            //}
-            //
-            //var version = reader.ReadUInt32();
-            //var flags = reader.ReadUInt32();
-            //var name = Encoding.ASCII.GetString(reader.ReadBytes(32));
-            //var meshNum = reader.ReadUInt32();
-            //var vertNum = reader.ReadUInt32();
-            //var primNum = reader.ReadUInt32();
-            //var primOffset = reader.ReadUInt32();
-            //var animStart = reader.ReadUInt16();
-            //var animEnd = reader.ReadUInt16();
-            //var animNum = reader.ReadUInt32();
-            //var animSegListOffset = reader.ReadUInt32();
-            //var numTex = reader.ReadUInt32();R
-            //var texOff = reader.ReadUInt32();
-            //var firstMeshOff = reader.ReadUInt32();
-            //var radius = reader.ReadUInt32();
-            //var pad = reader.ReadBytes(192 - 88);
-            //
-            //var position = reader.BaseStream.Position;
-            //{
-            //    reader.BaseStream.Seek(_offset + firstMeshOff, SeekOrigin.Begin);
-            //    var vertTop = reader.ReadUInt32();
-            //    var vertCount = reader.ReadUInt32();
-            //    var normTop = reader.ReadUInt32();
-            //    var normCount = reader.ReadUInt32();
-            //    var scale = reader.ReadUInt32();
-            //
-            //    var meshName = Encoding.ASCII.GetString(reader.ReadBytes(16));
-            //    var childTop = reader.ReadUInt32();
-            //    var nextTop = reader.ReadUInt32();
-            //
-            //    var numScaleKeys = reader.ReadUInt16();
-            //    var numMoveKeys = reader.ReadUInt16();
-            //    var numRotKeys = reader.ReadUInt16();
-            //    var pad1 = reader.ReadUInt16();
-            //
-            //    var scaleKeysTop = reader.ReadUInt32();
-            //    var moveKeysTop = reader.ReadUInt32();
-            //    var rotateKeysTop = reader.ReadUInt32();
-            //
-            //    var sortListSize0 = reader.ReadUInt16();
-            //    var sortListSize1 = reader.ReadUInt16();
-            //    var sortListSize2 = reader.ReadUInt16();
-            //    var sortListSize3 = reader.ReadUInt16();
-            //    var sortListSize4 = reader.ReadUInt16();
-            //    var sortListSize5 = reader.ReadUInt16();
-            //    var sortListSize6 = reader.ReadUInt16();
-            //    var sortListSize7 = reader.ReadUInt16();
-            //
-            //    var sortListSizeTop0 = reader.ReadUInt32();
-            //    var sortListSizeTop1 = reader.ReadUInt32();
-            //    var sortListSizeTop2 = reader.ReadUInt32();
-            //    var sortListSizeTop3 = reader.ReadUInt32();
-            //    var sortListSizeTop4 = reader.ReadUInt32();
-            //    var sortListSizeTop5 = reader.ReadUInt32();
-            //    var sortListSizeTop6 = reader.ReadUInt32();
-            //    var sortListSizeTop7 = reader.ReadUInt32();
-            //
-            //    var lastScaleKey = reader.ReadUInt16();
-            //    var lastMoveKey = reader.ReadUInt16();
-            //    var lastRotKey = reader.ReadUInt16();
-            //    var pad2 = reader.ReadUInt16();
-            //}
+            // Reset library state
+            _modelHashes.Clear();
+            _usedModelHashes.Clear();
+            _postProcessPositions.Clear();
+
+            uint modelIndex = 0;
+            uint entryCount = 0;
+            uint errorCount = 0;
+            uint unknownCount = 0;
+            var position = reader.BaseStream.Position;
+            while (position + 12 < reader.BaseStream.Length)
+            {
+                if (++entryCount > Limits.MaxBFFEntries)
+                {
+                    EntityResults.Clear();
+                    return false;
+                }
+
+                var id0 = (char)reader.ReadByte();
+                var id1 = (char)reader.ReadByte();
+                var id2 = (char)reader.ReadByte();
+                var id3 = reader.ReadByte();
+                var length = reader.ReadUInt32(); // Length from start of BFF header
+                var nameCRC = reader.ReadUInt32();
+
+                if (!IsBFFIDChar(id0) || !IsBFFIDChar(id1) || !IsBFFIDChar(id2) || !IsBFFIDByte(id3))
+                {
+                    // All BFF IDs start with three letters (we're also checking for digits for sanity).
+                    // But anything other than these characters can be assumed to not be a BFF header.
+                    // This detection is essential, because we have no way to detect the real end of a BFF file.
+                    // And WE NEED to be able to detect the end, to avoid skipping over unrelated files when we set MinIncrement.
+                    break;
+                }
+                else if (length < 12 || position + length > reader.BaseStream.Length)
+                {
+                    break; // Invalid length
+                }
+
+                try
+                {
+                    if (id0 == 'P' && id1 == 'S' && id2 == 'I' && id3 == 1) // Only id3 1 is contained in BFF files
+                    {
+                        // Standalone actor model, these are added as-is, and not attached to any world.
+                        if (!ReadPSI(reader, position, id3, nameCRC))
+                        {
+                            var breakHere = 0;
+                        }
+                    }
+                    else if (id0 == 'F' && id1 == 'M' && id2 == 'M' && (id3 == 0 || id3 == 1 || id3 == 4 || id3 == 5 || id3 == 6))
+                    {
+                        // Models are added to lists by hash. After we've read the entire BFF file,
+                        // then we read each world and add those models to those worlds.
+                        if (ReadFMM(reader, position, id3, nameCRC, modelIndex))
+                        {
+                            modelIndex++;
+                        }
+                        else
+                        {
+                            var breakHere = 0;
+                        }
+                    }
+                    else if (id0 == 'F' && id1 == 'M' && id2 == 'W' && (id3 == 0 || id3 == 2))
+                    {
+                        // World file that groups FMM models together.
+                        // Parse these last, so that we have all the models ready.
+                        _postProcessPositions.Add(position);
+                    }
+                    else
+                    {
+                        unknownCount++;
+                    }
+                }
+                catch
+                {
+                    errorCount++;
+                }
+
+                position = reader.BaseStream.Seek(position + length, SeekOrigin.Begin);
+            }
+
+            var endPosition = position;
+
+
+            // Combine models that are all used in the same worlds (we don't want to have to manually check 100+ models)
+            uint worldIndex = 0;
+            foreach (var postProcessPosition in _postProcessPositions)
+            {
+                reader.BaseStream.Seek(postProcessPosition, SeekOrigin.Begin);
+
+                var id0 = (char)reader.ReadByte();
+                var id1 = (char)reader.ReadByte();
+                var id2 = (char)reader.ReadByte();
+                var id3 = reader.ReadByte();
+                var length = reader.ReadUInt32(); // Length from start of BFF header
+                var nameCRC = reader.ReadUInt32();
+
+                if (id0 == 'F' && id1 == 'M' && id2 == 'W' && (id3 == 0 || id3 == 2))
+                {
+                    // World file that groups FMM models together.
+                    // Parse these last, so that we have all the models ready.
+                    if (ReadFMW(reader, postProcessPosition, id3, nameCRC, worldIndex))
+                    {
+                        worldIndex++;
+                    }
+                    else
+                    {
+                        var breakHere = 0;
+                    }
+                }
+            }
+
+            // Find any models that weren't included in world files, and add those as individual models.
+            foreach (var kvp in _modelHashes)
+            {
+                var nameCRC = kvp.Key;
+                if (!_usedModelHashes.Contains(nameCRC))
+                {
+                    // This model was not referenced by any world file, so include it as-is.
+                    var models = kvp.Value;
+                    if (models.Count > 0)
+                    {
+                        var rootEntity = new RootEntity();
+                        rootEntity.ChildEntities = models.ToArray();
+                        rootEntity.FormatName = "FMM"; // Sub-format name
+                        rootEntity.ComputeBounds();
+                        EntityResults.Add(rootEntity);
+                    }
+                }
+            }
+
+            if (EntityResults.Count > 0)
+            {
+                // Prevent capturing following BFF headers as another start of file
+                MinOffsetIncrement = (endPosition - _offset);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsBFFIDChar(char c)
+        {
+            // Only uppercase letters have been observed in the first 3 id chars.
+            // But we're checking these other characters for sanity's sake.
+            // Space used to be used for "VH ".
+            return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == ' ';// || (c >= 'a' && c <= 'z') || c == '_' || c == '-';
+        }
+
+        private static bool IsBFFIDByte(byte b)
+        {
+            return (b >= 0 && b <= 10) || (b >= (byte)'0' && b <= (byte)'9');
+        }
+
+        #endregion
+
+        #region FMW (FMA World)
+
+        private bool ReadFMW(BinaryReader reader, long offset, byte id3, uint nameCRC, uint worldIndex)
+        {
+            // Reset world state
+            _scaleDivisor = _scaleDivisorTranslation = Settings.Instance.AdvancedBFFScaleDivisor;
+            _models.Clear();
+
+            _offset2 = offset;
+
+            var modelCount = reader.ReadUInt32();
+            uint missingCount = 0;
+            if (modelCount == 0 || modelCount > Limits.MaxBFFEntries)
+            {
+                return false;
+            }
+            _models.Clear();
+            if (id3 == 0)
+            {
+                for (uint i = 0; i < modelCount; i++)
+                {
+                    var modelCRC = reader.ReadUInt32();
+                    if (!_modelHashes.TryGetValue(modelCRC, out var models))
+                    {
+                        missingCount++;
+                        continue;
+                    }
+                    _usedModelHashes.Add(modelCRC);
+
+                    foreach (var model in models)
+                    {
+                        var newModel = CloneModel(model);
+                        newModel.TMDID = i + 1u;
+                        _models.Add(newModel);
+                    }
+                }
+            }
+            else if (id3 == 2)
+            {
+                for (uint i = 0; i < modelCount; i++)
+                {
+                    var posX = reader.ReadInt32() / _scaleDivisor;
+                    var posY = reader.ReadInt32() / _scaleDivisor;
+                    var posZ = reader.ReadInt32() / _scaleDivisor;
+                    var rotX = reader.ReadInt16() / 4096f;
+                    var rotY = reader.ReadInt16() / 4096f;
+                    var rotZ = reader.ReadInt16() / 4096f;
+                    var rotW = reader.ReadInt16() / 4096f;
+                    var radius = reader.ReadUInt32() / _scaleDivisor;
+
+                    var terrain = reader.ReadUInt16();
+                    var enabled = reader.ReadByte();
+                    var pad = reader.ReadByte(); //pad
+
+                    var tag = reader.ReadUInt32();
+                    var sortDepth = reader.ReadUInt32();
+
+                    var modelCRC = reader.ReadUInt32();
+                    // Basically next nodes in a linked list of entries that all perform the same behavior.
+                    // i.e. Set enabled to true for this entry, then subdiv and each following subdiv do the same.
+                    var subdivModelIndex = reader.ReadUInt32();
+
+                    if (!_modelHashes.TryGetValue(modelCRC, out var models))
+                    {
+                        missingCount++;
+                        continue;
+                    }
+                    _usedModelHashes.Add(modelCRC);
+
+                    foreach (var model in models)
+                    {
+                        var newModel = CloneModel(model);
+                        var translation = new Vector3(posX, posY, posZ) + model.Translation;
+                        var localMatrix = Matrix4.CreateFromQuaternion(new Quaternion(rotX, rotY, rotZ, rotW)) *
+                                          Matrix4.CreateTranslation(translation);
+                        newModel.OriginalLocalMatrix = localMatrix;
+                        newModel.TMDID = i + 1u;
+                        _models.Add(newModel);
+                    }
+                }
+            }
+
+            if (_models.Count > 0)
+            {
+                var rootEntity = new RootEntity();
+                rootEntity.ChildEntities = _models.ToArray();
+                //rootEntity.FormatName = CombineFormatName("FMW", "FMM"); // Sub-format names
+                rootEntity.FormatName = "FMW"; // Sub-format name
+                rootEntity.ComputeBounds();
+                EntityResults.Add(rootEntity);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static ModelEntity CloneModel(ModelEntity model)
+        {
+            var newTriangles = new Triangle[model.Triangles.Length];
+            for (var i = 0; i < newTriangles.Length; i++)
+            {
+                newTriangles[i] = new Triangle(model.Triangles[i]);
+            }
+            return new ModelEntity(model, newTriangles);
+        }
+
+        #endregion
+
+        #region FMM (FMA Mesh)
+
+        // Standalone function to read without the BFF container
+        private bool ReadFMM(BinaryReader reader)
+        {
+            var id0 = (char)reader.ReadByte();
+            var id1 = (char)reader.ReadByte();
+            var id2 = (char)reader.ReadByte();
+            var id3 = reader.ReadByte();
+            var length = reader.ReadUInt32(); // Length from start of BFF header
+            var nameCRC = reader.ReadUInt32();
+
+            if (length <= 12 || _offset + length > reader.BaseStream.Length)
+            {
+                return false;
+            }
+
+            if (id0 == 'F' && id1 == 'M' && id2 == 'M' && (id3 == 0 || id3 == 1 || id3 == 4 || id3 == 5 || id3 == 6))
+            {
+                if (ReadFMM(reader, _offset, id3, nameCRC, 0))
+                {
+                    // Format has no container, don't include "BFF/" format prefix
+                    //var rootEntity = EntityResults[EntityResults.Count - 1];
+                    //rootEntity.FormatName = AbsoluteFormatName(rootEntity.FormatName);
+                    return true;
+                }
+                else
+                {
+                    var breakHere = 0;
+                }
+            }
+            return false;
+        }
+
+        private bool ReadFMM(BinaryReader reader, long offset, byte id3, uint nameCRC, uint modelIndex)
+        {
+            // Reset model state
+            _scaleDivisor = _scaleDivisorTranslation = Settings.Instance.AdvancedBFFScaleDivisor;
+            _groupedTriangles.Clear();
+            _groupedSprites.Clear();
+
+            _offset2 = offset;
+
 
             const int BFF_FMA_MESH_ZERO_ID   = 0; // Frogger 2
             const int BFF_FMA_MESH_SHORT_ID  = 5; // Chicken Run
             const int BFF_FMA_MESH4_SHORT_ID = 6;
             const int BFF_FMA_MESH_LONG_ID   = 1; // Long form IDs noted to be used for PC versions of files
             const int BFF_FMA_MESH4_LONG_ID  = 4;
-
-            var id0 = (char)reader.ReadByte();
-            var id1 = (char)reader.ReadByte();
-            var id2 = (char)reader.ReadByte();
-            var id3 = reader.ReadByte();
-            if (id0 != 'F' || id1 != 'M' || id2 != 'M')
-            {
-                return false;
-            }
 
             var zeroForm = false; // slightly different structure, and needs guesswork to determine format
             var shortForm = true; // indices are read as a uint16 instead of a uint32
@@ -161,17 +390,10 @@ namespace PSXPrev.Common.Parsers
             // //#define BFF_FMA_SKYMESH_ID (('F'<<0) | ('M'<<8) | ('S'<<16) | (0<<24))
             //#define BFF_FMA_MESH4_ID (('F'<<0) | ('M'<<8) | ('M'<<16) | (4<<24))
 
-            var length = reader.ReadUInt32(); // Length from start of file
-            if (_offset + length > reader.BaseStream.Length)
-            {
-                return false;
-            }
-            var nameCRC = reader.ReadUInt32();
-
             var headerSize = 0; // Size including stop value in zeroForm
             if (zeroForm)
             {
-                // Header uses following format: (may exclude unk0 and unk1)
+                // Header uses following format: (may exclude flags and shift)
                 // uint32 flags
                 // int32 shift
                 // int32 minX
@@ -196,6 +418,7 @@ namespace PSXPrev.Common.Parsers
                     if (headerValue == 0x10000000)
                     {
                         headerSize = i + 1;
+                        break;
                     }
                 }
 
@@ -268,7 +491,7 @@ namespace PSXPrev.Common.Parsers
                 var top = reader.ReadUInt32();
                 _sections[(i * 2) + 0] = count;
                 _sections[(i * 2) + 1] = top;
-                if (_offset + top == reader.BaseStream.Position)
+                if (_offset2 + top == reader.BaseStream.Position)
                 {
                     sectionCount = i + 1;
                 }
@@ -306,7 +529,7 @@ namespace PSXPrev.Common.Parsers
                 return false;
             }
 
-            reader.BaseStream.Seek(_offset + vertsTop, SeekOrigin.Begin);
+            reader.BaseStream.Seek(_offset2 + vertsTop, SeekOrigin.Begin);
             if (_vertices == null || _vertices.Length < _vertexCount)
             {
                 Array.Resize(ref _vertices, (int)_vertexCount);
@@ -328,7 +551,7 @@ namespace PSXPrev.Common.Parsers
                 return false;
             }
 
-            reader.BaseStream.Seek(_offset + textureHashesTop, SeekOrigin.Begin);
+            reader.BaseStream.Seek(_offset2 + textureHashesTop, SeekOrigin.Begin);
             if (_textureHashes == null || _textureHashes.Length < _textureHashCount)
             {
                 Array.Resize(ref _textureHashes, (int)_textureHashCount);
@@ -347,7 +570,7 @@ namespace PSXPrev.Common.Parsers
                 return false;
             }
 
-            reader.BaseStream.Seek(_offset + gt3sTop, SeekOrigin.Begin);
+            reader.BaseStream.Seek(_offset2 + gt3sTop, SeekOrigin.Begin);
             if (!polyGT3Form)
             {
                 for (var i = 0; i < gt3Count; i++) //FMA_GT3
@@ -377,7 +600,7 @@ namespace PSXPrev.Common.Parsers
                 return false;
             }
 
-            reader.BaseStream.Seek(_offset + gt4sTop, SeekOrigin.Begin);
+            reader.BaseStream.Seek(_offset2 + gt4sTop, SeekOrigin.Begin);
             if (!polyGT3Form)
             {
                 for (var i = 0; i < gt4Count; i++) //FMA_GT4
@@ -413,7 +636,7 @@ namespace PSXPrev.Common.Parsers
                         return false;
                     }
 
-                    reader.BaseStream.Seek(_offset + sprsTop, SeekOrigin.Begin);
+                    reader.BaseStream.Seek(_offset2 + sprsTop, SeekOrigin.Begin);
                     for (var i = 0; i < sprCount; i++) //FMA_SPR
                     {
                         ReadFMASPR(reader);
@@ -438,7 +661,7 @@ namespace PSXPrev.Common.Parsers
                     return false;
                 }
 
-                reader.BaseStream.Seek(_offset + g3sTop, SeekOrigin.Begin);
+                reader.BaseStream.Seek(_offset2 + g3sTop, SeekOrigin.Begin);
                 for (var i = 0; i < g3Count; i++) //FMA_G3
                 {
                     ReadFMAPacket(reader, false, false, shortForm);
@@ -453,32 +676,22 @@ namespace PSXPrev.Common.Parsers
                     return false;
                 }
 
-                reader.BaseStream.Seek(_offset + g4sTop, SeekOrigin.Begin);
+                reader.BaseStream.Seek(_offset2 + g4sTop, SeekOrigin.Begin);
                 for (var i = 0; i < g4Count; i++) //FMA_G4
                 {
                     ReadFMAPacket(reader, true, false, shortForm);
                 }
             }
 
-            var localMatrix = Matrix4.Identity;
-            // todo: Not sure if this is the same for non-zeroForms
-            //if (zeroForm)
+            var localMatrix = Matrix4.CreateTranslation(posX, posY, posZ);
+            if (zeroForm)
             {
-                localMatrix = Matrix4.CreateFromQuaternion(new Quaternion(rotX, rotY, rotZ, rotW)) *
-                              Matrix4.CreateTranslation(posX, posY, posZ);
+                var rotationMatrix = Matrix4.CreateFromQuaternion(new Quaternion(rotX, rotY, rotZ, rotW));
+                localMatrix = rotationMatrix * localMatrix;
             }
-            FlushModels(0, localMatrix);
+            FlushModels(modelIndex, nameCRC, localMatrix);
 
-            if (_models.Count > 0)
-            {
-                var rootEntity = new RootEntity();
-                rootEntity.ChildEntities = _models.ToArray();
-                rootEntity.ComputeBounds();
-                EntityResults.Add(rootEntity);
-                return true;
-            }
-
-            return false;
+            return true;
         }
 
         private static uint ReadIndex(BinaryReader reader, bool shortForm)
@@ -768,7 +981,9 @@ namespace PSXPrev.Common.Parsers
             return triangle;
         }
 
-        private void FlushModels(uint modelIndex, Matrix4 localMatrix)
+        #endregion
+
+        private void FlushModels(uint modelIndex, uint nameCRC, Matrix4 localMatrix)
         {
             foreach (var kvp in _groupedTriangles)
             {
@@ -784,7 +999,13 @@ namespace PSXPrev.Common.Parsers
                     TMDID = modelIndex + 1u, // Only one model per BFF
                     OriginalLocalMatrix = localMatrix,
                 };
-                _models.Add(model);
+                if (!_modelHashes.TryGetValue(nameCRC, out var models))
+                {
+                    models = new List<ModelEntity>();
+                    _modelHashes.Add(nameCRC, models);
+                }
+                models.Add(model);
+                //_models.Add(model);
             }
             foreach (var kvp in _groupedSprites)
             {
@@ -802,7 +1023,13 @@ namespace PSXPrev.Common.Parsers
                     TMDID = modelIndex + 1u, // Only one model per BFF
                     OriginalLocalMatrix = localMatrix,
                 };
-                _models.Add(model);
+                if (!_modelHashes.TryGetValue(nameCRC, out var models))
+                {
+                    models = new List<ModelEntity>();
+                    _modelHashes.Add(nameCRC, models);
+                }
+                models.Add(model);
+                //_models.Add(model);
             }
             _groupedTriangles.Clear();
             _groupedSprites.Clear();
@@ -829,10 +1056,10 @@ namespace PSXPrev.Common.Parsers
         private void AddTriangle(Triangle triangle, Vector3? spriteCenter, uint tPage, RenderFlags renderFlags, MixtureRate mixtureRate = MixtureRate.None)
         {
             renderFlags |= RenderFlags.Unlit; // BFF has no normals, so there's no lighting
-            if (!spriteCenter.HasValue)
+            /*if (!spriteCenter.HasValue)
             {
                 renderFlags |= RenderFlags.DoubleSided;
-            }
+            }*/
             if (renderFlags.HasFlag(RenderFlags.Textured))
             {
                 triangle.CorrectUVTearing();

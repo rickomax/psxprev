@@ -36,6 +36,22 @@ namespace PSXPrev.Common
         public bool Enabled { get; set; } = true; // Intended for use in property grid to turn off lookup
 
 
+        public TextureLookup()
+        {
+        }
+
+        public TextureLookup(TextureLookup fromTextureLookup)
+        {
+            ID = fromTextureLookup.ID;
+            ExpectedFormat = fromTextureLookup.ExpectedFormat;
+            UVConversion = fromTextureLookup.UVConversion;
+            TiledAreaConversion = fromTextureLookup.TiledAreaConversion;
+            UVClamp = fromTextureLookup.UVClamp;
+            Texture = fromTextureLookup.Texture;
+            Enabled = fromTextureLookup.Enabled;
+        }
+
+
         private Vector2 UVTextureOffset => new Vector2((float)Texture.X / Renderer.VRAM.PageSize,
                                                        (float)Texture.Y / Renderer.VRAM.PageSize);
 
@@ -246,24 +262,40 @@ namespace PSXPrev.Common
         {
         }
 
-        public ModelEntity(ModelEntity fromModel, Triangle[] triangles)
+        public ModelEntity(ModelEntity fromModel, Triangle[] triangles, bool deepClone = false)
             : base(fromModel)
         {
             Triangles = triangles;
             TexturePage = fromModel.TexturePage;
             RenderFlags = fromModel.RenderFlags;
             MixtureRate = fromModel.MixtureRate;
-            Texture = fromModel.Texture;
-            TMDID = fromModel.TMDID;
             Visible = fromModel.Visible;
-            SharedID = fromModel.SharedID;
+            SpriteCenter = fromModel.SpriteCenter;
+            if (fromModel.DebugMeshRenderInfo != null)
+            {
+                DebugMeshRenderInfo = new Renderer.MeshRenderInfo(fromModel.DebugMeshRenderInfo);
+            }
+            Texture = fromModel.Texture;
+            if (fromModel.TextureLookup != null)
+            {
+                TextureLookup = new TextureLookup(fromModel.TextureLookup);
+            }
+            TMDID = fromModel.TMDID;
+            TextureAnimation = fromModel.TextureAnimation;
             IsAttached = fromModel.IsAttached;
             HasAttached = fromModel.HasAttached;
             AttachedOnly = fromModel.AttachedOnly;
-            AttachableVertices = fromModel.AttachableVertices;
-            AttachableNormals = fromModel.AttachableNormals;
-            //AttachableVertices = new Dictionary<uint, Vector3>(fromModel.AttachableVertices);
-            //AttachableNormals = new Dictionary<uint, Vector3>(fromModel.AttachableNormals);
+            SharedID = fromModel.SharedID;
+            if (!deepClone)
+            {
+                AttachableVertices = fromModel.AttachableVertices;
+                AttachableNormals = fromModel.AttachableNormals;
+            }
+            else
+            {
+                AttachableVertices = new Dictionary<uint, Vector3>(fromModel.AttachableVertices);
+                AttachableNormals = new Dictionary<uint, Vector3>(fromModel.AttachableNormals);
+            }
         }
 
 

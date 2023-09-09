@@ -1022,6 +1022,11 @@ namespace PSXPrev
             {
                 parsers.Add(() => new MODParser(AddEntity));
             }
+            if (_options.CheckAll || _options.CheckBFF)
+            {
+                // For now we're sharing the BFF option, since the same inner format can appear in both (and its the same devs)
+                parsers.Add(() => new PILParser(AddEntity));
+            }
             if (_options.CheckAll || _options.CheckPMD)
             {
                 parsers.Add(() => new PMDParser(AddEntity));

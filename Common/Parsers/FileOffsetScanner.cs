@@ -57,6 +57,7 @@ namespace PSXPrev.Common.Parsers
             _offset = start;
             // Ensure stop offset is always at least StartOffset + 1.
             var length = Math.Min(Math.Max((StopOffset ?? long.MaxValue), (_offset + 1)), reader.BaseStream.Length);
+            var alignment = Math.Max(MinAlignment, Alignment);
 
 
             while (reader.BaseStream.CanRead && _offset < length)
@@ -92,7 +93,7 @@ namespace PSXPrev.Common.Parsers
                             }
                             passed = true;
                             entity.EntityName = name;
-                            entity.FormatName = FormatName;
+                            entity.FormatName = CombineFormatName(FormatName, entity.FormatName);
                             entity.FileOffset = _offset;
                             entity.ResultIndex = resultIndex++;
                             if (_entityAddedAction(this, entity, _offset))
@@ -114,7 +115,7 @@ namespace PSXPrev.Common.Parsers
                             }
                             passed = true;
                             texture.TextureName = name;
-                            texture.FormatName = FormatName;
+                            texture.FormatName = CombineFormatName(FormatName, texture.FormatName);
                             texture.FileOffset = _offset;
                             texture.ResultIndex = resultIndex++;
                             if (_textureAddedAction(this, texture, _offset))
@@ -142,7 +143,7 @@ namespace PSXPrev.Common.Parsers
                             }
                             passed = true;
                             animation.AnimationName = name;
-                            animation.FormatName = FormatName;
+                            animation.FormatName = CombineFormatName(FormatName, animation.FormatName);
                             animation.FileOffset = _offset;
                             animation.ResultIndex = resultIndex++;
                             if (_animationAddedAction(this, animation, _offset))
@@ -186,11 +187,11 @@ namespace PSXPrev.Common.Parsers
                     //}
                     _offset = Math.Max(_offset, endPosition);
                 }
-                if (Alignment > 1)
+                if (alignment > 1)
                 {
                     // todo: Should we align based on start offset?
-                    //_offset = start + ((_offset - start) + Alignment - 1) / Alignment * Alignment;
-                    _offset = (_offset + Alignment - 1) / Alignment * Alignment;
+                    //_offset = start + ((_offset - start) + alignment - 1) / alignment * alignment;
+                    _offset = (_offset + alignment - 1) / alignment * alignment;
                 }
                 if (BytesPerProgress > 0 && (_offset - lastProgress) >= BytesPerProgress)
                 {
@@ -225,8 +226,38 @@ namespace PSXPrev.Common.Parsers
 
         public abstract string FormatName { get; }
 
+        public virtual long MinAlignment => 1;
+
         // Parse the file format at the given offset. Results should be added to
         // the following lists: EntityResults, TextureResults, AnimationResults.
         protected abstract void Parse(BinaryReader reader);
+
+
+        protected static string AbsoluteFormatName(string formatName)
+        {
+            if (!string.IsNullOrEmpty(formatName) && formatName[0] == '/')
+            {
+                return formatName; // Already prefixed with a forward slash
+            }
+            return $"/{formatName}";
+        }
+
+        protected static string CombineFormatName(string formatName, string subFormatName)
+        {
+            if (!string.IsNullOrEmpty(subFormatName))
+            {
+                if (subFormatName[0] == '/')
+                {
+                    // Prefix with a forward slash to override the format name completely
+                    return subFormatName.Substring(1);
+                }
+                else
+                {
+                    // BaseFormat/SubFormat
+                    return $"{formatName}/{subFormatName}";
+                }
+            }
+            return formatName;
+        }
     }
 }
