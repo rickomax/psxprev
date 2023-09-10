@@ -30,24 +30,15 @@ namespace PSXPrev.Common.Exporters
             _modelPreparer = new ModelPreparerExporter(_options);
 
             // Prepare the shared state for all models being exported (mainly setting up tiled textures).
-            _modelPreparer.PrepareAll(entities);
+            var groups = _modelPreparer.PrepareAll(entities);
 
-            if (!_options.MergeEntities)
+            for (var i = 0; i < groups.Length; i++)
             {
-                for (var i = 0; i < entities.Length; i++)
-                {
-                    // Prepare the state for the current model being exported.
-                    _modelPreparer.PrepareCurrent(entities);
-
-                    ExportEntities(i, entities[i]);
-                }
-            }
-            else
-            {
+                var group = groups[i];
                 // Prepare the state for the current model being exported.
-                _modelPreparer.PrepareCurrent(entities);
+                var preparedEntities = _modelPreparer.PrepareCurrent(entities, group, out var preparedModels);
 
-                ExportEntities(0, entities);
+                ExportEntities(i, group, preparedEntities, preparedModels);
             }
 
             //_pngExporter.Dispose();
@@ -57,7 +48,7 @@ namespace PSXPrev.Common.Exporters
             _modelPreparer = null;
         }
 
-        private void ExportEntities(int index, params RootEntity[] entities)
+        private void ExportEntities(int index, Tuple<int, long> group, RootEntity[] entities, List<ModelEntity> models)
         {
             // If shared, reuse the dictionary of textures so that we only export them once.
             // We're using a separate mtl file for each model so that unused materials aren't added.
@@ -78,13 +69,9 @@ namespace PSXPrev.Common.Exporters
             _writer.WriteLine("mtllib {0}", _mtlExporter.FileName);
 
             // Write vertices and export materials
-            foreach (var entity in entities)
+            foreach (var model in models)
             {
-                _modelPreparer.GetPreparedRootEntity(entity, out var models);
-                foreach (var model in models)
-                {
-                    WriteModel(model);
-                }
+                WriteModel(model);
             }
 
             // Write objects/groups and their faces
@@ -92,15 +79,15 @@ namespace PSXPrev.Common.Exporters
             var uvIndex     = 1; // Index for UVs
             for (var i = 0; i < entities.Length; i++)
             {
+                // Note that models in entities are guaranteed to appear in the same order as in models
                 var entity = entities[i];
-                _modelPreparer.GetPreparedRootEntity(entity, out var models);
 
                 // Write start of object
                 _writer.WriteLine("o object{0}", i);
-                for (var j = 0; j < models.Count; j++)
+                for (var j = 0; j < entity.ChildEntities.Length; j++)
                 {
-                    var model = models[j];
-                    WriteGroup(j, ref vertexIndex, ref uvIndex, model);
+                    var model = (ModelEntity)entity.ChildEntities[j];
+                    WriteGroup(i, j, ref vertexIndex, ref uvIndex, model);
                 }
             }
 
@@ -204,7 +191,7 @@ namespace PSXPrev.Common.Exporters
             _writer.WriteLine("vt {0} {1}", F(uv.X), F(1f - uv.Y));
         }
 
-        private void WriteGroup(int groupIndex, ref int vertexIndex, ref int uvIndex, ModelEntity model)
+        private void WriteGroup(int objectIndex, int groupIndex, ref int vertexIndex, ref int uvIndex, ModelEntity model)
         {
             var worldMatrix = model.WorldMatrix;
             GeomMath.InvertSafe(ref worldMatrix, out var invWorldMatrix);
@@ -212,7 +199,7 @@ namespace PSXPrev.Common.Exporters
             var materialName = _mtlExporter.GetMaterialName(_options.ExportTextures ? model.Texture : null);
 
             // Write start of group
-            _writer.WriteLine("g group{0}", groupIndex);
+            _writer.WriteLine("g group{0}_{1}", objectIndex, groupIndex);
             _writer.WriteLine("usemtl {0}", materialName);
             // Write group faces
             foreach (var triangle in model.Triangles)

@@ -201,10 +201,19 @@ namespace PSXPrev.Common
         {
             get
             {
+                var needsTextureLookup = NeedsTextureLookup;
                 foreach (var triangle in Triangles)
                 {
-                    if (triangle.NeedsTiled)
-                        return true;
+                    if (needsTextureLookup)
+                    {
+                        if (triangle.IsTiled)
+                            return true;
+                    }
+                    else
+                    {
+                        if (triangle.NeedsTiled)
+                            return true;
+                    }
                 }
                 return false;
             }

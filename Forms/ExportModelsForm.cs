@@ -47,7 +47,6 @@ namespace PSXPrev.Forms
                 }
             }
         }
-        public AnimationBatch AnimationBatch { get; private set; }
 
         public ExportModelOptions Options { get; private set; }
 
@@ -161,7 +160,7 @@ namespace PSXPrev.Forms
                 RedrawTextures = optionRedrawTexturesCheckBox.Checked,
                 SingleTexture = texturesSingleRadioButton.Checked,
 
-                MergeEntities = optionMergeModelsCheckBox.Checked,
+                ModelGrouping = optionMergeModelsCheckBox.Checked ? ExportModelGrouping.GroupAllModels : ExportModelGrouping.Default,
                 AttachLimbs = optionAttachLimbsCheckBox.Checked,
                 ExperimentalOBJVertexColor = optionExperimentalVertexColorCheckBox.Checked,
 
@@ -225,7 +224,7 @@ namespace PSXPrev.Forms
             optionRedrawTexturesCheckBox.Checked = options.RedrawTextures;
 
             // Update Options check boxes
-            optionMergeModelsCheckBox.Checked = options.MergeEntities;
+            optionMergeModelsCheckBox.Checked = (options.ModelGrouping == ExportModelGrouping.GroupAllModels);
             optionAttachLimbsCheckBox.Checked = options.AttachLimbs;
             optionExperimentalVertexColorCheckBox.Checked = options.ExperimentalOBJVertexColor;
 
@@ -258,7 +257,7 @@ namespace PSXPrev.Forms
         }
 
 
-        public static void Export(ExportModelOptions options, RootEntity[] entities, Animation[] animations = null, AnimationBatch animationBatch = null)
+        public static void Export(ExportModelOptions options, RootEntity[] entities, Animation[] animations = null)
         {
             switch (options.Format)
             {
@@ -272,7 +271,7 @@ namespace PSXPrev.Forms
                     break;
                 case ExportModelOptions.GLTF2:
                     var glTF2Exporter = new glTF2Exporter();
-                    glTF2Exporter.Export(options, entities, animations, animationBatch);
+                    glTF2Exporter.Export(options, entities, animations);
                     break;
                 case ExportModelOptions.DAE:
                     var daeExporter = new DAEExporter();
@@ -281,13 +280,12 @@ namespace PSXPrev.Forms
             }
         }
 
-        public static ExportModelOptions Show(IWin32Window owner, RootEntity[] entities, Animation[] animations = null, AnimationBatch animationBatch = null)
+        public static ExportModelOptions Show(IWin32Window owner, RootEntity[] entities, Animation[] animations = null)
         {
             using (var form = new ExportModelsForm())
             {
                 form.Entities = entities;
                 form.Animations = animations;
-                form.AnimationBatch = animationBatch;
                 if (form.ShowDialog(owner) == DialogResult.OK)
                 {
                     return form.Options;

@@ -61,6 +61,9 @@ namespace PSXPrev.Common
             : base(fromRootEntity)
         {
             Coords = fromRootEntity.Coords;
+            FormatName = fromRootEntity.FormatName;
+            FileOffset = fromRootEntity.FileOffset;
+            ResultIndex = fromRootEntity.ResultIndex;
         }
 
 

@@ -52,6 +52,8 @@ namespace PSXPrev.Common
             IsVRAMPage = fromTexture.IsVRAMPage;
             TextureName = fromTexture.TextureName;
             FormatName = fromTexture.FormatName;
+            FileOffset = fromTexture.FileOffset;
+            ResultIndex = fromTexture.ResultIndex;
             try
             {
                 // Preserve format only needs to do something special if we're paletted

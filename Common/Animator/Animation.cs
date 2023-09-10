@@ -16,6 +16,50 @@ namespace PSXPrev.Common.Animator
         HMD, // Multiple methods of interpolation that can change between frames.
     }
 
+    public static class AnimationTypeExtensions
+    {
+        public static bool IsCoordinateBased(this AnimationType animationType)
+        {
+            switch (animationType)
+            {
+                case AnimationType.HMD:
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        public static bool IsTransformBased(this AnimationType animationType)
+        {
+            switch (animationType)
+            {
+                case AnimationType.Common:
+                case AnimationType.RPYDiff:
+                case AnimationType.MatrixDiff:
+                case AnimationType.AxisDiff:
+                //case AnimationType.HMD:
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        public static bool IsVertexBased(this AnimationType animationType)
+        {
+            switch (animationType)
+            {
+                case AnimationType.VertexDiff:
+                case AnimationType.NormalDiff:
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+    }
+
     public class Animation
     {
         private readonly WeakReference<RootEntity> _ownerEntity = new WeakReference<RootEntity>(null);

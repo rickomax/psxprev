@@ -21,36 +21,29 @@ namespace PSXPrev.Common.Exporters
         private ExportModelOptions _options;
         private string _baseName;
 
-        public void Export(ExportModelOptions options, RootEntity[] entities, Animation[] animations, AnimationBatch animationBatch)
+        public void Export(ExportModelOptions options, RootEntity[] entities, Animation[] animations)
         {
             _options = options?.Clone() ?? new ExportModelOptions();
             // Force any required options for this format here, before calling Validate.
-            _options.MergeEntities = false; // Not supported yet
             _options.Validate("gltf");
 
             _pngExporter = new PNGExporter();
             _exportedTextures = new Dictionary<Texture, int>();
             _modelPreparer = new ModelPreparerExporter(_options);
 
+            var exportAnimations = _options.ExportAnimations && animations?.Length > 0;
+            var animationBatch = exportAnimations ? new AnimationBatch(null) : null;
+
             // Prepare the shared state for all models being exported (mainly setting up tiled textures).
-            _modelPreparer.PrepareAll(entities);
+            var groups = _modelPreparer.PrepareAll(entities);
 
-            if (!_options.MergeEntities)
+            for (var i = 0; i < groups.Length; i++)
             {
-                for (var i = 0; i < entities.Length; i++)
-                {
-                    // Prepare the state for the current model being exported.
-                    _modelPreparer.PrepareCurrent(entities);
-
-                    ExportEntities(i, new[] { entities[i] }, animations, animationBatch);
-                }
-            }
-            else // Not supported yet, disabled before Validate
-            {
+                var group = groups[i];
                 // Prepare the state for the current model being exported.
-                _modelPreparer.PrepareCurrent(entities);
+                var preparedEntities = _modelPreparer.PrepareCurrent(entities, group, out var preparedModels);
 
-                ExportEntities(0, entities, animations, animationBatch);
+                ExportEntities(i, group, preparedEntities, preparedModels, animations, animationBatch);
             }
 
             _pngExporter = null;
@@ -59,11 +52,10 @@ namespace PSXPrev.Common.Exporters
             _modelPreparer = null;
         }
 
-        private void ExportEntities(int index, RootEntity[] entities, Animation[] animations, AnimationBatch animationBatch)
+        private void ExportEntities(int index, Tuple<int, long> group, RootEntity[] entities, List<ModelEntity> models, Animation[] animations, AnimationBatch animationBatch)
         {
-            var exportAnimations = _options.ExportAnimations && animations?.Length > 0;
+            var exportAnimations = animationBatch != null;
 
-            for (var entityIndex = 0; entityIndex < entities.Length; entityIndex++)
             {
                 // Re-use the dictionary of textures so that we only export them once.
                 if (!_options.ShareTextures)
@@ -71,15 +63,13 @@ namespace PSXPrev.Common.Exporters
                     _exportedTextures.Clear();
                 }
 
-                _baseName = _options.GetBaseName(index, entityIndex);
+                _baseName = _options.GetBaseName(index);
                 var filePath = Path.Combine(_options.Path, $"{_baseName}.gltf");
                 _root = new glTF();
 
                 // Binary buffer creation
                 var binaryBufferFileName = $"{_baseName}.bin";
                 _binaryWriter = new BinaryWriter(File.Create(Path.Combine(_options.Path, $"{binaryBufferFileName}")));
-
-                var entity = _modelPreparer.GetPreparedRootEntity(entities[entityIndex], out var models);
 
 
                 // Write Asset
@@ -108,9 +98,140 @@ namespace PSXPrev.Common.Exporters
                 {
                     new scene
                     {
-                        nodes = new List<int>(Enumerable.Range(0, models.Count)),
+                        nodes = new List<int>(),//Enumerable.Range(0, models.Count)),
                     },
                 };
+
+                var rootNodes = new Dictionary<RootEntity, int>();
+                var modelNodes = new Dictionary<ModelEntity, int>();
+                var coordNodes = new Dictionary<Coordinate, int>();
+
+
+                // Write Nodes
+                // "nodes:" [
+                //  {
+                //   "mesh": {i},
+                //   "name": "{model.EntityName}",
+                //   "translation": [ {model.WorldMatrix.ExtractTranslation()} ],
+                //   "rotation": [ {model.WorldMatrix.ExtractRotationSafe()} ],
+                //   "scale": [ {model.WorldMatrix.ExtractScale()} ]
+                //  },
+                //  //...
+                // ]
+                _root.nodes = new List<node>(entities.Length + models.Count);
+                // Add root entity nodes
+                for (var i = 0; i < entities.Length; i++)
+                {
+                    var entity = entities[i];
+                    var matrix = entity.WorldMatrix; //model.LocalMatrix;
+                    rootNodes.Add(entity, _root.nodes.Count);
+                    _root.scenes[0].nodes.Add(_root.nodes.Count); // Add root nodes
+                    _root.nodes.Add(new node
+                    {
+                        name = entity.EntityName,
+                        translation = WriteVector3(matrix.ExtractTranslation(), true),
+                        rotation = WriteQuaternion(matrix.ExtractRotationSafe(), true),
+                        scale = WriteVector3(matrix.ExtractScale(), false),
+                    });
+                }
+                // Add model entity (mesh) nodes
+                var meshIndex = 0;
+                for (var i = 0; i < entities.Length; i++)
+                {
+                    var entity = entities[i];
+                    for (var j = 0; j < entity.ChildEntities.Length; j++)
+                    {
+                        var model = (ModelEntity)entity.ChildEntities[j];
+                        Matrix4 matrix;
+                        if (entity.Coords != null)
+                        {
+                            matrix = model.OriginalLocalMatrix.Inverted() * model.LocalMatrix;
+                        }
+                        else
+                        {
+                            matrix = model.LocalMatrix;
+                        }
+                        modelNodes.Add(model, _root.nodes.Count);
+                        _root.nodes.Add(new node
+                        {
+                            mesh = meshIndex,
+                            name = $"{entity.EntityName}: {model.EntityName}",
+                            translation = WriteVector3(matrix.ExtractTranslation(), true),
+                            rotation = WriteQuaternion(matrix.ExtractRotationSafe(), true),
+                            scale = WriteVector3(matrix.ExtractScale(), false),
+                        });
+                        meshIndex++;
+                    }
+                }
+                // Add coordinate nodes
+                for (var i = 0; i < entities.Length; i++)
+                {
+                    var entity = entities[i];
+                    if (entity.Coords != null)
+                    {
+                        for (var j = 0; j < entity.Coords.Length; j++)
+                        {
+                            var coord = entity.Coords[j];
+                            var matrix = coord.LocalMatrix;
+                            coordNodes.Add(coord, _root.nodes.Count);
+                            _root.nodes.Add(new node
+                            {
+                                name = $"{entity.EntityName}: Coord-{j}",
+                                translation = WriteVector3(matrix.ExtractTranslation(), true),
+                                rotation = WriteQuaternion(matrix.ExtractRotationSafe(), true),
+                                scale = WriteVector3(matrix.ExtractScale(), false),
+                            });
+                        }
+                    }
+                }
+
+                // Setup node children
+                for (var i = 0; i < entities.Length; i++)
+                {
+                    var entity = entities[i];
+                    var rootNode = _root.nodes[rootNodes[entity]];
+
+                    // Add coords to node children
+                    if (entity.Coords != null)
+                    {
+                        foreach (var coord in entity.Coords)
+                        {
+                            node parentNode;
+                            if (coord.HasParent)
+                            {
+                                parentNode = _root.nodes[coordNodes[coord.Parent]];
+                            }
+                            else
+                            {
+                                parentNode = rootNode;
+                            }
+                            if (parentNode.children == null)
+                            {
+                                parentNode.children = new List<int>();
+                            }
+                            parentNode.children.Add(coordNodes[coord]);
+                        }
+                    }
+                    // Add models to node children
+                    foreach (ModelEntity model in entity.ChildEntities)
+                    {
+                        node parentNode;
+                        if (entity.Coords != null)
+                        {
+                            var coord = entity.Coords[model.TMDID - 1];
+                            parentNode = _root.nodes[coordNodes[coord]];
+                        }
+                        else
+                        {
+                            parentNode = rootNode;
+                        }
+                        if (parentNode.children == null)
+                        {
+                            parentNode.children = new List<int>();
+                        }
+                        parentNode.children.Add(modelNodes[model]);
+                    }
+                }
 
 
                 // Write Buffer Views
@@ -160,40 +281,76 @@ namespace PSXPrev.Common.Exporters
                         WriteAnimationTimeBufferView(totalTime, timeStep, ref offset, initialOffset);
 
                         // Compute animation frames
+                        var count = GetAnimationTotalTransformCount(animation, entities);
                         var totalFrames = (int)Math.Ceiling(totalTime / timeStep) + 1; // +1 to include last frame
-                        var translations = new Vector3[models.Count, totalFrames];
-                        var rotations = new Quaternion[models.Count, totalFrames];
-                        var scales = new Vector3[models.Count, totalFrames];
-                        var frame = 0;
+                        var translations = new Vector3[count, totalFrames];
+                        var rotations = new Quaternion[count, totalFrames];
+                        var scales = new Vector3[count, totalFrames];
                         var oldLoopMode = animationBatch.LoopMode;
                         animationBatch.SetupAnimationBatch(animation, simulate: true);
                         animationBatch.LoopMode = AnimationLoopMode.Once;
-                        for (var t = 0f; t < totalTime; t += timeStep, frame++)
+                        var isCoordinateBased = animation.AnimationType.IsCoordinateBased();
+                        var isTransformBased = animation.AnimationType.IsTransformBased();
+                        var transformStart = 0;
+                        for (var i = 0; i < entities.Length; i++)
                         {
-                            animationBatch.Time = t;
-                            if (animationBatch.SetupAnimationFrame(null, entity, null, simulate: true))
+                            var entity = entities[i];
+                            var frame = 0;
+                            for (var t = 0f; t < totalTime; t += timeStep, frame++)
                             {
-                                for (var j = 0; j < models.Count; j++)
+                                animationBatch.Time = t;
+                                if (animationBatch.SetupAnimationFrame(null, entity, null, simulate: true))
                                 {
-                                    var model = models[j];
-                                    var matrix = model.TempMatrix * model.TempLocalMatrix;
-                                    translations[j, frame] = matrix.ExtractTranslation();
-                                    rotations[j, frame] = matrix.ExtractRotationSafe();
-                                    scales[j, frame] = matrix.ExtractScale();
+                                    var transformIndex = transformStart;
+                                    if ((isTransformBased || isCoordinateBased) && entity.Coords != null)
+                                    {
+                                        for (var j = 0; j < entity.Coords.Length; j++)
+                                        {
+                                            Matrix4 matrix;
+                                            if (isCoordinateBased)
+                                            {
+                                                var coord = entity.Coords[j];
+                                                matrix = coord.LocalMatrix;
+                                                translations[transformIndex, frame] = matrix.ExtractTranslation();
+                                                rotations[transformIndex, frame] = matrix.ExtractRotationSafe();
+                                                scales[transformIndex, frame] = matrix.ExtractScale();
+                                            }
+                                            else
+                                            {
+                                                // When animation is done via non-coordinate transformation, we need to erase coords' effects
+                                                translations[transformIndex, frame] = Vector3.Zero;
+                                                rotations[transformIndex, frame] = Quaternion.Identity;
+                                                scales[transformIndex, frame] = Vector3.One;
+                                            }
+                                            transformIndex++;
+                                        }
+                                    }
+                                    if (isTransformBased)
+                                    {
+                                        for (var j = 0; j < entity.ChildEntities.Length; j++)
+                                        {
+                                            var model = (ModelEntity)entity.ChildEntities[j];
+                                            var matrix = model.TempMatrix * model.TempLocalMatrix;
+                                            translations[transformIndex, frame] = matrix.ExtractTranslation();
+                                            rotations[transformIndex, frame] = matrix.ExtractRotationSafe();
+                                            scales[transformIndex, frame] = matrix.ExtractScale();
+                                            transformIndex++;
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    totalFrames = frame + 1;
                                 }
                             }
-                            else
-                            {
-                                totalFrames = frame + 1;
-                            }
+                            transformStart += GetAnimationEntityTransformCount(animation, entity);
                         }
                         animationBatch.LoopMode = oldLoopMode;
 
-                        // Write animation frames for each model
-                        for (var j = 0; j < models.Count; j++)
+                        // Write animation frames for each model and/or coord
+                        for (var j = 0; j < count; j++)
                         {
-                            var model = models[j];
-                            WriteAnimationDataBufferViews(model, j, translations, rotations, scales, totalFrames, ref offset, initialOffset);
+                            WriteAnimationDataBufferViews(j, translations, rotations, scales, totalFrames, ref offset, initialOffset);
                         }
                     }
                 }
@@ -405,7 +562,8 @@ namespace PSXPrev.Common.Exporters
                         var timeMin = new [] { 0f };
                         var timeMax = new [] { totalTime };
                         WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, stepCount, accessor_type.SCALAR, timeMin, timeMax); // Frame times
-                        foreach (var model in models)
+                        var count = GetAnimationTotalTransformCount(animation, entities);
+                        for (var j = 0; j < count; j++)
                         {
                             WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, stepCount, accessor_type.VEC3); // Object translation
                             WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, stepCount, accessor_type.VEC4); // Object rotation
@@ -510,15 +668,17 @@ namespace PSXPrev.Common.Exporters
                         var animationSamplerIndex = 0;
                         var timeAccessorIndex = accessorIndex++;
 
+                        var count = GetAnimationTotalTransformCount(animation, entities);
+
                         _root.animations.Add(new animation
                         {
-                            samplers = new List<animation_sampler>(models.Count * 3),
-                            channels = new List<animation_channel>(models.Count * 3),
+                            samplers = new List<animation_sampler>(count * 3),
+                            channels = new List<animation_channel>(count * 3),
                         });
-                        
+
                         {
                             // Samplers
-                            for (var j = 0; j < models.Count; j++)
+                            for (var j = 0; j < count; j++)
                             {
                                 WriteAnimationSampler(timeAccessorIndex, animation_sampler_interpolation.LINEAR, accessorIndex++); // object translation
                                 WriteAnimationSampler(timeAccessorIndex, animation_sampler_interpolation.LINEAR, accessorIndex++); // object rotation
@@ -526,44 +686,36 @@ namespace PSXPrev.Common.Exporters
                             }
 
                             // Channels
-                            for (var j = 0; j < models.Count; j++)
+                            var isCoordinateBased = animation.AnimationType.IsCoordinateBased();
+                            var isTransformBased = animation.AnimationType.IsTransformBased();
+                            for (var i = 0; i < entities.Length; i++)
                             {
-                                WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.translation, j); // object translation
-                                WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.rotation, j); // object rotation
-                                WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.scale, j); // object scale
+                                var entity = entities[i];
+                                if ((isTransformBased || isCoordinateBased) && entity.Coords != null)
+                                {
+                                    for (var j = 0; j < entity.Coords.Length; j++)
+                                    {
+                                        var coord = entity.Coords[j];
+                                        var node = coordNodes[coord];
+                                        WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.translation, node); // object translation
+                                        WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.rotation, node); // object rotation
+                                        WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.scale, node); // object scale
+                                    }
+                                }
+                                if (isTransformBased)
+                                {
+                                    for (var j = 0; j < entity.ChildEntities.Length; j++)
+                                    {
+                                        var model = (ModelEntity)entity.ChildEntities[j];
+                                        var node = modelNodes[model];
+                                        WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.translation, node); // object translation
+                                        WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.rotation, node); // object rotation
+                                        WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.scale, node); // object scale
+                                    }
+                                }
                             }
                         }
                     }
-                }
-
-
-                // Write Nodes
-                // "nodes:" [
-                //  {
-                //   "mesh": {i},
-                //   "name": "{model.EntityName}",
-                //   "translation": [ {model.WorldMatrix.ExtractTranslation()} ],
-                //   "rotation": [ {model.WorldMatrix.ExtractRotationSafe()} ],
-                //   "scale": [ {model.WorldMatrix.ExtractScale()} ]
-                //  },
-                //  //...
-                // ]
-                _root.nodes = new List<node>(models.Count);
-                for (var i = 0; i < models.Count; i++)
-                {
-                    var model = models[i];
-                    var matrix = model.WorldMatrix; //model.LocalMatrix;
-                    var translation = matrix.ExtractTranslation();
-                    var rotation = matrix.ExtractRotationSafe();
-                    var scale = matrix.ExtractScale();
-                    _root.nodes.Add(new node
-                    {
-                        mesh = i,
-                        name = model.EntityName,
-                        translation = WriteVector3(translation, true),
-                        rotation = WriteQuaternion(rotation, true),
-                        scale = WriteVector3(scale, false),
-                    });
                 }
 
 
@@ -610,6 +762,34 @@ namespace PSXPrev.Common.Exporters
                 }
             }
         }
+
+        private static int GetAnimationEntityTransformCount(Animation animation, RootEntity entity)
+        {
+            if (animation.AnimationType.IsCoordinateBased())
+            {
+                return entity.Coords?.Length ?? 0;// entity.ChildEntities.Length;
+            }
+            else if (animation.AnimationType.IsTransformBased())
+            {
+                return entity.ChildEntities.Length + (entity.Coords?.Length ?? 0);
+            }
+            else
+            {
+                return 0; // Not supported yet
+            }
+        }
+
+        private static int GetAnimationTotalTransformCount(Animation animation, RootEntity[] entities)
+        {
+            var count = 0;
+            for (var i = 0; i < entities.Length; i++)
+            {
+                var entity = entities[i];
+                count += GetAnimationEntityTransformCount(animation, entity);
+            }
+            return count;
+        }
+
         private void WriteAnimationChannel(int sampler, animation_channel_target_path path, int node)
         {
             //  {
@@ -704,13 +884,13 @@ namespace PSXPrev.Common.Exporters
             WriteEndBufferView(ref offset);
         }
 
-        private void WriteAnimationDataBufferViews(ModelEntity model, int modelIndex, Vector3[,] translations, Quaternion[,] rotations, Vector3[,] scales, int totalFrames, ref long offset, long initialOffset)
+        private void WriteAnimationDataBufferViews(int transformIndex, Vector3[,] translations, Quaternion[,] rotations, Vector3[,] scales, int totalFrames, ref long offset, long initialOffset)
         {
             // Write position
             WriteStartBufferView(initialOffset);
             for (var frame = 0; frame < totalFrames; frame++)
             {
-                var translation = translations[modelIndex, frame];
+                var translation = translations[transformIndex, frame];
                 WriteBinaryVector3(translation, true);
             }
             WriteEndBufferView(ref offset);
@@ -719,7 +899,7 @@ namespace PSXPrev.Common.Exporters
             WriteStartBufferView(initialOffset);
             for (var frame = 0; frame < totalFrames; frame++)
             {
-                var rotation = rotations[modelIndex, frame];
+                var rotation = rotations[transformIndex, frame];
                 WriteBinaryQuaternion(rotation, true);
             }
             WriteEndBufferView(ref offset);
@@ -728,7 +908,7 @@ namespace PSXPrev.Common.Exporters
             WriteStartBufferView(initialOffset);
             for (var frame = 0; frame < totalFrames; frame++)
             {
-                var scale = scales[modelIndex, frame];
+                var scale = scales[transformIndex, frame];
                 WriteBinaryVector3(scale, false);
             }
             WriteEndBufferView(ref offset);
