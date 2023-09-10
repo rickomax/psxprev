@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using OpenTK;
 using PSXPrev.Common.Renderer;
 
@@ -10,13 +11,20 @@ namespace PSXPrev.Common.Exporters
     // Currently this just separates models with tiled textures and assigns tiled textures to the models.
     public class ModelPreparerExporter : IDisposable
     {
+        private class RootEntityBuilder
+        {
+            public readonly Dictionary<RootEntity, Tuple<RootEntity, List<ModelEntity>>> RootEntityModels = new Dictionary<RootEntity, Tuple<RootEntity, List<ModelEntity>>>();
+            public readonly List<ModelEntity> AllModels = new List<ModelEntity>();
+        }
+
         private readonly Dictionary<Tuple<uint, Vector4>, TiledTextureInfo> _groupedModels = new Dictionary<Tuple<uint, Vector4>, TiledTextureInfo>();
-        private readonly Dictionary<RootEntity, Tuple<RootEntity, List<ModelEntity>>> _rootEntityModels = new Dictionary<RootEntity, Tuple<RootEntity, List<ModelEntity>>>();
+        private readonly Dictionary<Tuple<int, long>, RootEntityBuilder> _rootEntityModels = new Dictionary<Tuple<int, long>, RootEntityBuilder>();
+        private readonly List<Tuple<int, long>> _groups = new List<Tuple<int, long>>();
         private readonly Texture[] _copiedVRAMPages = new Texture[VRAM.PageCount];
         private readonly ExportModelOptions _options;
         private SingleTextureInfo _singleInfo;
 
-        private bool CanPrepareAll => !_options.ExportTextures || _options.ShareTextures;
+        private bool CanPrepareAll => _options.ModelGrouping == ExportModelGrouping.GroupAllModels || !_options.ExportTextures || _options.ShareTextures;
 
         public ModelPreparerExporter(ExportModelOptions options)
         {
@@ -25,77 +33,138 @@ namespace PSXPrev.Common.Exporters
 
 
         // I'm not happy with how this is setup right now, but it's a quick fix. -trigger
-        public RootEntity GetPreparedRootEntity(RootEntity rootEntity, out List<ModelEntity> models)
+        public RootEntity[] GetPreparedRootEntity(/*RootEntity[] rootEntities,*/ Tuple<int, long> group, out List<ModelEntity> allModels)
         {
-            var rootTuple = _rootEntityModels[rootEntity];
-            models = rootTuple.Item2;
-            return rootTuple.Item1;
+            var rootBuilder = _rootEntityModels[group];
+
+            allModels = rootBuilder.AllModels;
+
+            var preparedRootEntities = new RootEntity[rootBuilder.RootEntityModels.Count];
+            var index = 0;
+            foreach (var rootTuple in rootBuilder.RootEntityModels.Values)
+            {
+                preparedRootEntities[index++] = rootTuple.Item1;
+            }
+            return preparedRootEntities;
         }
 
         // Call this after AddRootEntity has been called for all root entities that plan to be exported.
-        public void PrepareAll(params RootEntity[] rootEntities)
+        // Returns the number of individual models to export
+        public Tuple<int, long>[] PrepareAll(RootEntity[] rootEntities)
         {
-            Prepare(rootEntities, false);
+            switch (_options.ModelGrouping)
+            {
+                case ExportModelGrouping.GroupAllModels:
+                    if (rootEntities.Length > 0)
+                    {
+                        var group = new Tuple<int, long>(-1, -1);
+                        _groups.Add(group);
+                    }
+                    break;
+
+                case ExportModelGrouping.Default:
+                    for (var i = 0; i < rootEntities.Length; i++)
+                    {
+                        var group = new Tuple<int, long>(i, -1);
+                        _groups.Add(group);
+                    }
+                    break;
+
+                case ExportModelGrouping.SplitSubModelsByTMDID:
+                    var tmdids = new HashSet<uint>();
+                    for (var i = 0; i < rootEntities.Length; i++)
+                    {
+                        tmdids.Clear();
+                        foreach (ModelEntity model in rootEntities[i].ChildEntities)
+                        {
+                            tmdids.Add(model.TMDID);
+                        }
+                        foreach (var tmdid in tmdids.OrderBy(t => t))
+                        {
+                            var group = new Tuple<int, long>(i, tmdid);
+                            _groups.Add(group);
+                        }
+                    }
+                    break;
+            }
+
+            Prepare(rootEntities, false, _groups);
+            return _groups.ToArray();
         }
 
         // Call this when preparing to export the current set of root entities.
         // NOTE: This assumes that PrepareCurrent will NEVER be called with the same RootEntity twice!
-        public void PrepareCurrent(params RootEntity[] rootEntities)
+        public RootEntity[] PrepareCurrent(RootEntity[] rootEntities, Tuple<int, long> group, out List<ModelEntity> allModels)
         {
             CleanupCurrent();
 
-            Prepare(rootEntities, true);
+            Prepare(rootEntities, true, new Tuple<int, long>[] { group });
+            return GetPreparedRootEntity(group, out allModels);
         }
 
-        private void Prepare(RootEntity[] rootEntities, bool current)
+        private void Prepare(RootEntity[] rootEntities, bool current, IEnumerable<Tuple<int, long>> groups)
         {
             // Add all entities if all entities are processed together.
             // Or add current entities if we need to separate processing.
             if (CanPrepareAll != current)
             {
                 // Process root entities now.
-                foreach (var rootEntity in rootEntities)
+                foreach (var group in groups)
                 {
-                    AddRootEntity(rootEntity);
+                    if (group.Item1 != -1)
+                    {
+                        var i = group.Item1;
+                        AddRootEntity(rootEntities[i], i, group);
+                    }
+                    else
+                    {
+                        for (var i = 0; i < rootEntities.Length; i++)
+                        {
+                            AddRootEntity(rootEntities[i], i, group);
+                        }
+                    }
                 }
 
                 // Assign child entities and coordinates to new root entities.
-                foreach (var rootTuple in _rootEntityModels.Values)
+                foreach (var rootBuilder in _rootEntityModels.Values)
                 {
-                    var newRootEntity = rootTuple.Item1;
-                    var models = rootTuple.Item2;
-
-                    // Setup children array
-                    var newChildEntities = new EntityBase[models.Count];
-                    for (var i = 0; i < newChildEntities.Length; i++)
+                    foreach (var rootTuple in rootBuilder.RootEntityModels.Values)
                     {
-                        newChildEntities[i] = models[i];
-                        newChildEntities[i].ParentEntity = newRootEntity;
-                    }
-                    newRootEntity.ChildEntities = newChildEntities;
+                        var newRootEntity = rootTuple.Item1;
+                        var models = rootTuple.Item2;
 
-                    // Clone coordinates array
-                    var coords = newRootEntity.Coords;
-                    if (coords != null)
-                    {
-                        var newCoords = new Coordinate[coords.Length];
-                        for (var i = 0; i < coords.Length; i++)
+                        // Setup children array
+                        var newChildEntities = new EntityBase[models.Count];
+                        for (var i = 0; i < newChildEntities.Length; i++)
                         {
-                            newCoords[i] = new Coordinate(coords[i], newCoords);
+                            newChildEntities[i] = models[i];
+                            newChildEntities[i].ParentEntity = newRootEntity;
                         }
-                        newRootEntity.Coords = newCoords;
-                    }
+                        newRootEntity.ChildEntities = newChildEntities;
 
-                    // Fix connections for new root entity
-                    if (_options.AttachLimbs)
-                    {
-                        newRootEntity.FixConnections();
+                        // Clone coordinates array
+                        var coords = newRootEntity.Coords;
+                        if (coords != null)
+                        {
+                            var newCoords = new Coordinate[coords.Length];
+                            for (var i = 0; i < coords.Length; i++)
+                            {
+                                newCoords[i] = new Coordinate(coords[i], newCoords);
+                            }
+                            newRootEntity.Coords = newCoords;
+                        }
+
+                        // Fix connections for new root entity
+                        if (_options.AttachLimbs)
+                        {
+                            newRootEntity.FixConnections();
+                        }
                     }
                 }
 
                 PrepareTiledTextures();
 
-                PrepareSingleTexture(rootEntities);
+                PrepareSingleTexture(rootEntities, groups);
             }
         }
 
@@ -175,16 +244,16 @@ namespace PSXPrev.Common.Exporters
             }
         }
 
-        private void PrepareSingleTexture(RootEntity[] rootEntities)
+        private void PrepareSingleTexture(RootEntity[] rootEntities, IEnumerable<Tuple<int, long>> groups)
         {
             if (_options.SingleTexture)
             {
                 // Add models and textures to singleInfo
                 _singleInfo = new SingleTextureInfo();
                 var addedTextures = new HashSet<Texture>();
-                foreach (var rootEntity in rootEntities)
+                foreach (var group in groups)
                 {
-                    GetPreparedRootEntity(rootEntity, out var models);
+                    GetPreparedRootEntity(group, out var models);
                     foreach (var model in models)
                     {
                         if (model.HasTexture)
@@ -239,11 +308,15 @@ namespace PSXPrev.Common.Exporters
                 {
                     return true; // Model texture needs to be changed
                 }
+                if (model.NeedsTextureLookup)
+                {
+                    return true;
+                }
             }
             return false;
         }
 
-        private Triangle CloneTriangle(Triangle triangle)
+        private Triangle CloneTriangle(Triangle triangle, IUVConverter uvConverter)
         {
             var newTriangle = new Triangle(triangle);
             // If attaching limbs, then we need to clone vertices to prevent overwriting the existing model vertices.
@@ -272,11 +345,34 @@ namespace PSXPrev.Common.Exporters
                         }
                     }
                 }
+                if (uvConverter != null)
+                {
+                    var tiled = newTriangle.IsTiled;
+
+                    var origUvs = newTriangle.Uv;
+                    var uvs = new Vector2[3];
+                    for (var j = 0; j < 3; j++)
+                    {
+                        uvs[j] = uvConverter.ConvertUV(origUvs[j], tiled);
+                    }
+                    newTriangle.Uv = uvs;
+
+                    if (tiled)
+                    {
+                        var origBaseUvs = newTriangle.TiledUv?.BaseUv;
+                        var baseUvs = new Vector2[3];
+                        for (var j = 0; j < 3; j++)
+                        {
+                            baseUvs[j] = uvConverter.ConvertUV(origBaseUvs[j], tiled);
+                        }
+                        newTriangle.TiledUv = new TiledUV(baseUvs, uvConverter.ConvertTiledArea(newTriangle.TiledUv.Area));
+                    }
+                }
             }
             return newTriangle;
         }
 
-        private void SeparateModel(RootEntity rootEntity, ModelEntity model)
+        private void SeparateModel(RootEntity rootEntity, int rootIndex, ModelEntity model)
         {
             var modelNeedsCopy = ModelNeedsCopy(model);
 
@@ -299,6 +395,7 @@ namespace PSXPrev.Common.Exporters
                 }
             }
 
+            var uvConverter = model.TextureLookup;
             // Currently we're forced to create copies to support root entity transforms.
             /*if (!modelNeedsCopy)
             {
@@ -312,31 +409,45 @@ namespace PSXPrev.Common.Exporters
                 var newTriangles = new Triangle[triangles.Length];
                 for (var i = 0; i < triangles.Length; i++)
                 {
-                    newTriangles[i] = modelNeedsCopy ? CloneTriangle(triangles[i]) : triangles[i];
+                    newTriangles[i] = modelNeedsCopy ? CloneTriangle(triangles[i], uvConverter) : triangles[i];
                 }
                 var newModel = new ModelEntity(model, newTriangles)
                 {
                     Texture = texture,
                 };
-                AddModel(rootEntity, newModel, Vector4.Zero);
+                AddModel(rootEntity, rootIndex, newModel, Vector4.Zero);
             }
             else
             {
                 // Separate models by tiled area, and force-create copies if we're creating a single texture.
                 var groupedTriangles = new Dictionary<Vector4, List<Triangle>>();
 
+                var needsTextureLookup = model.NeedsTextureLookup;
                 foreach (var triangle in model.Triangles)
                 {
-                    var needsTiled = _options.TiledTextures && triangle.NeedsTiled;
-                    var triangleNeedsCopy = true;// _options.SingleTexture || _options.AttachLimbs || needsTiled;
-                    var tiledArea = needsTiled ? triangle.TiledArea.Value : Vector4.Zero;
+                    var needsTiled = false;
+                    if (_options.TiledTextures)
+                    {
+                        if (needsTextureLookup)
+                        {
+                            needsTiled = triangle.IsTiled;
+                        }
+                        else
+                        {
+                            needsTiled = triangle.NeedsTiled;
+                        }
+                    }
+                    var triangleNeedsCopy = true;// _options.SingleTexture || _options.AttachLimbs || needsTiled || needsTextureLookup;
+                    var newTriangle = triangleNeedsCopy ? CloneTriangle(triangle, uvConverter) : triangle;
+                    // Use newTriangle since it will have the converted packed tiled area
+                    var tiledArea = needsTiled ? newTriangle.TiledArea.Value : Vector4.Zero;
                     if (!groupedTriangles.TryGetValue(tiledArea, out var triangles))
                     {
                         triangles = new List<Triangle>();
                         groupedTriangles.Add(tiledArea, triangles);
                     }
                     // We only need to create a copy for tiled triangles, since we'll be modifying those.
-                    triangles.Add(triangleNeedsCopy ? CloneTriangle(triangle) : triangle);
+                    triangles.Add(newTriangle);
                 }
 
                 foreach (var kvp in groupedTriangles)
@@ -347,22 +458,25 @@ namespace PSXPrev.Common.Exporters
                     {
                         Texture = texture,
                     };
-                    AddModel(rootEntity, newModel, tiledArea);
+                    AddModel(rootEntity, rootIndex, newModel, tiledArea);
                 }
             }
         }
 
-        private void AddRootEntity(RootEntity rootEntity)
+        private void AddRootEntity(RootEntity rootEntity, int rootIndex, Tuple<int, long> group)
         {
             foreach (ModelEntity model in rootEntity.ChildEntities)
             {
-                SeparateModel(rootEntity, model);
+                if (group.Item2 == -1 || group.Item2 == model.TMDID)
+                {
+                    SeparateModel(rootEntity, rootIndex, model);
+                }
             }
 
             RedrawEntityTextures(rootEntity);
         }
 
-        private void AddModel(RootEntity rootEntity, ModelEntity model, Vector4 tiledArea)
+        private void AddModel(RootEntity rootEntity, int rootIndex, ModelEntity model, Vector4 tiledArea)
         {
             if (model.HasTexture)
             {
@@ -375,14 +489,37 @@ namespace PSXPrev.Common.Exporters
                 tiledInfo.Models.Add(model);
             }
 
-            if (!_rootEntityModels.TryGetValue(rootEntity, out var rootTuple))
+            var group = GetModelGroup(rootIndex, model);
+            if (!_rootEntityModels.TryGetValue(group, out var rootBuilder))
+            {
+                rootBuilder = new RootEntityBuilder();
+                _rootEntityModels.Add(group, rootBuilder);
+            }
+            if (!rootBuilder.RootEntityModels.TryGetValue(rootEntity, out var rootTuple))
             {
                 var newRootEntity = new RootEntity(rootEntity);
                 var models = new List<ModelEntity>();
                 rootTuple = new Tuple<RootEntity, List<ModelEntity>>(newRootEntity, models);
-                _rootEntityModels.Add(rootEntity, rootTuple);
+                rootBuilder.RootEntityModels.Add(rootEntity, rootTuple);
             }
             rootTuple.Item2.Add(model);
+            rootBuilder.AllModels.Add(model);
+        }
+
+        private Tuple<int, long> GetModelGroup(int rootIndex, ModelEntity model)
+        {
+            switch (_options.ModelGrouping)
+            {
+                default:
+                case ExportModelGrouping.GroupAllModels:
+                    return new Tuple<int, long>(-1, -1);
+
+                case ExportModelGrouping.Default:
+                    return new Tuple<int, long>(rootIndex, -1);
+
+                case ExportModelGrouping.SplitSubModelsByTMDID:
+                    return new Tuple<int, long>(rootIndex, model.TMDID);
+            }
         }
 
         private void CleanupCurrent()
@@ -516,6 +653,10 @@ namespace PSXPrev.Common.Exporters
                 // Find a column/row count with the smallest max dimension (closest to a square).
                 // todo: This calculation can be simplified/optimized by a lot, but it works for now...
                 var total = _packedTextures.Count;
+                if (powerOfTwo)
+                {
+                    total = GeomMath.RoundUpToPower(total, 2);
+                }
                 _countX = Math.Max(1, total);
                 _countY = 1;
                 var w = 1;

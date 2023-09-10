@@ -2331,10 +2331,10 @@ namespace PSXPrev.Forms
             EnterDialog();
             try
             {
-                var options = ExportModelsForm.Show(this, entities, animations, _animationBatch);
+                var options = ExportModelsForm.Show(this, entities, animations);
                 if (options != null)
                 {
-                    ExportModelsForm.Export(options, entities, animations, _animationBatch);
+                    ExportModelsForm.Export(options, entities, animations);
                     ShowMessageBox($"{entities.Length} models exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }

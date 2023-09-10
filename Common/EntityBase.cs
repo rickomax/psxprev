@@ -78,13 +78,13 @@ namespace PSXPrev.Common
         {
             get
             {
-                var matrix = Matrix4.Identity;
-                var entity = this;
-                do
+                var matrix = LocalMatrix;
+                var entity = ParentEntity;
+                while (entity != null)
                 {
                     matrix *= entity.LocalMatrix;
                     entity = entity.ParentEntity;
-                } while (entity != null);
+                }
                 return matrix;
             }
         }

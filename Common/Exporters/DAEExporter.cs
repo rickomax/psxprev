@@ -22,7 +22,6 @@ namespace PSXPrev.Common.Exporters
         {
             _options = options?.Clone() ?? new ExportModelOptions();
             // Force any required options for this format here, before calling Validate.
-            _options.MergeEntities = false; // Not supported yet
             // When testing in MeshLab, only the first mesh of a given image index will
             // use the correct image, all future meshes will just use images[0].
             _options.SingleTexture = true;
@@ -33,24 +32,15 @@ namespace PSXPrev.Common.Exporters
             _modelPreparer = new ModelPreparerExporter(_options);
 
             // Prepare the shared state for all models being exported (mainly setting up tiled textures).
-            _modelPreparer.PrepareAll(entities);
+            var groups = _modelPreparer.PrepareAll(entities);
 
-            if (!_options.MergeEntities)
+            for (var i = 0; i < groups.Length; i++)
             {
-                for (var i = 0; i < entities.Length; i++)
-                {
-                    // Prepare the state for the current model being exported.
-                    _modelPreparer.PrepareCurrent(entities);
-
-                    ExportEntities(i, entities[i]);
-                }
-            }
-            else // Not supported yet, disabled before Validate
-            {
+                var group = groups[i];
                 // Prepare the state for the current model being exported.
-                _modelPreparer.PrepareCurrent(entities);
+                var preparedEntities = _modelPreparer.PrepareCurrent(entities, group, out var preparedModels);
 
-                ExportEntities(0, entities);
+                ExportEntities(i, group, preparedEntities, preparedModels);
             }
 
             //_pngExporter.Dispose();
@@ -60,9 +50,8 @@ namespace PSXPrev.Common.Exporters
             _modelPreparer = null;
         }
 
-        private void ExportEntities(int index, params RootEntity[] entities)
+        private void ExportEntities(int index, Tuple<int, long> group, RootEntity[] entities, List<ModelEntity> models)
         {
-            for (var entityIndex = 0; entityIndex < entities.Length; entityIndex++)
             {
                 // If shared, reuse the dictionary of textures so that we only export them once.
                 if (!_options.ShareTextures)
@@ -70,10 +59,8 @@ namespace PSXPrev.Common.Exporters
                     _exportedTextures.Clear();
                 }
 
-                _baseName = _options.GetBaseName(index, entityIndex);
+                _baseName = _options.GetBaseName(index);//, entityIndex);
                 var filePath = Path.Combine(_options.Path, $"{_baseName}.dae");
-
-                var entity = _modelPreparer.GetPreparedRootEntity(entities[entityIndex], out var models);
 
 
                 // Find and export all textures used by this entity

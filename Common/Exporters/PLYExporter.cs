@@ -29,24 +29,15 @@ namespace PSXPrev.Common.Exporters
             _modelPreparer = new ModelPreparerExporter(_options);
 
             // Prepare the shared state for all models being exported (mainly setting up tiled textures).
-            _modelPreparer.PrepareAll(entities);
+            var groups = _modelPreparer.PrepareAll(entities);
 
-            if (!_options.MergeEntities)
+            for (var i = 0; i < groups.Length; i++)
             {
-                for (var i = 0; i < entities.Length; i++)
-                {
-                    // Prepare the state for the current model being exported.
-                    _modelPreparer.PrepareCurrent(entities);
-
-                    ExportEntities(i, entities[i]);
-                }
-            }
-            else
-            {
+                var group = groups[i];
                 // Prepare the state for the current model being exported.
-                _modelPreparer.PrepareCurrent(entities);
+                var preparedEntities = _modelPreparer.PrepareCurrent(entities, group, out var preparedModels);
 
-                ExportEntities(0, entities);
+                ExportEntities(i, group, preparedEntities, preparedModels);
             }
 
             //_pngExporter.Dispose();
@@ -56,7 +47,7 @@ namespace PSXPrev.Common.Exporters
             _modelPreparer = null;
         }
 
-        private void ExportEntities(int index, params RootEntity[] entities)
+        private void ExportEntities(int index, Tuple<int, long> group, RootEntity[] entities, List<ModelEntity> models)
         {
             // If shared, reuse the dictionary of textures so that we only export them once.
             if (!_options.ShareTextures)
@@ -72,27 +63,23 @@ namespace PSXPrev.Common.Exporters
             // texture files, even though it supports texture UVs...
             var faceCount = 0;
             Texture singleTexture = null;
-            foreach (var entity in entities)
+            foreach (var model in models)
             {
-                _modelPreparer.GetPreparedRootEntity(entity, out var models);
-                foreach (var model in models)
+                faceCount += model.Triangles.Length;
+
+                // Export material if we haven't already
+                var texture = model.Texture;
+                if (NeedsTexture(model))
                 {
-                    faceCount += model.Triangles.Length;
+                    singleTexture = texture;
 
-                    // Export material if we haven't already
-                    var texture = model.Texture;
-                    if (NeedsTexture(model))
+                    if (!_exportedTextures.TryGetValue(texture, out var exportedTextureId))
                     {
-                        singleTexture = texture;
+                        exportedTextureId = _exportedTextures.Count; // Should always be 0 here
+                        _exportedTextures.Add(texture, exportedTextureId);
 
-                        if (!_exportedTextures.TryGetValue(texture, out var exportedTextureId))
-                        {
-                            exportedTextureId = _exportedTextures.Count; // Should always be 0 here
-                            _exportedTextures.Add(texture, exportedTextureId);
-
-                            var textureName = _options.GetTextureName(_baseName, exportedTextureId);
-                            _pngExporter.Export(singleTexture, textureName, _options.Path);
-                        }
+                        var textureName = _options.GetTextureName(_baseName, exportedTextureId);
+                        _pngExporter.Export(singleTexture, textureName, _options.Path);
                     }
                 }
             }
@@ -146,22 +133,18 @@ namespace PSXPrev.Common.Exporters
             _writer.WriteLine("end_header");
 
             // Write vertices
-            foreach (var entity in entities)
+            foreach (var model in models)
             {
-                _modelPreparer.GetPreparedRootEntity(entity, out var models);
-                foreach (var model in models)
-                {
-                    var materialIndex = 0; // Only one material is defined
+                var materialIndex = 0; // Only one material is defined
 
-                    var worldMatrix = model.WorldMatrix;
-                    GeomMath.InvertSafe(ref worldMatrix, out var invWorldMatrix);
-                    foreach (var triangle in model.Triangles)
+                var worldMatrix = model.WorldMatrix;
+                GeomMath.InvertSafe(ref worldMatrix, out var invWorldMatrix);
+                foreach (var triangle in model.Triangles)
+                {
+                    for (var j = 2; j >= 0; j--)
                     {
-                        for (var j = 2; j >= 0; j--)
-                        {
-                            WriteVertex(triangle.Vertices[j], triangle.Normals[j], triangle.Uv[j], triangle.Colors[j],
-                                        materialIndex, ref worldMatrix, ref invWorldMatrix);
-                        }
+                        WriteVertex(triangle.Vertices[j], triangle.Normals[j], triangle.Uv[j], triangle.Colors[j],
+                                    materialIndex, ref worldMatrix, ref invWorldMatrix);
                     }
                 }
             }

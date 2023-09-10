@@ -264,7 +264,7 @@ namespace PSXPrev.Common.Animator
         {
             // Reset coordinate matrices in-case a frame requires the last state of the matrix.
             // This is important because there's no guarantee the animation won't skip a frame due to lag.
-            if (_animation.RootAnimationObject == animationObject && _animation.AnimationType == AnimationType.HMD)
+            if (_animation.RootAnimationObject == animationObject && _animation.AnimationType.IsCoordinateBased())
             {
                 ResetAnimationCoords(animationObject, selectedRootEntity);
             }
@@ -536,7 +536,7 @@ namespace PSXPrev.Common.Animator
             }
 
             // HMD: Update the temporary matrices of all models, now that the coordinate system has been updated.
-            if (_animation.RootAnimationObject == animationObject && _animation.AnimationType == AnimationType.HMD)
+            if (_animation.RootAnimationObject == animationObject && _animation.AnimationType.IsCoordinateBased())
             {
                 var coords = selectedRootEntity?.Coords;
                 if (coords != null)
