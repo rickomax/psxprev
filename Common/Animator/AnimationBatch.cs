@@ -526,6 +526,91 @@ namespace PSXPrev.Common.Animator
                         }
                         break;
                     }
+                case AnimationType.PSI:
+                    {
+                        if (selectedRootEntity == null || selectedRootEntity.Coords == null)
+                        {
+                            break;
+                        }
+                        var animationFrames = animationObject.AnimationFrames;
+                        if (animationFrames.Count == 0)
+                        {
+                            break; // No frames to interpolate
+                        }
+                        var totalFrames = animationFrames.Values.Max(af => af.FrameTime + Math.Max(1u, af.FrameDuration));
+
+                        for (uint f = 0; f <= frameIndex && f < totalFrames; f++)
+                        {
+                            if (!animationFrames.TryGetValue(f, out var srcFrame))
+                            {
+                                continue;
+                            }
+
+                            foreach (var tmdid in animationObject.TMDID)
+                            {
+                                if (tmdid <= 0 || tmdid > selectedRootEntity.Coords.Length)
+                                {
+                                    continue;
+                                }
+                                var coord = selectedRootEntity.Coords[tmdid - 1];
+
+                                var delta = GetInterpolator(srcFrame, frameTime);
+
+                                var frameMatrix = coord.LocalMatrix;
+                                Vector3 translation;
+                                Vector3 scale;
+                                Quaternion rotation;
+
+                                if (srcFrame.RotationType != InterpolationType.None)
+                                {
+                                    var srcR = srcFrame.Rotation.Value;
+                                    var dstR = srcFrame.FinalRotation ?? srcR;
+                                    rotation = Quaternion.Slerp(srcR, dstR, delta);
+                                }
+                                else
+                                {
+                                    rotation = frameMatrix.ExtractRotationSafe();
+                                }
+
+                                if (srcFrame.ScaleType != InterpolationType.None)
+                                {
+                                    var srcS = srcFrame.Scale.Value;
+                                    var dstS = srcFrame.FinalScale ?? srcS;
+                                    scale = Vector3.Lerp(srcS, dstS, delta);
+                                }
+                                else
+                                {
+                                    scale = frameMatrix.ExtractScale();
+                                }
+
+                                if (srcFrame.TranslationType != InterpolationType.None)
+                                {
+                                    var srcT = srcFrame.Translation.Value;
+                                    var dstT = srcFrame.FinalTranslation ?? srcT;
+                                    translation = Vector3.Lerp(srcT, dstT, delta);
+                                }
+                                else
+                                {
+                                    translation = frameMatrix.ExtractTranslation();
+                                }
+
+                                var scaleMatrix = Matrix4.CreateScale(scale);
+                                var rotationMatrix = Matrix4.CreateFromQuaternion(rotation);
+                                var translationMatrix = Matrix4.CreateTranslation(translation);
+                                frameMatrix = scaleMatrix * rotationMatrix * translationMatrix;
+
+                                coord.LocalMatrix = frameMatrix;
+
+                                // Hierarchy isn't supported for HMD animations. The coordinates do that already.
+                                //worldMatrix *= frameMatrix;
+                                // Not supported by HMD, which modifies coordinates of individual models.
+                                //if (animationObject.HandlesRoot)
+                                //{
+                                //}
+                            }
+                        }
+                        break;
+                    }
             }
             foreach (var childAnimationObject in animationObject.Children)
             {

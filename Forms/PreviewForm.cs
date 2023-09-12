@@ -57,10 +57,12 @@ namespace PSXPrev.Forms
         // Form timers
         private Timer _mainTimer; // Main timer used by all timed events
         private Stopwatch _mainWatch; // Watch to track elapsed time between main timer events
+        private Stopwatch _fpsWatch;
         private bool _fixedTimer = false; // If true, then timer always updates with the same time delta
         // Timers that are updated during main timer Elapsed event
         private RefreshDelayTimer _animationProgressBarRefreshDelayTimer;
         private RefreshDelayTimer _modelPropertyGridRefreshDelayTimer;
+        private RefreshDelayTimer _fpsLabelRefreshDelayTimer;
         private RefreshDelayTimer _scanProgressRefreshDelayTimer;
         private RefreshDelayTimer _scanPopulateRefreshDelayTimer;
         private float _fps = (float)(1d / DefaultElapsedTime);
@@ -585,6 +587,7 @@ namespace PSXPrev.Forms
             // Setup Timers
             // Don't start watch until first Elapsed event (and use a default time for that first event)
             // Don't start timer until the Form is loaded
+            _fpsWatch  = new Stopwatch();
             _mainWatch = new Stopwatch();
             _mainTimer = new Timer(1d); // 1 millisecond, update as fast as possible (usually ~60FPS)
             _mainTimer.SynchronizingObject = this;
@@ -595,6 +598,9 @@ namespace PSXPrev.Forms
 
             _modelPropertyGridRefreshDelayTimer = new RefreshDelayTimer(50d / 1000d); // 50 milliseconds
             _modelPropertyGridRefreshDelayTimer.Elapsed += () => UpdateModelPropertyGrid(true);
+
+            _fpsLabelRefreshDelayTimer = new RefreshDelayTimer(1d); // 1 second
+            _fpsLabelRefreshDelayTimer.Elapsed += () => UpdateFPSLabel();
 
             _scanProgressRefreshDelayTimer = new RefreshDelayTimer(); // Interval assigned by settings
             _scanProgressRefreshDelayTimer.AutoReset = true;
@@ -742,7 +748,8 @@ namespace PSXPrev.Forms
 
         private void UpdateFPSLabel()
         {
-            if (showFPSToolStripMenuItem.Checked)
+            _fpsLabelRefreshDelayTimer.Reset();
+            if (showFPSToolStripMenuItem.Checked && _openTkControl.Parent != null)
             {
                 Text = $"{_baseWindowTitle} (FPS: {_fps:0.0})";
             }
@@ -905,6 +912,7 @@ namespace PSXPrev.Forms
                 case ModelsTabIndex: // Models
                     {
                         animationsTreeView.SelectedNode = null;
+                        _fpsWatch.Reset();
                         _openTkControl.Parent = modelsSplitContainer.Panel2;
                         _openTkControl.Show();
                         break;
@@ -917,6 +925,7 @@ namespace PSXPrev.Forms
                 case AnimationsTabIndex: // Animations
                     {
                         _inAnimationTab = true;
+                        _fpsWatch.Reset();
                         animationsTableLayoutPanel.Controls.Add(_openTkControl, 0, 0);
                         _openTkControl.Show();
                         UpdateSelectedAnimation();
@@ -931,6 +940,7 @@ namespace PSXPrev.Forms
             }
 
             menusTabControl.Refresh(); // Refresh so that controls don't take an undetermined amount of time to render
+            UpdateFPSLabel();
         }
 
         private void previewForm_KeyDown(object sender, KeyEventArgs e)
@@ -1158,6 +1168,28 @@ namespace PSXPrev.Forms
 
         private void _openTkControl_Paint(object sender, PaintEventArgs e)
         {
+            // Get elapsed time
+            var deltaSeconds = _fpsWatch.IsRunning ? _fpsWatch.Elapsed.TotalSeconds : DefaultElapsedTime;
+            _fpsWatch.Restart(); // Start or restart timer, use default time if timer wasn't running.
+
+
+            // Update FPS tracker
+            // Source: <http://www.david-amador.com/2009/11/how-to-do-a-xna-fps-counter/>
+            _fpsCalcElapsedSeconds += deltaSeconds;
+            if (_fpsCalcElapsedSeconds >= 1d) // Update FPS every one second
+            {
+                _fps = (float)(_fpsCalcElapsedFrames / _fpsCalcElapsedSeconds);
+                _fpsCalcElapsedSeconds = 0d;
+                _fpsCalcElapsedFrames = 0;
+                if (showFPSToolStripMenuItem.Checked)
+                {
+                    // We don't want to be updating other controls in a paint event
+                    _fpsLabelRefreshDelayTimer.Start();
+                }
+            }
+            _fpsCalcElapsedFrames++;
+
+
             _openTkControl.MakeCurrent();
             if (_inAnimationTab && _curAnimation != null)
             {
@@ -1412,6 +1444,7 @@ namespace PSXPrev.Forms
                 // Instantly finish delayed control refreshes
                 _animationProgressBarRefreshDelayTimer.Finish();
                 _modelPropertyGridRefreshDelayTimer.Finish();
+                _fpsLabelRefreshDelayTimer.Finish();
             }
             else
             {
@@ -1423,27 +1456,10 @@ namespace PSXPrev.Forms
                 var renderSeconds = _fixedTimer ? DefaultElapsedTime : Math.Min(deltaSeconds, MaxElapsedTime);
 
 
-                // Update FPS tracker
-                // Source: <http://www.david-amador.com/2009/11/how-to-do-a-xna-fps-counter/>
-                _fpsCalcElapsedSeconds += deltaSeconds;
-                if (_fpsCalcElapsedSeconds >= 1d) // Update FPS every one second
-                {
-                    _fps = (float)(_fpsCalcElapsedFrames / _fpsCalcElapsedSeconds);
-                    _fpsCalcElapsedSeconds = 0d;
-                    _fpsCalcElapsedFrames = 0;
-                    //Console.WriteLine($"FPS: {_fps:0.00}");
-                    // todo: Update a label or something here
-                    if (showFPSToolStripMenuItem.Checked)
-                    {
-                        UpdateFPSLabel();
-                    }
-                }
-                _fpsCalcElapsedFrames++;
-
-
                 // Update delayed control refreshes
                 _animationProgressBarRefreshDelayTimer.AddTime(deltaSeconds);
                 _modelPropertyGridRefreshDelayTimer.AddTime(deltaSeconds);
+                _fpsLabelRefreshDelayTimer.AddTime(deltaSeconds);
                 _scanProgressRefreshDelayTimer.AddTime(deltaSeconds);
                 _scanPopulateRefreshDelayTimer.AddTime(deltaSeconds);
 

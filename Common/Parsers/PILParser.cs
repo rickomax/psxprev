@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using OpenTK;
+using PSXPrev.Common.Animator;
 
 namespace PSXPrev.Common.Parsers
 {
@@ -12,6 +13,8 @@ namespace PSXPrev.Common.Parsers
     public class PILParser : FileOffsetScanner
     {
         private const float UVConst = 1f; // UV multiplier for PSI models
+
+        private const uint SortIndex = 0; // 0-7
 
         private const uint GPU_COM_F3  = 0x20;
         private const uint GPU_COM_F4  = 0x28;
@@ -37,15 +40,16 @@ namespace PSXPrev.Common.Parsers
         private readonly Stack<Tuple<PSIMesh, uint>> _psiMeshStack = new Stack<Tuple<PSIMesh, uint>>();
         // Actual read mesh data.
         private readonly List<PSIMesh> _psiMeshes = new List<PSIMesh>();
-        private readonly byte[] _textureNameBuffer = new byte[32]; // Temporary buffer for reading texture names to hash.
+        private readonly byte[] _nameBuffer = new byte[32]; // Temporary buffer for reading texture names to hash.
         //private readonly ushort[] _sortCounts = new ushort[8];
         //private readonly uint[] _sortTops = new uint[8];
         protected readonly Dictionary<RenderInfo, List<Triangle>> _groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
         protected readonly Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>> _groupedSprites = new Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>>();
         protected readonly List<ModelEntity> _models = new List<ModelEntity>();
+        protected readonly List<Animation> _animations = new List<Animation>();
 
-        public PILParser(EntityAddedAction entityAdded)
-            : base(entityAdded: entityAdded)
+        public PILParser(EntityAddedAction entityAdded, AnimationAddedAction animationAdded)
+            : base(entityAdded: entityAdded, animationAdded: animationAdded)
         {
         }
 
@@ -99,8 +103,12 @@ namespace PSXPrev.Common.Parsers
 
                 try
                 {
-                    //var name = Encoding.ASCII.GetString(reader.ReadBytes(16));
+#if DEBUG
+                    var name = ReadCString(reader, 16);
+                    //var nameCRC2 = HashString(name, true);
+#else
                     reader.BaseStream.Seek(16, SeekOrigin.Current);
+#endif
                     var nameCRC = reader.ReadUInt32();
 
                     var position = reader.BaseStream.Position;
@@ -194,6 +202,7 @@ namespace PSXPrev.Common.Parsers
             _groupedTriangles.Clear();
             _groupedSprites.Clear();
             _models.Clear();
+            _animations.Clear();
             _vertexCount = 0;
             _normalCount = 0;
 
@@ -213,28 +222,26 @@ namespace PSXPrev.Common.Parsers
                     var breakHere = 0;
                 }
             }
-            //if (d2m && (version != 0 || flags != 0))
-            //{
-            //    var breakHere = 0;
-            //}
+            else
+            {
+                flags = 0x1; // Assume all PSI\x01 models are skinned (this is just a guess)
+            }
 
             // Skinned models generally look completely wrong.
             // More work is needed to handle positioning for them (if that information is even stored in this file).
             var skinned = ((flags >> 0) & 0x1) == 1;
 
-            if (flags != 0)
-            {
-                var breakHere = 0;
-            }
             if (skinned)
             {
-                _scaleDivisor /= 10f; // Increase scale by 10 (not 0x10)
+                // This scaling change doesn't seem to have been implemented yet for Action Man 2...
+                //_scaleDivisor /= 10f; // Increase scale by 10 (not 0x10)
             }
 
-            // //var name = Encoding.ASCII.GetString(reader.ReadBytes(d2m ? 24 : 32));
-            // //reader.BaseStream.Seek(d2m ? 24 : 32, SeekOrigin.Current);
-            //var name = Encoding.ASCII.GetString(reader.ReadBytes(32));
+#if DEBUG
+            var name = ReadCString(reader, 32);
+#else
             reader.BaseStream.Seek(32, SeekOrigin.Current);
+#endif
 
             var meshCount = reader.ReadUInt32();
             var totalVertexCount = reader.ReadUInt32();
@@ -248,11 +255,15 @@ namespace PSXPrev.Common.Parsers
             }
             var totalPrimitiveCount = reader.ReadUInt32();
             var primitiveTop = reader.ReadUInt32();
-            var animStart = reader.ReadUInt16();
-            var animEnd = reader.ReadUInt16();
+            int animStart = reader.ReadUInt16();
+            int animEnd = reader.ReadUInt16();
             // Animation segments are a list of ushort start/end pairs
-            var animCount = reader.ReadUInt32();
+            var animSegmentsCount = reader.ReadUInt32();
             var animSegmentsTop = reader.ReadUInt32();
+            if (animSegmentsCount > Limits.MaxBFFAnimations)
+            {
+                return false;
+            }
             _textureHashCount = reader.ReadUInt32();
             if (_textureHashCount > Limits.MaxBFFTextureHashes)
             {
@@ -300,10 +311,10 @@ namespace PSXPrev.Common.Parsers
             //var textureNames = new string[_textureHashCount];
             for (uint i = 0; i < _textureHashCount; i++)
             {
-                reader.Read(_textureNameBuffer, 0, 32);
-                //var textureNameString = Encoding.ASCII.GetString(_textureNameBuffer);
+                reader.Read(_nameBuffer, 0, 32);
+                //var textureNameString = ConvertCString(_nameBuffer, 32);
                 //textureNames[i] = textureNameString;
-                _textureHashes[i] = HashString(_textureNameBuffer);
+                _textureHashes[i] = HashString(_nameBuffer);
             }
 
 
@@ -325,7 +336,7 @@ namespace PSXPrev.Common.Parsers
                 var meshTop = tuple.Item2;
                 reader.BaseStream.Seek(_offset2 + meshTop, SeekOrigin.Begin);
 
-                if (!ReadMesh(reader, version, d2m, totalVertexCount, parent, modelIndex, ref vertexIndex, ref normalIndex))
+                if (!ReadMesh(reader, skinned, d2m, totalVertexCount, parent, modelIndex, ref vertexIndex, ref normalIndex))
                 {
                     return false;
                 }
@@ -334,35 +345,53 @@ namespace PSXPrev.Common.Parsers
 
             // Now that all meshes are read, it's safe to read their primitives.
             // We can also construct coordinates in the same loop.
-            Coordinate[] coords = null;
+            Coordinate[] coords = new Coordinate[_psiMeshes.Count];
+            for (uint i = 0; i < _psiMeshes.Count; i++)
+            {
+                var psiMesh = _psiMeshes[(int)i];
+
+                var superIndex = psiMesh.Parent?.ModelIndex ?? Coordinate.NoID;
+                var coord = new Coordinate
+                {
+                    OriginalLocalMatrix = psiMesh.LocalMatrix,
+                    OriginalTranslation = psiMesh.Translation,
+                    //OriginalRotation = psiMesh.Rotation, // Can't use this field, since it's Euler angles
+                    ID = i,
+                    ParentID = superIndex,
+                    Coords = coords,
+                };
+                coords[i] = coord;
+
+                // If you want to turn off attachments:
+                // Set skinned to false, uncomment this, and pass null instead of coord to flush models.
+                /*if (psiMesh.VertexCount > 0 || psiMesh.NormalCount > 0)
+                {
+                    // It's safe to get WorldMatrix before finishing the coord list,
+                    // because meshes at index N can only have parents in the range [0,N-1]
+                    var matrix = coord.WorldMatrix;
+                    var start = psiMesh.VertexStart;
+                    for (uint j = 0; j < psiMesh.VertexCount; j++)
+                    {
+                        _vertices[start + j] = GeomMath.TransformPosition(ref _vertices[start + j], ref matrix);// + psiMesh.Center;
+                    }
+                }*/
+            }
+
             if (!d2m)
             {
-                coords = new Coordinate[_psiMeshes.Count];
+                // Meshes are constructed by reading the sort primitives of each individual mesh
                 for (uint i = 0; i < _psiMeshes.Count; i++)
                 {
                     var psiMesh = _psiMeshes[(int)i];
-                    ReadMeshPrimitives(reader, version, d2m, primitiveTop, totalPrimitiveCount, psiMesh, i);
+                    var coord = coords[i];
+                    ReadMeshPrimitives(reader, skinned, d2m, primitiveTop, totalPrimitiveCount, psiMesh, i);
 
-                    var superIndex = psiMesh.Parent?.ModelIndex ?? Coordinate.NoID;
-                    var coord = new Coordinate
-                    {
-                        OriginalLocalMatrix = psiMesh.LocalMatrix,
-                        OriginalTranslation = psiMesh.Translation,
-                        //OriginalRotation = psiMesh.Rotation, // Can't use this field, since it's Euler angles
-                        ID = i,
-                        ParentID = superIndex,
-                        Coords = coords,
-                    };
-                    coords[i] = coord;
-
-                    FlushModels(i, coord);
+                    FlushModels(skinned, i, psiMesh, coord);
                 }
             }
             else
             {
-                // Too many issues with reading based off meshes,
-                // so read based off defined primitives, and add them all to a single model index.
-                // Based on the game code for Chicken Run, it's entirely possible that this is the INTENDED way...
+                // Meshes are constructed by reading all primitive types in one go.
 
                 // Note that the game code only seems to read gt3s and gt4s.
                 if (fg3Count != 0 || fg4Count != 0 || ft3Count != 0 || ft4Count != 0 || sprCount != 0)
@@ -370,15 +399,57 @@ namespace PSXPrev.Common.Parsers
                     var breakHere = 0;
                 }
                 // todo: Are these first two treated as flat or gouraud color?
-                ReadPrimitives(reader, version, d2m, GPU_COM_G3,  fg3Top, fg3Count);
-                ReadPrimitives(reader, version, d2m, GPU_COM_G4,  fg4Top, fg4Count);
-                ReadPrimitives(reader, version, d2m, GPU_COM_TF3, ft3Top, ft3Count);
-                ReadPrimitives(reader, version, d2m, GPU_COM_TF4, ft4Top, ft4Count);
-                ReadPrimitives(reader, version, d2m, GPU_COM_TG3, gt3Top, gt3Count);
-                ReadPrimitives(reader, version, d2m, GPU_COM_TG4, gt4Top, gt4Count);
-                ReadPrimitives(reader, version, d2m, GPU_COM_TF4SPR, sprTop, sprCount);
+                ReadPrimitives(reader, skinned, d2m, GPU_COM_G3,  fg3Top, fg3Count);
+                ReadPrimitives(reader, skinned, d2m, GPU_COM_G4,  fg4Top, fg4Count);
+                ReadPrimitives(reader, skinned, d2m, GPU_COM_TF3, ft3Top, ft3Count);
+                ReadPrimitives(reader, skinned, d2m, GPU_COM_TF4, ft4Top, ft4Count);
+                ReadPrimitives(reader, skinned, d2m, GPU_COM_TG3, gt3Top, gt3Count);
+                ReadPrimitives(reader, skinned, d2m, GPU_COM_TG4, gt4Top, gt4Count);
+                ReadPrimitives(reader, skinned, d2m, GPU_COM_TF4SPR, sprTop, sprCount);
 
-                FlushModels(0, null);
+                FlushModels(skinned, 0, null, null);
+            }
+
+            // We may have a non-zero model count, but a zero triangle count. Check to make sure.
+            if (skinned)
+            {
+                var hasTriangles = false;
+                foreach (var model in _models)
+                {
+                    if (model.Triangles.Length > 0)
+                    {
+                        hasTriangles = true;
+                        break;
+                    }
+                }
+                if (!hasTriangles)
+                {
+                    // We have models due to skinned attachable vertices, but we have no triangles to use them with.
+                    _models.Clear();
+                }
+            }
+
+            // Build animation segments if this isn't an empty model
+            if (_models.Count > 0)
+            {
+                if (animSegmentsCount > 0)
+                {
+                    reader.BaseStream.Seek(_offset2 + animSegmentsTop, SeekOrigin.Begin);
+                    for (uint i = 0; i < animSegmentsCount; i++)
+                    {
+                        var start = reader.ReadUInt16();
+                        var end   = reader.ReadUInt16();
+                        BuildAnimation(start, end);
+                        //BuildAnimation(Math.Max(1, (int)start), end);
+                    }
+                }
+                else if (animStart <= animEnd && animEnd > 0)
+                {
+                    // Add extra restrictions for single animations without segments,
+                    // since we don't want to add static animations for every PSI object that exists.
+                    BuildAnimation(animStart, animEnd);
+                    //BuildAnimation(Math.Max(1, animStart), animEnd);
+                }
             }
 
             if (_models.Count > 0)
@@ -387,6 +458,16 @@ namespace PSXPrev.Common.Parsers
                 rootEntity.ChildEntities = _models.ToArray();
                 rootEntity.FormatName = "PSI"; // Sub-format name
                 rootEntity.Coords = coords;
+                //rootEntity.LookupID = nameCRC != 0 ? nameCRC : (uint?)null;
+                if (_animations.Count > 0)
+                {
+                    AnimationResults.AddRange(_animations);
+                    rootEntity.OwnedAnimations.AddRange(_animations);
+                    foreach (var animation in _animations)
+                    {
+                        animation.OwnerEntity = rootEntity;
+                    }
+                }
 #if DEBUG
                 rootEntity.DebugData = new[] { $"version: {version}", $"d2m: {id3}", $"flags: 0x{flags:x08}" };
 #endif
@@ -398,7 +479,7 @@ namespace PSXPrev.Common.Parsers
             return false;
         }
 
-        private bool ReadMesh(BinaryReader reader, uint version, bool d2m, uint totalVertexCount, PSIMesh parent, uint modelIndex, ref uint vertexIndex, ref uint normalIndex)
+        private bool ReadMesh(BinaryReader reader, bool skinned, bool d2m, uint totalVertexCount, PSIMesh parent, uint modelIndex, ref uint vertexIndex, ref uint normalIndex)
         {
             // Mesh header length is 120 bytes
             var meshPosition = reader.BaseStream.Position;
@@ -422,8 +503,11 @@ namespace PSXPrev.Common.Parsers
             // A non-zero value has never been observed, so for now this isn't handled.
             var scale = reader.ReadInt32();
 
-            //var meshName = Encoding.ASCII.GetString(reader.ReadBytes(16));
-            reader.BaseStream.Seek(16, SeekOrigin.Current);
+#if DEBUG
+            var meshName = ReadCString(reader, 16);
+#else
+            //reader.BaseStream.Seek(16, SeekOrigin.Current);
+#endif
 
             var childTop = reader.ReadUInt32();
             var nextTop  = reader.ReadUInt32();
@@ -459,9 +543,9 @@ namespace PSXPrev.Common.Parsers
             }
 
             // Center is not scaled...?
-            var centerX = reader.ReadInt16() / _scaleDivisorTranslation;
-            var centerY = reader.ReadInt16() / _scaleDivisorTranslation;
-            var centerZ = reader.ReadInt16() / _scaleDivisorTranslation;
+            var centerX = reader.ReadInt16() / _scaleDivisor;// _scaleDivisorTranslation;
+            var centerY = reader.ReadInt16() / _scaleDivisor;// _scaleDivisorTranslation;
+            var centerZ = reader.ReadInt16() / _scaleDivisor;// _scaleDivisorTranslation;
             var pad2 = reader.ReadUInt16();
 
             // This would be read instead of center
@@ -476,86 +560,98 @@ namespace PSXPrev.Common.Parsers
             //{
             //    Array.Resize(ref _vertices, (int)_vertexCount);
             //}
+            var attachableVertices = skinned && meshVertexCount > 0 ? new Dictionary<uint, Vector3>() : null;
             for (uint i = 0; i < meshVertexCount; i++)
             {
                 var x = reader.ReadInt16() / _scaleDivisor;
                 var y = reader.ReadInt16() / _scaleDivisor;
                 var z = reader.ReadInt16() / _scaleDivisor;
                 var pad = reader.ReadUInt16();
-                _vertices[vertexIndex + i] = new Vector3(x, y, z);
+                var vertex = new Vector3(x, y, z);
+                _vertices[vertexIndex + i] = vertex;
+                if (skinned)
+                {
+                    attachableVertices.Add(vertexIndex + i, vertex);
+                }
                 if (pad != 0)
                 {
                     var breakHere = 0;
                 }
             }
-            vertexIndex += meshVertexCount;
 
             reader.BaseStream.Seek(meshPosition + meshNormalTop, SeekOrigin.Begin);
             if (_normals == null || _normals.Length < _normalCount)
             {
                 Array.Resize(ref _normals, (int)_normalCount);
             }
+            var attachableNormals = skinned && meshNormalCount > 0 ? new Dictionary<uint, Vector3>() : null;
             for (uint i = 0; i < meshNormalCount; i++)
             {
                 var x = reader.ReadInt16() / 4096f;
                 var y = reader.ReadInt16() / 4096f;
                 var z = reader.ReadInt16() / 4096f;
                 var pad = reader.ReadUInt16();
-                _normals[normalIndex + i] = new Vector3(x, y, z);
+                var normal = new Vector3(x, y, z);
+                _normals[normalIndex + i] = normal;
+                if (skinned)
+                {
+                    attachableNormals.Add(vertexIndex + i, normal);
+                }
                 if (pad != 0)
                 {
                     var breakHere = 0;
                 }
             }
-            normalIndex += meshNormalCount;
 
 
             // todo: Optimize this, since we only use the first key, we don't need an array
-            Vector3Key[] scaleKeys = null, moveKeys = null;
-            QuaternionKey[] rotateKeys = null;
+            AnimationKey<Vector3>[] scaleKeys = null, moveKeys = null;
+            AnimationKey<Quaternion>[] rotateKeys = null;
             if (scaleKeyCount != 0)
             {
                 reader.BaseStream.Seek(meshPosition + scaleKeyTop, SeekOrigin.Begin);
-                scaleKeys = new Vector3Key[scaleKeyCount];
+                scaleKeys = new AnimationKey<Vector3>[scaleKeyCount];
                 for (uint i = 0; i < scaleKeyCount; i++)
                 {
                     // Rare instance of scale not being 4096, scale is multiplied by 4 later in the game code
                     var x = reader.ReadInt16() / 1024f;
                     var y = reader.ReadInt16() / 1024f;
                     var z = reader.ReadInt16() / 1024f;
-                    var time = reader.ReadUInt16(); //pad
-                    scaleKeys[i] = new Vector3Key(x, y, z, time);
+                    var time = reader.ReadInt16();
+                    scaleKeys[i] = new AnimationKey<Vector3>(time, new Vector3(x, y, z));
                 }
             }
 
             if (moveKeyCount != 0)
             {
                 reader.BaseStream.Seek(meshPosition + moveKeyTop, SeekOrigin.Begin);
-                moveKeys = new Vector3Key[moveKeyCount];
+                moveKeys = new AnimationKey<Vector3>[moveKeyCount];
                 for (uint i = 0; i < moveKeyCount; i++)
                 {
                     var x = reader.ReadInt16() / _scaleDivisor;
                     var y = reader.ReadInt16() / _scaleDivisor;
                     var z = reader.ReadInt16() / _scaleDivisor;
-                    var time = reader.ReadUInt16(); //pad
+                    var time = reader.ReadInt16();
                     // Y value seems to be negated, but I'm not sure if it's the same for all types of actors.
                     // I've seen other examples in game code of different inversions (i.e. -x,-y,+z)
-                    moveKeys[i] = new Vector3Key(x, -y, z, time);
+                    moveKeys[i] = new AnimationKey<Vector3>(time, new Vector3(x, -y, z));
                 }
             }
 
             if (rotateKeyCount != 0)
             {
                 reader.BaseStream.Seek(meshPosition + rotateKeyTop, SeekOrigin.Begin);
-                rotateKeys = new QuaternionKey[rotateKeyCount];
+                rotateKeys = new AnimationKey<Quaternion>[rotateKeyCount];
                 for (uint i = 0; i < rotateKeyCount; i++)
                 {
                     var x = reader.ReadInt16() / 4096f;
                     var y = reader.ReadInt16() / 4096f;
                     var z = reader.ReadInt16() / 4096f;
                     var w = reader.ReadInt16() / 4096f;
-                    var time = reader.ReadUInt16(); //pad
-                    rotateKeys[i] = new QuaternionKey(x, y, z, w, time);
+                    var time = reader.ReadInt16();
+                    // todo: Is inverted correct? Maybe just negate W...?
+                    //rotateKeys[i] = new AnimationKey<Quaternion>(time, new Quaternion(x, y, z, w).Inverted());
+                    rotateKeys[i] = new AnimationKey<Quaternion>(time, new Quaternion(x, y, z, -w));
                 }
             }
 
@@ -574,6 +670,15 @@ namespace PSXPrev.Common.Parsers
                 MeshTop = meshTop,
                 SortTops = sortTops,
                 SortCounts = sortCounts,
+                //VertexStart = vertexIndex,
+                //VertexCount = meshVertexCount,
+                //NormalStart = normalIndex,
+                //NormalCount = meshNormalCount,
+                AttachableVertices = attachableVertices,
+                AttachableNormals  = attachableNormals,
+#if DEBUG
+                MeshName = meshName,
+#endif
                 ScaleValue = scaleValue, // Not sure if this is used or not...
                 Center = center, // Seems to not be used for translation...
                 ScaleKeys = scaleKeys,
@@ -581,6 +686,8 @@ namespace PSXPrev.Common.Parsers
                 RotateKeys = rotateKeys,
             };
             _psiMeshes.Add(psiMesh);
+            vertexIndex += meshVertexCount;
+            normalIndex += meshNormalCount;
 
             // Add next first, since we parse depth-first (adding child last will mean its first out)
             if (nextTop != 0)
@@ -595,16 +702,16 @@ namespace PSXPrev.Common.Parsers
             return true;
         }
 
-        private bool ReadMeshPrimitives(BinaryReader reader, uint version, bool d2m, uint primitiveTop, uint totalPrimitiveCount, PSIMesh psiMesh, uint modelIndex)
+        private bool ReadMeshPrimitives(BinaryReader reader, bool skinned, bool d2m, uint primitiveTop, uint totalPrimitiveCount, PSIMesh psiMesh, uint modelIndex)
         {
             // I think each sort count/top is a directional version of the same model.
             // Not sure how we should handle these different versions, so for now we only read the first.
             // We could maybe do a check to see if each top/count is different, and if so,
             // then create individual root models for each.
-            var s = 0;
+            var s = SortIndex;
             //for (var s = 0; s < 1; s++)
             {
-                // PS1\x01 tends to fail either here with the sort values (all 0 counts)
+                // PSI\x01 tends to fail either here with the sort values (all 0 counts)
                 var sortCount = psiMesh.SortCounts[s];
                 var sortTop = psiMesh.SortTops[s];
 
@@ -621,7 +728,7 @@ namespace PSXPrev.Common.Parsers
 
                 for (uint i = 0; i < sortCount; i++)
                 {
-                    // Or PS1\x01 tends to fail here where the primitive indices don't align to the newer primitive format size
+                    // Or PSI\x01 tends to fail here where the primitive indices don't align to the newer primitive format size
                     var primitiveIndex = _primitiveIndices[i] * 8u;
                     reader.BaseStream.Seek(_offset2 + primitiveTop + primitiveIndex, SeekOrigin.Begin);
                     var next = reader.ReadUInt32();
@@ -631,7 +738,7 @@ namespace PSXPrev.Common.Parsers
                     var mode = reader.ReadByte();
                     var primitiveType = (mode & 0xfdu);
 
-                    if (!ReadPrimitive(reader, version, d2m, primitiveType, flag, mode))
+                    if (!ReadPrimitive(reader, skinned, d2m, primitiveType, flag, mode))
                     {
                         return false;
                     }
@@ -641,7 +748,7 @@ namespace PSXPrev.Common.Parsers
             return true;
         }
 
-        private bool ReadPrimitives(BinaryReader reader, uint version, bool d2m, uint primitiveType, uint primitiveTop, uint primitiveCount)
+        private bool ReadPrimitives(BinaryReader reader, bool skinned, bool d2m, uint primitiveType, uint primitiveTop, uint primitiveCount)
         {
             if (primitiveCount == 0)
             {
@@ -650,7 +757,7 @@ namespace PSXPrev.Common.Parsers
 
             reader.BaseStream.Seek(_offset2 + primitiveTop, SeekOrigin.Begin);
             var primitivePosition = reader.BaseStream.Position;
-            var length = GetPrimitiveLength(version, d2m, primitiveType);
+            var length = GetPrimitiveLength(d2m, primitiveType);
             if (length == 0)
             {
                 return false;
@@ -663,7 +770,7 @@ namespace PSXPrev.Common.Parsers
                 var flag = reader.ReadByte();
                 var mode = reader.ReadByte();
 
-                if (!ReadPrimitive(reader, version, d2m, primitiveType, flag, mode))
+                if (!ReadPrimitive(reader, skinned, d2m, primitiveType, flag, mode))
                 {
                     return false;
                 }
@@ -674,7 +781,7 @@ namespace PSXPrev.Common.Parsers
             return true;
         }
 
-        private uint GetPrimitiveLength(uint version, bool d2m, uint primitiveType)
+        private uint GetPrimitiveLength(bool d2m, uint primitiveType)
         {
             // Length is always a multiple of 8 (since primitiveIndex is multiplied by 8)
             switch (primitiveType)
@@ -702,7 +809,7 @@ namespace PSXPrev.Common.Parsers
             }
         }
 
-        private bool ReadPrimitive(BinaryReader reader, uint version, bool d2m, uint primitiveType, byte flag, byte mode)
+        private bool ReadPrimitive(BinaryReader reader, bool skinned, bool d2m, uint primitiveType, byte flag, byte mode)
         {
             switch (primitiveType)
             {
@@ -714,17 +821,17 @@ namespace PSXPrev.Common.Parsers
                 case GPU_COM_G3: // 0x30: GPU_COM_G3  / TMD_P_FG3I
                 case GPU_COM_F4: // 0x28: GPU_COM_F4  / TMD_P_FG4I
                 case GPU_COM_G4: // 0x38: GPU_COM_G4  / TMD_P_FG4I
-                    return ReadStandardPrimitive(reader, version, d2m, primitiveType, flag, mode);
+                    return ReadStandardPrimitive(reader, skinned, d2m, primitiveType, flag, mode);
 
                 case GPU_COM_TF4SPR: // 0x64: GPU_COM_TF4SPR / TMD_P_FT4I (D2M_TMD_P_SP4I)
-                    return ReadSpritePrimitive(reader, version, d2m, flag, mode);
+                    return ReadSpritePrimitive(reader, skinned, d2m, flag, mode);
 
                 default:
                     return false;
             }
         }
 
-        private bool ReadStandardPrimitive(BinaryReader reader, uint version, bool d2m, uint primitiveType, byte flag, byte mode)
+        private bool ReadStandardPrimitive(BinaryReader reader, bool skinned, bool d2m, uint primitiveType, byte flag, byte mode)
         {
             byte u0 = 0, u1 = 0, u2 = 0, u3 = 0;
             byte v0 = 0, v1 = 0, v2 = 0, v3 = 0;
@@ -743,7 +850,8 @@ namespace PSXPrev.Common.Parsers
             var bothSides = ((flag >> 0) & 0x1) == 1;
             var semiTrans = ((flag >> 1) & 0x1) == 1 && !textured;
             // Although non-direct2Mesh primitives can store a normal, these primitives are always unlit.
-            var light = /*(!textured || !gouraud) ||*/ d2m;
+            var light = (!textured || !gouraud) || d2m;
+            //var light = d2m;
 
             switch (primitiveType)
             {
@@ -1024,10 +1132,16 @@ namespace PSXPrev.Common.Parsers
                 TMDHelper.ParseTSB(tsb, out _, out _, out mixtureRate);
             }
 
+            var originalVertexIndices1 = new uint[] { vertexIndex2, vertexIndex1, vertexIndex0 };
+            var originalNormalIndices1 = light ? new uint[] { normalIndex2, normalIndex1, normalIndex0 } : null;
             var triangle1 = new Triangle
             {
                 Vertices = new[] { vertex2, vertex1, vertex0 },
                 Normals = light ? new[] { normal2, normal1, normal0 } : Triangle.EmptyNormals,
+                OriginalVertexIndices = originalVertexIndices1,
+                OriginalNormalIndices = originalNormalIndices1,
+                AttachedIndices       = skinned ? originalVertexIndices1 : null,
+                AttachedNormalIndices = skinned ? originalNormalIndices1 : null,
                 Uv = textured ? new[] { uv2, uv1, uv0 } : Triangle.EmptyUv,
                 Colors = new[] { color2, color1, color0 },
             };
@@ -1043,10 +1157,16 @@ namespace PSXPrev.Common.Parsers
 
             if (quad)
             {
+                var originalVertexIndices2 = new uint[] { vertexIndex2, vertexIndex3, vertexIndex1 };
+                var originalNormalIndices2 = light ? new uint[] { normalIndex2, normalIndex3, normalIndex1 } : null;
                 var triangle2 = new Triangle
                 {
                     Vertices = new[] { vertex2, vertex3, vertex1 },
                     Normals = light ? new[] { normal2, normal3, normal1 } : Triangle.EmptyNormals,
+                    OriginalVertexIndices = originalVertexIndices2,
+                    OriginalNormalIndices = originalNormalIndices2,
+                    AttachedIndices       = skinned ? originalVertexIndices2 : null,
+                    AttachedNormalIndices = skinned ? originalNormalIndices2 : null,
                     Uv = textured ? new[] { uv2, uv3, uv1 } : Triangle.EmptyUv,
                     Colors = new[] { color2, color3, color1 },
                 };
@@ -1064,7 +1184,7 @@ namespace PSXPrev.Common.Parsers
             return true;
         }
 
-        private bool ReadSpritePrimitive(BinaryReader reader, uint version, bool d2m, byte flag, byte mode)
+        private bool ReadSpritePrimitive(BinaryReader reader, bool skinned, bool d2m, byte flag, byte mode)
         {
             // Flag only used for untextered primitives
             //var semiTrans = ((flag >> 1) & 0x1) == 1;
@@ -1179,10 +1299,16 @@ namespace PSXPrev.Common.Parsers
 
         #endregion
 
-        private void FlushModels(uint modelIndex, Coordinate coord)
+        private void FlushModels(bool skinned, uint modelIndex, PSIMesh psiMesh, Coordinate coord)
         {
             var localMatrix = coord?.WorldMatrix ?? Matrix4.Identity;
 
+            var attachableVertices = psiMesh.AttachableVertices;
+            var attachableNormals  = psiMesh.AttachableNormals;
+
+#if DEBUG
+            var debugData = psiMesh != null ? new[] { $"meshName: \"{psiMesh.MeshName}\"" } : null;
+#endif
             foreach (var kvp in _groupedTriangles)
             {
                 var renderInfo = kvp.Key;
@@ -1196,7 +1322,21 @@ namespace PSXPrev.Common.Parsers
                     MixtureRate = renderInfo.MixtureRate,
                     TMDID = modelIndex + 1u,
                     OriginalLocalMatrix = localMatrix,
+#if DEBUG
+                    DebugData = debugData,
+#endif
                 };
+                if (attachableVertices != null || attachableNormals != null)
+                {
+                    model.AttachableVertices = attachableVertices;
+                    model.AttachableNormals  = attachableNormals;
+                    attachableVertices = null;
+                    attachableNormals  = null;
+                }
+                if (skinned)
+                {
+                    model.ComputeAttached();
+                }
                 _models.Add(model);
             }
             foreach (var kvp in _groupedSprites)
@@ -1214,7 +1354,27 @@ namespace PSXPrev.Common.Parsers
                     SpriteCenter = spriteCenter,
                     TMDID = modelIndex + 1u,
                     OriginalLocalMatrix = localMatrix,
+#if DEBUG
+                    DebugData = debugData,
+#endif
                 };
+                _models.Add(model);
+            }
+            if (attachableVertices != null || attachableNormals != null)
+            {
+                var model = new ModelEntity
+                {
+                    Triangles = new Triangle[0],
+                    TexturePage = 0,
+                    TMDID = modelIndex + 1u,
+                    OriginalLocalMatrix = localMatrix,
+                    AttachableVertices = attachableVertices,
+                    AttachableNormals  = attachableNormals,
+#if DEBUG
+                    DebugData = debugData,
+#endif
+                };
+                model.ComputeAttached();
                 _models.Add(model);
             }
             _groupedTriangles.Clear();
@@ -1267,6 +1427,233 @@ namespace PSXPrev.Common.Parsers
             }
         }
 
+        private static AnimationFrame GetAnimationFrame(AnimationObject animationObject, uint frameTime)
+        {
+            var animationFrames = animationObject.AnimationFrames;
+            if (!animationFrames.TryGetValue(frameTime, out var animationFrame))
+            {
+                animationFrame = new AnimationFrame
+                {
+                    FrameTime = frameTime,
+                    FrameDuration = 1,
+                    AnimationObject = animationObject
+                };
+                animationFrames.Add(frameTime, animationFrame);
+            }
+            return animationFrame;
+        }
+
+        private void ProcessAnimationKeys<T>(Animation animation, Dictionary<uint, AnimationObject> animationObjects, int start, int end,
+                                             uint tmdid, uint offset, AnimationKey<T>[] keys,
+                                             Action<AnimationFrame, T, T> assign, Func<T, T, float, T> lerp) where T : struct, IEquatable<T>
+        {
+            // If we only have 1 key, then there's nothing to animate (we already use the first key as the default transform)
+            if (keys == null || keys.Length <= 1)
+            {
+                return; // Nothing to animate
+            }
+            for (var j = 1; j < keys.Length; j++)
+            {
+                if (keys[j - 1].Time >= keys[j].Time)
+                {
+                    return; // Invalid key times (keys must be ordered and unique)
+                }
+            }
+
+            if (end < start)
+            {
+                end = start; // When end is less than start, end defaults to start
+            }
+
+            var objectId = tmdid + (uint)_psiMeshes.Count * offset; // Use offset to get a unique objectId
+            var animationObject = new AnimationObject { Animation = animation, ID = objectId };
+            animationObject.TMDID.Add(tmdid);
+            AnimationFrame animationFrame = null;
+
+            var isDefault = true; // If animation is static and the same as the default transform
+            var isStatic  = true; // If animation is a single transform that doesn't change. We'll only need one frame if true
+
+            var defaultValue = keys[0].Value; // Comparison for isDefault
+
+            int lastTime  = keys[0].Time;
+            var lastValue = keys[0].Value;
+            //var lastLastValue = lastValue;
+
+            // Find the first key whose time is greater than or equal to start time.
+            var startIndex = -1;
+            for (var j = 0; j < keys.Length; j++)
+            {
+                var key = keys[j];
+                var value = key.Value;
+                int time  = key.Time;
+
+                if (time > start && j > 0)
+                {
+                    // The start time is inbetween this key and the last key.
+                    // Preprocess interpolation for start of key
+                    var delta = (float)(start - lastTime) / Math.Max(1u, (time - lastTime));
+                    value = lerp(lastValue, value, delta);
+                    // Roll back one key and start the end frame loop at the current index
+                    time = start;
+                    startIndex = j;
+                }
+                else if (time > start || time == end || j + 1 == keys.Length)
+                {
+                    // The first key is greater than the start time.
+                    // Add a static frame before start of keys
+                    //  -or-
+                    // The key is equal to the start and end time.
+                    // Add a single static frame
+                    //  -or-
+                    // The last key is the closest to the start time.
+                    // Add a single static frame
+                    animationFrame = GetAnimationFrame(animationObject, 0u);
+                    animationFrame.FrameDuration = (uint)(time - start);
+                    assign(animationFrame, value, value);
+                    startIndex = j + 1;
+                }
+
+                //lastLastValue = value;
+                lastValue = value;
+                lastTime  = time;
+                if (startIndex != -1)
+                {
+                    isDefault &= lastValue.Equals(defaultValue);
+                    break;
+                }
+            }
+
+            if ((lastTime >= end || startIndex == keys.Length) && animationFrame != null)
+            {
+                // The first key is greater than the start time and greater than or equal to the end time.
+                //  -or-
+                // The start key is equal to the start and end time.
+                // This is a static single-frame animation (and we aren't interpolating keys)
+                if (!isDefault)
+                {
+                    animationObjects.Add(objectId, animationObject);
+                    animationFrame.FrameDuration = (uint)(end + 1 - start); // +1 since end is inclusive(?)
+                }
+                return;
+            }
+
+            // Add animation frames for all keys between start key and first key whose time is greater than or equal to end time.
+            for (var j = startIndex; j < keys.Length; j++)
+            {
+                var key = keys[j];
+                var value = key.Value;
+                int time  = key.Time;
+
+                if (time > end && j > 0)
+                {
+                    // The end time is inbetween this key and the last key.
+                    // Preprocess interpolation for end of key
+                    var delta = (float)(end + 1 - lastTime) / Math.Max(1, (time - lastTime));
+                    value = lerp(lastValue, value, delta);
+                }
+
+                // Add frame
+                animationFrame = GetAnimationFrame(animationObject, (uint)(lastTime - start));
+                animationFrame.FrameDuration = (uint)Math.Max(1, Math.Min(end, time) - lastTime);
+                assign(animationFrame, lastValue, value);
+                if (isDefault)
+                {
+                    isDefault &= value.Equals(defaultValue);
+                }
+                if (isStatic)
+                {
+                    isStatic &= value.Equals(lastValue);
+                }
+
+                //lastLastValue = lastValue;
+                lastValue = value;
+                lastTime  = time;
+                if (time >= end)
+                {
+                    break;
+                }
+            }
+
+            // Don't add animation if it's only using the default transform
+            if (!isDefault && animationFrame != null)
+            {
+                if (isStatic && animationObject.AnimationFrames.Count > 1)
+                {
+                    // Animation is static, remove all but the first frame
+                    // We need to store keys in an array first, since we can't remove keys while iterating over dictionary.
+                    var times = new uint[animationObject.AnimationFrames.Count - 1];
+                    var timeIndex = 0;
+                    foreach (var key in animationObject.AnimationFrames.Keys)
+                    {
+                        if (key != 0) // Only keep the first key
+                        {
+                            times[timeIndex++] = key;
+                        }
+                    }
+                    foreach (var key in times)
+                    {
+                        animationObject.AnimationFrames.Remove(key);
+                    }
+                    animationFrame = animationObject.AnimationFrames[0u];
+                }
+
+                animationObjects.Add(objectId, animationObject);
+                animationFrame.FrameDuration = (uint)(end + 1 - start - animationFrame.FrameTime); // +1 since end is inclusive(?)
+            }
+        }
+
+        private bool BuildAnimation(int start, int end)
+        {
+            var animation = new Animation();
+            var animationObjects = new Dictionary<uint, AnimationObject>();
+
+            for (uint i = 0; i < _psiMeshes.Count; i++)
+            {
+                var psiMesh = _psiMeshes[(int)i];
+                var tmdid = i + 1u;
+
+                ProcessAnimationKeys(animation, animationObjects, start, end,
+                    tmdid, 0, psiMesh.MoveKeys,
+                    (frame, value, finalValue) => {
+                        frame.TranslationType = InterpolationType.Linear;
+                        frame.Translation = value;
+                        frame.FinalTranslation = finalValue;
+                    },
+                    Vector3.Lerp);
+
+                ProcessAnimationKeys(animation, animationObjects, start, end,
+                    tmdid, 1, psiMesh.ScaleKeys,
+                    (frame, value, finalValue) => {
+                        frame.ScaleType = InterpolationType.Linear;
+                        frame.Scale = value;
+                        frame.FinalScale = finalValue;
+                    },
+                    Vector3.Lerp);
+
+                ProcessAnimationKeys(animation, animationObjects, start, end,
+                    tmdid, 2, psiMesh.RotateKeys,
+                    (frame, value, finalValue) => {
+                        frame.RotationType = InterpolationType.Linear;
+                        frame.Rotation = value;
+                        frame.FinalRotation = finalValue;
+                    },
+                    Quaternion.Slerp);
+            }
+
+            if (animationObjects.Count > 0)
+            {
+                animation.AnimationType = AnimationType.PSI;
+                // Action Man works better with 60f, but Frogger 2 and Chicken Run work better with 30f or lower.
+                animation.FPS = 30f;
+                animation.FormatName = "PSI";
+                animation.AssignObjects(animationObjects, true, false);
+                _animations.Add(animation);
+                return true;
+            }
+
+            return false;
+        }
+
 
         private class PSIMesh
         {
@@ -1275,16 +1662,26 @@ namespace PSXPrev.Common.Parsers
             public uint MeshTop;
             public uint[] SortTops;
             public ushort[] SortCounts;
+            //public uint VertexStart;
+            //public uint VertexCount;
+            //public uint NormalStart;
+            //public uint NormalCount;
+#if DEBUG
+            public string MeshName;
+#endif
             public float ScaleValue;
             public Vector3 Center;
 
-            public Vector3Key[] ScaleKeys;
-            public Vector3Key[] MoveKeys;
-            public QuaternionKey[] RotateKeys;
+            public Dictionary<uint, Vector3> AttachableVertices;
+            public Dictionary<uint, Vector3> AttachableNormals;
 
-            public Vector3 Scale       => ((ScaleKeys?.Length  ?? 0) > 0) ? ScaleKeys[0].Value  : Vector3.One;
-            public Vector3 Translation => ((MoveKeys?.Length   ?? 0) > 0) ? MoveKeys[0].Value   : Vector3.Zero;
-            public Quaternion Rotation => ((RotateKeys?.Length ?? 0) > 0) ? RotateKeys[0].Value.Inverted() : Quaternion.Identity;
+            public AnimationKey<Vector3>[] ScaleKeys;
+            public AnimationKey<Vector3>[] MoveKeys;
+            public AnimationKey<Quaternion>[] RotateKeys;
+
+            public Vector3 Scale       => (ScaleKeys?.Length  > 0) ? ScaleKeys[0].Value  : Vector3.One;
+            public Vector3 Translation => (MoveKeys?.Length   > 0) ? MoveKeys[0].Value   : Vector3.Zero;
+            public Quaternion Rotation => (RotateKeys?.Length > 0) ? RotateKeys[0].Value : Quaternion.Identity;
 
             public Matrix4 LocalMatrix
             {
@@ -1297,27 +1694,21 @@ namespace PSXPrev.Common.Parsers
                 }
             }
         }
-        
-        private struct Vector3Key
-        {
-            public Vector3 Value;
-            public ushort Time;
 
-            public Vector3Key(float x, float y, float z, ushort time)
+        private struct AnimationKey<T> where T : struct
+        {
+            public T Value;
+            public short Time;
+
+            public AnimationKey(short time, T value)
             {
-                Value = new Vector3(x, y, z);
                 Time = time;
+                Value = value;
             }
-        }
-        private struct QuaternionKey
-        {
-            public Quaternion Value;
-            public ushort Time;
 
-            public QuaternionKey(float x, float y, float z, float w, ushort time)
+            public override string ToString()
             {
-                Value = new Quaternion(x, y, z, w);
-                Time = time;
+                return $"{Time}, {Value}";
             }
         }
 
@@ -1349,17 +1740,54 @@ namespace PSXPrev.Common.Parsers
             return crcTable;
         }
 
-        private static uint HashString(byte[] text)
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private static uint UpdateCRC(uint crc, uint b, bool toUpper)
         {
-            // Unlike normal forward CRC-32, the crc accumulator is not inverted
+            if (toUpper && b >= 'a' && b <= 'z')
+            {
+                b &= ~0x20u; // Unset lowercase bit (only conversion done in game code)
+            }
+            var index = ((crc >> 24) ^ b) & 0xff;
+            return (crc << 8) ^ _crcTable[index];
+        }
+
+        // Unlike normal forward CRC-32, the crc accumulator is not inverted
+        protected static uint HashString(byte[] text, bool toUpper = false)
+        {
             uint crc = 0;
             // Check string length and null terminator
             for (var i = 0; i < text.Length && text[i] != 0; i++)
             {
-                var index = ((crc >> 24) ^ text[i]) & 0xff;
-                crc = (crc << 8) ^ _crcTable[index];
+                crc = UpdateCRC(crc, text[i], toUpper);
             }
             return crc;
+        }
+
+        protected static uint HashString(string text, bool toUpper = false)
+        {
+            uint crc = 0;
+            // Check string length and null terminator
+            for (var i = 0; i < text.Length && text[i] != '\0'; i++)
+            {
+                crc = UpdateCRC(crc, text[i], toUpper);
+            }
+            return crc;
+        }
+
+        protected string ReadCString(BinaryReader reader, int length)
+        {
+            reader.Read(_nameBuffer, 0, length);
+            return ConvertCString(_nameBuffer, length);
+        }
+
+        protected string ConvertCString(byte[] text, int length)
+        {
+            var terminator = Array.IndexOf(text, (byte)0);
+            if (terminator == -1 || terminator > length)
+            {
+                terminator = length;
+            }
+            return Encoding.ASCII.GetString(text, 0, terminator);
         }
     }
 }

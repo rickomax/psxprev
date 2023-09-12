@@ -29,8 +29,8 @@ namespace PSXPrev.Common.Parsers
         private readonly HashSet<uint> _usedModelHashes = new HashSet<uint>();
         private readonly List<long> _postProcessPositions = new List<long>();
 
-        public BFFParser(EntityAddedAction entityAdded)
-            : base(entityAdded: entityAdded)
+        public BFFParser(EntityAddedAction entityAdded, AnimationAddedAction animationAdded)
+            : base(entityAdded: entityAdded, animationAdded: animationAdded)
         {
         }
 
