@@ -1195,8 +1195,6 @@ namespace PSXPrev.Common.Parsers
             animation.FPS = 1f;
             animation.AssignObjects(animationObjects, true, false);
             return animation;
-
-            return null;
         }
 
         private Animation ProcessMIMeVertexNormalData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, bool normal, bool reset, uint blockCount)

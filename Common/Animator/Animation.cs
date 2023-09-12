@@ -14,6 +14,7 @@ namespace PSXPrev.Common.Animator
         MatrixDiff,
         AxisDiff,
         HMD, // Multiple methods of interpolation that can change between frames.
+        PSI,
     }
 
     public static class AnimationTypeExtensions
@@ -23,6 +24,7 @@ namespace PSXPrev.Common.Animator
             switch (animationType)
             {
                 case AnimationType.HMD:
+                case AnimationType.PSI:
                     return true;
 
                 default:

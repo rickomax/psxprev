@@ -23,6 +23,9 @@ namespace PSXPrev.Common.Animator
         public Quaternion? Rotation { get; set; }
 
         [Browsable(false)]
+        public Quaternion? FinalRotation { get; set; }
+
+        [Browsable(false)]
         public Vector3? EulerRotation { get; set; }
         // HMD: 
         [Browsable(false)]

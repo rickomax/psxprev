@@ -463,7 +463,6 @@ namespace PSXPrev.Common
 
         public static bool CheckPalettesForStp(ushort[][] palettes)
         {
-            var found = false;
             var palettesCount = palettes.Length;
             var paletteSize = palettes[0].Length;
             for (var p = 0; p < palettesCount; p++)

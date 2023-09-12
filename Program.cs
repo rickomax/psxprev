@@ -353,7 +353,6 @@ namespace PSXPrev
                 case "-databin":
                     options.ReadBINSectorData = true;
                     break;
-                    break;
                 case "-binsector":
                     parameterCount++;
                     if (index + 1 < args.Length)
@@ -1012,7 +1011,7 @@ namespace PSXPrev
             }
             if (_options.CheckAll || _options.CheckBFF)
             {
-                parsers.Add(() => new BFFParser(AddEntity));
+                parsers.Add(() => new BFFParser(AddEntity, AddAnimation));
             }
             if (_options.CheckAll || _options.CheckHMD)
             {
@@ -1025,7 +1024,7 @@ namespace PSXPrev
             if (_options.CheckAll || _options.CheckBFF)
             {
                 // For now we're sharing the BFF option, since the same inner format can appear in both (and its the same devs)
-                parsers.Add(() => new PILParser(AddEntity));
+                parsers.Add(() => new PILParser(AddEntity, AddAnimation));
             }
             if (_options.CheckAll || _options.CheckPMD)
             {

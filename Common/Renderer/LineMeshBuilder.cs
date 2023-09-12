@@ -305,7 +305,6 @@ namespace PSXPrev.Common.Renderer
             var vertexLast = center + direction * radius;
 
             Matrix4 matrixValue;
-            Matrix4 invMatrixValue;
             if (matrix.HasValue)
             {
                 matrixValue = matrix.Value;
@@ -315,7 +314,6 @@ namespace PSXPrev.Common.Renderer
             else
             {
                 matrixValue = new Matrix4();
-                invMatrixValue = new Matrix4();
             }
 
             for (var i = 1; i <= sides; i++)

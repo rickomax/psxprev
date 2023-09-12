@@ -626,7 +626,7 @@ namespace PSXPrev.Forms
         }
 
 
-        public static ScanOptions Show(IWin32Window owner)
+        public static new ScanOptions Show(IWin32Window owner)
         {
             using (var form = new ScannerForm())
             {
