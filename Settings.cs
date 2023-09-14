@@ -198,6 +198,10 @@ namespace PSXPrev
         public ConsoleColor LogExceptionPrefixColor { get; set; } = ConsoleColor.DarkGray;
 
 
+        // 30f for Frogger 2 and Chicken Run, 60f for Action Man 2.
+        [JsonProperty("advancedBFFFrameRate")]
+        public float AdvancedBFFFrameRate { get; set; } = 30f;
+
         [JsonProperty("advancedBFFSpriteScale")]
         public float AdvancedBFFSpriteScale { get; set; } = 2.5f;
 
@@ -409,6 +413,7 @@ namespace PSXPrev
             LogErrorColor           = ValidateEnum(LogErrorColor,           Defaults.LogErrorColor);
             LogExceptionPrefixColor = ValidateEnum(LogExceptionPrefixColor, Defaults.LogExceptionPrefixColor);
 
+            AdvancedBFFFrameRate    = ValidateMax(AdvancedBFFFrameRate,    Defaults.AdvancedBFFFrameRate,    0.000001f);
             AdvancedBFFSpriteScale  = ValidateMax(AdvancedBFFSpriteScale,  Defaults.AdvancedBFFSpriteScale,  0.000001f);
             AdvancedBFFScaleDivisor = ValidateMax(AdvancedBFFScaleDivisor, Defaults.AdvancedBFFScaleDivisor, 0.000001f);
             AdvancedMODScaleDivisor = ValidateMax(AdvancedMODScaleDivisor, Defaults.AdvancedMODScaleDivisor, 0.000001f);

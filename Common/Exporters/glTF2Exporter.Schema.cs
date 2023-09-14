@@ -224,6 +224,8 @@ namespace PSXPrev.Common.Exporters.glTF2Schema
         public int? NORMAL;
         public int? COLOR_0;
         public int? TEXCOORD_0;
+        public int? JOINTS_0;
+        public int? WEIGHTS_0;
     }
 
     internal enum mesh_primitive_mode

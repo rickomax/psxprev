@@ -1012,7 +1012,7 @@ namespace PSXPrev.Common.Parsers
                             TextureLookup = CreateTextureLookup(renderInfo),
                             RenderFlags = renderInfo.RenderFlags,
                             MixtureRate = renderInfo.MixtureRate,
-                            TMDID = modelIndex + 1u,
+                            TMDID = i + 1u,
                             OriginalLocalMatrix = localMatrix,
 #if DEBUG
                             DebugData = modelDebugData?.ToArray(),
@@ -1034,7 +1034,7 @@ namespace PSXPrev.Common.Parsers
                             RenderFlags = renderInfo.RenderFlags,
                             MixtureRate = renderInfo.MixtureRate,
                             SpriteCenter = spriteCenter,
-                            TMDID = modelIndex + 1u,
+                            TMDID = i + 1u,
                             OriginalLocalMatrix = localMatrix,
 #if DEBUG
                             DebugData = modelDebugData?.ToArray(),

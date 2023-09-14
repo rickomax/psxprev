@@ -188,6 +188,10 @@ namespace PSXPrev.Common
                 for (var i = 0; i < value.Length; i++)
                 {
                     value[i].EntityName = "Sub-Model " + i;
+                    if (value[i] is ModelEntity model && !string.IsNullOrEmpty(model.MeshName))
+                    {
+                        model.EntityName += " " + model.MeshName;
+                    }
                     value[i].ParentEntity = this;
                 }
                 _childEntities = value;
@@ -298,7 +302,7 @@ namespace PSXPrev.Common
             return $"{name} Children={ChildCount}";
         }
 
-        public virtual void FixConnections()
+        public virtual void FixConnections(bool transform = true)
         {
             if (ChildEntities == null)
             {
@@ -306,7 +310,7 @@ namespace PSXPrev.Common
             }
             foreach (var child in ChildEntities)
             {
-                child.FixConnections();
+                child.FixConnections(transform);
             }
         }
 

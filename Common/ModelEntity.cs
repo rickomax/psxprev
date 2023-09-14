@@ -52,6 +52,13 @@ namespace PSXPrev.Common
         }
 
 
+        public override string ToString()
+        {
+            var idName = ID?.ToString() ?? "<null>";
+            return $"{nameof(TextureLookup)} ID={idName}";
+        }
+
+
         private Vector2 UVTextureOffset => new Vector2((float)Texture.X / Renderer.VRAM.PageSize,
                                                        (float)Texture.Y / Renderer.VRAM.PageSize);
 
@@ -177,6 +184,9 @@ namespace PSXPrev.Common
 
         [DisplayName("TMD ID")]
         public uint TMDID { get; set; }
+
+        [Browsable(false)]
+        public string MeshName { get; set; }
 
         [DisplayName("Has Tiled Texture"), ReadOnly(true)]
         public bool HasTiled
@@ -383,10 +393,10 @@ namespace PSXPrev.Common
             Bounds3D = bounds;
         }
 
-        private Vector3 ConnectVertex(EntityBase subModel, Vector3 vertex)
+        private Vector3 ConnectVertex(EntityBase subModel, Vector3 vertex, bool transform = true)
         {
             // We only need to transform the vertex if it's not attached to the same model.
-            if (subModel != this)
+            if (subModel != this && transform)
             {
                 vertex = Vector3.TransformPosition(vertex, subModel.TempWorldMatrix);
                 vertex = Vector3.TransformPosition(vertex, TempWorldMatrix.Inverted());
@@ -394,10 +404,10 @@ namespace PSXPrev.Common
             return vertex;
         }
 
-        private Vector3 ConnectNormal(EntityBase subModel, Vector3 normal)
+        private Vector3 ConnectNormal(EntityBase subModel, Vector3 normal, bool transform = true)
         {
             // We only need to transform the vertex if it's not attached to the same model.
-            if (subModel != this)
+            if (subModel != this && transform)
             {
                 // todo: Is the first normalize needed for if the first scale is non-uniform?
                 normal = GeomMath.TransformNormalNormalized(normal, subModel.TempWorldMatrix);
@@ -406,9 +416,9 @@ namespace PSXPrev.Common
             return normal;
         }
 
-        public override void FixConnections()
+        public override void FixConnections(bool transform = true)
         {
-            base.FixConnections();
+            base.FixConnections(transform);
             if (!HasAttached)
             {
                 return;
@@ -428,11 +438,11 @@ namespace PSXPrev.Common
                             var normalCache = triangle.AttachedNormalsCache?[i];
                             if (vertexCache != null)
                             {
-                                triangle.Vertices[i] = ConnectVertex(vertexCache.Item1, vertexCache.Item2);
+                                triangle.Vertices[i] = ConnectVertex(vertexCache.Item1, vertexCache.Item2, transform);
                             }
                             if (normalCache != null)
                             {
-                                triangle.Normals[i] = ConnectNormal(normalCache.Item1, normalCache.Item2);
+                                triangle.Normals[i] = ConnectNormal(normalCache.Item1, normalCache.Item2, transform);
                             }
                         }
                         continue;
@@ -468,7 +478,7 @@ namespace PSXPrev.Common
                                                 var attachedVertex = subTriangle.Vertices[j];
                                                 // Cache connection to speed up FixConnections in the future.
                                                 triangle.AttachedVerticesCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedVertex);
-                                                triangle.Vertices[i] = ConnectVertex(subModel, attachedVertex);
+                                                triangle.Vertices[i] = ConnectVertex(subModel, attachedVertex, transform);
                                                 break;
                                             }
                                         }
@@ -483,7 +493,7 @@ namespace PSXPrev.Common
                                     {
                                         // Cache connection to speed up FixConnections in the future.
                                         triangle.AttachedVerticesCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedVertex);
-                                        triangle.Vertices[i] = ConnectVertex(subModel, attachedVertex);
+                                        triangle.Vertices[i] = ConnectVertex(subModel, attachedVertex, transform);
                                     }
                                     if (subModel.AttachableNormals != null && subModel.AttachableNormals.TryGetValue(attachedNormalIndex, out var attachedNormal))
                                     {
@@ -492,7 +502,7 @@ namespace PSXPrev.Common
                                             triangle.AttachedNormalsCache = new Tuple<EntityBase, Vector3>[3];
                                         }
                                         triangle.AttachedNormalsCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedNormal);
-                                        triangle.Normals[i] = ConnectNormal(subModel, attachedNormal);
+                                        triangle.Normals[i] = ConnectNormal(subModel, attachedNormal, transform);
                                     }
                                     // Note: DON'T break when we find a shared attachable. Later-defined attachables have priority.
                                 }

@@ -29,7 +29,7 @@ namespace PSXPrev.Common.Exporters
 
             _pngExporter = new PNGExporter();
             _exportedTextures = new Dictionary<Texture, int>();
-            _modelPreparer = new ModelPreparerExporter(_options);
+            _modelPreparer = new ModelPreparerExporter(_options, bakeConnections: false);
 
             var exportAnimations = _options.ExportAnimations && animations?.Length > 0;
             var animationBatch = exportAnimations ? new AnimationBatch(null) : null;
@@ -102,9 +102,11 @@ namespace PSXPrev.Common.Exporters
                     },
                 };
 
-                var rootNodes = new Dictionary<RootEntity, int>();
-                var modelNodes = new Dictionary<ModelEntity, int>();
-                var coordNodes = new Dictionary<Coordinate, int>();
+                var rootNodes = new Dictionary<RootEntity, int>();    // Root entity -> node indices
+                var modelNodes = new Dictionary<ModelEntity, int>();  // Model mesh  -> node indices
+                var jointNodes = new Dictionary<ModelEntity, int>();  // Model joint -> node indices
+                var coordNodes = new Dictionary<Coordinate, int>();   // Coordinate  -> node indices
+                var modelJoints = new Dictionary<ModelEntity, int>(); // Model -> joint indices
 
 
                 // Write Nodes
@@ -112,6 +114,18 @@ namespace PSXPrev.Common.Exporters
                 //  {
                 //   "mesh": {i},
                 //   "name": "{model.EntityName}",
+                //   "translation": [ {model.WorldMatrix.ExtractTranslation()} ],
+                //   "rotation": [ {model.WorldMatrix.ExtractRotationSafe()} ],
+                //   "scale": [ {model.WorldMatrix.ExtractScale()} ]
+                //  },
+                //  // -or-
+                //  {
+                //   "mesh": {i},
+                //   "skin": 0,
+                //   "name": "Mesh {model.EntityName}"
+                //  },
+                //  {
+                //   "name": "Joint {model.EntityName}",
                 //   "translation": [ {model.WorldMatrix.ExtractTranslation()} ],
                 //   "rotation": [ {model.WorldMatrix.ExtractRotationSafe()} ],
                 //   "scale": [ {model.WorldMatrix.ExtractScale()} ]
@@ -128,7 +142,7 @@ namespace PSXPrev.Common.Exporters
                     _root.scenes[0].nodes.Add(_root.nodes.Count); // Add root nodes
                     _root.nodes.Add(new node
                     {
-                        name = entity.EntityName,
+                        name = $"{entity.EntityName}: Root",
                         translation = WriteVector3(matrix.ExtractTranslation(), true),
                         rotation = WriteQuaternion(matrix.ExtractRotationSafe(), true),
                         scale = WriteVector3(matrix.ExtractScale(), false),
@@ -136,6 +150,7 @@ namespace PSXPrev.Common.Exporters
                 }
                 // Add model entity (mesh) nodes
                 var meshIndex = 0;
+                var anySkin = false;
                 for (var i = 0; i < entities.Length; i++)
                 {
                     var entity = entities[i];
@@ -151,16 +166,38 @@ namespace PSXPrev.Common.Exporters
                         {
                             matrix = model.LocalMatrix;
                         }
+                        var meshName = $"{entity.EntityName}: Mesh {model.EntityName}";
+                        var jointName = $"{entity.EntityName}: Joint {model.EntityName}";
+                        var needsJoints = NeedsJoints(model);
+                        var needsMesh = NeedsMesh(model);
                         modelNodes.Add(model, _root.nodes.Count);
+                        if (needsJoints && needsMesh)
+                        {
+                            anySkin = true;
+                            // Add skinned mesh as root node, since we won't be transforming it
+                            _root.scenes[0].nodes.Add(_root.nodes.Count);
+                            _root.nodes.Add(new node
+                            {
+                                mesh = meshIndex,
+                                name = meshName,
+                                skin = 0,
+                            });
+                        }
+                        // todo: In the future we could precompute which models are actually used as joints and only include those
+                        jointNodes.Add(model, _root.nodes.Count);
                         _root.nodes.Add(new node
                         {
-                            mesh = meshIndex,
-                            name = $"{entity.EntityName}: {model.EntityName}",
+                            mesh = !needsJoints && needsMesh ? meshIndex : (int?)null,
+                            name = !needsJoints && needsMesh ? meshName : jointName,
                             translation = WriteVector3(matrix.ExtractTranslation(), true),
                             rotation = WriteQuaternion(matrix.ExtractRotationSafe(), true),
                             scale = WriteVector3(matrix.ExtractScale(), false),
                         });
-                        meshIndex++;
+                        modelJoints.Add(model, modelJoints.Count);
+                        if (needsMesh)
+                        {
+                            meshIndex++;
+                        }
                     }
                 }
                 // Add coordinate nodes
@@ -216,7 +253,7 @@ namespace PSXPrev.Common.Exporters
                     foreach (ModelEntity model in entity.ChildEntities)
                     {
                         node parentNode;
-                        if (entity.Coords != null)
+                        if (entity.Coords != null && model.TMDID > 0 && model.TMDID <= entity.Coords.Length)
                         {
                             var coord = entity.Coords[model.TMDID - 1];
                             parentNode = _root.nodes[coordNodes[coord]];
@@ -229,8 +266,26 @@ namespace PSXPrev.Common.Exporters
                         {
                             parentNode.children = new List<int>();
                         }
-                        parentNode.children.Add(modelNodes[model]);
+                        parentNode.children.Add(jointNodes[model]);
                     }
+                }
+
+
+                // Write mesh skin
+                // "skins": [
+                //  {
+                //   "joints": [...{jointNotes.Values}]
+                //  }
+                // ]
+                if (anySkin)
+                {
+                    _root.skins = new List<skin>
+                    {
+                        new skin
+                        {
+                            joints = new List<int>(jointNodes.Values),
+                        },
+                    };
                 }
 
 
@@ -267,7 +322,11 @@ namespace PSXPrev.Common.Exporters
                     // Meshes
                     foreach (var model in models)
                     {
-                        WriteMeshBufferViews(model, ref offset, initialOffset);
+                        if (!NeedsMesh(model))
+                        {
+                            continue;
+                        }
+                        WriteMeshBufferViews(modelJoints, model, ref offset, initialOffset);
                     }
                 }
                 if (exportAnimations)
@@ -455,6 +514,10 @@ namespace PSXPrev.Common.Exporters
                 var anyUnlit = false;
                 foreach (var model in models)
                 {
+                    if (!NeedsMesh(model))
+                    {
+                        continue;
+                    }
                     var imageId = 0; // dummy init
                     var needsTexture = NeedsTexture(model) && imagesDictionary.TryGetValue(model.Texture, out imageId);
                     _root.materials.Add(new material
@@ -523,6 +586,10 @@ namespace PSXPrev.Common.Exporters
                     _root.accessors.Capacity = models.Count * 4;
                     foreach (var model in models)
                     {
+                        if (!NeedsMesh(model))
+                        {
+                            continue;
+                        }
                         var triangles = model.Triangles;
                         var vertexCount = triangles.Length * 3;
 
@@ -547,6 +614,11 @@ namespace PSXPrev.Common.Exporters
                         if (NeedsTexture(model))
                         {
                             WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, vertexCount, accessor_type.VEC2); // Vertex uvs
+                        }
+                        if (NeedsJoints(model))
+                        {
+                            WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, vertexCount, accessor_type.VEC4); // Vertex joints
+                            WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, vertexCount, accessor_type.VEC4); // Vertex joint weights
                         }
                     }
                 }
@@ -595,9 +667,14 @@ namespace PSXPrev.Common.Exporters
                 //  //...
                 // ]
                 _root.meshes = new List<mesh>(models.Count);
+                meshIndex = 0;
                 for (var i = 0; i < models.Count; i++)
                 {
                     var model = models[i];
+                    if (!NeedsMesh(model))
+                    {
+                        continue;
+                    }
                     _root.meshes.Add(new mesh
                     {
                         name = model.EntityName,
@@ -613,12 +690,19 @@ namespace PSXPrev.Common.Exporters
                                     TEXCOORD_0 = NeedsTexture(model)
                                         ? accessorIndex++
                                         : (int?)null,
+                                    JOINTS_0 = NeedsJoints(model)
+                                        ? accessorIndex++
+                                        : (int?)null,
+                                    WEIGHTS_0 = NeedsJoints(model)
+                                        ? accessorIndex++
+                                        : (int?)null,
                                 },
-                                material = i,
+                                material = meshIndex,
                                 mode = mesh_primitive_mode.TRIANGLES,
                             },
                         },
                     });
+                    meshIndex++;
                 }
 
 
@@ -707,7 +791,7 @@ namespace PSXPrev.Common.Exporters
                                     for (var j = 0; j < entity.ChildEntities.Length; j++)
                                     {
                                         var model = (ModelEntity)entity.ChildEntities[j];
-                                        var node = modelNodes[model];
+                                        var node = jointNodes[model];
                                         WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.translation, node); // object translation
                                         WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.rotation, node); // object rotation
                                         WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.scale, node); // object scale
@@ -914,7 +998,7 @@ namespace PSXPrev.Common.Exporters
             WriteEndBufferView(ref offset);
         }
 
-        private void WriteMeshBufferViews(ModelEntity model, ref long offset, long initialOffset)
+        private void WriteMeshBufferViews(Dictionary<ModelEntity, int> modelJoints, ModelEntity model, ref long offset, long initialOffset)
         {
             // Write vertex positions
             WriteStartBufferView(initialOffset, bufferView_target.ARRAY_BUFFER);
@@ -962,6 +1046,46 @@ namespace PSXPrev.Common.Exporters
                 }
                 WriteEndBufferView(ref offset);
             }
+
+            if (NeedsJoints(model))
+            {
+                // Write vertex joints
+                WriteStartBufferView(initialOffset, bufferView_target.ARRAY_BUFFER);
+                var defaultJoint = modelJoints[model];
+                foreach (var triangle in model.Triangles)
+                {
+                    var attachedCache = triangle.AttachedVerticesCache;
+                    for (var j = 2; j >= 0; j--)
+                    {
+                        var joint = defaultJoint;
+                        var cache = attachedCache?[j];
+                        if (cache != null && modelJoints.TryGetValue((ModelEntity)cache.Item1, out var attachedJoint))
+                        {
+                            joint = attachedJoint;
+                        }
+                        // Last 3 values are used for other weighted joints, but we always use a single joint with full weight.
+                        WriteBinaryVector4(new Vector4((float)joint, 0f, 0f, 0f));
+                        // Unsigned short is also supported as a type instead of float.
+                        //_binaryWriter.Write((ushort)joint);
+                        //_binaryWriter.Write((ushort)0);
+                        //_binaryWriter.Write((ushort)0);
+                        //_binaryWriter.Write((ushort)0);
+                    }
+                }
+                WriteEndBufferView(ref offset);
+
+                // Write vertex joint weights
+                WriteStartBufferView(initialOffset, bufferView_target.ARRAY_BUFFER);
+                foreach (var triangle in model.Triangles)
+                {
+                    for (var j = 2; j >= 0; j--)
+                    {
+                        // Last 3 values are used for other weighted joints, but we always use a single joint with full weight.
+                        WriteBinaryVector4(new Vector4(1f, 0f, 0f, 0f));
+                    }
+                }
+                WriteEndBufferView(ref offset);
+            }
         }
 
         private float[] WriteVector3(Vector3 vector, bool fixHandiness = false)
@@ -1005,6 +1129,18 @@ namespace PSXPrev.Common.Exporters
             _binaryWriter.Write(vector.Z);
         }
 
+        private void WriteBinaryVector4(Vector4 vector, bool fixHandiness = false)
+        {
+            if (fixHandiness)
+            {
+                vector = FixHandiness(vector);
+            }
+            _binaryWriter.Write(vector.X);
+            _binaryWriter.Write(vector.Y);
+            _binaryWriter.Write(vector.Z);
+            _binaryWriter.Write(vector.W);
+        }
+
         private void WriteBinaryQuaternion(Quaternion quaternion, bool fixHandiness = false)
         {
             if (fixHandiness)
@@ -1028,9 +1164,24 @@ namespace PSXPrev.Common.Exporters
             return _options.ExportTextures && model.HasTexture;
         }
 
+        private bool NeedsJoints(ModelEntity model)
+        {
+            return _options.AttachLimbs && model.HasAttached;
+        }
+
+        private bool NeedsMesh(ModelEntity model)
+        {
+            return model.Triangles.Length > 0;
+        }
+
         private static Vector3 FixHandiness(Vector3 vector)
         {
             return new Vector3(vector.X, -vector.Y, -vector.Z);
+        }
+
+        private static Vector4 FixHandiness(Vector4 vector)
+        {
+            return new Vector4(vector.X, -vector.Y, -vector.Z, vector.W);
         }
 
         private static Quaternion FixHandiness(Quaternion quaternion)
