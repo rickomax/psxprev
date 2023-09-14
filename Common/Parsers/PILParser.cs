@@ -407,7 +407,17 @@ namespace PSXPrev.Common.Parsers
                 ReadPrimitives(reader, skinned, d2m, GPU_COM_TG4, gt4Top, gt4Count);
                 ReadPrimitives(reader, skinned, d2m, GPU_COM_TF4SPR, sprTop, sprCount);
 
-                FlushModels(skinned, 0, null, null);
+                // Do what HMD does, and assign identity transform to attached limbs
+                //FlushModels(skinned, (uint)_psiMeshes.Count, null, null);
+                //FlushModels(skinned, 0, null, null);
+
+                for (uint i = 0; i < _psiMeshes.Count; i++)
+                {
+                    var psiMesh = _psiMeshes[(int)i];
+                    var coord = coords[i];
+
+                    FlushModels(skinned, i, psiMesh, coord);
+                }
             }
 
             // We may have a non-zero model count, but a zero triangle count. Check to make sure.
@@ -503,11 +513,11 @@ namespace PSXPrev.Common.Parsers
             // A non-zero value has never been observed, so for now this isn't handled.
             var scale = reader.ReadInt32();
 
-#if DEBUG
+//#if DEBUG
             var meshName = ReadCString(reader, 16);
-#else
-            //reader.BaseStream.Seek(16, SeekOrigin.Current);
-#endif
+//#else
+//            reader.BaseStream.Seek(16, SeekOrigin.Current);
+//#endif
 
             var childTop = reader.ReadUInt32();
             var nextTop  = reader.ReadUInt32();
@@ -676,9 +686,9 @@ namespace PSXPrev.Common.Parsers
                 //NormalCount = meshNormalCount,
                 AttachableVertices = attachableVertices,
                 AttachableNormals  = attachableNormals,
-#if DEBUG
+//#if DEBUG
                 MeshName = meshName,
-#endif
+//#endif
                 ScaleValue = scaleValue, // Not sure if this is used or not...
                 Center = center, // Seems to not be used for translation...
                 ScaleKeys = scaleKeys,
@@ -1303,8 +1313,8 @@ namespace PSXPrev.Common.Parsers
         {
             var localMatrix = coord?.WorldMatrix ?? Matrix4.Identity;
 
-            var attachableVertices = psiMesh.AttachableVertices;
-            var attachableNormals  = psiMesh.AttachableNormals;
+            var attachableVertices = psiMesh?.AttachableVertices;
+            var attachableNormals  = psiMesh?.AttachableNormals;
 
 #if DEBUG
             var debugData = psiMesh != null ? new[] { $"meshName: \"{psiMesh.MeshName}\"" } : null;
@@ -1321,6 +1331,7 @@ namespace PSXPrev.Common.Parsers
                     RenderFlags = renderInfo.RenderFlags,
                     MixtureRate = renderInfo.MixtureRate,
                     TMDID = modelIndex + 1u,
+                    MeshName = psiMesh?.MeshName,
                     OriginalLocalMatrix = localMatrix,
 #if DEBUG
                     DebugData = debugData,
@@ -1353,6 +1364,7 @@ namespace PSXPrev.Common.Parsers
                     MixtureRate = renderInfo.MixtureRate,
                     SpriteCenter = spriteCenter,
                     TMDID = modelIndex + 1u,
+                    MeshName = psiMesh?.MeshName,
                     OriginalLocalMatrix = localMatrix,
 #if DEBUG
                     DebugData = debugData,
@@ -1367,6 +1379,7 @@ namespace PSXPrev.Common.Parsers
                     Triangles = new Triangle[0],
                     TexturePage = 0,
                     TMDID = modelIndex + 1u,
+                    MeshName = psiMesh?.MeshName,
                     OriginalLocalMatrix = localMatrix,
                     AttachableVertices = attachableVertices,
                     AttachableNormals  = attachableNormals,
@@ -1644,7 +1657,7 @@ namespace PSXPrev.Common.Parsers
             {
                 animation.AnimationType = AnimationType.PSI;
                 // Action Man works better with 60f, but Frogger 2 and Chicken Run work better with 30f or lower.
-                animation.FPS = 30f;
+                animation.FPS = Settings.Instance.AdvancedBFFFrameRate;
                 animation.FormatName = "PSI";
                 animation.AssignObjects(animationObjects, true, false);
                 _animations.Add(animation);
@@ -1666,9 +1679,9 @@ namespace PSXPrev.Common.Parsers
             //public uint VertexCount;
             //public uint NormalStart;
             //public uint NormalCount;
-#if DEBUG
+//#if DEBUG
             public string MeshName;
-#endif
+//#endif
             public float ScaleValue;
             public Vector3 Center;
 

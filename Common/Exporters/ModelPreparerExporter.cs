@@ -21,14 +21,16 @@ namespace PSXPrev.Common.Exporters
         private readonly Dictionary<Tuple<int, long>, RootEntityBuilder> _rootEntityModels = new Dictionary<Tuple<int, long>, RootEntityBuilder>();
         private readonly List<Tuple<int, long>> _groups = new List<Tuple<int, long>>();
         private readonly Texture[] _copiedVRAMPages = new Texture[VRAM.PageCount];
+        private readonly bool _bakeConnections;
         private readonly ExportModelOptions _options;
         private SingleTextureInfo _singleInfo;
 
         private bool CanPrepareAll => _options.ModelGrouping == ExportModelGrouping.GroupAllModels || !_options.ExportTextures || _options.ShareTextures;
 
-        public ModelPreparerExporter(ExportModelOptions options)
+        public ModelPreparerExporter(ExportModelOptions options, bool bakeConnections = true)
         {
             _options = options;
+            _bakeConnections = bakeConnections;
         }
 
 
@@ -157,7 +159,7 @@ namespace PSXPrev.Common.Exporters
                         // Fix connections for new root entity
                         if (_options.AttachLimbs)
                         {
-                            newRootEntity.FixConnections();
+                            newRootEntity.FixConnections(_bakeConnections);
                         }
                     }
                 }
@@ -298,7 +300,7 @@ namespace PSXPrev.Common.Exporters
 
         private bool ModelNeedsCopy(ModelEntity model)
         {
-            if (_options.AttachLimbs)
+            if (_options.AttachLimbs && model.HasAttached)
             {
                 return true; // Model vertices need to be changed
             }
@@ -345,28 +347,28 @@ namespace PSXPrev.Common.Exporters
                         }
                     }
                 }
-                if (uvConverter != null)
-                {
-                    var tiled = newTriangle.IsTiled;
+            }
+            if (uvConverter != null)
+            {
+                var tiled = newTriangle.IsTiled;
 
-                    var origUvs = newTriangle.Uv;
-                    var uvs = new Vector2[3];
+                var origUvs = newTriangle.Uv;
+                var uvs = new Vector2[3];
+                for (var j = 0; j < 3; j++)
+                {
+                    uvs[j] = uvConverter.ConvertUV(origUvs[j], tiled);
+                }
+                newTriangle.Uv = uvs;
+
+                if (tiled)
+                {
+                    var origBaseUvs = newTriangle.TiledUv?.BaseUv;
+                    var baseUvs = new Vector2[3];
                     for (var j = 0; j < 3; j++)
                     {
-                        uvs[j] = uvConverter.ConvertUV(origUvs[j], tiled);
+                        baseUvs[j] = uvConverter.ConvertUV(origBaseUvs[j], tiled);
                     }
-                    newTriangle.Uv = uvs;
-
-                    if (tiled)
-                    {
-                        var origBaseUvs = newTriangle.TiledUv?.BaseUv;
-                        var baseUvs = new Vector2[3];
-                        for (var j = 0; j < 3; j++)
-                        {
-                            baseUvs[j] = uvConverter.ConvertUV(origBaseUvs[j], tiled);
-                        }
-                        newTriangle.TiledUv = new TiledUV(baseUvs, uvConverter.ConvertTiledArea(newTriangle.TiledUv.Area));
-                    }
+                    newTriangle.TiledUv = new TiledUV(baseUvs, uvConverter.ConvertTiledArea(newTriangle.TiledUv.Area));
                 }
             }
             return newTriangle;
@@ -458,7 +460,18 @@ namespace PSXPrev.Common.Exporters
                     {
                         Texture = texture,
                     };
+                    if (_options.AttachLimbs && model.HasAttached)
+                    {
+                        // Recompute attached since, we may no longer have attached vertices.
+                        newModel.ComputeAttached();
+                    }
                     AddModel(rootEntity, rootIndex, newModel, tiledArea);
+                }
+                if (groupedTriangles.Count == 0)
+                {
+                    // Make sure we add a model in-case we have attachables that are needed for FixConnections.
+                    var newModel = new ModelEntity(model, new Triangle[0]);
+                    AddModel(rootEntity, rootIndex, newModel, Vector4.Zero);
                 }
             }
         }
@@ -503,6 +516,9 @@ namespace PSXPrev.Common.Exporters
                 rootBuilder.RootEntityModels.Add(rootEntity, rootTuple);
             }
             rootTuple.Item2.Add(model);
+            // Ideally we would want to exclude models with zero trangles from the AllModels list,
+            // but currently we expect the order of models in all root entities to match the order of the AllModels list.
+            // An empty model would be added in the scenario that it exists to store attachable vertices.
             rootBuilder.AllModels.Add(model);
         }
 
