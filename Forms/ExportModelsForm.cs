@@ -106,7 +106,6 @@ namespace PSXPrev.Forms
                 }*/
                 texturesIndividualRadioButton.Enabled = _format != ExportModelOptions.PLY && _format != ExportModelOptions.DAE;
 
-                optionMergeModelsCheckBox.Enabled = _format != ExportModelOptions.GLTF2 && _format != ExportModelOptions.DAE;
                 optionExperimentalVertexColorCheckBox.Enabled = _format == ExportModelOptions.OBJ;
 
                 animationsGroupBox.Enabled = _format == ExportModelOptions.GLTF2;

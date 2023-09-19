@@ -105,8 +105,8 @@ namespace PSXPrev.Common.Parsers
             }
             if (_vertices == null || _vertices.Length < vertexCount)
             {
-                Array.Resize(ref _vertices, (int)vertexCount);
-                Array.Resize(ref _normals,  (int)vertexCount);
+                _vertices = new Vector3[vertexCount];
+                _normals = new Vector3[vertexCount];
             }
             for (var j = 0; j < vertexCount; j++)
             {
@@ -256,7 +256,6 @@ namespace PSXPrev.Common.Parsers
                     Normals = new[] { normal0, normal1, normal2 },
                     Colors = new[] { color, color, color },
                     Uv = Triangle.EmptyUv, // Can't use UVs yet
-                    AttachableIndices = Triangle.EmptyAttachableIndices,
                 };
                 if (textured)
                 {
@@ -284,7 +283,6 @@ namespace PSXPrev.Common.Parsers
                         Normals = new[] { normal1, normal3, normal2 },
                         Colors = new[] { color, color, color },
                         Uv = Triangle.EmptyUv, // Can't use UVs yet
-                        AttachableIndices = Triangle.EmptyAttachableIndices,
                     };
                     if (textured)
                     {

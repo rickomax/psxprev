@@ -31,6 +31,8 @@ namespace PSXPrev.Common.Parsers
         protected float _scaleDivisor = 1f;
         protected Vector3[] _vertices;
         protected Vector3[] _normals;
+        protected uint[] _vertexJoints;
+        protected uint[] _normalJoints;
         protected uint _vertexCount;
         protected uint _normalCount;
         protected uint[] _textureHashes;
@@ -251,7 +253,11 @@ namespace PSXPrev.Common.Parsers
             }
             if (_vertices == null || _vertices.Length < totalVertexCount)
             {
-                Array.Resize(ref _vertices, (int)totalVertexCount);
+                _vertices = new Vector3[totalVertexCount];
+            }
+            if (_vertexJoints == null || _vertexJoints.Length < totalVertexCount)
+            {
+                _vertexJoints = new uint[totalVertexCount];
             }
             var totalPrimitiveCount = reader.ReadUInt32();
             var primitiveTop = reader.ReadUInt32();
@@ -306,7 +312,7 @@ namespace PSXPrev.Common.Parsers
             reader.BaseStream.Seek(_offset2 + textureNameTop, SeekOrigin.Begin);
             if (_textureHashes == null || _textureHashes.Length < _textureHashCount)
             {
-                Array.Resize(ref _textureHashes, (int)_textureHashCount);
+                _textureHashes = new uint[_textureHashCount];
             }
             //var textureNames = new string[_textureHashCount];
             for (uint i = 0; i < _textureHashCount; i++)
@@ -478,6 +484,8 @@ namespace PSXPrev.Common.Parsers
                         animation.OwnerEntity = rootEntity;
                     }
                 }
+                // PrepareJoints must be called before ComputeBounds
+                rootEntity.PrepareJoints(skinned);
 #if DEBUG
                 rootEntity.DebugData = new[] { $"version: {version}", $"d2m: {id3}", $"flags: 0x{flags:x08}" };
 #endif
@@ -564,24 +572,28 @@ namespace PSXPrev.Common.Parsers
             //var lastRotateKey = reader.ReadUInt16();
             //var pad2 = reader.ReadUInt16();
 
+            var modelJointID = (uint)(_psiMeshes.Count + 1);
 
             reader.BaseStream.Seek(meshPosition + meshVertexTop, SeekOrigin.Begin);
+            // Expand the arrays to make room for the vertices stored in this mesh.
             //if (_vertices == null || _vertices.Length < _vertexCount)
             //{
             //    Array.Resize(ref _vertices, (int)_vertexCount);
             //}
-            var attachableVertices = skinned && meshVertexCount > 0 ? new Dictionary<uint, Vector3>() : null;
+            //if (_vertexJoints == null || _vertexJoints.Length < _vertexCount)
+            //{
+            //    Array.Resize(ref _vertexJoints, (int)_vertexCount);
+            //}
             for (uint i = 0; i < meshVertexCount; i++)
             {
                 var x = reader.ReadInt16() / _scaleDivisor;
                 var y = reader.ReadInt16() / _scaleDivisor;
                 var z = reader.ReadInt16() / _scaleDivisor;
-                var pad = reader.ReadUInt16();
-                var vertex = new Vector3(x, y, z);
-                _vertices[vertexIndex + i] = vertex;
+                var pad = reader.ReadUInt16(); //pad
+                _vertices[vertexIndex + i] = new Vector3(x, y, z);
                 if (skinned)
                 {
-                    attachableVertices.Add(vertexIndex + i, vertex);
+                    _vertexJoints[vertexIndex + i] = modelJointID;
                 }
                 if (pad != 0)
                 {
@@ -590,22 +602,25 @@ namespace PSXPrev.Common.Parsers
             }
 
             reader.BaseStream.Seek(meshPosition + meshNormalTop, SeekOrigin.Begin);
+            // Expand the arrays to make room for the normals stored in this mesh.
             if (_normals == null || _normals.Length < _normalCount)
             {
                 Array.Resize(ref _normals, (int)_normalCount);
             }
-            var attachableNormals = skinned && meshNormalCount > 0 ? new Dictionary<uint, Vector3>() : null;
+            if (_normalJoints == null || _normalJoints.Length < _normalCount)
+            {
+                Array.Resize(ref _normalJoints, (int)_normalCount);
+            }
             for (uint i = 0; i < meshNormalCount; i++)
             {
                 var x = reader.ReadInt16() / 4096f;
                 var y = reader.ReadInt16() / 4096f;
                 var z = reader.ReadInt16() / 4096f;
-                var pad = reader.ReadUInt16();
-                var normal = new Vector3(x, y, z);
-                _normals[normalIndex + i] = normal;
+                var pad = reader.ReadUInt16(); //pad
+                _normals[normalIndex + i] = new Vector3(x, y, z);
                 if (skinned)
                 {
-                    attachableNormals.Add(vertexIndex + i, normal);
+                    _normalJoints[normalIndex + i] = modelJointID;
                 }
                 if (pad != 0)
                 {
@@ -680,15 +695,11 @@ namespace PSXPrev.Common.Parsers
                 MeshTop = meshTop,
                 SortTops = sortTops,
                 SortCounts = sortCounts,
-                //VertexStart = vertexIndex,
-                //VertexCount = meshVertexCount,
-                //NormalStart = normalIndex,
-                //NormalCount = meshNormalCount,
-                AttachableVertices = attachableVertices,
-                AttachableNormals  = attachableNormals,
-//#if DEBUG
+                VertexStart = vertexIndex,
+                VertexCount = meshVertexCount,
+                NormalStart = normalIndex,
+                NormalCount = meshNormalCount,
                 MeshName = meshName,
-//#endif
                 ScaleValue = scaleValue, // Not sure if this is used or not...
                 Center = center, // Seems to not be used for translation...
                 ScaleKeys = scaleKeys,
@@ -728,7 +739,7 @@ namespace PSXPrev.Common.Parsers
                 // Read all primitive indices first, so that we don't need to seek back and forth
                 if (_primitiveIndices == null || _primitiveIndices.Length < sortCount)
                 {
-                    Array.Resize(ref _primitiveIndices, sortCount);
+                    _primitiveIndices = new ushort[sortCount];
                 }
                 reader.BaseStream.Seek(_offset2 + psiMesh.MeshTop + sortTop, SeekOrigin.Begin);
                 for (uint i = 0; i < sortCount; i++)
@@ -748,7 +759,7 @@ namespace PSXPrev.Common.Parsers
                     var mode = reader.ReadByte();
                     var primitiveType = (mode & 0xfdu);
 
-                    if (!ReadPrimitive(reader, skinned, d2m, primitiveType, flag, mode))
+                    if (!ReadPrimitive(reader, skinned, d2m, primitiveType, flag, mode, modelIndex))
                     {
                         return false;
                     }
@@ -765,6 +776,9 @@ namespace PSXPrev.Common.Parsers
                 return true;
             }
 
+            // ReadPrimitives is called on the global list of primitives, and isn't associated with a single mesh
+            const uint modelIndex = 0;
+
             reader.BaseStream.Seek(_offset2 + primitiveTop, SeekOrigin.Begin);
             var primitivePosition = reader.BaseStream.Position;
             var length = GetPrimitiveLength(d2m, primitiveType);
@@ -780,7 +794,7 @@ namespace PSXPrev.Common.Parsers
                 var flag = reader.ReadByte();
                 var mode = reader.ReadByte();
 
-                if (!ReadPrimitive(reader, skinned, d2m, primitiveType, flag, mode))
+                if (!ReadPrimitive(reader, skinned, d2m, primitiveType, flag, mode, modelIndex))
                 {
                     return false;
                 }
@@ -819,7 +833,7 @@ namespace PSXPrev.Common.Parsers
             }
         }
 
-        private bool ReadPrimitive(BinaryReader reader, bool skinned, bool d2m, uint primitiveType, byte flag, byte mode)
+        private bool ReadPrimitive(BinaryReader reader, bool skinned, bool d2m, uint primitiveType, byte flag, byte mode, uint modelIndex)
         {
             switch (primitiveType)
             {
@@ -831,17 +845,17 @@ namespace PSXPrev.Common.Parsers
                 case GPU_COM_G3: // 0x30: GPU_COM_G3  / TMD_P_FG3I
                 case GPU_COM_F4: // 0x28: GPU_COM_F4  / TMD_P_FG4I
                 case GPU_COM_G4: // 0x38: GPU_COM_G4  / TMD_P_FG4I
-                    return ReadStandardPrimitive(reader, skinned, d2m, primitiveType, flag, mode);
+                    return ReadStandardPrimitive(reader, skinned, d2m, primitiveType, flag, mode, modelIndex);
 
                 case GPU_COM_TF4SPR: // 0x64: GPU_COM_TF4SPR / TMD_P_FT4I (D2M_TMD_P_SP4I)
-                    return ReadSpritePrimitive(reader, skinned, d2m, flag, mode);
+                    return ReadSpritePrimitive(reader, skinned, d2m, flag, mode, modelIndex);
 
                 default:
                     return false;
             }
         }
 
-        private bool ReadStandardPrimitive(BinaryReader reader, bool skinned, bool d2m, uint primitiveType, byte flag, byte mode)
+        private bool ReadStandardPrimitive(BinaryReader reader, bool skinned, bool d2m, uint primitiveType, byte flag, byte mode, uint modelIndex)
         {
             byte u0 = 0, u1 = 0, u2 = 0, u3 = 0;
             byte v0 = 0, v1 = 0, v2 = 0, v3 = 0;
@@ -1058,6 +1072,9 @@ namespace PSXPrev.Common.Parsers
 
             }
 
+
+            var modelJointID = modelIndex + 1u;
+
             if (vertexIndex0 >= _vertexCount || vertexIndex1 >= _vertexCount || vertexIndex2 >= _vertexCount || (quad && vertexIndex3 >= _vertexCount))
             {
                 return false;
@@ -1066,8 +1083,21 @@ namespace PSXPrev.Common.Parsers
             var vertex1 = _vertices[vertexIndex1];
             var vertex2 = _vertices[vertexIndex2];
             var vertex3 = quad ? _vertices[vertexIndex3] : Vector3.Zero;
+            uint vertexJoint0, vertexJoint1, vertexJoint2, vertexJoint3;
+            if (skinned)
+            {
+                vertexJoint0 = _vertexJoints[vertexIndex0];
+                vertexJoint1 = _vertexJoints[vertexIndex1];
+                vertexJoint2 = _vertexJoints[vertexIndex2];
+                vertexJoint3 = quad ? _vertexJoints[vertexIndex3] : Triangle.NoJoint;
+            }
+            else
+            {
+                vertexJoint0 = vertexJoint1 = vertexJoint2 = vertexJoint3 = Triangle.NoJoint;
+            }
 
             Vector3 normal0, normal1, normal2, normal3;
+            uint normalJoint0, normalJoint1, normalJoint2, normalJoint3;
             if (light)
             {
                 if (normalIndex0 >= _normalCount || normalIndex1 >= _normalCount || normalIndex2 >= _normalCount || (quad && normalIndex3 >= _normalCount))
@@ -1082,6 +1112,17 @@ namespace PSXPrev.Common.Parsers
             else
             {
                 normal0 = normal1 = normal2 = normal3 = Vector3.Zero;
+            }
+            if (light && skinned)
+            {
+                normalJoint0 = _normalJoints[normalIndex0];
+                normalJoint1 = _normalJoints[normalIndex1];
+                normalJoint2 = _normalJoints[normalIndex2];
+                normalJoint3 = quad ? _normalJoints[normalIndex3] : Triangle.NoJoint;
+            }
+            else
+            {
+                normalJoint0 = normalJoint1 = normalJoint2 = normalJoint3 = Triangle.NoJoint;
             }
 
             Color color1, color2, color3;
@@ -1142,16 +1183,14 @@ namespace PSXPrev.Common.Parsers
                 TMDHelper.ParseTSB(tsb, out _, out _, out mixtureRate);
             }
 
-            var originalVertexIndices1 = new uint[] { vertexIndex2, vertexIndex1, vertexIndex0 };
-            var originalNormalIndices1 = light ? new uint[] { normalIndex2, normalIndex1, normalIndex0 } : null;
             var triangle1 = new Triangle
             {
                 Vertices = new[] { vertex2, vertex1, vertex0 },
                 Normals = light ? new[] { normal2, normal1, normal0 } : Triangle.EmptyNormals,
-                OriginalVertexIndices = originalVertexIndices1,
-                OriginalNormalIndices = originalNormalIndices1,
-                AttachedIndices       = skinned ? originalVertexIndices1 : null,
-                AttachedNormalIndices = skinned ? originalNormalIndices1 : null,
+                OriginalVertexIndices = new uint[] { vertexIndex2, vertexIndex1, vertexIndex0 },
+                OriginalNormalIndices = light ? new uint[] { normalIndex2, normalIndex1, normalIndex0 } : null,
+                VertexJoints = skinned ? Triangle.CreateJoints(vertexJoint2, vertexJoint1, vertexJoint0, modelJointID) : null,
+                NormalJoints = skinned && light ? Triangle.CreateJoints(normalJoint2, normalJoint1, normalJoint0, modelJointID) : null,
                 Uv = textured ? new[] { uv2, uv1, uv0 } : Triangle.EmptyUv,
                 Colors = new[] { color2, color1, color0 },
             };
@@ -1167,16 +1206,14 @@ namespace PSXPrev.Common.Parsers
 
             if (quad)
             {
-                var originalVertexIndices2 = new uint[] { vertexIndex2, vertexIndex3, vertexIndex1 };
-                var originalNormalIndices2 = light ? new uint[] { normalIndex2, normalIndex3, normalIndex1 } : null;
                 var triangle2 = new Triangle
                 {
                     Vertices = new[] { vertex2, vertex3, vertex1 },
                     Normals = light ? new[] { normal2, normal3, normal1 } : Triangle.EmptyNormals,
-                    OriginalVertexIndices = originalVertexIndices2,
-                    OriginalNormalIndices = originalNormalIndices2,
-                    AttachedIndices       = skinned ? originalVertexIndices2 : null,
-                    AttachedNormalIndices = skinned ? originalNormalIndices2 : null,
+                    OriginalVertexIndices = new uint[] { vertexIndex2, vertexIndex3, vertexIndex1 },
+                    OriginalNormalIndices = light ? new uint[] { normalIndex2, normalIndex3, normalIndex1 } : null,
+                    VertexJoints = skinned ? Triangle.CreateJoints(vertexJoint2, vertexJoint3, vertexJoint1, modelJointID) : null,
+                    NormalJoints = skinned && light ? Triangle.CreateJoints(normalJoint2, normalJoint3, normalJoint1, modelJointID) : null,
                     Uv = textured ? new[] { uv2, uv3, uv1 } : Triangle.EmptyUv,
                     Colors = new[] { color2, color3, color1 },
                 };
@@ -1194,7 +1231,7 @@ namespace PSXPrev.Common.Parsers
             return true;
         }
 
-        private bool ReadSpritePrimitive(BinaryReader reader, bool skinned, bool d2m, byte flag, byte mode)
+        private bool ReadSpritePrimitive(BinaryReader reader, bool skinned, bool d2m, byte flag, byte mode, uint modelIndex)
         {
             // Flag only used for untextered primitives
             //var semiTrans = ((flag >> 1) & 0x1) == 1;
@@ -1246,17 +1283,21 @@ namespace PSXPrev.Common.Parsers
             var normalIndex0 = reader.ReadUInt16();
 
 
+            var modelJointID = modelIndex + 1u;
+
             if (vertexIndex0 >= _vertexCount)
             {
                 return false;
             }
             var center = _vertices[vertexIndex0];
+            var centerJoint = skinned ? _vertexJoints[vertexIndex0] : Triangle.NoJoint;
 
             //if (normalIndex0 >= _normalCount)
             //{
             //    return false;
             //}
             //var normal = _normals[normalIndex0];
+            //var normalJoint = skinned ? _normalJoints[normalIndex0] : Triangle.NoJoint;
 
             // Remember that Y-up is negative, so height values are negated compared to what we set for UVs.
             // Note that these vertex coordinates also assume the default orientation of the view is (0, 0, -1).
@@ -1282,10 +1323,18 @@ namespace PSXPrev.Common.Parsers
             }
 
 
+            // note: Vertex index order uses standard order here, since each vertex is defined by hand.
+
+            var originalVertexIndices = new uint[] { vertexIndex0, vertexIndex0, vertexIndex0 };
+            //var originalNormalIndices = light ? new uint[] { normalIndex0, normalIndex0, normalIndex0 } : null;
             var triangle1 = new Triangle
             {
                 Vertices = new[] { vertex0, vertex1, vertex2 },
                 Normals = Triangle.EmptyNormals,
+                OriginalVertexIndices = new uint[] { vertexIndex0, vertexIndex0, vertexIndex0 },
+                //OriginalNormalIndices = originalNormalIndices,
+                VertexJoints = skinned ? Triangle.CreateJoints(centerJoint, centerJoint, centerJoint, modelJointID) : null,
+                //NormalJoints = skinned && light ? Triangle.CreateJoints(normalJoint, normalJoint, normalJoint, jointID) : null,
                 Uv = new[] { uv0, uv1, uv2 },
                 Colors = new[] { color, color, color },
             };
@@ -1297,6 +1346,10 @@ namespace PSXPrev.Common.Parsers
             {
                 Vertices = new[] { vertex1, vertex3, vertex2 },
                 Normals = Triangle.EmptyNormals,
+                OriginalVertexIndices = new uint[] { vertexIndex0, vertexIndex0, vertexIndex0 },
+                //OriginalNormalIndices = originalNormalIndices,
+                VertexJoints = skinned ? Triangle.CreateJoints(centerJoint, centerJoint, centerJoint, modelJointID) : null,
+                //NormalJoints = skinned && light ? Triangle.CreateJoints(normalJoint, normalJoint, normalJoint, jointID) : null,
                 Uv = new[] { uv1, uv3, uv2 },
                 Colors = new[] { color, color, color },
             };
@@ -1313,8 +1366,7 @@ namespace PSXPrev.Common.Parsers
         {
             var localMatrix = coord?.WorldMatrix ?? Matrix4.Identity;
 
-            var attachableVertices = psiMesh?.AttachableVertices;
-            var attachableNormals  = psiMesh?.AttachableNormals;
+            var modelIsJoint = skinned && (psiMesh?.VertexCount > 0 || psiMesh?.NormalCount > 0);
 
 #if DEBUG
             var debugData = psiMesh != null ? new[] { $"meshName: \"{psiMesh.MeshName}\"" } : null;
@@ -1331,23 +1383,14 @@ namespace PSXPrev.Common.Parsers
                     RenderFlags = renderInfo.RenderFlags,
                     MixtureRate = renderInfo.MixtureRate,
                     TMDID = modelIndex + 1u,
+                    JointID = modelIndex + 1u,
                     MeshName = psiMesh?.MeshName,
                     OriginalLocalMatrix = localMatrix,
 #if DEBUG
                     DebugData = debugData,
 #endif
                 };
-                if (attachableVertices != null || attachableNormals != null)
-                {
-                    model.AttachableVertices = attachableVertices;
-                    model.AttachableNormals  = attachableNormals;
-                    attachableVertices = null;
-                    attachableNormals  = null;
-                }
-                if (skinned)
-                {
-                    model.ComputeAttached();
-                }
+                modelIsJoint = false;
                 _models.Add(model);
             }
             foreach (var kvp in _groupedSprites)
@@ -1355,7 +1398,7 @@ namespace PSXPrev.Common.Parsers
                 var spriteCenter = kvp.Key.Item1;
                 var renderInfo = kvp.Key.Item2;
                 var triangles = kvp.Value;
-                var model = new ModelEntity
+                var spriteModel = new ModelEntity
                 {
                     Triangles = triangles.ToArray(),
                     TexturePage = 0,
@@ -1370,25 +1413,25 @@ namespace PSXPrev.Common.Parsers
                     DebugData = debugData,
 #endif
                 };
-                _models.Add(model);
+                _models.Add(spriteModel);
             }
-            if (attachableVertices != null || attachableNormals != null)
+            if (modelIsJoint)
             {
-                var model = new ModelEntity
+                var jointModel = new ModelEntity
                 {
                     Triangles = new Triangle[0],
                     TexturePage = 0,
                     TMDID = modelIndex + 1u,
+                    JointID = modelIndex + 1u,
+                    Visible = false,
                     MeshName = psiMesh?.MeshName,
                     OriginalLocalMatrix = localMatrix,
-                    AttachableVertices = attachableVertices,
-                    AttachableNormals  = attachableNormals,
 #if DEBUG
                     DebugData = debugData,
 #endif
                 };
-                model.ComputeAttached();
-                _models.Add(model);
+                _models.Add(jointModel);
+                modelIsJoint = false;
             }
             _groupedTriangles.Clear();
             _groupedSprites.Clear();
@@ -1457,7 +1500,7 @@ namespace PSXPrev.Common.Parsers
         }
 
         private void ProcessAnimationKeys<T>(Animation animation, Dictionary<uint, AnimationObject> animationObjects, int start, int end,
-                                             uint tmdid, uint offset, AnimationKey<T>[] keys,
+                                             uint tmdid, uint offset, AnimationKey<T>[] keys, PSIMesh psiMesh,
                                              Action<AnimationFrame, T, T> assign, Func<T, T, float, T> lerp) where T : struct, IEquatable<T>
         {
             // If we only have 1 key, then there's nothing to animate (we already use the first key as the default transform)
@@ -1479,7 +1522,12 @@ namespace PSXPrev.Common.Parsers
             }
 
             var objectId = tmdid + (uint)_psiMeshes.Count * offset; // Use offset to get a unique objectId
-            var animationObject = new AnimationObject { Animation = animation, ID = objectId };
+            var animationObject = new AnimationObject
+            {
+                Animation = animation,
+                ID = objectId,
+                ObjectName = psiMesh.MeshName,
+            };
             animationObject.TMDID.Add(tmdid);
             AnimationFrame animationFrame = null;
 
@@ -1626,7 +1674,7 @@ namespace PSXPrev.Common.Parsers
                 var tmdid = i + 1u;
 
                 ProcessAnimationKeys(animation, animationObjects, start, end,
-                    tmdid, 0, psiMesh.MoveKeys,
+                    tmdid, 0, psiMesh.MoveKeys, psiMesh,
                     (frame, value, finalValue) => {
                         frame.TranslationType = InterpolationType.Linear;
                         frame.Translation = value;
@@ -1635,7 +1683,7 @@ namespace PSXPrev.Common.Parsers
                     Vector3.Lerp);
 
                 ProcessAnimationKeys(animation, animationObjects, start, end,
-                    tmdid, 1, psiMesh.ScaleKeys,
+                    tmdid, 1, psiMesh.ScaleKeys, psiMesh,
                     (frame, value, finalValue) => {
                         frame.ScaleType = InterpolationType.Linear;
                         frame.Scale = value;
@@ -1644,7 +1692,7 @@ namespace PSXPrev.Common.Parsers
                     Vector3.Lerp);
 
                 ProcessAnimationKeys(animation, animationObjects, start, end,
-                    tmdid, 2, psiMesh.RotateKeys,
+                    tmdid, 2, psiMesh.RotateKeys, psiMesh,
                     (frame, value, finalValue) => {
                         frame.RotationType = InterpolationType.Linear;
                         frame.Rotation = value;
@@ -1675,18 +1723,13 @@ namespace PSXPrev.Common.Parsers
             public uint MeshTop;
             public uint[] SortTops;
             public ushort[] SortCounts;
-            //public uint VertexStart;
-            //public uint VertexCount;
-            //public uint NormalStart;
-            //public uint NormalCount;
-//#if DEBUG
+            public uint VertexStart;
+            public uint VertexCount;
+            public uint NormalStart;
+            public uint NormalCount;
             public string MeshName;
-//#endif
             public float ScaleValue;
             public Vector3 Center;
-
-            public Dictionary<uint, Vector3> AttachableVertices;
-            public Dictionary<uint, Vector3> AttachableNormals;
 
             public AnimationKey<Vector3>[] ScaleKeys;
             public AnimationKey<Vector3>[] MoveKeys;

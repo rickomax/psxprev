@@ -118,6 +118,7 @@
     <Compile Include="Common\Renderer\Mesh.cs" />
     <Compile Include="Common\Renderer\MeshBatch.cs" />
     <Compile Include="Common\Renderer\MeshRenderInfo.cs" />
+    <Compile Include="Common\Renderer\Skin.cs" />
     <Compile Include="Common\Renderer\TriangleMeshBuilder.cs" />
     <Compile Include="Common\Renderer\Scene.cs" />
     <Compile Include="Common\Renderer\TextureBinder.cs" />

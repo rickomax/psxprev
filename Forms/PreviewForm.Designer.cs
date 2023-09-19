@@ -1463,7 +1463,9 @@ namespace PSXPrev.Forms
             this.autoAttachLimbsToolStripMenuItem.Name = "autoAttachLimbsToolStripMenuItem";
             this.autoAttachLimbsToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
             this.autoAttachLimbsToolStripMenuItem.Text = "Auto Attach Limbs";
+            this.autoAttachLimbsToolStripMenuItem.Click += new System.EventHandler(this.autoAttachLimbsToolStripMenuItem_Click);
             this.autoAttachLimbsToolStripMenuItem.CheckedChanged += new System.EventHandler(this.autoAttachLimbsToolStripMenuItem_CheckedChanged);
+            this.autoAttachLimbsToolStripMenuItem.CheckStateChanged += new System.EventHandler(this.autoAttachLimbsToolStripMenuItem_CheckStateChanged);
             // 
             // toolStripSeparator14
             // 

@@ -6,26 +6,26 @@ namespace PSXPrev.Common.Renderer
 {
     public class TextureBinder : IDisposable
     {
-        private readonly uint[] _textures = new uint[VRAM.PageCount];
+        private readonly uint[] _textureIds = new uint[VRAM.PageCount];
 
         public TextureBinder()
         {
-            GL.GenTextures(VRAM.PageCount, _textures);
+            GL.GenTextures(VRAM.PageCount, _textureIds);
         }
 
         public void Dispose()
         {
-            GL.DeleteTextures(VRAM.PageCount, _textures);
+            GL.DeleteTextures(VRAM.PageCount, _textureIds);
         }
 
-        public uint GetTexture(int index)
+        public uint GetTextureID(int index)
         {
-            return _textures[index];
+            return _textureIds[index];
         }
 
         public uint UpdateTexture(Bitmap bitmap, int index)
         {
-            var texture = _textures[index];
+            var texture = _textureIds[index];
             GL.BindTexture(TextureTarget.Texture2D, texture);
 
             var bitmapData = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
@@ -39,11 +39,11 @@ namespace PSXPrev.Common.Renderer
             return texture;
         }
 
-        public void BindTexture(uint texture)
+        public void BindTexture(uint textureId)
         {
             GL.ActiveTexture(TextureUnit.Texture0);
-            GL.BindTexture(TextureTarget.Texture2D, texture);
-            GL.Uniform1(Scene.AttributeIndexTexture, texture);
+            GL.BindTexture(TextureTarget.Texture2D, textureId);
+            GL.Uniform1(Scene.AttributeIndexTexture, textureId);
         }
 
         public void Unbind()

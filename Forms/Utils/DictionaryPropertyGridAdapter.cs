@@ -1,44 +1,55 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 
 namespace PSXPrev.Forms.Utils
 {
     public class DictionaryPropertyDescriptor : PropertyDescriptor
     {
-        readonly IDictionary _dictionary;
-        readonly object _key;
+        private readonly IDictionary _dictionary;
 
-        internal DictionaryPropertyDescriptor(IDictionary d, object key)
-            : base(key.ToString(), null)
+        public object Key { get; }
+
+        public DictionaryPropertyDescriptor(IDictionary dictionary, object key, string name = null, string displayName = null, string description = null, string category = null)
+            : base(name ?? key.ToString(), CreateAttributes(displayName, description, category))
         {
-            _dictionary = d;
-            _key = key;
+            _dictionary = dictionary;
+            Key = key;
         }
 
-        public override Type PropertyType
+        private static Attribute[] CreateAttributes(string displayName, string description, string category)
         {
-            get { return _dictionary[_key].GetType(); }
+            var attributes = new List<Attribute>();
+            if (displayName != null)
+            {
+                attributes.Add(new DisplayNameAttribute(displayName));
+            }
+            if (description != null)
+            {
+                attributes.Add(new DescriptionAttribute(description));
+            }
+            if (category != null)
+            {
+                attributes.Add(new CategoryAttribute(category));
+            }
+            return attributes.ToArray();
         }
+
+        public override bool IsReadOnly => false;
+
+        public override Type ComponentType => null;
+
+        public override Type PropertyType => _dictionary[Key].GetType();
 
         public override void SetValue(object component, object value)
         {
-            _dictionary[_key] = value;
+            _dictionary[Key] = value;
         }
 
         public override object GetValue(object component)
         {
-            return _dictionary[_key];
-        }
-
-        public override bool IsReadOnly
-        {
-            get { return false; }
-        }
-
-        public override Type ComponentType
-        {
-            get { return null; }
+            return _dictionary[Key];
         }
 
         public override bool CanResetValue(object component)
@@ -60,9 +71,22 @@ namespace PSXPrev.Forms.Utils
     {
         private readonly IDictionary _dictionary;
 
-        public DictionaryPropertyGridAdapter(IDictionary d)
+        private readonly Comparison<object> _keyOrderer;
+        private readonly Func<object, string> _keyName;
+        private readonly Func<object, string> _keyDisplayName;
+        private readonly Func<object, string> _keyDescription;
+        private readonly Func<object, string> _keyCategory;
+
+        public DictionaryPropertyGridAdapter(IDictionary dictionary, Comparison<object> keyOrderer = null,
+                                             Func<object, string> keyName = null, Func<object, string> keyDisplayName = null,
+                                             Func<object, string> keyDescription = null, Func<object, string> keyCategory = null)
         {
-            _dictionary = d;
+            _dictionary = dictionary;
+            _keyOrderer = keyOrderer;
+            _keyName = keyName;
+            _keyDisplayName = keyDisplayName;
+            _keyDescription = keyDescription;
+            _keyCategory = keyCategory;
         }
 
         public string GetComponentName()
@@ -85,7 +109,7 @@ namespace PSXPrev.Forms.Utils
             return TypeDescriptor.GetEvents(this, attributes, true);
         }
 
-        EventDescriptorCollection System.ComponentModel.ICustomTypeDescriptor.GetEvents()
+        EventDescriptorCollection ICustomTypeDescriptor.GetEvents()
         {
             return TypeDescriptor.GetEvents(this, true);
         }
@@ -115,24 +139,35 @@ namespace PSXPrev.Forms.Utils
             return null;
         }
 
-        PropertyDescriptorCollection
-            System.ComponentModel.ICustomTypeDescriptor.GetProperties()
+        PropertyDescriptorCollection ICustomTypeDescriptor.GetProperties()
         {
-            return ((ICustomTypeDescriptor)this).GetProperties(new Attribute[0]);
+            return GetProperties(new Attribute[0]);
         }
 
         public PropertyDescriptorCollection GetProperties(Attribute[] attributes)
         {
-            ArrayList properties = new ArrayList();
+            var properties = new DictionaryPropertyDescriptor[_dictionary.Count];
+            var index = 0;
             foreach (DictionaryEntry e in _dictionary)
             {
-                properties.Add(new DictionaryPropertyDescriptor(_dictionary, e.Key));
+                var key = e.Key;
+                var name = _keyName?.Invoke(key);
+                var displayName = _keyDisplayName?.Invoke(key);
+                var description = _keyDescription?.Invoke(key);
+                var category = _keyCategory?.Invoke(key);
+                properties[index++] = new DictionaryPropertyDescriptor(_dictionary, key, name, displayName, description, category);
+            }
+            if (_keyOrderer != null)
+            {
+                Array.Sort(properties, KeyOrderer);
             }
 
-            PropertyDescriptor[] props =
-                (PropertyDescriptor[])properties.ToArray(typeof(PropertyDescriptor));
+            return new PropertyDescriptorCollection(properties);
+        }
 
-            return new PropertyDescriptorCollection(props);
+        private int KeyOrderer(DictionaryPropertyDescriptor a, DictionaryPropertyDescriptor b)
+        {
+            return _keyOrderer(a.Key, b.Key);
         }
     }
 }

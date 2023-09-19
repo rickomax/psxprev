@@ -7,6 +7,9 @@ namespace PSXPrev.Common.Animator
     {
         [DisplayName("Frames")]
         public Dictionary<uint, AnimationFrame> AnimationFrames { get; set; }
+
+        [Browsable(false)]
+        public string ObjectName { get; set; }
         
         [Browsable(false)]
         public AnimationObject Parent { get; set; }

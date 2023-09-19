@@ -532,7 +532,7 @@ namespace PSXPrev.Common.Parsers
             reader.BaseStream.Seek(_offset2 + vertsTop, SeekOrigin.Begin);
             if (_vertices == null || _vertices.Length < _vertexCount)
             {
-                Array.Resize(ref _vertices, (int)_vertexCount);
+                _vertices = new Vector3[_vertexCount];
             }
             for (var i = 0; i < _vertexCount; i++)
             {
@@ -554,7 +554,7 @@ namespace PSXPrev.Common.Parsers
             reader.BaseStream.Seek(_offset2 + textureHashesTop, SeekOrigin.Begin);
             if (_textureHashes == null || _textureHashes.Length < _textureHashCount)
             {
-                Array.Resize(ref _textureHashes, (int)_textureHashCount);
+                _textureHashes = new uint[_textureHashCount];
             }
             for (var i = 0; i < _textureHashCount; i++)
             {
@@ -864,7 +864,6 @@ namespace PSXPrev.Common.Parsers
                 Normals = Triangle.EmptyNormals,
                 Colors = new[] { color, color, color },
                 Uv = new[] { uv2, uv1, uv0 },
-                AttachableIndices = Triangle.EmptyAttachableIndices,
             };
             triangle1.TiledUv = new TiledUV(triangle1.Uv, 0f, 0f, 1f, 1f);
             triangle1.Uv = (Vector2[])triangle1.Uv.Clone();
@@ -877,7 +876,6 @@ namespace PSXPrev.Common.Parsers
                 Normals = Triangle.EmptyNormals,
                 Colors = new[] { color, color, color },
                 Uv = new[] { uv2, uv3, uv1 },
-                AttachableIndices = Triangle.EmptyAttachableIndices,
             };
             triangle2.TiledUv = new TiledUV(triangle2.Uv, 0f, 0f, 1f, 1f);
             triangle2.Uv = (Vector2[])triangle2.Uv.Clone();
@@ -970,7 +968,6 @@ namespace PSXPrev.Common.Parsers
                 Normals = Triangle.EmptyNormals,
                 Colors = new[] { color2, color1, color0 },
                 Uv = new[] { uv2, uv1, uv0 },
-                AttachableIndices = Triangle.EmptyAttachableIndices,
             };
             if (textured)
             {
@@ -1005,14 +1002,13 @@ namespace PSXPrev.Common.Parsers
                     _modelHashes.Add(nameCRC, models);
                 }
                 models.Add(model);
-                //_models.Add(model);
             }
             foreach (var kvp in _groupedSprites)
             {
                 var spriteCenter = kvp.Key.Item1;
                 var renderInfo = kvp.Key.Item2;
                 var triangles = kvp.Value;
-                var model = new ModelEntity
+                var spriteModel = new ModelEntity
                 {
                     Triangles = triangles.ToArray(),
                     TexturePage = 0,
@@ -1028,8 +1024,7 @@ namespace PSXPrev.Common.Parsers
                     models = new List<ModelEntity>();
                     _modelHashes.Add(nameCRC, models);
                 }
-                models.Add(model);
-                //_models.Add(model);
+                models.Add(spriteModel);
             }
             _groupedTriangles.Clear();
             _groupedSprites.Clear();

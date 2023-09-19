@@ -66,7 +66,7 @@ namespace PSXPrev.Common.Animator
     {
         private readonly WeakReference<RootEntity> _ownerEntity = new WeakReference<RootEntity>(null);
 
-        [DisplayName("Animation Name")]
+        [DisplayName("Name")]
         public string AnimationName { get; set; }
 
         [DisplayName("Format"), ReadOnly(true)]
@@ -102,7 +102,7 @@ namespace PSXPrev.Common.Animator
         [Browsable(false)]
         public AnimationObject RootAnimationObject { get; set; }
 
-        [DisplayName("Animation Type")]
+        [DisplayName("Animation Type"), ReadOnly(true)]
         public AnimationType AnimationType { get; set; }
 
         // The owner model that created this animation (if any).

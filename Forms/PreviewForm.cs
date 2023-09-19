@@ -66,6 +66,9 @@ namespace PSXPrev.Forms
         private RefreshDelayTimer _scanProgressRefreshDelayTimer;
         private RefreshDelayTimer _scanPopulateRefreshDelayTimer;
         private float _fps = (float)(1d / DefaultElapsedTime);
+        private int _trianglesDrawn;
+        private int _meshesDrawn;
+        private int _skinsDrawn;
         private double _fpsCalcElapsedSeconds;
         private int _fpsCalcElapsedFrames;
 
@@ -124,7 +127,7 @@ namespace PSXPrev.Forms
         private bool _autoFocusIncludeCheckedModels;
         private bool _showTexturePalette;
         private bool _showTextureSemiTransparency;
-        private bool _boundsEntityPicking;
+        private bool _boundsEntityPicking = true;
         private uint? _fallbackTextureID;
 
         private GizmoType _gizmoType;
@@ -728,6 +731,7 @@ namespace PSXPrev.Forms
                 UpdateVRAMComboBoxPageItems();
                 UpdateAnimationProgressLabel();
 
+                _scene.ClearUnderMouseCycleLists();
                 TMDBindingsForm.CloseTool();
 
                 GC.Collect(); // It's my memory and I need it now!
@@ -751,7 +755,8 @@ namespace PSXPrev.Forms
             _fpsLabelRefreshDelayTimer.Reset();
             if (showFPSToolStripMenuItem.Checked && _openTkControl.Parent != null)
             {
-                Text = $"{_baseWindowTitle} (FPS: {_fps:0.0})";
+                var skinsStr = string.Empty;// _skinsDrawn > 0 ? $", Skins: {_skinsDrawn}" : string.Empty;
+                Text = $"{_baseWindowTitle} (FPS: {_fps:0.0}, Triangles: {_trianglesDrawn}, Meshes: {_meshesDrawn}{skinsStr})";
             }
             else
             {
@@ -1103,7 +1108,7 @@ namespace PSXPrev.Forms
                                 }
                                 else
                                 {
-                                    _scene.GetEntityUnderMouse(checkedEntities, rootEntity, _lastMouseX, _lastMouseY);
+                                    _scene.GetEntityUnderMouse(checkedEntities, rootEntity, _lastMouseX, _lastMouseY, boundsPicking: _boundsEntityPicking);
                                 }
                                 e.Handled = true;
                             }
@@ -1194,13 +1199,13 @@ namespace PSXPrev.Forms
             if (_inAnimationTab && _curAnimation != null)
             {
                 var checkedEntities = GetCheckedEntities();
-                if (_animationBatch.SetupAnimationFrame(checkedEntities, _selectedRootEntity, _selectedModelEntity, true))
+                if (_animationBatch.SetupAnimationFrame(checkedEntities, _selectedRootEntity, _selectedModelEntity, false))
                 {
                     // Animation has been processed. Update attached limbs while animating.
                     var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
                     if (rootEntity != null)
                     {
-                        if (_scene.AutoAttach)
+                        if (_scene.AttachJointsMode == AttachJointsMode.Attach)
                         {
                             rootEntity.FixConnections();
                         }
@@ -1211,7 +1216,7 @@ namespace PSXPrev.Forms
                     }
                 }
             }
-            _scene.Draw();
+            _scene.Draw(out _trianglesDrawn, out _meshesDrawn, out _skinsDrawn);
             _openTkControl.SwapBuffers();
         }
 
@@ -1257,7 +1262,7 @@ namespace PSXPrev.Forms
                             }
                             else
                             {
-                                var newSelectedEntity = _scene.GetEntityUnderMouse(checkedEntities, rootEntity, e.X, e.Y);
+                                var newSelectedEntity = _scene.GetEntityUnderMouse(checkedEntities, rootEntity, e.X, e.Y, boundsPicking: _boundsEntityPicking);
                                 if (newSelectedEntity != null)
                                 {
                                     SelectEntity(newSelectedEntity, false);
@@ -1714,7 +1719,12 @@ namespace PSXPrev.Forms
             {
                 loaded &= animationObject.AnimationFrames.Count == 0;
             }
-            var animationObjectNode = new TreeNode("Animation-Object " + childIndex) // 0-indexed like Sub-Models
+            var namePostfix = string.Empty;
+            if (!string.IsNullOrEmpty(animationObject.ObjectName))
+            {
+                namePostfix = $" {animationObject.ObjectName}";
+            }
+            var animationObjectNode = new TreeNode($"Animation-Object {childIndex}{namePostfix}") // 0-indexed like Sub-Models
             {
                 Tag = new AnimationsTreeViewTagInfo
                 {
@@ -2724,13 +2734,6 @@ namespace PSXPrev.Forms
                 _selectedTriangle = triangle;
                 UpdateSelectedTriangle();
                 UpdateModelPropertyGrid();
-                // Fix it so that when a triangle is unselected, the cached list
-                // (for selecting each triangle under the mouse) is reset.
-                // Otherwise we end up picking the next triangle when the user isn't expecting it.
-                if (_selectedTriangle == null)
-                {
-                    _scene.ClearTriangleUnderMouseList();
-                }
             }
         }
 
@@ -2752,7 +2755,7 @@ namespace PSXPrev.Forms
             if (rootEntity != null)
             {
                 rootEntity.ResetAnimationData();
-                if (_scene.AutoAttach)
+                if (_scene.AttachJointsMode == AttachJointsMode.Attach)
                 {
                     rootEntity.FixConnections();
                 }
@@ -2763,7 +2766,7 @@ namespace PSXPrev.Forms
             }
             if (selectedEntityBase != null)
             {
-                selectedEntityBase.ComputeBoundsRecursively();
+                selectedEntityBase.GetRootEntity().ComputeBounds(_scene.AttachJointsMode);
                 _scene.BoundsBatch.BindEntityBounds(selectedEntityBase);
 
                 var checkedEntities = GetCheckedEntities();
@@ -2859,7 +2862,7 @@ namespace PSXPrev.Forms
                     }
                 }
 
-                updateMeshData |= _scene.AutoAttach;
+                updateMeshData |= _scene.AttachJointsMode == AttachJointsMode.Attach && !Scene.JointsSupported;
                 _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, _selectedModelEntity, _selectedRootEntity, updateMeshData, subModelVisibility: _subModelVisibility);
 
                 // todo: Ensure we focus when switching to a different root entity, even if the selected entity is a sub-model.
@@ -2882,6 +2885,7 @@ namespace PSXPrev.Forms
             }
             else
             {
+                _scene.ClearUnderMouseCycleLists();
                 _scene.MeshBatch.Reset(0);
                 _selectedGizmo = GizmoId.None;
                 _hoveredGizmo = GizmoId.None;
@@ -2901,7 +2905,14 @@ namespace PSXPrev.Forms
             _scene.TriangleOutlineBatch.Reset(2);
             if (_selectedTriangle != null)
             {
-                _scene.TriangleOutlineBatch.BindTriangleOutline(_selectedTriangle.Item1.WorldMatrix, _selectedTriangle.Item2);
+                _scene.TriangleOutlineBatch.BindTriangleOutline(_selectedTriangle.Item1, _selectedTriangle.Item2);
+            }
+            else
+            {
+                // Fix it so that when a triangle is unselected, the cached list
+                // (for selecting each triangle under the mouse) is reset.
+                // Otherwise we end up picking the next triangle when the user isn't expecting it.
+                _scene.ClearTriangleUnderMouseCycleList();
             }
         }
 
@@ -2972,7 +2983,7 @@ namespace PSXPrev.Forms
                     }
                     foreach (var model in models)
                     {
-                        if (model.Triangles.Length > 0 && (!model.AttachedOnly || model.IsAttached))
+                        if (model.Triangles.Length > 0 && (!model.AttachedOnly || _scene.AttachJointsMode != AttachJointsMode.Hide))
                         {
                             bounds.AddBounds(model.Bounds3D);
                         }
@@ -2989,6 +3000,27 @@ namespace PSXPrev.Forms
                 bounds.AddPoint(Vector3.Zero);
             }
             return bounds;
+        }
+
+        private void FixConnectionsForCheckedNode(TreeNode checkedNode)
+        {
+            // Fix connections for entities when checked
+            // (but not if it's the selected entity, since that's handled by UpdateSelectedEntity)
+            var tagInfo = (EntitiesTreeViewTagInfo)checkedNode.Tag;
+            // todo: If we support checking things other than root entities, then we need to handle it here
+            var rootEntity = tagInfo.Entity as RootEntity;
+            var selectedRootEntity = (_selectedRootEntity ?? _selectedModelEntity?.GetRootEntity());
+            if (rootEntity != null && rootEntity != selectedRootEntity)
+            {
+                if (_scene.AttachJointsMode == AttachJointsMode.Attach)
+                {
+                    rootEntity.FixConnections();
+                }
+                else
+                {
+                    rootEntity.UnfixConnections();
+                }
+            }
         }
 
         private void entitiesTreeView_BeforeExpand(object sender, TreeViewCancelEventArgs e)
@@ -3020,6 +3052,12 @@ namespace PSXPrev.Forms
 
         private void entitiesTreeView_AfterCheck(object sender, TreeViewEventArgs e)
         {
+            var checkedNode = e.Node;
+            if (checkedNode != null)
+            {
+                FixConnectionsForCheckedNode(checkedNode);
+            }
+
             if (!_busyChecking)
             {
                 UpdateSelectedEntity(focus: _autoFocusIncludeCheckedModels);
@@ -3192,6 +3230,7 @@ namespace PSXPrev.Forms
             }
 
             sceneControlsFlowLayoutPanel.ResumeLayout();
+            sceneControlsFlowLayoutPanel.Refresh(); // Force controls to show/hide if the renderer is taking too long to paint
         }
 
         private void showBoundsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
@@ -3232,8 +3271,59 @@ namespace PSXPrev.Forms
 
         private void autoAttachLimbsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
-            _scene.AutoAttach = autoAttachLimbsToolStripMenuItem.Checked;
-            UpdateSelectedEntity(); // Update mesh data, since limb vertices may have changed
+            var oldHide = _scene.AttachJointsMode == AttachJointsMode.Hide;
+            if (autoAttachLimbsToolStripMenuItem.Checked)
+            {
+                _scene.AttachJointsMode = AttachJointsMode.Attach;
+            }
+            else
+            {
+                _scene.AttachJointsMode = AttachJointsMode.Hide;
+            }
+            var newHide = _scene.AttachJointsMode == AttachJointsMode.Hide;
+            var updateMeshData = !Scene.JointsSupported || (oldHide != newHide);
+            // Update mesh data, since limb vertices may have changed
+            UpdateSelectedEntity(updateMeshData: updateMeshData);
+        }
+
+        // These two events are for testing AttachJointsMode.DontAttach. We don't have a proper UI selection for it yet.
+        private void autoAttachLimbsToolStripMenuItem_CheckStateChanged(object sender, EventArgs e)
+        {
+            /*var oldHide = _scene.AttachJointsMode == AttachJointsMode.Hide;
+            switch (autoAttachLimbsToolStripMenuItem.CheckState)
+            {
+                case CheckState.Unchecked:
+                    _scene.AttachJointsMode = AttachJointsMode.Hide;
+                    break;
+                case CheckState.Indeterminate:
+                    _scene.AttachJointsMode = AttachJointsMode.DontAttach;
+                    break;
+                case CheckState.Checked:
+                    _scene.AttachJointsMode = AttachJointsMode.Attach;
+                    break;
+            }
+            var newHide = _scene.AttachJointsMode == AttachJointsMode.Hide;
+            var updateMeshData = !Scene.JointsSupported || (oldHide != newHide);
+            // Update mesh data, since limb vertices may have changed
+            UpdateSelectedEntity(updateMeshData: updateMeshData);*/
+        }
+
+        private void autoAttachLimbsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            /*// Lazy solution to turn off CheckOnClick since this is just for debugging
+            autoAttachLimbsToolStripMenuItem.CheckOnClick = false;
+            switch (autoAttachLimbsToolStripMenuItem.CheckState)
+            {
+                case CheckState.Unchecked:
+                    autoAttachLimbsToolStripMenuItem.CheckState = CheckState.Indeterminate;
+                    break;
+                case CheckState.Indeterminate:
+                    autoAttachLimbsToolStripMenuItem.CheckState = CheckState.Checked;
+                    break;
+                case CheckState.Checked:
+                    autoAttachLimbsToolStripMenuItem.CheckState = CheckState.Unchecked;
+                    break;
+            }*/
         }
 
         private void subModelVisibilityAllToolStripMenuItem_Click(object sender, EventArgs e)
@@ -4201,6 +4291,14 @@ namespace PSXPrev.Forms
 
             animationPropertyGrid.SelectedObject = propertyObject;
             _animationBatch.SetupAnimationBatch(_curAnimation);
+            if (_curAnimation != null)
+            {
+                _animationBatch.SetupAnimationFrame(GetCheckedEntities(), _selectedRootEntity, _selectedModelEntity, true);
+            }
+            else
+            {
+                _scene.MeshBatch.SetupMultipleEntityBatch(GetCheckedEntities(), _selectedModelEntity, _selectedRootEntity, true, SubModelVisibility.All);
+            }
 
             UpdateAnimationProgressLabel();
         }
@@ -4509,9 +4607,11 @@ namespace PSXPrev.Forms
 
         private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            var jointsSupportStr = Scene.JointsSupported ? "Shader-time joints" : "Pre-computed joints";
             var message = "PSXPrev - PlayStation (PSX) Files Previewer/Extractor\n" +
                           "\u00a9 PSXPrev Contributors - 2020-2023\n" +
-                          $"Version {GetVersionString()}";
+                          $"Program Version {GetVersionString()}\n" +
+                          $"GLSL Version {Scene.ShaderVersion} ({jointsSupportStr})";
             ShowMessageBox(message, "About", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 

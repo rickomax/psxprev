@@ -5,6 +5,13 @@ using OpenTK;
 
 namespace PSXPrev.Common
 {
+    public enum AttachJointsMode
+    {
+        Hide,
+        DontAttach,
+        Attach,
+    }
+
     public enum TextureUVConversion
     {
         Absolute,     // UVs are already stored with page-size
@@ -109,8 +116,6 @@ namespace PSXPrev.Common
 
     public class ModelEntity : EntityBase
     {
-        private Triangle[] _triangles;
-
         [DisplayName("VRAM Page")]
         public uint TexturePage { get; set; }
 
@@ -129,6 +134,9 @@ namespace PSXPrev.Common
 
         [Browsable(false)]
         public Vector3 SpriteCenter { get; set; }
+
+        [Browsable(false)]
+        public bool IsSprite => RenderFlags.HasFlag(RenderFlags.Sprite) || RenderFlags.HasFlag(RenderFlags.SpriteNoPitch);
 
         // Debug render settings for testing, not for use with PlayStation models.
         // Note: DebugMeshRenderInfo's TexturePage, RenderFlags, MixtureRate, and Visible are ignored.
@@ -156,6 +164,7 @@ namespace PSXPrev.Common
             }
         }
 
+        private Triangle[] _triangles;
         [Browsable(false)]
         public Triangle[] Triangles
         {
@@ -184,6 +193,22 @@ namespace PSXPrev.Common
 
         [DisplayName("TMD ID")]
         public uint TMDID { get; set; }
+
+        // This value will be modified by RootEntity.PrepareJoints.
+        [Browsable(false)]
+        public uint JointID { get; set; } = Triangle.NoJoint;
+
+        // Don't show uint.MaxValue in the property grid when there's no joint. That would be ugly.
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [DisplayName("Joint ID"), ReadOnly(true)]
+        public int PropertyGrid_JointID
+        {
+            get => (int)JointID;
+            set => JointID = (uint)value;
+        }
+
+        [Browsable(false)]
+        public bool IsJoint => JointID != Triangle.NoJoint;
 
         [Browsable(false)]
         public string MeshName { get; set; }
@@ -258,7 +283,11 @@ namespace PSXPrev.Common
         [Browsable(false)]
         public bool IsAttached { get; set; }
 
-        // This model contains at least one attached vertex.
+        // Joint transforms have been manually applied to triangle vertices and normals.
+        [Browsable(false)]
+        public bool IsAttachedBaked { get; set; }
+
+        // This model contains at least one attached vertex or normal.
         [Browsable(false)]
         public bool HasAttached { get; set; }
 
@@ -266,22 +295,16 @@ namespace PSXPrev.Common
         [Browsable(false)]
         public bool AttachedOnly { get; set; }
 
-        // HMD: Attachable (shared) geometry can only be used when attachable.SharedID <= attached.SharedID.
+        // If true, the model's vertices are not transformed, and the model's vertices need joints to transform properly.
         [Browsable(false)]
-        public uint SharedID { get; set; }
-
-        // HMD: Attachable (shared) vertices and normals that aren't tied to an existing triangle.
-        [Browsable(false)]
-        public Dictionary<uint, Vector3> AttachableVertices { get; set; }
-        [Browsable(false)]
-        public Dictionary<uint, Vector3> AttachableNormals { get; set; }
+        public bool NeedsJointTransform => HasAttached && (!IsAttached || !IsAttachedBaked);
 
 
         public ModelEntity()
         {
         }
 
-        public ModelEntity(ModelEntity fromModel, Triangle[] triangles, bool deepClone = false)
+        public ModelEntity(ModelEntity fromModel, Triangle[] triangles)
             : base(fromModel)
         {
             Triangles = triangles;
@@ -300,21 +323,13 @@ namespace PSXPrev.Common
                 TextureLookup = new TextureLookup(fromModel.TextureLookup);
             }
             TMDID = fromModel.TMDID;
+            JointID = fromModel.JointID;
+            MeshName = fromModel.MeshName;
             TextureAnimation = fromModel.TextureAnimation;
             IsAttached = fromModel.IsAttached;
+            IsAttachedBaked = fromModel.IsAttachedBaked;
             HasAttached = fromModel.HasAttached;
             AttachedOnly = fromModel.AttachedOnly;
-            SharedID = fromModel.SharedID;
-            if (!deepClone)
-            {
-                AttachableVertices = fromModel.AttachableVertices;
-                AttachableNormals = fromModel.AttachableNormals;
-            }
-            else
-            {
-                AttachableVertices = new Dictionary<uint, Vector3>(fromModel.AttachableVertices);
-                AttachableNormals = new Dictionary<uint, Vector3>(fromModel.AttachableNormals);
-            }
         }
 
 
@@ -325,62 +340,38 @@ namespace PSXPrev.Common
             return $"{name} Triangles={TrianglesCount} TexturePage={page}";
         }
 
-        public void ComputeAttached()
+        public override void ComputeBounds(AttachJointsMode attachJointsMode = AttachJointsMode.Hide, Matrix4[] jointMatrices = null)
         {
-            var hasAttached = false;
-            var attachedOnly = (Triangles.Length > 0);
-            foreach (var triangle in Triangles)
+            var needsJointTransform = attachJointsMode == AttachJointsMode.Attach && NeedsJointTransform;
+            if (jointMatrices == null && needsJointTransform)
             {
-                if (triangle.AttachedIndices != null)
-                {
-                    for (var i = 0; i < 3; i++)
-                    {
-                        if (triangle.AttachedIndices[i] == Triangle.NoAttachment)
-                        {
-                            attachedOnly = false;
-                        }
-                        else
-                        {
-                            hasAttached = true;
-                        }
-                    }
-                }
-                else
-                {
-                    attachedOnly = false;
-                }
-
-                if (hasAttached && !attachedOnly)
-                {
-                    break; // Nothing more to compute
-                }
+                jointMatrices = GetRootEntity().JointMatrices;
             }
-            HasAttached = hasAttached;
-            AttachedOnly = attachedOnly;
-        }
-
-        public override void ComputeBounds()
-        {
-            base.ComputeBounds();
+            base.ComputeBounds(attachJointsMode, jointMatrices);
             var bounds = new BoundingBox();
             var worldMatrix = WorldMatrix;
             foreach (var triangle in Triangles)
             {
-                if (triangle.Vertices != null)
+                for (var i = 0; i < 3; i++)
                 {
-                    for (var i = 0; i < triangle.Vertices.Length; i++)
+                    if (attachJointsMode == AttachJointsMode.Hide && triangle.VertexJoints != null)
                     {
-                        if (!IsAttached && triangle.AttachedIndices != null)
+                        if (triangle.VertexJoints[i] != Triangle.NoJoint)
                         {
-                            if (triangle.AttachedIndices[i] != Triangle.NoAttachment)
-                            {
-                                continue;
-                            }
+                            continue;
                         }
-                        Vector3.TransformPosition(ref triangle.Vertices[i], ref worldMatrix, out var vertex);
-                        bounds.AddPoint(vertex);
                     }
 
+                    Vector3 vertex;
+                    if (!needsJointTransform)
+                    {
+                        Vector3.TransformPosition(ref triangle.Vertices[i], ref worldMatrix, out vertex);
+                    }
+                    else
+                    {
+                        vertex = triangle.TransformPosition(i, ref worldMatrix, jointMatrices);
+                    }
+                    bounds.AddPoint(vertex);
                 }
             }
             if (!bounds.IsSet)
@@ -393,140 +384,102 @@ namespace PSXPrev.Common
             Bounds3D = bounds;
         }
 
-        private Vector3 ConnectVertex(EntityBase subModel, Vector3 vertex, bool transform = true)
+        public override void FixConnections(bool? bake = null, Matrix4[] tempJointMatrices = null)
         {
-            // We only need to transform the vertex if it's not attached to the same model.
-            if (subModel != this && transform)
+            if (!bake.HasValue)
             {
-                vertex = Vector3.TransformPosition(vertex, subModel.TempWorldMatrix);
-                vertex = Vector3.TransformPosition(vertex, TempWorldMatrix.Inverted());
+                bake = !Renderer.Scene.JointsSupported;
             }
-            return vertex;
-        }
-
-        private Vector3 ConnectNormal(EntityBase subModel, Vector3 normal, bool transform = true)
-        {
-            // We only need to transform the vertex if it's not attached to the same model.
-            if (subModel != this && transform)
+            if (bake.Value && HasAttached && tempJointMatrices == null)
             {
-                // todo: Is the first normalize needed for if the first scale is non-uniform?
-                normal = GeomMath.TransformNormalNormalized(normal, subModel.TempWorldMatrix);
-                normal = GeomMath.TransformNormalNormalized(normal, TempWorldMatrix.Inverted());
+                tempJointMatrices = GetRootEntity().RelativeAnimatedJointMatrices;
             }
-            return normal;
-        }
-
-        public override void FixConnections(bool transform = true)
-        {
-            base.FixConnections(transform);
+            base.FixConnections(bake, tempJointMatrices);
             if (!HasAttached)
             {
                 return;
             }
-            IsAttached = true;
-            var rootEntity = GetRootEntity();
-            if (rootEntity != null)
+
+            if (!bake.Value && IsAttached && IsAttachedBaked)
             {
+                UnfixConnections(); // Restore baked connections to their unbaked form
+            }
+            else if (bake.Value)
+            {
+                var invTempWorldMatrix = TempWorldMatrix.Inverted();
                 foreach (var triangle in Triangles)
                 {
                     // If we have cached connections, then use those. It'll make things much faster.
-                    if (triangle.AttachedVerticesCache != null)
+                    if (triangle.VertexJoints != null)
                     {
+                        // Backup original values
+                        if (triangle.OriginalVertices == null)
+                        {
+                            triangle.OriginalVertices = (Vector3[])triangle.Vertices.Clone();
+                        }
+
                         for (var i = 0; i < 3; i++)
                         {
-                            var vertexCache = triangle.AttachedVerticesCache[i];
-                            var normalCache = triangle.AttachedNormalsCache?[i];
-                            if (vertexCache != null)
+                            var jointID = triangle.VertexJoints[i];
+                            if (jointID != Triangle.NoJoint)
                             {
-                                triangle.Vertices[i] = ConnectVertex(vertexCache.Item1, vertexCache.Item2, transform);
-                            }
-                            if (normalCache != null)
-                            {
-                                triangle.Normals[i] = ConnectNormal(normalCache.Item1, normalCache.Item2, transform);
+                                Vector3.TransformPosition(ref triangle.OriginalVertices[i], ref tempJointMatrices[jointID], out var vertex);
+                                Vector3.TransformPosition(ref vertex, ref invTempWorldMatrix, out triangle.Vertices[i]);
                             }
                         }
-                        continue;
                     }
 
-                    // AttachedNormalIndices should only ever be non-null when AttachedIndices is non-null.
-                    if (triangle.AttachedIndices == null)
+                    if (triangle.NormalJoints != null)
                     {
-                        continue;
-                    }
-                    for (var i = 0; i < 3; i++)
-                    {
-                        var attachedIndex = triangle.AttachedIndices[i];
-                        var attachedNormalIndex = triangle.AttachedNormalIndices?[i] ?? Triangle.NoAttachment;
-                        if (attachedIndex != Triangle.NoAttachment)
+                        // Backup original values
+                        if (triangle.OriginalNormals == null)
                         {
-                            // In the event that some attached indices are not found,
-                            // we don't want to waste time looking for them again. Create an attached cache now.
-                            if (triangle.AttachedVerticesCache == null)
-                            {
-                                triangle.AttachedVerticesCache = new Tuple<EntityBase, Vector3>[3];
-                            }
-                            foreach (ModelEntity subModel in rootEntity.ChildEntities)
-                            {
-                                if (subModel != this)
-                                {
-                                    foreach (var subTriangle in subModel.Triangles)
-                                    {
-                                        for (var j = 0; j < subTriangle.Vertices.Length; j++)
-                                        {
-                                            if (subTriangle.AttachableIndices[j] == attachedIndex)
-                                            {
-                                                var attachedVertex = subTriangle.Vertices[j];
-                                                // Cache connection to speed up FixConnections in the future.
-                                                triangle.AttachedVerticesCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedVertex);
-                                                triangle.Vertices[i] = ConnectVertex(subModel, attachedVertex, transform);
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
+                            triangle.OriginalNormals = (Vector3[])triangle.Normals.Clone();
+                        }
 
-                                // HMD: Check for attachable (shared) vertices and normals that aren't associated with an existing triangle.
-                                // Shared geometry can only be attached to shared indices defined before it.
-                                if (subModel.SharedID <= SharedID)
-                                {
-                                    if (subModel.AttachableVertices != null && subModel.AttachableVertices.TryGetValue(attachedIndex, out var attachedVertex))
-                                    {
-                                        // Cache connection to speed up FixConnections in the future.
-                                        triangle.AttachedVerticesCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedVertex);
-                                        triangle.Vertices[i] = ConnectVertex(subModel, attachedVertex, transform);
-                                    }
-                                    if (subModel.AttachableNormals != null && subModel.AttachableNormals.TryGetValue(attachedNormalIndex, out var attachedNormal))
-                                    {
-                                        if (triangle.AttachedNormalsCache == null)
-                                        {
-                                            triangle.AttachedNormalsCache = new Tuple<EntityBase, Vector3>[3];
-                                        }
-                                        triangle.AttachedNormalsCache[i] = new Tuple<EntityBase, Vector3>(subModel, attachedNormal);
-                                        triangle.Normals[i] = ConnectNormal(subModel, attachedNormal, transform);
-                                    }
-                                    // Note: DON'T break when we find a shared attachable. Later-defined attachables have priority.
-                                }
+                        for (var i = 0; i < 3; i++)
+                        {
+                            var jointID = triangle.NormalJoints[i];
+                            if (jointID != Triangle.NoJoint)
+                            {
+                                // todo: Is the first normalize needed for if the first scale is non-uniform?
+                                GeomMath.TransformNormalNormalized(ref triangle.OriginalNormals[i], ref tempJointMatrices[jointID], out var normal);
+                                GeomMath.TransformNormalNormalized(ref normal, ref invTempWorldMatrix, out triangle.Normals[i]);
                             }
                         }
                     }
                 }
             }
+            IsAttached = true;
+            IsAttachedBaked = bake.Value;
         }
 
         public override void UnfixConnections()
         {
             base.UnfixConnections();
-            IsAttached = false;
-        }
-
-        public override void ClearConnectionsCache()
-        {
-            base.ClearConnectionsCache();
-            foreach (var triangle in Triangles)
+            if (HasAttached && IsAttached && IsAttachedBaked)
             {
-                triangle.AttachedVerticesCache = null;
-                triangle.AttachedNormalsCache = null;
+                foreach (var triangle in Triangles)
+                {
+                    if (triangle.VertexJoints != null && triangle.OriginalVertices != null)
+                    {
+                        for (var i = 0; i < 3; i++)
+                        {
+                            triangle.Vertices[i] = triangle.OriginalVertices[i];
+                        }
+                    }
+
+                    if (triangle.NormalJoints != null && triangle.OriginalNormals != null)
+                    {
+                        for (var i = 0; i < 3; i++)
+                        {
+                            triangle.Normals[i] = triangle.OriginalNormals[i];
+                        }
+                    }
+                }
             }
+            IsAttached = false;
+            IsAttachedBaked = false;
         }
     }
 }

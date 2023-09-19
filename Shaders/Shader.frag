@@ -6,7 +6,7 @@ in vec4 pass_Color;
 
 in float pass_NormalDotLight;
 in float pass_NormalLength;
-in float discardPixel;
+in float pass_DiscardPixel;
 
 out vec4 out_Color;
 
@@ -78,7 +78,7 @@ vec4 calcInvalidTexture(vec3 uv) {
 
 void main(void) {
 	// Process vertex shader discarding:
-	if (discardPixel > 0.0) {
+	if (pass_DiscardPixel > 0.0) {
 		discard;
 	}
 
