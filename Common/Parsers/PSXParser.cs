@@ -23,12 +23,15 @@ namespace PSXPrev.Common.Parsers
         // Translation divisor is only used for reading objects
         private float _scaleDivisorTranslation = 1f;
         private float _scaleDivisor = 1f;
+        private bool _useModelIndexAsObjectIndex; // Actor models use the model index to get the transform of the object
         private PSXObject[] _objects;
         //private Coordinate[] _coords; // Same count as _objects (not ready yet)
         private uint _objectCount;
         private uint _modelCount;
         private Vector3[] _vertices;
         private Vector3[] _normals;
+        private uint[] _vertexJoints;
+        private bool _modelIsJoint;
         private readonly Color[] _gouraudPalette = new Color[256];
         private uint _gouraudPaletteSize;
         private uint[] _textureHashes;
@@ -36,8 +39,7 @@ namespace PSXPrev.Common.Parsers
         private readonly Dictionary<uint, PSXClutData> _clutDatas = new Dictionary<uint, PSXClutData>();
         private readonly Dictionary<RenderInfo, List<Triangle>> _groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
         private readonly Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>> _groupedSprites = new Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>>();
-        private readonly Dictionary<uint, uint> _attachableIndices = new Dictionary<uint, uint>();
-        private readonly Dictionary<uint, uint> _attachedIndices = new Dictionary<uint, uint>();
+        private readonly Dictionary<uint, Tuple<uint, Vector3>> _attachableVertices = new Dictionary<uint, Tuple<uint, Vector3>>();
         private readonly Dictionary<uint, PSXSpriteVertexData> _spriteVertices = new Dictionary<uint, PSXSpriteVertexData>();
         private readonly List<ModelEntity> _models = new List<ModelEntity>();
         // Debug:
@@ -56,11 +58,14 @@ namespace PSXPrev.Common.Parsers
         protected override void Parse(BinaryReader reader)
         {
             _scaleDivisor = _scaleDivisorTranslation = Settings.Instance.AdvancedPSXScaleDivisor;
+            _modelIsJoint = false;
             _gouraudPaletteSize = 0;
             _textureHashCount = 0;
+            _useModelIndexAsObjectIndex = true; // Assumed true unless we encounter a blockmap tagged chunk
             _clutDatas.Clear();
             _groupedTriangles.Clear();
             _groupedSprites.Clear();
+            _attachableVertices.Clear();
             _models.Clear();
 #if DEBUG
             _modelDebugData.Clear();
@@ -100,13 +105,18 @@ namespace PSXPrev.Common.Parsers
 
             if (_objects == null || _objects.Length < _objectCount)
             {
-                Array.Resize(ref _objects, (int)_objectCount);
-                //Array.Resize(ref _coords,  (int)_objectCount);
+                _objects = new PSXObject[_objectCount];
+                //_coords = new Coordinate[_objectCount];
             }
             for (uint i = 0; i < _objectCount; i++)
             {
                 _objects[i] = ReadObject(reader, version, i);
+                if (_objects[i].ModelIndex >= _objectCount)
+                {
+                    _useModelIndexAsObjectIndex = false; // Not expected, but we can't use this if we'd go out of bounds
+                }
             }
+
 
             // Allow zero model count in-case this is a texture library
             _modelCount = reader.ReadUInt32();
@@ -114,6 +124,18 @@ namespace PSXPrev.Common.Parsers
             {
                 return false; // Models or objects are zero, but not both. Or model count is too high
             }
+
+            /*var hasDiffs = _objectCount == 0;
+            var hasHigher = false;
+            for (uint i = 0; i < _objectCount; i++)
+            {
+                hasDiffs |= (_objects[i].ModelIndex != i);
+                hasHigher |= (_objects[i].ModelIndex >= _objectCount);
+            }
+            if (!hasDiffs && _objectCount != 0)
+            {
+                //return false;
+            }*/
 
 
             // Read gouraud palette/vertex divisor from tagged chunks, and texture hashes before reading models
@@ -125,17 +147,17 @@ namespace PSXPrev.Common.Parsers
                 return false;
             }
 
-            //var modelHashes = new uint[_modelCount]; // Hashes of model names, not important
-            var modelHashes = Program.Debug ? new List<string>() : null;
+            // Hashes of model names, not important
+            var modelHashes = Program.Debug ? new string[_modelCount] : null;
             for (uint i = 0; i < _modelCount; i++)
             {
                 var modelHash = reader.ReadUInt32();
                 if (modelHashes != null)
                 {
-                    modelHashes.Add($"0x{modelHash:x08}");
+                    modelHashes[i] = $"0x{modelHash:x08}";
                 }
             }
-            if (modelHashes != null && modelHashes.Count > 0)
+            if (modelHashes != null && _modelCount > 0)
             {
                 Program.Logger.WriteLine("Model Hashes: " + string.Join(", ", modelHashes));
             }
@@ -158,19 +180,47 @@ namespace PSXPrev.Common.Parsers
                 return false;
             }*/
 
-
-            uint attachmentIndex = 0;
+            // We need to go through and read each model's vertices first, since we need to know joint vertex positions ahead of time
+            var modelsPosition = reader.BaseStream.Position;
             for (uint i = 0; i < _modelCount; i++)
             {
                 var modelTop = reader.ReadUInt32();
                 var modelPosition = reader.BaseStream.Position;
                 reader.BaseStream.Seek(_offset + modelTop, SeekOrigin.Begin);
-                if (!ReadModel(reader, version, i, ref attachmentIndex))
+                if (!ReadModelJoints(reader, version, i))
                 {
                     return false;
                 }
                 reader.BaseStream.Seek(modelPosition, SeekOrigin.Begin);
             }
+
+            // Now that we have the joint vertex positions, we can read through each model and build lists of triangles
+            reader.BaseStream.Seek(modelsPosition, SeekOrigin.Begin);
+            for (uint i = 0; i < _objectCount; i++)
+            {
+                var psxObject = _objects[i];
+                var modelIndex = _useModelIndexAsObjectIndex ? i : psxObject.ModelIndex;
+                reader.BaseStream.Seek(modelsPosition + modelIndex * 4, SeekOrigin.Begin);
+
+                var modelTop = reader.ReadUInt32();
+                reader.BaseStream.Seek(_offset + modelTop, SeekOrigin.Begin);
+                if (!ReadModel(reader, version, i, modelIndex))
+                {
+                    return false;
+                }
+            }
+            /*reader.BaseStream.Seek(modelsPosition, SeekOrigin.Begin);
+            for (uint i = 0; i < _modelCount; i++)
+            {
+                var modelTop = reader.ReadUInt32();
+                var modelPosition = reader.BaseStream.Position;
+                reader.BaseStream.Seek(_offset + modelTop, SeekOrigin.Begin);
+                if (!ReadModel(reader, version, i))//, ref attachmentIndex))
+                {
+                    return false;
+                }
+                reader.BaseStream.Seek(modelPosition, SeekOrigin.Begin);
+            }*/
 
             if (_models.Count > 0)
             {
@@ -181,6 +231,8 @@ namespace PSXPrev.Common.Parsers
                 {
                     texture.OwnerEntity = rootEntity;
                 }
+                // PrepareJoints must be called before ComputeBounds
+                rootEntity.PrepareJoints(_attachableVertices.Count > 0);
                 rootEntity.ComputeBounds();
                 EntityResults.Add(rootEntity);
             }
@@ -236,6 +288,11 @@ namespace PSXPrev.Common.Parsers
                         break;
                     case TagHIER:
                         result = ReadTaggedChunkHIER(reader, chunkLength);
+                        break;
+                    case TagBlockMap:
+                        // This probably isn't the correct way to detect this, but it works for all games tested against:
+                        // (Apocalypse, Spider Man 1-2, Tony Hawk's Pro Skater 1-4)
+                        _useModelIndexAsObjectIndex = false; // Not an actor model
                         break;
                 }
                 if (!result)
@@ -333,7 +390,7 @@ namespace PSXPrev.Common.Parsers
             }
             if (_textureHashes == null || _textureHashes.Length < _textureHashCount)
             {
-                Array.Resize(ref _textureHashes, (int)_textureHashCount);
+                _textureHashes = new uint[_textureHashCount];
             }
             for (uint i = 0; i < _textureHashCount; i++)
             {
@@ -616,10 +673,74 @@ namespace PSXPrev.Common.Parsers
             };
         }
 
-        private bool ReadModel(BinaryReader reader, ushort version, uint modelIndex, ref uint attachmentIndex)
+        private bool ReadModelJoints(BinaryReader reader, ushort version, uint modelIndex)
         {
+            var modelFlags  = version == 0x04 ? reader.ReadUInt16() : reader.ReadUInt32();
+            var vertexCount = version == 0x04 ? reader.ReadUInt16() : reader.ReadUInt32();
+            var normalCount = version == 0x04 ? reader.ReadUInt16() : reader.ReadUInt32();
+            var faceCount   = version == 0x04 ? reader.ReadUInt16() : reader.ReadUInt32();
+
+            if (vertexCount > Limits.MaxPSXVertices || normalCount > Limits.MaxPSXVertices)
+            {
+                return false;
+            }
+            if (faceCount > Limits.MaxPSXFaces)
+            {
+                return false;
+            }
+
+            var radius = reader.ReadUInt32() / (4096f * _scaleDivisor);
+            var xMax = reader.ReadInt16() / _scaleDivisor;
+            var xMin = reader.ReadInt16() / _scaleDivisor;
+            var yMax = reader.ReadInt16() / _scaleDivisor;
+            var yMin = reader.ReadInt16() / _scaleDivisor;
+            var zMax = reader.ReadInt16() / _scaleDivisor;
+            var zMin = reader.ReadInt16() / _scaleDivisor;
+            if (version == 0x04)
+            {
+                var unk2 = reader.ReadUInt32();
+            }
+
+            for (uint j = 0; j < vertexCount; j++)
+            {
+                // Vertex coding:
+                // pad =  0: Normal vertex
+                // pad =  1: Attachable vertex, file-wide counter as the index
+                // pad =  2: Attached vertex,   Y is the index of the attachable (not vertex index)
+                //                              X and Z are zero
+                // pad =  4: Unknown            X, Y, and Z are not indexes, and may be negative
+                // pad = 16: Sprite vertex,     X is a byte offset to the sprite center vertex (always 0,8,16,24)
+                //                              Y is a byte offset to a vertex (usually 16,16,0,0, rarely 24,24,8,8)
+                //                              Z value is the width of the sprite with some awkward behavior, not fully understood
+                var x = reader.ReadInt16();
+                var y = reader.ReadInt16();
+                var z = reader.ReadInt16();
+                var pad = reader.ReadUInt16();
+
+                if (pad == 1)
+                {
+                    var vertex = new Vector3(x / _scaleDivisor, y / _scaleDivisor, z / _scaleDivisor);
+
+                    // Note that this isn't a Joint ID, just a .PSX attachment index ID.
+                    var attachmentIndex = (uint)_attachableVertices.Count;
+                    _attachableVertices.Add(attachmentIndex, new Tuple<uint, Vector3>(modelIndex + 1u, vertex));
+                }
+            }
+            return true;
+        }
+
+        private bool ReadModel(BinaryReader reader, ushort version, uint objectIndex, uint modelIndex)
+        {
+            // Reset model state
+            _modelIsJoint = false;
+            _spriteVertices.Clear();
+
 #if DEBUG
-            _modelDebugData.TryGetValue(modelIndex, out var modelDebugData);
+            if (!_modelDebugData.TryGetValue(objectIndex, out var modelDebugData))
+            {
+                modelDebugData = new List<string>();
+                _modelDebugData.Add(objectIndex, modelDebugData);
+            }
 #endif
             var modelFlags  = version == 0x04 ? reader.ReadUInt16() : reader.ReadUInt32();
             var vertexCount = version == 0x04 ? reader.ReadUInt16() : reader.ReadUInt32();
@@ -653,13 +774,11 @@ namespace PSXPrev.Common.Parsers
 #endif
             }
 
-            _attachableIndices.Clear();
-            _attachedIndices.Clear();
-            _spriteVertices.Clear();
 
             if (_vertices == null || _vertices.Length < vertexCount)
             {
-                Array.Resize(ref _vertices, (int)vertexCount);
+                _vertices = new Vector3[vertexCount];
+                _vertexJoints = new uint[vertexCount];
             }
             for (uint j = 0; j < vertexCount; j++)
             {
@@ -676,25 +795,37 @@ namespace PSXPrev.Common.Parsers
                 var y = reader.ReadInt16();
                 var z = reader.ReadInt16();
                 var pad = reader.ReadUInt16();
-                _vertices[j] = new Vector3(x / _scaleDivisor, y / _scaleDivisor, z / _scaleDivisor);
+                var vertex = new Vector3(x / _scaleDivisor, y / _scaleDivisor, z / _scaleDivisor);
+                var jointID = Triangle.NoJoint;
 
                 if (pad == 1)
                 {
-                    _attachableIndices[j] = attachmentIndex++;
+                    _modelIsJoint = true;
                 }
                 else if (pad == 2)
                 {
-                    _attachedIndices[j] = (uint)y;
+                    // Note that this isn't a Joint ID, just a .PSX attachment index ID.
+                    var attachmentIndex = (ushort)y;
+                    if (_attachableVertices.TryGetValue(attachmentIndex, out var tuple))
+                    {
+                        vertex = tuple.Item2;
+                        jointID = tuple.Item1;
+                    }
+                    else
+                    {
+                        var breakHere = 0;
+                    }
                 }
                 else if (pad == 4)
                 {
                     // Observed in Apocalypse, not sure what to do with this
+                    var breakHere = 0;
                 }
                 else if (pad == 16)
                 {
-                    var indexB = (uint)x / 8;
-                    var indexA = (uint)y / 8;
-                    if ((uint)x % 8 != 0 || (uint)y % 8 != 0 || indexA >= vertexCount || indexB >= vertexCount)
+                    var indexB = (ushort)x / 8u;
+                    var indexA = (ushort)y / 8u;
+                    if ((ushort)x % 8u != 0 || (ushort)y % 8u != 0 || indexA >= vertexCount || indexB >= vertexCount)
                     {
                         return false;
                     }
@@ -709,11 +840,13 @@ namespace PSXPrev.Common.Parsers
                 {
                     var breakHere = 0;
                 }
+                _vertices[j] = vertex;
+                _vertexJoints[j] = jointID;
             }
 
             if (_normals == null || _normals.Length < normalCount)
             {
-                Array.Resize(ref _normals, (int)normalCount);
+                _normals = new Vector3[normalCount];
             }
             for (uint j = 0; j < normalCount; j++)
             {
@@ -721,11 +854,11 @@ namespace PSXPrev.Common.Parsers
                 var y = reader.ReadInt16() / 4096f;
                 var z = reader.ReadInt16() / 4096f;
                 var pad = reader.ReadUInt16(); //pad
+                _normals[j] = new Vector3(x, y, z);
                 if (pad != 0)
                 {
                     var breakHere = 0;
                 }
-                _normals[j] = new Vector3(x, y, z);
             }
 
             // I've seen version 0x03 in Apocalypse, and there didn't seem to be fields like this before the faces.
@@ -814,15 +947,10 @@ namespace PSXPrev.Common.Parsers
                     var breakHere = 0;
                 }
 
-                uint a; // temp variable for assigning attached/attachable indices
-                var attachedIndex0 = _attachedIndices.TryGetValue(i0, out a) ? a : Triangle.NoAttachment;
-                var attachedIndex1 = _attachedIndices.TryGetValue(i1, out a) ? a : Triangle.NoAttachment;
-                var attachedIndex2 = _attachedIndices.TryGetValue(i2, out a) ? a : Triangle.NoAttachment;
-                var attachedIndex3 = quad && _attachedIndices.TryGetValue(i3, out a) ? a : Triangle.NoAttachment;
-                var attachableIndex0 = _attachableIndices.TryGetValue(i0, out a) ? a : Triangle.NoAttachment;
-                var attachableIndex1 = _attachableIndices.TryGetValue(i1, out a) ? a : Triangle.NoAttachment;
-                var attachableIndex2 = _attachableIndices.TryGetValue(i2, out a) ? a : Triangle.NoAttachment;
-                var attachableIndex3 = quad && _attachableIndices.TryGetValue(i3, out a) ? a : Triangle.NoAttachment;
+                var joint0 = _vertexJoints[i0];
+                var joint1 = _vertexJoints[i1];
+                var joint2 = _vertexJoints[i2];
+                var joint3 = quad ? _vertexJoints[i3] : Triangle.NoJoint;
 
                 Color color0, color1, color2, color3;
                 var r = reader.ReadByte();
@@ -935,6 +1063,10 @@ namespace PSXPrev.Common.Parsers
                     var triangle2DebugData = new List<string>(triangle1DebugData);
 #endif
 
+                    var modelJointID = modelIndex + 1u;
+
+                    var originalNormalIndices = new uint[] { normalIndex, normalIndex, normalIndex };
+                    //var joints1 = Triangle.CreateJoints(joint0, joint1, joint2, modelJointID);
                     var triangle1 = new Triangle
                     {
                         Vertices = new[] { vertex0, vertex1, vertex2 },
@@ -942,9 +1074,10 @@ namespace PSXPrev.Common.Parsers
                         Uv = new[] { uv0, uv1, uv2 },
                         Colors = new[] { color0, color1, color2 },
                         OriginalVertexIndices = new uint[] { i0, i1, i2 },
-                        // Use helper functions to avoid allocating an array if all are "no attachment"
-                        AttachedIndices = Triangle.CreateAttachedIndices(attachedIndex0, attachedIndex1, attachedIndex2),
-                        AttachableIndices = Triangle.CreateAttachableIndices(attachableIndex0, attachableIndex1, attachableIndex2),
+                        OriginalNormalIndices = originalNormalIndices,
+                        // Use helper functions to avoid allocating an array if all are "no attachments"
+                        VertexJoints = Triangle.CreateJoints(joint0, joint1, joint2, modelJointID),
+                        NormalJoints = Triangle.CreateJoints(joint0, joint1, joint2, modelJointID),
 #if DEBUG
                         DebugData = triangle1DebugData.ToArray(),
 #endif
@@ -958,6 +1091,7 @@ namespace PSXPrev.Common.Parsers
 
                     if (quad)
                     {
+                        //var joints2 = Triangle.CreateJoints(joint1, joint3, joint2, modelJointID);
                         var triangle2 = new Triangle
                         {
                             Vertices = new[] { vertex1, vertex3, vertex2 },
@@ -965,9 +1099,10 @@ namespace PSXPrev.Common.Parsers
                             Uv = new[] { uv1, uv3, uv2 },
                             Colors = new[] { color1, color3, color2 },
                             OriginalVertexIndices = new uint[] { i1, i3, i2 },
-                            // Use helper functions to avoid allocating an array if all are "no attachment"
-                            AttachedIndices = Triangle.CreateAttachedIndices(attachedIndex1, attachedIndex3, attachedIndex2),
-                            AttachableIndices = Triangle.CreateAttachableIndices(attachableIndex1, attachableIndex3, attachableIndex2),
+                            OriginalNormalIndices = originalNormalIndices,
+                            // Use helper functions to avoid allocating an array if all are "no attachments"
+                            VertexJoints = Triangle.CreateJoints(joint1, joint3, joint2, modelJointID),
+                            NormalJoints = Triangle.CreateJoints(joint1, joint3, joint2, modelJointID),
 #if DEBUG
                             DebugData = triangle2DebugData.ToArray(),
 #endif
@@ -984,66 +1119,80 @@ namespace PSXPrev.Common.Parsers
                 reader.BaseStream.Seek(facePosition + faceLength, SeekOrigin.Begin);
             }
 
-            FlushModels(modelIndex);
+            FlushModels(objectIndex, modelIndex);
             return true;
         }
 
-        private void FlushModels(uint modelIndex)
+        private void FlushModels(uint objectIndex, uint modelIndex)
         {
-            for (uint i = 0; i < _objectCount; i++)
+            var psxObject = _objects[objectIndex];
+#if DEBUG
+            _modelDebugData.TryGetValue(objectIndex, out var modelDebugData);
+            modelDebugData?.Insert(0, $"objectIndex: {objectIndex}");
+            modelDebugData?.Insert(1, $"modelIndex: {psxObject.ModelIndex}");
+#endif
+            //var coord = _coords[i];
+            //var localMatrix = coord.WorldMatrix;
+            var localMatrix = Matrix4.CreateTranslation(psxObject.Translation);
+
+            foreach (var kvp in _groupedTriangles)
             {
-                var psxObject = _objects[i];
-                if (psxObject.ModelIndex == modelIndex)
+                var renderInfo = kvp.Key;
+                var triangles = kvp.Value;
+                var model = new ModelEntity
                 {
+                    Triangles = triangles.ToArray(),
+                    TexturePage = 0,
+                    TextureLookup = CreateTextureLookup(renderInfo),
+                    RenderFlags = renderInfo.RenderFlags,
+                    MixtureRate = renderInfo.MixtureRate,
+                    TMDID = objectIndex + 1u,
+                    JointID = modelIndex + 1u,
+                    OriginalLocalMatrix = localMatrix,
 #if DEBUG
-                    _modelDebugData.TryGetValue(modelIndex, out var modelDebugData);
+                    DebugData = modelDebugData?.ToArray(),
 #endif
-                    //var coord = _coords[i];
-                    //var localMatrix = coord.WorldMatrix;
-                    var localMatrix = Matrix4.CreateTranslation(psxObject.Translation);
-                    foreach (var kvp in _groupedTriangles)
-                    {
-                        var renderInfo = kvp.Key;
-                        var triangles = kvp.Value;
-                        var model = new ModelEntity
-                        {
-                            Triangles = triangles.ToArray(),
-                            TexturePage = 0,
-                            TextureLookup = CreateTextureLookup(renderInfo),
-                            RenderFlags = renderInfo.RenderFlags,
-                            MixtureRate = renderInfo.MixtureRate,
-                            TMDID = i + 1u,
-                            OriginalLocalMatrix = localMatrix,
+                };
+                _models.Add(model);
+                _modelIsJoint = false;
+            }
+            foreach (var kvp in _groupedSprites)
+            {
+                var spriteCenter = kvp.Key.Item1;
+                var renderInfo = kvp.Key.Item2;
+                var triangles = kvp.Value;
+                var spriteModel = new ModelEntity
+                {
+                    Triangles = triangles.ToArray(),
+                    TexturePage = 0,
+                    TextureLookup = CreateTextureLookup(renderInfo),
+                    RenderFlags = renderInfo.RenderFlags,
+                    MixtureRate = renderInfo.MixtureRate,
+                    SpriteCenter = spriteCenter,
+                    TMDID = objectIndex + 1u,
+                    OriginalLocalMatrix = localMatrix,
 #if DEBUG
-                            DebugData = modelDebugData?.ToArray(),
+                    DebugData = modelDebugData?.ToArray(),
 #endif
-                        };
-                        model.ComputeAttached();
-                        _models.Add(model);
-                    }
-                    foreach (var kvp in _groupedSprites)
-                    {
-                        var spriteCenter = kvp.Key.Item1;
-                        var renderInfo = kvp.Key.Item2;
-                        var triangles = kvp.Value;
-                        var model = new ModelEntity
-                        {
-                            Triangles = triangles.ToArray(),
-                            TexturePage = 0,
-                            TextureLookup = CreateTextureLookup(renderInfo),
-                            RenderFlags = renderInfo.RenderFlags,
-                            MixtureRate = renderInfo.MixtureRate,
-                            SpriteCenter = spriteCenter,
-                            TMDID = i + 1u,
-                            OriginalLocalMatrix = localMatrix,
+                };
+                _models.Add(spriteModel);
+            }
+            if (_modelIsJoint)
+            {
+                var jointModel = new ModelEntity
+                {
+                    Triangles = new Triangle[0],
+                    TexturePage = 0,
+                    TMDID = objectIndex + 1u,
+                    JointID = modelIndex + 1u,
+                    Visible = false,
+                    OriginalLocalMatrix = localMatrix,
 #if DEBUG
-                            DebugData = modelDebugData?.ToArray(),
+                    DebugData = modelDebugData?.ToArray(),
 #endif
-                        };
-                        model.ComputeAttached();
-                        _models.Add(model);
-                    }
-                }
+                };
+                _models.Add(jointModel);
+                _modelIsJoint = false;
             }
             _groupedTriangles.Clear();
             _groupedSprites.Clear();

@@ -42,6 +42,8 @@ namespace PSXPrev.Common.Renderer
 
         public List<Triangle> Triangles { get; }
 
+        public Matrix4[] JointMatrices { get; set; }
+
         public int Count => Triangles.Count;
 
         public int Capacity

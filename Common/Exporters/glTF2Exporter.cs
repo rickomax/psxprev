@@ -103,8 +103,7 @@ namespace PSXPrev.Common.Exporters
                 };
 
                 var rootNodes = new Dictionary<RootEntity, int>();    // Root entity -> node indices
-                var modelNodes = new Dictionary<ModelEntity, int>();  // Model mesh  -> node indices
-                var jointNodes = new Dictionary<ModelEntity, int>();  // Model joint -> node indices
+                var modelNodes = new Dictionary<ModelEntity, int>();  // Model mesh/joint -> node indices
                 var coordNodes = new Dictionary<Coordinate, int>();   // Coordinate  -> node indices
                 var modelJoints = new Dictionary<ModelEntity, int>(); // Model -> joint indices
 
@@ -148,12 +147,28 @@ namespace PSXPrev.Common.Exporters
                         scale = WriteVector3(matrix.ExtractScale(), false),
                     });
                 }
-                // Add model entity (mesh) nodes
+
+                // Write mesh skin
+                // "skins": [
+                //  {
+                //   "joints": [...]
+                //  },
+                //  //...
+                // ]
+                // Add model entity (mesh/joint) nodes
                 var meshIndex = 0;
-                var anySkin = false;
                 for (var i = 0; i < entities.Length; i++)
                 {
                     var entity = entities[i];
+                    var skin = new skin
+                    {
+                        // Todo: Handle outputting THE OPTIONAL inverseBindMatrices to support poor glTF2 implementations
+                        joints = new List<int>(),
+                    };
+                    // Not to be confused with non-null skin. We still need to create a skin when defining joints,
+                    // but in the end we may not need this skin if we have no meshes using it.
+                    var skinUsed = false;
+
                     for (var j = 0; j < entity.ChildEntities.Length; j++)
                     {
                         var model = (ModelEntity)entity.ChildEntities[j];
@@ -166,25 +181,39 @@ namespace PSXPrev.Common.Exporters
                         {
                             matrix = model.LocalMatrix;
                         }
+
                         var meshName = $"{entity.EntityName}: Mesh {model.EntityName}";
                         var jointName = $"{entity.EntityName}: Joint {model.EntityName}";
+
+                        var isJoint = _options.AttachLimbs && model.IsJoint;
                         var needsJoints = NeedsJoints(model);
                         var needsMesh = NeedsMesh(model);
-                        modelNodes.Add(model, _root.nodes.Count);
+
                         if (needsJoints && needsMesh)
                         {
-                            anySkin = true;
-                            // Add skinned mesh as root node, since we won't be transforming it
+                            // Add skinned mesh as root node, since we won't be transforming it directly
+                            skinUsed = true;
                             _root.scenes[0].nodes.Add(_root.nodes.Count);
                             _root.nodes.Add(new node
                             {
                                 mesh = meshIndex,
                                 name = meshName,
-                                skin = 0,
+                                skin = _root.skins?.Count ?? 0,
                             });
                         }
-                        // todo: In the future we could precompute which models are actually used as joints and only include those
-                        jointNodes.Add(model, _root.nodes.Count);
+
+                        // We need to create a joint for this model:
+                        // * if it uses joints (so that NoJoint can reference itself),
+                        // * or if it's used as a joint by other models.
+                        if (needsJoints || isJoint)
+                        {
+                            modelJoints.Add(model, skin.joints.Count);
+                            skin.joints.Add(_root.nodes.Count);
+                        }
+
+                        // Add the joint node, which holds the actual transform.
+                        // This may also hold the mesh if there's no joints.
+                        modelNodes.Add(model, _root.nodes.Count);
                         _root.nodes.Add(new node
                         {
                             mesh = !needsJoints && needsMesh ? meshIndex : (int?)null,
@@ -193,13 +222,23 @@ namespace PSXPrev.Common.Exporters
                             rotation = WriteQuaternion(matrix.ExtractRotationSafe(), true),
                             scale = WriteVector3(matrix.ExtractScale(), false),
                         });
-                        modelJoints.Add(model, modelJoints.Count);
+
                         if (needsMesh)
                         {
                             meshIndex++;
                         }
                     }
+
+                    if (skinUsed)
+                    {
+                        if (_root.skins == null)
+                        {
+                            _root.skins = new List<skin>();
+                        }
+                        _root.skins.Add(skin);
+                    }
                 }
+
                 // Add coordinate nodes
                 for (var i = 0; i < entities.Length; i++)
                 {
@@ -266,26 +305,8 @@ namespace PSXPrev.Common.Exporters
                         {
                             parentNode.children = new List<int>();
                         }
-                        parentNode.children.Add(jointNodes[model]);
+                        parentNode.children.Add(modelNodes[model]);
                     }
-                }
-
-
-                // Write mesh skin
-                // "skins": [
-                //  {
-                //   "joints": [...{jointNotes.Values}]
-                //  }
-                // ]
-                if (anySkin)
-                {
-                    _root.skins = new List<skin>
-                    {
-                        new skin
-                        {
-                            joints = new List<int>(jointNodes.Values),
-                        },
-                    };
                 }
 
 
@@ -791,7 +812,7 @@ namespace PSXPrev.Common.Exporters
                                     for (var j = 0; j < entity.ChildEntities.Length; j++)
                                     {
                                         var model = (ModelEntity)entity.ChildEntities[j];
-                                        var node = jointNodes[model];
+                                        var node = modelNodes[model];
                                         WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.translation, node); // object translation
                                         WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.rotation, node); // object rotation
                                         WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.scale, node); // object scale
@@ -1052,16 +1073,20 @@ namespace PSXPrev.Common.Exporters
                 // Write vertex joints
                 WriteStartBufferView(initialOffset, bufferView_target.ARRAY_BUFFER);
                 var defaultJoint = modelJoints[model];
+                var joints = model.GetRootEntity().Joints;
                 foreach (var triangle in model.Triangles)
                 {
-                    var attachedCache = triangle.AttachedVerticesCache;
                     for (var j = 2; j >= 0; j--)
                     {
                         var joint = defaultJoint;
-                        var cache = attachedCache?[j];
-                        if (cache != null && modelJoints.TryGetValue((ModelEntity)cache.Item1, out var attachedJoint))
+                        var jointID = triangle.VertexJoints?[j] ?? Triangle.NoJoint;
+                        if (jointID != Triangle.NoJoint)
                         {
-                            joint = attachedJoint;
+                            var jointModel = joints?[jointID];
+                            if (jointModel != null && modelJoints.TryGetValue(jointModel, out var attachedJoint))
+                            {
+                                joint = attachedJoint;
+                            }
                         }
                         // Last 3 values are used for other weighted joints, but we always use a single joint with full weight.
                         WriteBinaryVector4(new Vector4((float)joint, 0f, 0f, 0f));

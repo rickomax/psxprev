@@ -12,8 +12,13 @@ namespace PSXPrev.Common
         private Matrix4 _originalLocalMatrix;
         private Vector3 _originalTranslation;
         private Vector3 _originalRotation;
-        
-        public Matrix4 LocalMatrix { get; set; }
+
+        private Matrix4 _localMatrix;
+        public Matrix4 LocalMatrix
+        {
+            get => _localMatrix;
+            set => _localMatrix = value;
+        }
         public Matrix4 OriginalLocalMatrix
         {
             get => _originalLocalMatrix;
@@ -51,13 +56,13 @@ namespace PSXPrev.Common
         {
             get
             {
-                var matrix = Matrix4.Identity;
-                var coord = this;
-                do
+                var matrix = _localMatrix;
+                var coord = Parent;
+                while (coord != null)
                 {
-                    matrix *= coord.LocalMatrix;
+                    Matrix4.Mult(ref matrix, ref coord._localMatrix, out matrix);
                     coord = coord.Parent;
-                } while (coord != null);
+                }
                 return matrix;
             }
         }

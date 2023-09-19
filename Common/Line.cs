@@ -31,7 +31,6 @@ namespace PSXPrev.Common
                 Normals = Triangle.EmptyNormals,
                 Uv = Triangle.EmptyUv,
                 Colors = new[] { Colors[0], Colors[1], Colors[1] },
-                AttachableIndices = Triangle.EmptyAttachableIndices,
             };
         }
     }

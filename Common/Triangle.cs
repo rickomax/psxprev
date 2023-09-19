@@ -49,16 +49,16 @@ namespace PSXPrev.Common
             _poly_g4c
         }
 
-        public const uint NoAttachment = uint.MaxValue;
+        public const uint NoJoint = uint.MaxValue;
 
         public static readonly Vector3[] EmptyNormals = { Vector3.Zero, Vector3.Zero, Vector3.Zero };
         public static readonly Vector2[] EmptyUv = { Vector2.Zero, Vector2.Zero, Vector2.Zero };
         public static readonly Vector2[] EmptyUvCorrected = { Vector2.Zero, Vector2.Zero, new Vector2(1f/256f) };
         public static readonly Color[] EmptyColors = { Color.Grey, Color.Grey, Color.Grey };
-        public static readonly uint[] EmptyAttachableIndices = { NoAttachment, NoAttachment, NoAttachment };
+        public static readonly uint[] EmptyJoints = { NoJoint, NoJoint, NoJoint };
 
 
-        [ReadOnly(true), DisplayName("Parent")]
+        [DisplayName("Parent"), ReadOnly(true), TypeConverter(typeof(ExpandableObjectConverter))]
         public EntityBase ParentEntity { get; set; }
 
         [ReadOnly(true)]
@@ -67,20 +67,20 @@ namespace PSXPrev.Common
         [ReadOnly(true)]
         public Vector3[] Normals { get; set; } = EmptyNormals;
 
-        [ReadOnly(true), DisplayName("UVs")]
+        [DisplayName("UVs"), ReadOnly(true)]
         public Vector2[] Uv { get; set; } = EmptyUv;
 
         // Defines the area of the texture page that Uv is wrapped around.
-        [ReadOnly(true), Browsable(false)]
+        [Browsable(false), ReadOnly(true)]
         public TiledUV TiledUv { get; set; }
 
-        [ReadOnly(true), DisplayName("Tiled Base UVs")]
+        [DisplayName("Tiled Base UVs"), ReadOnly(true)]
         public Vector2[] TiledBaseUv => TiledUv?.BaseUv;
 
-        [ReadOnly(true), DisplayName("Tiled Area UVs")]
+        [DisplayName("Tiled Area UVs"), ReadOnly(true)]
         public Vector4? TiledArea => TiledUv?.Area;
 
-        [ReadOnly(true), DisplayName("Is Tiled Texture")]
+        [DisplayName("Is Tiled Texture"), ReadOnly(true)]
         public bool IsTiled => TiledUv != null;
 
         [Browsable(false)]
@@ -89,28 +89,60 @@ namespace PSXPrev.Common
         [ReadOnly(true)]
         public Color[] Colors { get; set; } = EmptyColors;
 
+        // Used if we're baking joint attachments
+        [Browsable(false)]
+        public Vector3[] OriginalVertices { get; set; }
+
+        [Browsable(false)]
+        public Vector3[] OriginalNormals { get; set; }
+
+        // Used for vertex animations
         [Browsable(false)]
         public uint[] OriginalVertexIndices { get; set; }
         
         [Browsable(false)]
         public uint[] OriginalNormalIndices { get; set; }
 
+        // Used for attached limbs
+        // These array values will be modified by RootEntity.PrepareJoints, so don't re-use the arrays unless they're empty.
         [Browsable(false)]
-        public uint[] AttachableIndices { get; set; } = EmptyAttachableIndices;
+        public uint[] VertexJoints { get; set; }
 
         [Browsable(false)]
-        public uint[] AttachedIndices { get; set; }
+        public uint[] NormalJoints { get; set; }
 
-        // HMD: Attached (shared) normal indices from other model entities.
-        [Browsable(false)]
-        public uint[] AttachedNormalIndices { get; set; }
+        // Don't show uint.MaxValue in the property grid when there's no joint. That would be ugly.
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [DisplayName("Vertex Joint IDs"), ReadOnly(true)]
+        public int[] PropertyGrid_VertexJoints => PropertyGrid_GetJoints(VertexJoints);
 
-        // Cache of already-attached entities/vertices to speed up FixConnections.
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [DisplayName("Normal Joint IDs"), ReadOnly(true)]
+        public int[] PropertyGrid_NormalJoints => PropertyGrid_GetJoints(NormalJoints);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        private static int[] PropertyGrid_GetJoints(uint[] joints)
+        {
+            return joints != null ? new int[] { (int)joints[0], (int)joints[1], (int)joints[2] } : null;
+        }
+
+        // True if this triangle has non-no vertex joints
         [Browsable(false)]
-        public Tuple<EntityBase, Vector3>[] AttachedVerticesCache { get; set; }
-        // Cache of already-attached entities/normals to speed up FixConnections.
-        [Browsable(false)]
-        public Tuple<EntityBase, Vector3>[] AttachedNormalsCache { get; set; }
+        public bool HasAttached
+        {
+            get
+            {
+                if (VertexJoints != null)
+                {
+                    for (var i = 0; i < 3; i++)
+                    {
+                        if (VertexJoints[i] != NoJoint)
+                            return true;
+                    }
+                }
+                return false;
+            }
+        }
 
         [Browsable(false)]
         public float IntersectionDistance { get; set; }
@@ -125,7 +157,6 @@ namespace PSXPrev.Common
 
         public Triangle()
         {
-
         }
 
         public Triangle(Triangle fromTriangle)
@@ -135,11 +166,55 @@ namespace PSXPrev.Common
             Uv = fromTriangle.Uv;
             TiledUv = fromTriangle.TiledUv;
             Colors = fromTriangle.Colors;
+            OriginalVertices = fromTriangle.OriginalVertices;
+            OriginalNormals = fromTriangle.OriginalNormals;
             OriginalVertexIndices = fromTriangle.OriginalVertexIndices;
             OriginalNormalIndices = fromTriangle.OriginalNormalIndices;
-            AttachableIndices = fromTriangle.AttachableIndices;
-            AttachedIndices = fromTriangle.AttachedIndices;
-            AttachedNormalIndices = fromTriangle.AttachedNormalIndices;
+            VertexJoints = fromTriangle.VertexJoints;
+            NormalJoints = fromTriangle.NormalJoints;
+        }
+
+
+        public void TransformPositions(ref Matrix4 worldMatrix, Matrix4[] jointMatrices, out Vector3 vertex0, out Vector3 vertex1, out Vector3 vertex2)
+        {
+            vertex0 = TransformPosition(0, ref worldMatrix, jointMatrices);
+            vertex1 = TransformPosition(1, ref worldMatrix, jointMatrices);
+            vertex2 = TransformPosition(2, ref worldMatrix, jointMatrices);
+        }
+
+        public Vector3 TransformPosition(int index, ref Matrix4 worldMatrix, Matrix4[] jointMatrices)
+        {
+            var vertices = OriginalVertices ?? Vertices;
+            var jointID = VertexJoints?[index] ?? NoJoint;
+            if (jointID != NoJoint && jointMatrices != null)
+            {
+                return GeomMath.TransformPosition(ref vertices[index], ref jointMatrices[jointID]);
+            }
+            else
+            {
+                return GeomMath.TransformPosition(ref vertices[index], ref worldMatrix);
+            }
+        }
+
+        public void TransformNormals(ref Matrix4 worldMatrix, Matrix4[] jointMatrices, out Vector3 normal0, out Vector3 normal1, out Vector3 normal2)
+        {
+            normal0 = TransformNormal(0, ref worldMatrix, jointMatrices);
+            normal1 = TransformNormal(1, ref worldMatrix, jointMatrices);
+            normal2 = TransformNormal(2, ref worldMatrix, jointMatrices);
+        }
+
+        public Vector3 TransformNormal(int index, ref Matrix4 worldMatrix, Matrix4[] jointMatrices)
+        {
+            var normals = OriginalNormals ?? Normals;
+            var jointID = NormalJoints?[index] ?? NoJoint;
+            if (jointID != NoJoint && jointMatrices != null)
+            {
+                return GeomMath.TransformNormalNormalized(ref normals[index], ref jointMatrices[jointID]);
+            }
+            else
+            {
+                return GeomMath.TransformNormalNormalized(ref normals[index], ref worldMatrix);
+            }
         }
 
 
@@ -223,24 +298,19 @@ namespace PSXPrev.Common
             return this;
         }
 
-        // Shorthand for returning an array, but only if there are indices with attachments.
-        public static uint[] CreateAttachedIndices(uint attachedIndex0, uint attachedIndex1, uint attachedIndex2)
+        // Shorthand for returning an array, but only if there are non-NoJoints.
+        // modelJointID is used to change a joint to NoJoint if equal (because the joint is already attached to this model).
+        public static uint[] CreateJoints(uint joint0, uint joint1, uint joint2, uint modelJointID)
         {
-            if (attachedIndex0 != NoAttachment || attachedIndex1 != NoAttachment || attachedIndex2 != NoAttachment)
-            {
-                return new[] { attachedIndex0, attachedIndex1, attachedIndex2 };
-            }
-            return null;
-        }
+            if (joint0 == modelJointID) joint0 = NoJoint;
+            if (joint1 == modelJointID) joint1 = NoJoint;
+            if (joint2 == modelJointID) joint2 = NoJoint;
 
-        // Shorthand for returning an array, but only if there are indices that are attachable.
-        public static uint[] CreateAttachableIndices(uint attachableIndex0, uint attachableIndex1, uint attachableIndex2)
-        {
-            if (attachableIndex0 != NoAttachment || attachableIndex1 != NoAttachment || attachableIndex2 != NoAttachment)
+            if ((joint0 != NoJoint) || (joint1 != NoJoint) || (joint2 != NoJoint))
             {
-                return new[] { attachableIndex0, attachableIndex1, attachableIndex2 };
+                return new[] { joint0, joint1, joint2 };
             }
-            return EmptyAttachableIndices;
+            return null;// EmptyJoints;
         }
     }
 }

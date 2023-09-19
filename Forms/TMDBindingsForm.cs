@@ -10,6 +10,7 @@ namespace PSXPrev.Forms
     public partial class TMDBindingsForm : Form
     {
         private static Animation _currentAnimation;
+        private readonly Dictionary<object, string> _tmdidObjectNames = new Dictionary<object, string>();
 
         private static TMDBindingsForm _instance;
 
@@ -22,20 +23,17 @@ namespace PSXPrev.Forms
             InitializeComponent();
         }
 
-        private void TMDBindingForm_Load(object sender, EventArgs e)
+        private void AddRecursively(AnimationObject animationObject)
         {
-        }
-
-        private static void AddRecursively(AnimationObject animationObject)
-        {
-            if (animationObject.TMDID.Count > 0)
+            foreach (var tmdID in animationObject.TMDID)
             {
-                foreach (var tmdID in animationObject.TMDID)
+                if (!_currentAnimation.TMDBindings.ContainsKey(tmdID))
                 {
-                    if (!_currentAnimation.TMDBindings.ContainsKey(tmdID))
-                    {
-                        _currentAnimation.TMDBindings.Add(tmdID, tmdID - 1);
-                    }
+                    _currentAnimation.TMDBindings.Add(tmdID, tmdID);
+                }
+                if (!string.IsNullOrEmpty(animationObject.ObjectName) && !_tmdidObjectNames.ContainsKey(tmdID))
+                {
+                    _tmdidObjectNames.Add(tmdID, animationObject.ObjectName);
                 }
             }
             foreach (var child in animationObject.Children)
@@ -44,11 +42,36 @@ namespace PSXPrev.Forms
             }
         }
 
+        private static int KeyOrderer(object a, object b)
+        {
+            return ((IComparable)a).CompareTo(b);
+        }
+
+        private string KeyDisplayName(object key)
+        {
+            var namePostfix = string.Empty;
+            if (_tmdidObjectNames.TryGetValue(key, out var objectName))
+            {
+                namePostfix = $" {objectName}";
+            }
+            return $"ID {key}{namePostfix}";
+        }
+
+        private static string KeyDescription(object key)
+        {
+            return $"Change what animation TMD ID {key} maps to in the model's TMD IDs.";
+        }
+
         private void Reload(Animation currentAnimation)
         {
             _currentAnimation = currentAnimation;
+            _tmdidObjectNames.Clear();
             AddRecursively(_currentAnimation.RootAnimationObject);
-            bindingPropertyGrid.SelectedObject = new DictionaryPropertyGridAdapter(_currentAnimation.TMDBindings);
+            var d = new DictionaryPropertyGridAdapter(_currentAnimation.TMDBindings,
+                                                      keyOrderer: KeyOrderer,
+                                                      keyDisplayName: KeyDisplayName,
+                                                      keyDescription: KeyDescription);
+            bindingPropertyGrid.SelectedObject = d;
         }
 
         public static void ShowTool(IWin32Window owner, Animation currentAnimation)

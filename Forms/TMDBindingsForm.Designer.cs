@@ -50,6 +50,7 @@
             this.bindingPropertyGrid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.bindingPropertyGrid.Location = new System.Drawing.Point(0, 0);
             this.bindingPropertyGrid.Name = "bindingPropertyGrid";
+            this.bindingPropertyGrid.PropertySort = System.Windows.Forms.PropertySort.NoSort;
             this.bindingPropertyGrid.Size = new System.Drawing.Size(274, 351);
             this.bindingPropertyGrid.TabIndex = 0;
             this.bindingPropertyGrid.ToolbarVisible = false;
@@ -152,7 +153,6 @@
             this.Name = "TMDBindingsForm";
             this.Text = "TMD Bindings";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.TMDBindingForm_FormClosed);
-            this.Load += new System.EventHandler(this.TMDBindingForm_Load);
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
             this.splitContainer1.Panel1.ResumeLayout(false);

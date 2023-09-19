@@ -8,6 +8,8 @@ namespace PSXPrev.Common.Parsers
 {
     public static class TMDHelper
     {
+        public delegate Vector3 VertexNormalCallback(uint index, out uint joint);
+
         public static PrimitiveData CreateTMDPacketStructure(byte flag, byte mode, BinaryReader reader, uint index)
         {
             var lgtBit = ((flag >> 0) & 0x01) == 0; // Light: 0-Lit, 1-Unlit
@@ -461,7 +463,7 @@ namespace PSXPrev.Common.Parsers
             return primitiveData;
         }
 
-        public static void AddSpritesToGroup(Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>> groupedSprites, PrimitiveData primitiveData, Func<uint, Vector3> vertexCallback)
+        public static void AddSpritesToGroup(Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>> groupedSprites, PrimitiveData primitiveData, VertexNormalCallback vertexCallback)
         {
             RenderInfo renderInfo;
             Vector3 center;
@@ -501,7 +503,7 @@ namespace PSXPrev.Common.Parsers
                 Program.Logger.WriteLine($"Primitive data: {primitiveData.PrintPrimitiveData()}");
             }
             
-            center = vertexCallback(vertexIndex0);
+            center = vertexCallback(vertexIndex0, out var centerJoint);
             primitiveData.TryGetValue(0, PrimitiveDataType.W, out var width);
             primitiveData.TryGetValue(0, PrimitiveDataType.H, out var height);
 
@@ -522,27 +524,29 @@ namespace PSXPrev.Common.Parsers
             var uv2 = new Vector2(uMin, vMax);
             var uv3 = new Vector2(uMax, vMax);
 
+            var originalVertexIndices = new[] { vertexIndex0, vertexIndex0, vertexIndex0 };
             AddTriangle(new Triangle
             {
                 Vertices = new[] { vertex0, vertex1, vertex2 },
-                //OriginalVertexIndices = new[] { vertexIndex0, vertexIndex0, vertexIndex0 },
+                OriginalVertexIndices = originalVertexIndices,
+                //VertexJoints = Triangle.CreateJoints(centerJoint, centerJoint, centerJoint, Triangle.NoJoint),
                 Normals = Triangle.EmptyNormals,
                 Colors = Triangle.EmptyColors,
                 Uv = new[] { uv0, uv1, uv2 },
-                AttachableIndices = Triangle.EmptyAttachableIndices,
             });
             AddTriangle(new Triangle
             {
                 Vertices = new[] { vertex1, vertex3, vertex2 },
-                //OriginalVertexIndices = new[] { vertexIndex0, vertexIndex0, vertexIndex0 },
+                OriginalVertexIndices = originalVertexIndices,
+                //VertexJoints = Triangle.CreateJoints(centerJoint, centerJoint, centerJoint, Triangle.NoJoint),
                 Normals = Triangle.EmptyNormals,
                 Colors = Triangle.EmptyColors,
                 Uv = new[] { uv1, uv3, uv2 },
-                AttachableIndices = Triangle.EmptyAttachableIndices,
             });
         }
 
-        public static void AddTrianglesToGroup(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, PrimitiveData primitiveData, bool attached, Func<uint, Vector3> vertexCallback, Func<uint, Vector3> normalCallback)
+        public static void AddTrianglesToGroup(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, PrimitiveData primitiveData,
+                                               bool attached, uint modelJointID, VertexNormalCallback vertexCallback, VertexNormalCallback normalCallback)
         {
             RenderInfo renderInfo;
 
@@ -589,18 +593,21 @@ namespace PSXPrev.Common.Parsers
                     Program.Logger.WriteLine($"Primitive data: {primitiveData.PrintPrimitiveData()}");
                 }
 
-                var vertex0 = vertexCallback(vertexIndex0);
-                var vertex1 = primitiveData.TryGetVertex(m, vertexOrder1, out var vertexIndex1) ? vertexCallback(vertexIndex1) : Vector3.Zero;
-                var vertex2 = primitiveData.TryGetVertex(m, vertexOrder2, out var vertexIndex2) ? vertexCallback(vertexIndex2) : Vector3.Zero;
+                uint vertexJoint1 = Triangle.NoJoint, vertexJoint2 = Triangle.NoJoint;
+                var vertex0 = vertexCallback(vertexIndex0, out var vertexJoint0);
+                var vertex1 = primitiveData.TryGetVertex(m, vertexOrder1, out var vertexIndex1) ? vertexCallback(vertexIndex1, out vertexJoint1) : Vector3.Zero;
+                var vertex2 = primitiveData.TryGetVertex(m, vertexOrder2, out var vertexIndex2) ? vertexCallback(vertexIndex2, out vertexJoint2) : Vector3.Zero;
                 Vector3 normal0, normal1, normal2;
+                uint normalJoint0, normalJoint1, normalJoint2;
                 uint normalIndex1, normalIndex2;
                 bool hasNormals;
                 if (primitiveData.TryGetNormal(m, vertexOrder0, out var normalIndex0))
                 {
                     hasNormals = true;
-                    normal0 = normalCallback(normalIndex0);
-                    normal1 = primitiveData.TryGetNormal(m, vertexOrder1, out normalIndex1) ? normalCallback(normalIndex1) : normal0;
-                    normal2 = primitiveData.TryGetNormal(m, vertexOrder2, out normalIndex2) ? normalCallback(normalIndex2) : normal0;
+                    normal0 = normalCallback(normalIndex0, out normalJoint0);
+                    normalJoint1 = normalJoint2 = normalJoint0; // Default joints to first normal unless other normals are defined
+                    normal1 = primitiveData.TryGetNormal(m, vertexOrder1, out normalIndex1) ? normalCallback(normalIndex1, out normalJoint1) : normal0;
+                    normal2 = primitiveData.TryGetNormal(m, vertexOrder2, out normalIndex2) ? normalCallback(normalIndex2, out normalJoint2) : normal0;
                 }
                 else
                 {
@@ -614,6 +621,7 @@ namespace PSXPrev.Common.Parsers
                         normal0 = normal1 = normal2 = Vector3.Zero;
                     }
                     normalIndex1 = normalIndex2 = normalIndex0;
+                    normalJoint0 = normalJoint1 = normalJoint2 = Triangle.NoJoint;
                 }
 
                 // Note: It seems that dividing UVs by 256f instead of 255f fixes some texture misalignment.
@@ -695,9 +703,10 @@ namespace PSXPrev.Common.Parsers
                     OriginalVertexIndices = new[] { vertexIndex0, vertexIndex1, vertexIndex2 },
                     Normals = new[] { normal0, normal1, normal2 },
                     OriginalNormalIndices = new[] { normalIndex0, normalIndex1, normalIndex2 },
+                    VertexJoints = Triangle.CreateJoints(vertexJoint0, vertexJoint1, vertexJoint2, modelJointID),
+                    NormalJoints = Triangle.CreateJoints(normalJoint0, normalJoint1, normalJoint2, modelJointID),
                     Colors = new[] { new Color(r0, g0, b0), new Color(r1, g1, b1), new Color(r2, g2, b2) },
                     Uv = new[] { new Vector2(u0, v0), new Vector2(u1, v1), new Vector2(u2, v2) },
-                    AttachableIndices = Triangle.EmptyAttachableIndices,
                 };
                 if (isTiled)
                 {
@@ -705,15 +714,6 @@ namespace PSXPrev.Common.Parsers
                     triangle1.TiledUv = new TiledUV(triangle1.Uv, tuva, tuvm);
                     triangle1.Uv = new[] { TileUV(u0Value, v0Value), TileUV(u1Value, v1Value), TileUV(u2Value, v2Value) };
                     //triangle1.Uv = triangle1.TiledUv.ConvertBaseUv();
-                }
-                if (attached)
-                {
-                    // HMD: Attached (shared) indices from other model entities.
-                    triangle1.AttachedIndices = (uint[])triangle1.OriginalVertexIndices.Clone();
-                    if (hasNormals)
-                    {
-                        triangle1.AttachedNormalIndices = (uint[])triangle1.OriginalNormalIndices.Clone();
-                    }
                 }
                 AddTriangle(triangle1);
 
@@ -723,12 +723,13 @@ namespace PSXPrev.Common.Parsers
                 //if (quad && primitiveData.TryGetVertex(m, vertexOrder3, out var vertexIndex3))
                 if (quad && primitiveData.TryGetValue(m, PrimitiveDataType.VERTEX3, out var vertexIndex3))
                 {
-                    var vertex3 = vertexCallback(vertexIndex3);
+                    var vertex3 = vertexCallback(vertexIndex3, out var vertexJoint3);
                     //var normal3 = primitiveData.TryGetNormal(m, vertexOrder3, out var normalIndex3) ? normalCallback(normalIndex3) : normal0;
                     Vector3 normal3;
+                    var normalJoint3 = normalJoint0; // Default joints to first normal unless other normals are defined
                     if (primitiveData.TryGetValue(m, PrimitiveDataType.NORMAL3, out var normalIndex3))
                     {
-                        normal3 = normalCallback(normalIndex3);
+                        normal3 = normalCallback(normalIndex3, out normalJoint3);
                     }
                     else if (hasNormals)
                     {
@@ -759,9 +760,10 @@ namespace PSXPrev.Common.Parsers
                         OriginalVertexIndices = new[] { vertexIndex1, vertexIndex3, vertexIndex2 },
                         Normals = new[] { normal1, normal3, normal2 },
                         OriginalNormalIndices = new[] { normalIndex1, normalIndex3, normalIndex2 },
+                        VertexJoints = Triangle.CreateJoints(vertexJoint1, vertexJoint3, vertexJoint2, modelJointID),
+                        NormalJoints = Triangle.CreateJoints(normalJoint1, normalJoint3, normalJoint2, modelJointID),
                         Colors = new[] { new Color(r1, g1, b1), new Color(r3, g3, b3), new Color(r2, g2, b2) },
                         Uv = new[] { new Vector2(u1, v1), new Vector2(u3, v3), new Vector2(u2, v2) },
-                        AttachableIndices = Triangle.EmptyAttachableIndices,
                     };
                     if (isTiled)
                     {
@@ -769,15 +771,6 @@ namespace PSXPrev.Common.Parsers
                         triangle2.TiledUv = new TiledUV(triangle2.Uv, tuva, tuvm);
                         triangle2.Uv = new[] { TileUV(u1Value, v1Value), TileUV(u3Value, v3Value), TileUV(u2Value, v2Value) };
                         //triangle2.Uv = triangle2.TiledUv.ConvertBaseUv();
-                    }
-                    if (attached)
-                    {
-                        // HMD: Attached (shared) indices from other model entities.
-                        triangle2.AttachedIndices = (uint[])triangle2.OriginalVertexIndices.Clone();
-                        if (hasNormals)
-                        {
-                            triangle2.AttachedNormalIndices = (uint[])triangle2.OriginalNormalIndices.Clone();
-                        }
                     }
                     AddTriangle(triangle2);
                 }

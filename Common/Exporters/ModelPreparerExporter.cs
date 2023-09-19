@@ -157,6 +157,8 @@ namespace PSXPrev.Common.Exporters
                         }
 
                         // Fix connections for new root entity
+                        // PrepareJoints must be called before FixConnections
+                        newRootEntity.PrepareJoints();
                         if (_options.AttachLimbs)
                         {
                             newRootEntity.FixConnections(_bakeConnections);
@@ -300,7 +302,7 @@ namespace PSXPrev.Common.Exporters
 
         private bool ModelNeedsCopy(ModelEntity model)
         {
-            if (_options.AttachLimbs && model.HasAttached)
+            if ((_options.AttachLimbs || !_bakeConnections) && model.HasAttached)
             {
                 return true; // Model vertices need to be changed
             }
@@ -321,33 +323,33 @@ namespace PSXPrev.Common.Exporters
         private Triangle CloneTriangle(Triangle triangle, IUVConverter uvConverter)
         {
             var newTriangle = new Triangle(triangle);
-            // If attaching limbs, then we need to clone vertices to prevent overwriting the existing model vertices.
-            if (_options.AttachLimbs)
+
+            // Some parsers may assign attached indices even if there are none, so only clone the array if any are found.
+            if (newTriangle.VertexJoints != null)
             {
-                // Some exporters will assign attached indices even if there are none, so only clone the array if any are found.
-                if (newTriangle.AttachedIndices != null)
+                for (var j = 0; j < 3; j++)
                 {
-                    for (var j = 0; j < 3; j++)
+                    if (newTriangle.VertexJoints[j] != Triangle.NoJoint)
                     {
-                        if (newTriangle.AttachedIndices[j] != Triangle.NoAttachment)
-                        {
-                            newTriangle.Vertices = (Vector3[])newTriangle.Vertices.Clone();
-                            break;
-                        }
-                    }
-                }
-                if (newTriangle.AttachedNormalIndices != null)
-                {
-                    for (var j = 0; j < 3; j++)
-                    {
-                        if (newTriangle.AttachedNormalIndices[j] != Triangle.NoAttachment)
-                        {
-                            newTriangle.Normals = (Vector3[])newTriangle.Normals.Clone();
-                            break;
-                        }
+                        newTriangle.Vertices = (Vector3[])(newTriangle.OriginalVertices ?? newTriangle.Vertices).Clone();
+                        newTriangle.VertexJoints = (uint[])newTriangle.VertexJoints.Clone();
+                        break;
                     }
                 }
             }
+            if (newTriangle.NormalJoints != null)
+            {
+                for (var j = 0; j < 3; j++)
+                {
+                    if (newTriangle.NormalJoints[j] != Triangle.NoJoint)
+                    {
+                        newTriangle.Normals = (Vector3[])(newTriangle.OriginalNormals ?? newTriangle.Normals).Clone();
+                        newTriangle.NormalJoints = (uint[])newTriangle.NormalJoints.Clone();
+                        break;
+                    }
+                }
+            }
+
             if (uvConverter != null)
             {
                 var tiled = newTriangle.IsTiled;
@@ -460,11 +462,6 @@ namespace PSXPrev.Common.Exporters
                     {
                         Texture = texture,
                     };
-                    if (_options.AttachLimbs && model.HasAttached)
-                    {
-                        // Recompute attached since, we may no longer have attached vertices.
-                        newModel.ComputeAttached();
-                    }
                     AddModel(rootEntity, rootIndex, newModel, tiledArea);
                 }
                 if (groupedTriangles.Count == 0)

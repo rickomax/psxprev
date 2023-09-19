@@ -19,6 +19,20 @@ namespace PSXPrev.Common.Renderer
         Pass3SemiTransparent,
     }
 
+    // todo
+    public struct DrawStatistics
+    {
+        public int TriangleCount;  // Unique triangle count
+        public int TrianglesDrawn; // Drawn triangle count
+        public int MeshCount;      // Unique mesh count
+        public int MeshBinds;      // Number of times meshes have been bound
+        public int MeshesDrawn;    // Number of times meshes have been drawn
+        public int JointCount;     // Unique skin joint count
+        public int SkinCount;      // Unique skin count
+        public int SkinBinds;      // Number of times skins have been bound
+        public int TextureBinds;   // Number of times textures have been bound
+    }
+
     public class MeshBatch : IDisposable
     {
         private const float DiscardValue = 100000000f;
@@ -32,13 +46,30 @@ namespace PSXPrev.Common.Renderer
 
 
         private readonly Scene _scene;
-        private uint[] _ids;
+        private uint[] _meshIds;
         private Mesh[] _meshes;
+        private Skin[] _skins;
+
+        // Re-usable buffers so that we don't need to constantly allocate arrays that are immediately thrown away.
+        private float[] _positionList;
+        private float[] _normalList;
+        private float[] _normalListEmpty;
+        private float[] _colorList;
+        private float[] _colorListEmpty;
+        private float[] _uvList;
+        private float[] _uvListEmpty;
+        private float[] _tiledAreaList;
+        private float[] _tiledAreaListEmpty;
+        private uint[] _jointList;
+        private uint[] _jointListEmpty;
+        private float[] _jointMatrixList;
+        private Matrix4[] _jointMatrices;
+        private bool[] _jointsAssigned;
 
         public bool IsValid { get; private set; }
         public int MeshCount { get; private set; } // Used in-case we have a smaller count than the array sizes
-        //public int MeshCount => _meshes?.Length ?? 0;
         public int MeshIndex { get; set; } // Manually set this index to handle which mesh to bind
+        public int SkinIndex { get; set; }
 
         public TextureBinder TextureBinder { get; set; }
         public bool DrawFaces { get; set; } = true;
@@ -77,9 +108,18 @@ namespace PSXPrev.Common.Renderer
             if (IsValid)
             {
                 IsValid = false;
-                GL.DeleteVertexArrays(MeshCount, _ids);
+                if (_meshes != null)
+                {
+                    for (var i = 0; i < MeshCount; i++)
+                    {
+                        _meshes[i]?.Dispose();
+                        _skins[i]?.Dispose();
+                    }
+                }
+                GL.DeleteVertexArrays(MeshCount, _meshIds);
                 _meshes = null;
-                _ids = null;
+                _skins = null;
+                _meshIds = null;
                 MeshCount = 0;
                 MeshIndex = 0;
             }
@@ -93,11 +133,12 @@ namespace PSXPrev.Common.Renderer
             //{
             //    return;
             //}
-            selectedRootEntity = selectedRootEntity ?? selectedModelEntity.GetRootEntity();
+            selectedRootEntity = selectedRootEntity ?? selectedModelEntity?.GetRootEntity();
 
-            //count the selected entity
-            var modelCount = 1;
-            //count checked, except, the selected
+            // Count how many models we need to reserve meshes for
+            var modelCount = 0;
+
+            // Count checked entities' models, except for the selected entity
             if (checkedEntities != null)
             {
                 foreach (var checkedEntity in checkedEntities)
@@ -110,34 +151,41 @@ namespace PSXPrev.Common.Renderer
                 }
             }
 
+            // Count visible selected entity models
+            IReadOnlyList<EntityBase> selectedVisibleModels = null;
             if (selectedRootEntity != null)
             {
                 if (selectedModelEntity != null && subModelVisibility != SubModelVisibility.All)
                 {
-                    if (subModelVisibility == SubModelVisibility.WithSameTMDID)
+                    if (subModelVisibility == SubModelVisibility.Selected)
                     {
-                        var models = selectedRootEntity.GetModelsWithTMDID(selectedModelEntity.TMDID);
-                        modelCount += models.Count;
+                        selectedVisibleModels = new ModelEntity[] { selectedModelEntity };
                     }
-                    else if (subModelVisibility == SubModelVisibility.Selected)
+                    else if (subModelVisibility == SubModelVisibility.WithSameTMDID)
                     {
-                        modelCount++;
+                        selectedVisibleModels = selectedRootEntity.GetModelsWithTMDID(selectedModelEntity.TMDID);
+                    }
+                    else
+                    {
+                        selectedVisibleModels = new ModelEntity[0];
                     }
                 }
                 else
                 {
-                    modelCount += selectedRootEntity.ChildEntities.Length;
+                    selectedVisibleModels = selectedRootEntity.ChildEntities;
                 }
+                modelCount += selectedVisibleModels.Count;
             }
-            //reset
+
+            // Restart or reset the batch
             ResetMeshIndex();
             if (updateMeshData)
             {
                 Reset(modelCount);
             }
-            //bindings
 
-            //checked entities, except selected root
+            // Bind all models to the meshes
+            // Bind checked entities' models, except for the selected entity
             if (checkedEntities != null)
             {
                 foreach (var entity in checkedEntities)
@@ -146,53 +194,123 @@ namespace PSXPrev.Common.Renderer
                     {
                         continue; // We'll bind selectedRootEntity later on in the function.
                     }
-                    foreach (ModelEntity modelEntity in entity.ChildEntities)
-                    {
-                        BindModelMesh(modelEntity, modelEntity.TempWorldMatrix, updateMeshData,
-                            modelEntity.InitialVertices, modelEntity.InitialNormals,
-                            modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
-                    }
+                    BindRootModelMeshes(entity, null, updateMeshData);
                 }
             }
 
-            //root entity
+            // Bind visible selected entity models
             if (selectedRootEntity != null)
             {
-                IReadOnlyList<EntityBase> models;
-                if (selectedModelEntity != null && subModelVisibility != SubModelVisibility.All)
-                {
-                    if (subModelVisibility == SubModelVisibility.Selected)
-                    {
-                        models = new ModelEntity[] { selectedModelEntity };
-                    }
-                    else if (subModelVisibility == SubModelVisibility.WithSameTMDID)
-                    {
-                        models = selectedRootEntity.GetModelsWithTMDID(selectedModelEntity.TMDID);
-                    }
-                    else
-                    {
-                        models = new ModelEntity[0];
-                    }
-                }
-                else
-                {
-                    models = selectedRootEntity.ChildEntities;
-                }
-                foreach (ModelEntity modelEntity in models)
-                {
-                    BindModelMesh(modelEntity, selectedRootEntity.TempMatrix * modelEntity.TempWorldMatrix, updateMeshData,
-                        modelEntity.InitialVertices, modelEntity.InitialNormals,
-                        modelEntity.FinalVertices, modelEntity.FinalNormals, modelEntity.Interpolator);
-                }
+                BindRootModelMeshes(selectedRootEntity, selectedVisibleModels, updateMeshData);
             }
         }
 
-        public void BindModelBatch(ModelEntity modelEntity, Matrix4 matrix, Vector3[] initialVertices = null, Vector3[] initialNormals = null,
-                                   Vector3[] finalVertices = null, Vector3[] finalNormals = null, float interpolator = 0f)
+        private void BindRootModelMeshes(RootEntity rootEntity, IReadOnlyList<EntityBase> models, bool updateMeshData)
         {
-            var updateMeshData = finalVertices != null || finalNormals != null;
-            BindModelMesh(modelEntity, matrix, updateMeshData,
-                initialVertices, initialNormals, finalVertices, finalNormals, interpolator);
+            if (models == null)
+            {
+                models = rootEntity.ChildEntities; // We're not cherry-picking which models to render, use all of them
+            }
+
+            var canUseSkin = rootEntity.Joints != null && _scene.AttachJointsMode == AttachJointsMode.Attach && Scene.JointsSupported;
+            Skin skin = null;
+
+            // Optimized:
+            // Compute joint matrices ahead of time when computing each mesh matrix, and then use to assign to all skins.
+            // It's unexpected/uncommon for sprites to be used with joints, so don't bother allocating the list until needed.
+            List<Tuple<Skin, RenderFlags, Vector3>> spriteSkins = null; // skin, spriteFlags, spriteCenter
+            var jointCount     = canUseSkin ? rootEntity.Joints.Length : 0;
+            var jointMatrices  = canUseSkin ? ReuseArray(ref _jointMatrices, jointCount) : null;
+            // True argument clears all values to false
+            var jointsAssigned = canUseSkin ? ReuseArray(ref _jointsAssigned, jointCount, true) : null;
+            var jointsAssignedCount = 0;
+
+
+            var rootTempMatrix = rootEntity.TempMatrix;
+
+            foreach (ModelEntity model in models)
+            {
+                var worldMatrix = model.TempWorldMatrix;
+                Matrix4.Mult(ref rootTempMatrix, ref worldMatrix, out worldMatrix);
+                // Optimized:
+                // Assign matrix for joint, since we already have it computed for the mesh
+                if (canUseSkin && model.IsJoint)
+                {
+                    jointMatrices[model.JointID] = worldMatrix;
+                    jointsAssigned[model.JointID] = true; // If assignedCount doesn't match, then any false values need a default matrix
+                    jointsAssignedCount++; // Track how many joints are assigned, to see if any were missed
+                }
+
+                var mesh = BindModelMesh(model, worldMatrix, updateMeshData);
+
+                // Check if we need to assign a skin to the mesh
+                if (mesh != null && canUseSkin && model.NeedsJointTransform)
+                {
+                    // Only assign skin if the model has non-NoJoints
+                    if (model.IsSprite)
+                    {
+                        // Compute a special set of joints that take sprite rotation/center into account.
+                        // This is certainly not efficient, but sprites are used infrequently enough,
+                        // let alone together with joints.
+                        var spriteSkin = GetSkin(SkinIndex++);
+
+                        // Optimized:
+                        if (spriteSkins == null)
+                        {
+                            spriteSkins = new List<Tuple<Skin, RenderFlags, Vector3>>();
+                        }
+                        spriteSkins.Add(new Tuple<Skin, RenderFlags, Vector3>(spriteSkin, model.RenderFlags, model.SpriteCenter));
+                        // Unoptimized:
+                        //UpdateJointMatricesData(spriteSkin, rootEntity, model.RenderFlags, model.SpriteCenter);
+
+                        mesh.Skin = spriteSkin;
+                    }
+                    else
+                    {
+                        // Compute the standard set of joints, and reuse them for all non-sprite meshes.
+                        if (skin == null)
+                        {
+                            skin = GetSkin(SkinIndex++);
+                            // Unoptimized:
+                            //UpdateJointMatricesData(skin, rootEntity);
+                        }
+                        mesh.Skin = skin;
+                    }
+                }
+            }
+
+            // Optimized:
+            if (canUseSkin && (skin != null || spriteSkins != null))
+            {
+                // Assign matrices for any joints that are missing models
+                if (jointsAssignedCount < jointCount)
+                {
+                    var rootTempWorldMatrix = rootEntity.TempWorldMatrix;
+                    for (var i = 0; i < jointCount; i++)
+                    {
+                        if (!jointsAssigned[i])
+                        {
+                            jointMatrices[i] = rootTempWorldMatrix;
+                        }
+                    }
+                }
+
+                // Now that we have a pre-computed list of joints, use them for all calls to UpdateJointMatricesData.
+                if (skin != null)
+                {
+                    UpdateJointMatricesData(skin, jointMatrices, jointCount);
+                }
+                if (spriteSkins != null)
+                {
+                    foreach (var tuple in spriteSkins)
+                    {
+                        var spriteSkin = tuple.Item1;
+                        var spriteFlags = tuple.Item2;
+                        var spriteCenter = tuple.Item3;
+                        UpdateJointMatricesData(spriteSkin, jointMatrices, jointCount, spriteFlags, spriteCenter);
+                    }
+                }
+            }
         }
 
 
@@ -214,9 +332,9 @@ namespace PSXPrev.Common.Renderer
             BindLineMesh(lineBuilder, null, updateMeshData);
         }
 
-        public void BindTriangleOutline(Matrix4 matrix, Triangle triangle, Color color = null, float thickness = 2f, bool updateMeshData = true)
+        public void BindTriangleOutline(ModelEntity model, Triangle triangle, Color color = null, float thickness = 2f, bool updateMeshData = true)
         {
-            if (triangle == null)
+            if (model == null || triangle == null)
             {
                 return;
             }
@@ -225,61 +343,77 @@ namespace PSXPrev.Common.Renderer
                 Thickness = thickness,
                 SolidColor = color ?? Color.White,
             };
+            var vertices = new Vector3[3];
+            var normals  = new Vector3[3];
             if (updateMeshData)
             {
-                lineBuilder.AddTriangleOutline(triangle);
+                var jointMatrices = _scene.AttachJointsMode == AttachJointsMode.Attach ? model.GetRootEntity().JointMatrices : null;
+                var worldMatrix = model.WorldMatrix;
+                triangle.TransformPositions(ref worldMatrix, jointMatrices, out vertices[0], out vertices[1], out vertices[2]);
+                triangle.TransformNormals(ref worldMatrix, jointMatrices, out normals[0], out normals[1], out normals[2]);
+
+                lineBuilder.AddTriangleOutline(vertices[0], vertices[1], vertices[2]);
             }
-            BindLineMesh(lineBuilder, matrix, updateMeshData);
+            BindLineMesh(lineBuilder, null, updateMeshData);
 
             // Draw normals for triangle
-            var maxLength = 0f;
-            var totalLength = 0f;
-            for (var j = 0; j < 3; j++)
-            {
-                var edgeLength = (triangle.Vertices[(j + 1) % 3] - triangle.Vertices[j]).Length;
-                maxLength = Math.Max(maxLength, edgeLength);
-                totalLength += edgeLength;
-            }
-            var normalLength = (totalLength / 3) / 2;
-            //var normalLength = maxLength / 2;
             lineBuilder.Clear();
             lineBuilder.Thickness = 6f;
             lineBuilder.SolidColor = Color.Red;
-            for (var j = 0; j < 3; j++)
+            if (updateMeshData)
             {
-                var center = triangle.Vertices[j];
-                var normal = center + triangle.Normals[j] * normalLength;
-                lineBuilder.AddLine(center, normal);
+                var maxLength = 0f;
+                var totalLength = 0f;
+                for (var j = 0; j < 3; j++)
+                {
+                    var edgeLength = (vertices[(j + 1) % 3] - vertices[j]).Length;
+                    maxLength = Math.Max(maxLength, edgeLength);
+                    totalLength += edgeLength;
+                }
+                var normalLength = (totalLength / 3f) / 2f;
+
+                for (var j = 0; j < 3; j++)
+                {
+                    var center = vertices[j];
+                    var normal = center + normals[j] * normalLength;
+                    lineBuilder.AddLine(center, normal);
+                }
             }
-            BindLineMesh(lineBuilder, matrix, updateMeshData);
+            BindLineMesh(lineBuilder, null, updateMeshData);
         }
 
 
-        private void BindModelMesh(ModelEntity modelEntity, Matrix4? matrix = null, bool updateMeshData = true,
-                                   Vector3[] initialVertices = null, Vector3[] initialNormals = null,
-                                   Vector3[] finalVertices = null, Vector3[] finalNormals = null, float interpolator = 0f)
+        private Mesh BindModelMesh(ModelEntity model, Matrix4? matrix = null, bool updateMeshData = true)
         {
+            if (model.Triangles.Length == 0)
+            {
+                MeshIndex++; // Still consume the mesh index (unless we change how these are reserved later...)
+                return null;
+            }
+
             var mesh = GetMesh(MeshIndex++);
             if (mesh == null)
             {
-                return;
+                return null;
             }
 
-            CopyRenderInfo(mesh, modelEntity, ref matrix);
+            CopyRenderInfo(mesh, model, ref matrix);
 
             if (updateMeshData)
             {
                 var isLines = _scene.VibRibbonWireframe || mesh.RenderFlags.HasFlag(RenderFlags.Line);
-                var uvConverter = modelEntity.TextureLookup;
-                UpdateTriangleMeshData(mesh, modelEntity.Triangles, isLines, uvConverter,
-                    initialVertices, initialNormals, finalVertices, finalNormals, interpolator);
+                var uvConverter = model.TextureLookup;
+                UpdateTriangleMeshData(mesh, model.Triangles, isLines, uvConverter,
+                    model.InitialVertices, model.InitialNormals,
+                    model.FinalVertices, model.FinalNormals, model.Interpolator);
             }
+            return mesh;
         }
 
-        private void CopyRenderInfo(Mesh mesh, ModelEntity modelEntity, ref Matrix4? matrix)
+        private void CopyRenderInfo(Mesh mesh, ModelEntity model, ref Matrix4? matrix)
         {
-            mesh.CopyFrom(modelEntity);
-            mesh.WorldMatrix = matrix ?? modelEntity.WorldMatrix;
+            mesh.CopyFrom(model);
+            mesh.WorldMatrix = matrix ?? model.WorldMatrix;
             CopyTextureBinderTexture(mesh);
         }
 
@@ -294,18 +428,18 @@ namespace PSXPrev.Common.Renderer
         {
             if (TextureBinder != null && mesh.IsTextured)
             {
-                mesh.Texture = TextureBinder.GetTexture((int)mesh.TexturePage);
+                mesh.TextureID = TextureBinder.GetTextureID((int)mesh.TexturePage);
             }
             else
             {
-                mesh.Texture = 0;
+                mesh.TextureID = 0;
             }
         }
 
         // Used to just update render info if we know we aren't updating mesh data.
         public void BindRenderInfo(MeshRenderInfo renderInfo, Matrix4? matrix = null)
         {
-            var mesh = GetMesh(MeshIndex++);
+            var mesh = GetMesh(MeshIndex++);//, out var skin, 2);
             if (mesh == null)
             {
                 return;
@@ -316,7 +450,7 @@ namespace PSXPrev.Common.Renderer
 
         public void BindTriangleMesh(TriangleMeshBuilder triangleBuilder, Matrix4? matrix = null, bool updateMeshData = true)
         {
-            var mesh = GetMesh(MeshIndex++);
+            var mesh = GetMesh(MeshIndex++);//, out var skin, 2);
             if (mesh == null)
             {
                 return;
@@ -324,6 +458,12 @@ namespace PSXPrev.Common.Renderer
 
             CopyRenderInfo(mesh, triangleBuilder, ref matrix);
 
+            if (triangleBuilder.JointMatrices != null && Scene.JointsSupported)
+            {
+                mesh.Skin = GetSkin(SkinIndex++);
+                UpdateJointMatricesData(mesh.Skin, triangleBuilder.JointMatrices, triangleBuilder.JointMatrices.Length,
+                                        triangleBuilder.RenderFlags, triangleBuilder.SpriteCenter);
+            }
             if (updateMeshData)
             {
                 var isLines = mesh.RenderFlags.HasFlag(RenderFlags.Line);
@@ -333,7 +473,7 @@ namespace PSXPrev.Common.Renderer
 
         public void BindLineMesh(LineMeshBuilder lineBuilder, Matrix4? matrix = null, bool updateMeshData = true)
         {
-            var mesh = GetMesh(MeshIndex++);
+            var mesh = GetMesh(MeshIndex++);//, out var skin, 2);
             if (mesh == null)
             {
                 return;
@@ -346,37 +486,49 @@ namespace PSXPrev.Common.Renderer
 
             if (updateMeshData)
             {
-                var lines = lineBuilder.Lines;
-                var numLines = lines.Count;
-                var numElements = numLines * 2;
-                var baseIndex = 0;
-                var positionList = new float[numElements * 3]; // Vector3
-                var colorList    = new float[numElements * 3]; // Vector3 (Color)
-                for (var l = 0; l < numLines; l++)
-                {
-                    var line = lines[l];
-                    for (var i = 0; i < 2; i++)
-                    {
-                        var index3d = baseIndex * 3;
-                        baseIndex++;
-
-                        var vertex = line.Vertices[i];// i == 0 ? line.P1 : line.P2;
-                        positionList[index3d + 0] = vertex.X;
-                        positionList[index3d + 1] = vertex.Y;
-                        positionList[index3d + 2] = vertex.Z;
-
-                        // Normals are all 0f (passing null will default to a zeroed list).
-
-                        var color = line.Colors[i];// i == 0 ? line.Color1 : line.Color2;
-                        colorList[index3d + 0] = color.R;
-                        colorList[index3d + 1] = color.G;
-                        colorList[index3d + 2] = color.B;
-
-                        // UVs are all 0f (passing null will default to a zeroed list).
-                    }
-                }
-                mesh.SetData(MeshDataType.Line, numElements, positionList, null, colorList, null);
+                UpdateLineMeshData(mesh, lineBuilder.Lines);
             }
+        }
+
+        private void UpdateLineMeshData(Mesh mesh, IReadOnlyList<Line> lines)
+        {
+            var elementCount = lines.Count * 2;
+            var baseIndex = 0;
+            var positionList  = ReuseArray(ref _positionList,  elementCount * 3); // Vector3
+            var colorList     = ReuseArray(ref _colorList,     elementCount * 3); // Vector3 (Colorf)
+            // Empty all-zero lists
+            var normalList    = ReuseArray(ref _normalListEmpty,    elementCount * 3); // Vector3
+            var uvList        = ReuseArray(ref _uvListEmpty,        elementCount * 2); // Vector2
+            var tiledAreaList = ReuseArray(ref _tiledAreaListEmpty, elementCount * 4); // Vector4
+            var jointList     = ReuseArray(ref _jointListEmpty,     elementCount * 2); // uint[2]
+            foreach (var line in lines)
+            {
+                for (var i = 0; i < 2; i++, baseIndex++)
+                {
+                    var index3d = baseIndex * 3;
+
+                    var vertex = line.Vertices[i];// i == 0 ? line.P1 : line.P2;
+                    positionList[index3d + 0] = vertex.X;
+                    positionList[index3d + 1] = vertex.Y;
+                    positionList[index3d + 2] = vertex.Z;
+                    //Mesh.AssignVector3(positionList, baseIndex, ref vertex);
+
+                    // Normals are all 0f.
+
+                    var color = line.Colors[i];// i == 0 ? line.Color1 : line.Color2;
+                    colorList[index3d + 0] = color.R;
+                    colorList[index3d + 1] = color.G;
+                    colorList[index3d + 2] = color.B;
+                    //Mesh.AssignColor(colorList, baseIndex, color);
+
+                    // UVs are all 0f.
+
+                    // Tiled areas are all 0f.
+
+                    // Joints are all 0u (no joint, since joints are 1-indexed in the shader).
+                }
+            }
+            mesh.SetData(MeshDataType.Line, elementCount, positionList, normalList, colorList, uvList, tiledAreaList, jointList);
         }
 
         private void UpdateTriangleMeshData(Mesh mesh, IReadOnlyList<Triangle> triangles, bool isLines, IUVConverter uvConverter = null,
@@ -385,14 +537,14 @@ namespace PSXPrev.Common.Renderer
         {
             var verticesPerElement = isLines ? 2 : 3;
 
-            var numTriangles = triangles.Count;
-            var numElements = numTriangles * verticesPerElement;
+            var elementCount = triangles.Count * verticesPerElement;
             var baseIndex = 0;
-            var positionList  = new float[numElements * 3]; // Vector3
-            var normalList    = new float[numElements * 3]; // Vector3
-            var colorList     = new float[numElements * 3]; // Vector3 (Color)
-            var uvList        = new float[numElements * 2]; // Vector2
-            var tiledAreaList = new float[numElements * 4]; // Vector4
+            var positionList  = ReuseArray(ref _positionList,  elementCount * 3); // Vector3
+            var normalList    = ReuseArray(ref _normalList,    elementCount * 3); // Vector3
+            var colorList     = ReuseArray(ref _colorList,     elementCount * 3); // Vector3 (Colorf)
+            var uvList        = ReuseArray(ref _uvList,        elementCount * 2); // Vector2
+            var tiledAreaList = ReuseArray(ref _tiledAreaList, elementCount * 4); // Vector4
+            var jointList     = ReuseArray(ref _jointList,     elementCount * 2); // uint[2]
             foreach (var triangle in triangles)
             {
                 var isTiled = triangle.IsTiled;
@@ -401,15 +553,14 @@ namespace PSXPrev.Common.Renderer
                 {
                     tiledArea = uvConverter.ConvertTiledArea(tiledArea);
                 }
-                for (var i = 0; i < verticesPerElement; i++)
+                for (var i = 0; i < verticesPerElement; i++, baseIndex++)
                 {
                     var index2d = baseIndex * 2;
                     var index3d = baseIndex * 3;
                     var index4d = baseIndex * 4;
-                    baseIndex++;
 
                     var vertex = triangle.Vertices[i];
-                    if (!_scene.AutoAttach && triangle.AttachedIndices != null && triangle.AttachedIndices[i] != Triangle.NoAttachment)
+                    if (_scene.AttachJointsMode == AttachJointsMode.Hide && triangle.VertexJoints != null && triangle.VertexJoints[i] != Triangle.NoJoint)
                     {
                         vertex = new Vector3(DiscardValue);
                     }
@@ -423,10 +574,12 @@ namespace PSXPrev.Common.Renderer
                     positionList[index3d + 0] = vertex.X;
                     positionList[index3d + 1] = vertex.Y;
                     positionList[index3d + 2] = vertex.Z;
+                    //Mesh.AssignVector3(positionList, baseIndex, ref vertex);
 
                     var normal = triangle.Normals[i];
                     if (initialNormals != null && finalNormals != null && triangle.OriginalNormalIndices[i] < finalNormals.Length)
                     {
+                        // todo: Why is 4096f used here?
                         var initialNormal = normal + initialNormals[triangle.OriginalNormalIndices[i]] / 4096f;
                         var finalNormal = normal + finalNormals[triangle.OriginalNormalIndices[i]] / 4096f;
                         normal = Vector3.Lerp(initialNormal, finalNormal, interpolator);
@@ -435,11 +588,13 @@ namespace PSXPrev.Common.Renderer
                     normalList[index3d + 0] = normal.X;
                     normalList[index3d + 1] = normal.Y;
                     normalList[index3d + 2] = normal.Z;
+                    //Mesh.AssignVector3(normalList, baseIndex, ref normal);
 
                     var color = triangle.Colors[i];
                     colorList[index3d + 0] = color.R;
                     colorList[index3d + 1] = color.G;
                     colorList[index3d + 2] = color.B;
+                    //Mesh.AssignColor(colorList, baseIndex, color);
 
                     // If we're tiled, then the shader needs the base UV, not the converted UV.
                     var uv = triangle.TiledUv?.BaseUv[i] ?? triangle.Uv[i];
@@ -449,28 +604,105 @@ namespace PSXPrev.Common.Renderer
                     }
                     uvList[index2d + 0] = uv.X;
                     uvList[index2d + 1] = uv.Y;
+                    //Mesh.AssignVector2(uvList, baseIndex, ref uv);
 
                     tiledAreaList[index4d + 0] = tiledArea.X; // U offset
                     tiledAreaList[index4d + 1] = tiledArea.Y; // V offset
                     tiledAreaList[index4d + 2] = tiledArea.Z; // U wrap
                     tiledAreaList[index4d + 3] = tiledArea.W; // V wrap
+                    //Mesh.AssignVector4(tiledAreaList, baseIndex, ref tiledArea);
+
+                    // This expects NoJoint to be equal to -1, meaning it will equate to zero after adding 1.
+                    // Joints in the shader are 1-indexed, this makes it easier to handle meshes with no joints,
+                    // since the default value of zero (for Array.Clear) is what we want as the default value.
+                    jointList[index2d + 0] = (triangle.VertexJoints?[i] ?? Triangle.NoJoint) + 1u;
+                    jointList[index2d + 1] = (triangle.NormalJoints?[i] ?? Triangle.NoJoint) + 1u;
+                    //Mesh.AssignJoint(jointList, baseIndex, triangle.VertexJoints?[i], triangle.NormalJoints?[i]);
                 }
             }
 
             var dataType = isLines ? MeshDataType.Line : MeshDataType.Triangle;
-            mesh.SetData(dataType, numElements, positionList, normalList, colorList, uvList, tiledAreaList);
+            mesh.SetData(dataType, elementCount, positionList, normalList, colorList, uvList, tiledAreaList, jointList);
+        }
+
+        private void UpdateJointMatricesData(Skin skin, RootEntity rootEntity, RenderFlags spriteFlags = RenderFlags.None, Vector3 spriteCenter = default(Vector3))
+        {
+            //var jointMatrices = rootEntity.AbsoluteAnimatedJointMatrices;
+            //UpdateJointMatricesData(skin, jointMatrices, jointMatrices?.Length ?? 0, spriteFlags, spriteCenter);
+
+            /*var rootTempMatrix = rootEntity.TempMatrix;
+
+            var jointCount = rootEntity.Joints?.Length ?? 0;
+            var jointMatrices = ReuseArray(ref _jointMatrices, jointCount);
+
+            for (var i = 0; i < jointCount; i++)
+            {
+                var model = rootEntity.Joints[i];
+                if (model == null)
+                {
+                    jointMatrices[i] = rootEntity.TempWorldMatrix;
+                }
+                else
+                {
+                    var modelTempWorldMatrix = model.TempWorldMatrix;
+                    Matrix4.Mult(ref rootTempMatrix, ref modelTempWorldMatrix, out jointMatrices[i]);
+                }
+            }
+            UpdateJointMatricesData(skin, jointMatrices, jointCount, spriteFlags, spriteCenter);*/
+
+            var rootTempMatrix = rootEntity.TempMatrix;
+
+            var elementCount = rootEntity.Joints?.Length ?? 0;
+            var jointMatrixList = ReuseArray(ref _jointMatrixList, elementCount * 32); // Matrix4[2]
+            for (var i = 0; i < elementCount; i++)
+            {
+                var model = rootEntity.Joints[i];
+                Matrix4 worldMatrix;
+                if (model == null)
+                {
+                    worldMatrix = rootEntity.TempWorldMatrix;
+                }
+                else
+                {
+                    worldMatrix = model.TempWorldMatrix;
+                    Matrix4.Mult(ref rootTempMatrix, ref worldMatrix, out worldMatrix);
+                }
+
+                ComputeModelMatrix(ref worldMatrix, out var modelMatrix, spriteFlags, ref spriteCenter);
+                ComputeNormalMatrix(ref modelMatrix, out var normalMatrix);
+
+                Skin.AssignModelMatrix(jointMatrixList, i, ref modelMatrix);
+                Skin.AssignNormalMatrix(jointMatrixList, i, ref normalMatrix);
+            }
+            skin.SetData(elementCount, jointMatrixList);
+        }
+
+        private void UpdateJointMatricesData(Skin skin, Matrix4[] jointMatrices, int jointCount, RenderFlags spriteFlags = RenderFlags.None, Vector3 spriteCenter = default(Vector3))
+        {
+            var elementCount = jointCount;
+            var jointMatrixList = ReuseArray(ref _jointMatrixList, elementCount * 32); // Matrix4[2]
+            for (var i = 0; i < jointCount; i++)
+            {
+                ComputeModelMatrix(ref jointMatrices[i], out var modelMatrix, spriteFlags, ref spriteCenter);
+                ComputeNormalMatrix(ref modelMatrix, out var normalMatrix);
+
+                Skin.AssignModelMatrix(jointMatrixList, i, ref modelMatrix);
+                Skin.AssignNormalMatrix(jointMatrixList, i, ref normalMatrix);
+            }
+            skin.SetData(elementCount, jointMatrixList);
         }
 
 
         public void Reset(int meshCount)
         {
             IsValid = true;
-            // Dispose of old meshes.
+            // Dispose of old meshes and skins.
             if (_meshes != null)
             {
-                foreach (var mesh in _meshes)
+                for (var i = 0; i < MeshCount; i++)
                 {
-                    mesh?.Dispose();
+                    _meshes[i]?.Dispose();
+                    _skins[i]?.Dispose();
                 }
             }
             // Create a new meshes array, or reset the existing one to all null if the lengths match.
@@ -479,24 +711,23 @@ namespace PSXPrev.Common.Renderer
             if (_meshes == null || _meshes.Length != meshCount)
             {
                 _meshes = new Mesh[meshCount];
+                _skins  = new Skin[meshCount];
             }
             else
             {
-                for (var i = 0; i < _meshes.Length; i++)
-                {
-                    _meshes[i] = null;
-                }
+                Array.Clear(_meshes, 0, MeshCount);
+                Array.Clear(_skins,  0, MeshCount);
             }
             // Create and setup a new mesh IDs array if the existing one's length doesn't match.
-            if (_ids == null || _ids.Length != meshCount)
+            if (_meshIds == null || _meshIds.Length != meshCount)
             {
-                if (_ids != null)
+                if (_meshIds != null)
                 {
                     // Delete old MeshCount
-                    GL.DeleteVertexArrays(MeshCount, _ids);
+                    GL.DeleteVertexArrays(MeshCount, _meshIds);
                 }
-                _ids = new uint[meshCount];
-                GL.GenVertexArrays(meshCount, _ids);
+                _meshIds = new uint[meshCount];
+                GL.GenVertexArrays(meshCount, _meshIds);
             }
             // Assign this in-case we support changing mesh count without changing capacity.
             MeshCount = meshCount;
@@ -506,6 +737,7 @@ namespace PSXPrev.Common.Renderer
         public void ResetMeshIndex()
         {
             MeshIndex = 0;
+            SkinIndex = 0;
         }
 
         public bool IsMeshIndexBound() => IsMeshIndexBound(MeshIndex);
@@ -519,29 +751,75 @@ namespace PSXPrev.Common.Renderer
             return _meshes[index] != null;
         }
 
+        private Mesh NextMesh() => GetMesh(MeshIndex++);
+
+        private Skin NextSkin() => GetSkin(SkinIndex++);
+
         private Mesh GetMesh(int index)
         {
-            if (index >= MeshCount) //_meshes.Length)
+            if (index >= MeshCount)
             {
                 return null;
             }
             if (_meshes[index] == null)
             {
-                _meshes[index] = new Mesh(_ids[index]);
+                _meshes[index] = new Mesh(_meshIds[index]);
             }
             return _meshes[index];
+        }
+
+        private Skin GetSkin(int index)
+        {
+            if (index >= MeshCount)
+            {
+                return null;
+            }
+            if (_skins[index] == null)
+            {
+                _skins[index] = new Skin();
+            }
+            return _skins[index];
+        }
+
+        private static T[] ReuseArray<T>(ref T[] array, int length, bool clear = false)
+        {
+            if (array == null || array.Length < length)
+            {
+                return new T[length];
+            }
+            if (clear)
+            {
+                Array.Clear(array, 0, length);
+            }
+            return array;
         }
 
 
         public void Draw(Matrix4 viewMatrix, Matrix4 projectionMatrix)
         {
+            var triangleCount = 0;
+            var meshCount = 0;
+            var skinCount = 0;
+            Draw(viewMatrix, projectionMatrix, ref triangleCount, ref meshCount, ref skinCount);
+        }
+
+        public void Draw(Matrix4 viewMatrix, Matrix4 projectionMatrix, ref int triangleCount, ref int meshCount, ref int skinCount)
+        {
             foreach (var pass in _passes)//MeshBatch.GetPasses())
             {
-                DrawPass(pass, viewMatrix, projectionMatrix);
+                DrawPass(pass, viewMatrix, projectionMatrix, ref triangleCount, ref meshCount, ref skinCount);
             }
         }
 
         public void DrawPass(RenderPass renderPass, Matrix4 viewMatrix, Matrix4 projectionMatrix)
+        {
+            var triangleCount = 0;
+            var meshCount = 0;
+            var skinCount = 0;
+            DrawPass(renderPass, viewMatrix, projectionMatrix, ref triangleCount, ref meshCount, ref skinCount);
+        }
+
+        public void DrawPass(RenderPass renderPass, Matrix4 viewMatrix, Matrix4 projectionMatrix, ref int triangleCount, ref int meshCount, ref int skinCount)
         {
             if (!IsValid || !Visible)
             {
@@ -551,6 +829,9 @@ namespace PSXPrev.Common.Renderer
             {
                 return; // No semi-transparent passes
             }
+
+            GL.UniformMatrix4(Scene.UniformViewMatrix, false, ref viewMatrix);
+            GL.UniformMatrix4(Scene.UniformProjectionMatrix, false, ref projectionMatrix);
 
             if (SolidColor != null)
             {
@@ -572,7 +853,9 @@ namespace PSXPrev.Common.Renderer
                         {
                             continue; // Not an opaque mesh, or semi-transparency is disabled
                         }
-                        DrawMesh(mesh, viewMatrix, projectionMatrix);
+                        triangleCount += DrawMesh(mesh, ref viewMatrix, ref projectionMatrix);
+                        meshCount++;
+                        skinCount += (mesh.Skin != null ? 1 : 0);
                     }
                     break;
 
@@ -592,7 +875,9 @@ namespace PSXPrev.Common.Renderer
                         {
                             continue; // Untextured surfaces always have stp bit SET.
                         }
-                        DrawMesh(mesh, viewMatrix, projectionMatrix);
+                        triangleCount += DrawMesh(mesh, ref viewMatrix, ref projectionMatrix);
+                        meshCount++;
+                        skinCount += (mesh.Skin != null ? 1 : 0);
                     }
                     break;
 
@@ -634,7 +919,9 @@ namespace PSXPrev.Common.Renderer
                                 GL.BlendEquation(BlendEquationMode.FuncAdd);
                                 break;
                         }
-                        DrawMesh(mesh, viewMatrix, projectionMatrix);
+                        triangleCount += DrawMesh(mesh, ref viewMatrix, ref projectionMatrix);
+                        meshCount++;
+                        skinCount += (mesh.Skin != null ? 1 : 0);
                     }
 
                     // Restore settings.
@@ -648,8 +935,9 @@ namespace PSXPrev.Common.Renderer
 
         private IEnumerable<Mesh> GetVisibleMeshes()
         {
-            foreach (var mesh in _meshes)
+            for (var i = 0; i < MeshCount; i++)
             {
+                var mesh = _meshes[i];
                 if (mesh != null && mesh.Visible)
                 {
                     yield return mesh;
@@ -657,7 +945,7 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        private void DrawMesh(Mesh mesh, Matrix4 viewMatrix, Matrix4 projectionMatrix)
+        private int DrawMesh(Mesh mesh, ref Matrix4 viewMatrix, ref Matrix4 projectionMatrix)
         {
             var ambient = AmbientEnabled && !mesh.RenderFlags.HasFlag(RenderFlags.NoAmbient);
             var light = LightEnabled && !mesh.RenderFlags.HasFlag(RenderFlags.Unlit);
@@ -703,7 +991,8 @@ namespace PSXPrev.Common.Renderer
             }
 
             var noMissing = mesh.MissingTexture && !_scene.ShowMissingTextures;
-            if (TexturesEnabled && !noMissing && mesh.RenderFlags.HasFlag(RenderFlags.Textured))
+            var textureEnabled = TexturesEnabled && !noMissing && mesh.RenderFlags.HasFlag(RenderFlags.Textured);
+            if (textureEnabled)
             {
                 if (mesh.MissingTexture)
                 {
@@ -729,7 +1018,17 @@ namespace PSXPrev.Common.Renderer
                 GL.CullFace(CullFaceMode.Front);
             }
 
-            var modelMatrix = mesh.WorldMatrix;
+            var jointsEnabled = mesh.Skin != null && _scene.AttachJointsMode == AttachJointsMode.Attach;
+            if (jointsEnabled)
+            {
+                GL.Uniform1(Scene.UniformJointMode, 0); // Enable joints
+            }
+            else
+            {
+                GL.Uniform1(Scene.UniformJointMode, 1); // Disable joints
+            }
+
+            /*var modelMatrix = mesh.WorldMatrix;
             if (mesh.RenderFlags.HasFlag(RenderFlags.Sprite) || mesh.RenderFlags.HasFlag(RenderFlags.SpriteNoPitch))
             {
                 // Sprites always face the camera
@@ -760,7 +1059,20 @@ namespace PSXPrev.Common.Renderer
                 //}
                 // Apply transform before world matrix transform
                 modelMatrix = spriteMatrix * modelMatrix;
-            }
+            }*/
+
+            var worldMatrix = mesh.WorldMatrix;
+            var spriteCenter = mesh.SpriteCenter;
+            ComputeModelMatrix(ref worldMatrix, out var modelMatrix, mesh.RenderFlags, ref spriteCenter);
+            ComputeNormalMatrix(ref modelMatrix, out var normalMatrix);
+
+            Matrix4.Mult(ref modelMatrix, ref viewMatrix, out var mvpMatrix);
+            Matrix4.Mult(ref mvpMatrix, ref projectionMatrix, out mvpMatrix);
+
+            // Transpose the normal matrix here when setting the uniform (true parameter)
+            GL.UniformMatrix3(Scene.UniformNormalMatrix, true, ref normalMatrix);
+            GL.UniformMatrix4(Scene.UniformModelMatrix, false, ref modelMatrix);
+            GL.UniformMatrix4(Scene.UniformMVPMatrix, false, ref mvpMatrix);
 
             if (!mesh.TextureAnimation.IsZero())
             {
@@ -771,20 +1083,75 @@ namespace PSXPrev.Common.Renderer
                 GL.Uniform2(Scene.UniformUVOffset, new Vector2(animX, animY));
             }
 
-            // Use Inverted() since it checks determinant to avoid singular matrix exception.
-            var normalMatrix = new Matrix3(modelMatrix).Inverted();
-            normalMatrix.Transpose();
-            var mvpMatrix = modelMatrix * viewMatrix * projectionMatrix;
-            GL.UniformMatrix3(Scene.UniformNormalMatrix, false, ref normalMatrix);
-            GL.UniformMatrix4(Scene.UniformModelMatrix, false, ref modelMatrix);
-            GL.UniformMatrix4(Scene.UniformMVPMatrix, false, ref mvpMatrix);
-
-            mesh.Draw(TextureBinder, DrawFaces, DrawWireframe, DrawVertices, WireframeSize, VertexSize);
+            var drawCalls = mesh.Draw(TextureBinder, DrawFaces, DrawWireframe, DrawVertices, WireframeSize, VertexSize); //, textureEnabled, jointsEnabled);
+            var triangleCount = mesh.PrimitiveCount * drawCalls;
 
             if (!mesh.TextureAnimation.IsZero())
             {
                 GL.Uniform2(Scene.UniformUVOffset, Vector2.Zero);
             }
+
+            return triangleCount;
+        }
+
+        private void ComputeModelMatrix(ref Matrix4 worldMatrix, out Matrix4 modelMatrix, RenderFlags spriteFlags, ref Vector3 spriteCenter)
+        {
+            if (spriteFlags.HasFlag(RenderFlags.Sprite) || spriteFlags.HasFlag(RenderFlags.SpriteNoPitch))
+            {
+                // Sprites always face the camera
+                // THIS MATH IS NOT 100% CORRECT! It's not accurate when we have parent transforms, and I think
+                // also local transforms. But it will still correctly face the camera regardless. I think.
+                Quaternion quaternion;
+                if (spriteFlags.HasFlag(RenderFlags.Sprite))
+                {
+                    quaternion = _scene.CameraRotation;
+                }
+                else
+                {
+                    quaternion = _scene.CameraYawRotation;
+                }
+                var spriteMatrix = Matrix4.CreateFromQuaternion(quaternion);
+
+                // todo: Should the inverse rotation be applied inside the origin translation, like the spriteMatrix rotation?
+                Matrix4 invWorldRotationMatrix;
+                //if (renderFlags.HasFlag(RenderFlags.Sprite))
+                {
+                    invWorldRotationMatrix = Matrix4.CreateFromQuaternion(worldMatrix.ExtractRotationSafe().Inverted());
+                }
+                //else
+                //{
+                //    // todo: How to remove everything but pitch rotation?
+                //    invWorldRotationMatrix = Matrix4.CreateFromQuaternion(worldMatrix.ExtractRotationSafe().Inverted());
+                //}
+
+                // Rotate sprite around its center
+                // spriteMatrix = Matrix4.CreateTranslation(-spriteCenter) * spriteMatrix * Matrix4.CreateTranslation(spriteCenter);
+                var spriteTranslationMatrix = Matrix4.CreateTranslation(-spriteCenter);
+                Matrix4.Mult(ref spriteTranslationMatrix, ref spriteMatrix, out spriteMatrix);
+                spriteTranslationMatrix = Matrix4.CreateTranslation(spriteCenter);
+                Matrix4.Mult(ref spriteMatrix, ref spriteTranslationMatrix, out spriteMatrix);
+
+                // Remove rotation applied by world matrix
+                // spriteMatrix *= invWorldRotationMatrix;
+                Matrix4.Mult(ref spriteMatrix, ref invWorldRotationMatrix, out spriteMatrix);
+
+                // Apply transform before world matrix transform
+                // modelMatrix = spriteMatrix * worldMatrix;
+                Matrix4.Mult(ref spriteMatrix, ref worldMatrix, out modelMatrix);
+            }
+            else
+            {
+                modelMatrix = worldMatrix;
+            }
+        }
+
+        // Does not Transpose, this should be handled when setting the uniform or assigning the joint matrix.
+        private static void ComputeNormalMatrix(ref Matrix4 modelMatrix, out Matrix3 normalMatrix)
+        {
+            // Use Inverted() since it checks determinant to avoid singular matrix exception.
+            normalMatrix = new Matrix3(modelMatrix).Inverted();
+            // Transpose is handled when assigning the uniform, or assigning the skin matrix.
+            //normalMatrix.Transpose();
         }
 
 

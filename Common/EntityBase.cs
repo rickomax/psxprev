@@ -78,11 +78,11 @@ namespace PSXPrev.Common
         {
             get
             {
-                var matrix = LocalMatrix;
+                var matrix = _localMatrix;
                 var entity = ParentEntity;
                 while (entity != null)
                 {
-                    matrix *= entity.LocalMatrix;
+                    Matrix4.Mult(ref matrix, ref entity._localMatrix, out matrix);
                     entity = entity.ParentEntity;
                 }
                 return matrix;
@@ -94,13 +94,13 @@ namespace PSXPrev.Common
         {
             get
             {
-                var matrix = Matrix4.Identity;
-                var entity = this;
-                do
+                var matrix = _originalLocalMatrix;
+                var entity = ParentEntity;
+                while (entity != null)
                 {
-                    matrix *= entity.OriginalLocalMatrix;
+                    Matrix4.Mult(ref matrix, ref entity._originalLocalMatrix, out matrix);
                     entity = entity.ParentEntity;
-                } while (entity != null);
+                }
                 return matrix;
             }
         }
@@ -177,7 +177,7 @@ namespace PSXPrev.Common
 
         [EditorBrowsable(EditorBrowsableState.Never)]
         [DisplayName("Sub-Models"), ReadOnly(true)]
-        public string ChildCount => ChildEntities == null ? "0" : ChildEntities.Length.ToString(NumberFormatInfo.InvariantInfo);
+        public int PropertyGrid_ChildCount => ChildEntities?.Length ?? 0;
 
         [Browsable(false)]
         public EntityBase[] ChildEntities
@@ -235,7 +235,7 @@ namespace PSXPrev.Common
         }
 
 
-        public virtual void ComputeBounds()
+        public virtual void ComputeBounds(AttachJointsMode attachJointsMode = AttachJointsMode.Hide, Matrix4[] jointMatrices = null)
         {
             if (ChildEntities == null)
             {
@@ -243,19 +243,21 @@ namespace PSXPrev.Common
             }
             foreach (var entity in ChildEntities)
             {
-                entity.ComputeBounds();
+                entity.ComputeBounds(attachJointsMode, jointMatrices);
             }
         }
 
-        public void ComputeBoundsRecursively()
+        /*public void ComputeBoundsRecursively()
         {
+            var jointMatrices = GetRootEntity().JointMatrices;
             var entity = this;
             do
             {
-                entity.ComputeBounds();
+                // todo: Doesn't this cause child entities to compute bounds multiple times?
+                entity.ComputeBounds(jointMatrices);
                 entity = entity.ParentEntity;
             } while (entity != null);
-        }
+        }*/
 
         // Reset this and optionally all children's LocalMatrix to OriginalLocalMatrix.
         public void ResetTransform(bool resetChildren)
@@ -299,10 +301,10 @@ namespace PSXPrev.Common
         public override string ToString()
         {
             var name = EntityName ?? GetType().Name;
-            return $"{name} Children={ChildCount}";
+            return $"{name} Children={ChildEntities?.Length ?? 0}";
         }
 
-        public virtual void FixConnections(bool transform = true)
+        public virtual void FixConnections(bool? bake = null, Matrix4[] tempJointMatrices = null)
         {
             if (ChildEntities == null)
             {
@@ -310,7 +312,7 @@ namespace PSXPrev.Common
             }
             foreach (var child in ChildEntities)
             {
-                child.FixConnections(transform);
+                child.FixConnections(bake, tempJointMatrices);
             }
         }
 
@@ -323,18 +325,6 @@ namespace PSXPrev.Common
             foreach (var child in ChildEntities)
             {
                 child.UnfixConnections();
-            }
-        }
-
-        public virtual void ClearConnectionsCache()
-        {
-            if (ChildEntities == null)
-            {
-                return;
-            }
-            foreach (var child in ChildEntities)
-            {
-                child.ClearConnectionsCache();
             }
         }
 

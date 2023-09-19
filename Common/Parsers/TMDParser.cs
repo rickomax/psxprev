@@ -49,9 +49,8 @@ namespace PSXPrev.Common.Parsers
 
             if (_objBlocks == null || _objBlocks.Length < nObj)
             {
-                Array.Resize(ref _objBlocks, (int)nObj);
+                _objBlocks = new ObjBlock[nObj];
             }
-            var objBlocks = _objBlocks;// new ObjBlock[nObj];
 
             var objTop = (uint)(reader.BaseStream.Position - _offset);
 
@@ -81,7 +80,7 @@ namespace PSXPrev.Common.Parsers
                     return null;
                 }
 
-                objBlocks[o] = new ObjBlock
+                _objBlocks[o] = new ObjBlock
                 {
                     VertTop = vertTop,
                     NVert = nVert,
@@ -95,7 +94,7 @@ namespace PSXPrev.Common.Parsers
 
             for (uint o = 0; o < nObj; o++)
             {
-                var objBlock = objBlocks[o];
+                var objBlock = _objBlocks[o];
 
                 if (Limits.IgnoreTMDVersion && (int)objBlock.VertTop < 0)
                 {
@@ -103,16 +102,15 @@ namespace PSXPrev.Common.Parsers
                 }
                 if (_vertices == null || _vertices.Length < objBlock.NVert)
                 {
-                    Array.Resize(ref _vertices, (int)objBlock.NVert);
+                    _vertices = new Vector3[objBlock.NVert];
                 }
-                var vertices = _vertices;// new Vector3[objBlock.NVert];
                 reader.BaseStream.Seek(_offset + objBlock.VertTop, SeekOrigin.Begin);
                 for (var v = 0; v < objBlock.NVert; v++)
                 {
                     var vx = reader.ReadInt16();
                     var vy = reader.ReadInt16();
                     var vz = reader.ReadInt16();
-                    var pad = reader.ReadInt16();
+                    var pad = reader.ReadUInt16();
                     if (pad != 0)
                     {
                         if (Program.Debug)
@@ -120,7 +118,7 @@ namespace PSXPrev.Common.Parsers
                             Program.Logger.WriteLine($"Found suspicious pad value of: {pad} at index:{v}");
                         }
                     }
-                    vertices[v] = new Vector3(vx, vy, vz);
+                    _vertices[v] = new Vector3(vx, vy, vz);
                 }
 
                 if (Limits.IgnoreTMDVersion && (int)objBlock.NormalTop < 0)
@@ -129,16 +127,15 @@ namespace PSXPrev.Common.Parsers
                 }
                 if (_normals == null || _normals.Length < objBlock.NNormal)
                 {
-                    Array.Resize(ref _normals, (int)objBlock.NNormal);
+                    _normals = new Vector3[objBlock.NNormal];
                 }
-                var normals = _normals;// new Vector3[objBlock.NNormal];
                 reader.BaseStream.Seek(_offset + objBlock.NormalTop, SeekOrigin.Begin);
                 for (var n = 0; n < objBlock.NNormal; n++)
                 {
                     var nx = TMDHelper.ConvertNormal(reader.ReadInt16());
                     var ny = TMDHelper.ConvertNormal(reader.ReadInt16());
                     var nz = TMDHelper.ConvertNormal(reader.ReadInt16());
-                    var pad = reader.ReadInt16();
+                    var pad = reader.ReadUInt16();
                     if (pad != 0)
                     {
                         if (Program.Debug)
@@ -146,7 +143,7 @@ namespace PSXPrev.Common.Parsers
                             Program.Logger.WriteLine($"Found suspicious pad value of: {pad} at index:{n}");
                         }
                     }
-                    normals[n] = new Vector3(nx, ny, nz).Normalized();
+                    _normals[n] = new Vector3(nx, ny, nz).Normalized();
                 }
 
                 if (Limits.IgnoreTMDVersion && (int)objBlock.PrimitiveTop < 0)
@@ -163,8 +160,9 @@ namespace PSXPrev.Common.Parsers
                 var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
                 var groupedSprites = new Dictionary<Tuple<Vector3, RenderInfo>, List<Triangle>>();
 
-                Vector3 VertexCallback(uint index)
+                Vector3 VertexCallback(uint index, out uint joint)
                 {
+                    joint = Triangle.NoJoint;
                     if (index >= objBlock.NVert)
                     {
                         if (Limits.IgnoreTMDVersion)
@@ -177,10 +175,11 @@ namespace PSXPrev.Common.Parsers
                         }
                         throw new Exception($"Vertex index error: {_fileTitle}");
                     }
-                    return vertices[index];
+                    return _vertices[index];
                 }
-                Vector3 NormalCallback(uint index)
+                Vector3 NormalCallback(uint index, out uint joint)
                 {
+                    joint = Triangle.NoJoint;
                     if (index >= objBlock.NNormal)
                     {
                         if (Limits.IgnoreTMDVersion)
@@ -193,7 +192,7 @@ namespace PSXPrev.Common.Parsers
                         }
                         throw new Exception($"Normal index error: {_fileTitle}");
                     }
-                    return normals[index];
+                    return _normals[index];
                 }
 
                 for (uint p = 0; p < objBlock.NPrimitive; p++)
@@ -211,7 +210,7 @@ namespace PSXPrev.Common.Parsers
                             case PrimitiveType.Triangle:
                             case PrimitiveType.Quad:
                             case PrimitiveType.StraightLine:
-                                TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, false,
+                                TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, false, o + 1u,
                                     VertexCallback, NormalCallback);
                                 break;
                             case PrimitiveType.Sprite:
@@ -247,7 +246,7 @@ namespace PSXPrev.Common.Parsers
                     var spriteCenter = kvp.Key.Item1;
                     var renderInfo = kvp.Key.Item2;
                     var triangles = kvp.Value;
-                    var model = new ModelEntity
+                    var spriteModel = new ModelEntity
                     {
                         Triangles = triangles.ToArray(),
                         TexturePage = renderInfo.TexturePage,
@@ -257,16 +256,16 @@ namespace PSXPrev.Common.Parsers
                         TMDID = o,
                         OriginalLocalMatrix = scaleMatrix,
                     };
-                    models.Add(model);
+                    models.Add(spriteModel);
                 }
             }
 
             if (models.Count > 0)
             {
-                var entity = new RootEntity();
-                entity.ChildEntities = models.ToArray();
-                entity.ComputeBounds();
-                return entity;
+                var rootEntity = new RootEntity();
+                rootEntity.ChildEntities = models.ToArray();
+                rootEntity.ComputeBounds();
+                return rootEntity;
             }
             return null;
         }

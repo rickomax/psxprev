@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Text.RegularExpressions;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using PSXPrev.Common.Animator;
@@ -10,6 +11,9 @@ namespace PSXPrev.Common.Renderer
 {
     public class Scene
     {
+        public static bool JointsSupported { get; private set; } = true;
+        public static string ShaderVersion { get; private set; }
+
         public const float CameraMinFOV = 1f;
         public const float CameraMaxFOV = 160f; // Anything above this just looks unintelligible
         private const float CameraDefaultNearClip = 0.1f;
@@ -146,15 +150,21 @@ namespace PSXPrev.Common.Renderer
         public static int AttributeIndexUv = 3;
         public static int AttributeIndexTiledArea = 4;
         public static int AttributeIndexTexture = 5;
+        public static int AttributeIndexJoint = 6;
+
+        public static int BufferIndexJoints = 0;
 
         public static int UniformNormalMatrix;
         public static int UniformModelMatrix;
         public static int UniformMVPMatrix;
+        public static int UniformViewMatrix;
+        public static int UniformProjectionMatrix;
         public static int UniformLightDirection;
         public static int UniformMaskColor;
         public static int UniformAmbientColor;
         public static int UniformSolidColor;
         public static int UniformUVOffset;
+        public static int UniformJointMode;
         public static int UniformLightMode;
         public static int UniformColorMode;
         public static int UniformTextureMode;
@@ -167,15 +177,19 @@ namespace PSXPrev.Common.Renderer
         public const string AttributeNameUv = "in_Uv";
         public const string AttributeNameTiledArea = "in_TiledArea";
         public const string AttributeNameTexture = "mainTex";
+        public const string AttributeNameJoint = "in_Joint";
 
         public const string UniformNormalMatrixName = "normalMatrix";
         public const string UniformModelMatrixName = "modelMatrix";
         public const string UniformMVPMatrixName = "mvpMatrix";
+        public const string UniformViewMatrixName = "viewMatrix";
+        public const string UniformProjectionMatrixName = "projectionMatrix";
         public const string UniformLightDirectionName = "lightDirection";
         public const string UniformMaskColorName = "maskColor";
         public const string UniformAmbientColorName = "ambientColor";
         public const string UniformSolidColorName = "solidColor";
         public const string UniformUVOffsetName = "uvOffset";
+        public const string UniformJointModeName = "jointMode";
         public const string UniformLightModeName = "lightMode";
         public const string UniformColorModeName = "colorMode";
         public const string UniformTextureModeName = "textureMode";
@@ -185,7 +199,7 @@ namespace PSXPrev.Common.Renderer
         public bool Initialized { get; private set; }
 
         public MeshBatch MeshBatch { get; private set; }
-        public MeshBatch GizmosMeshBatch { get; private set; }
+        public MeshBatch GizmosBatch { get; private set; }
         public MeshBatch BoundsBatch { get; private set; }
         public MeshBatch TriangleOutlineBatch { get; private set; }
         public MeshBatch LightRotationRayBatch { get; private set; }
@@ -242,7 +256,7 @@ namespace PSXPrev.Common.Renderer
         public System.Drawing.Color AmbientColor { get; set; }
         public System.Drawing.Color SolidWireframeVerticesColor { get; set; }
 
-        public bool AutoAttach { get; set; }
+        public AttachJointsMode AttachJointsMode { get; set; }
 
         public bool DrawFaces { get; set; }
         public bool DrawWireframe { get; set; }
@@ -462,7 +476,7 @@ namespace PSXPrev.Common.Renderer
             {
                 TextureBinder = TextureBinder,
             };
-            GizmosMeshBatch = new MeshBatch(this)
+            GizmosBatch = new MeshBatch(this)
             {
                 Visible = false,
                 AmbientEnabled = true,
@@ -519,45 +533,135 @@ namespace PSXPrev.Common.Renderer
             GL.Hint(HintTarget.PerspectiveCorrectionHint, HintMode.Nicest);
         }
 
+        // Note: Use "(?=[\r\n]|\z)" instead, because "$" doesn't handle CRLF... Wow.
+        private const string ShaderFallbackVersionPrefix = "//FALLBACK_VERSION";
+        private const string ShaderJointsDefine = "#define JOINTS_SUPPORTED";
+        private const string ShaderVersionPattern = @"^#version\s+([0-9]+[^\n\r]*)(?=[\r\n]|\z)";
+
+        private static string GetShaderFallbackVersion(string shaderSource)
+        {
+            // Capture string after FallbackVersion const until comment or EOL.
+            var match = Regex.Match(shaderSource, $@"^{Regex.Escape(ShaderFallbackVersionPrefix)}\s+([0-9]+[^\n\r]*)(?=[\r\n]|\z)", RegexOptions.Multiline);
+            if (match.Success)
+            {
+                return $"#version {match.Groups[1].Value.Trim()}";
+            }
+            return null;
+        }
+
         private void SetupShaders()
         {
             var vertexShaderSource = ManifestResourceLoader.LoadTextFile("Shaders\\Shader.vert");
             var fragmentShaderSource = ManifestResourceLoader.LoadTextFile("Shaders\\Shader.frag");
-            _shaderProgram = GL.CreateProgram();
-            var vertexShaderAddress = GL.CreateShader(ShaderType.VertexShader);
-            GL.ShaderSource(vertexShaderAddress, vertexShaderSource);
-            GL.CompileShader(vertexShaderAddress);
-            GL.AttachShader(_shaderProgram, vertexShaderAddress);
-            var fragmentShaderAddress = GL.CreateShader(ShaderType.FragmentShader);
-            GL.ShaderSource(fragmentShaderAddress, fragmentShaderSource);
-            GL.CompileShader(fragmentShaderAddress);
-            GL.AttachShader(_shaderProgram, fragmentShaderAddress);
-            var attributes = new Dictionary<int, string>
+
+#if DEBUG
+            JointsSupported = true; // Set to false to test shader without joints support
+            const bool DebugTestFallback = false; // Set to true to allow joints support to silently fail
+#endif
+
+            var vertexFallbackVersion = GetShaderFallbackVersion(vertexShaderSource);
+            if (vertexFallbackVersion == null)
             {
-                {AttributeIndexPosition, AttributeNamePosition},
-                {AttributeIndexNormal, AttributeNameNormal},
-                {AttributeIndexColor, AttributeNameColor},
-                {AttributeIndexUv, AttributeNameUv},
-                {AttributeIndexTiledArea, AttributeNameTiledArea},
-                {AttributeIndexTexture, AttributeNameTexture}
-            };
-            foreach (var vertexAttributeLocation in attributes)
-            {
-                GL.BindAttribLocation(_shaderProgram, vertexAttributeLocation.Key, vertexAttributeLocation.Value);
+                throw new Exception($"Missing \"{ShaderFallbackVersionPrefix}\" in vertex shader");
             }
-            GL.LinkProgram(_shaderProgram);
-            if (!GetLinkStatus())
+            if (!vertexShaderSource.Contains(ShaderJointsDefine))
             {
-                throw new Exception(GetInfoLog());
+                throw new Exception($"Missing \"{ShaderJointsDefine}\" in vertex shader");
             }
+            if (!Regex.IsMatch(vertexShaderSource, ShaderVersionPattern, RegexOptions.Multiline))
+            {
+                throw new Exception($"Failed to find \"#version\" in vertex shader");
+            }
+
+            string jointsSupportError = null, noJointsSupportError = null;
+            var failed = false;
+            for (var i = 0; i < 2; i++)
+            {
+                _shaderProgram = GL.CreateProgram();
+
+                if (!JointsSupported)
+                {
+                    // Remove the define that enables joints
+                    vertexShaderSource = vertexShaderSource.Replace(ShaderJointsDefine, string.Empty);
+                    // Overwrite the version header with the fallback version
+                    vertexShaderSource = Regex.Replace(vertexShaderSource, ShaderVersionPattern, vertexFallbackVersion);
+                }
+
+                var vertexShaderAddress = GL.CreateShader(ShaderType.VertexShader);
+                GL.ShaderSource(vertexShaderAddress, vertexShaderSource);
+                GL.CompileShader(vertexShaderAddress);
+                GL.AttachShader(_shaderProgram, vertexShaderAddress);
+
+                var fragmentShaderAddress = GL.CreateShader(ShaderType.FragmentShader);
+                GL.ShaderSource(fragmentShaderAddress, fragmentShaderSource);
+                GL.CompileShader(fragmentShaderAddress);
+                GL.AttachShader(_shaderProgram, fragmentShaderAddress);
+
+                var attributes = new Dictionary<int, string>
+                {
+                    { AttributeIndexPosition, AttributeNamePosition },
+                    { AttributeIndexNormal, AttributeNameNormal },
+                    { AttributeIndexColor, AttributeNameColor },
+                    { AttributeIndexUv, AttributeNameUv },
+                    { AttributeIndexTiledArea, AttributeNameTiledArea },
+                    { AttributeIndexTexture, AttributeNameTexture },
+                    //{ AttributeIndexJoint, AttributeNameJoint },
+                };
+                if (JointsSupported)
+                {
+                    attributes.Add(AttributeIndexJoint, AttributeNameJoint);
+                }
+                foreach (var vertexAttributeLocation in attributes)
+                {
+                    GL.BindAttribLocation(_shaderProgram, vertexAttributeLocation.Key, vertexAttributeLocation.Value);
+                }
+
+                GL.LinkProgram(_shaderProgram);
+                if (!GetLinkStatus())
+                {
+                    if (JointsSupported)
+                    {
+                        // Try again but without joints support
+                        jointsSupportError = GetInfoLog();
+                        JointsSupported = false;
+#if DEBUG
+                        // Always throw an exception if we're debugging and not testing fallback
+                        failed |= !DebugTestFallback;
+#endif
+                        GL.DeleteProgram(_shaderProgram);
+                        _shaderProgram = 0;
+                        continue;
+                    }
+                    else
+                    {
+                        // Both with and without joints failed
+                        noJointsSupportError = GetInfoLog();
+                        failed = true;
+                        break;
+                    }
+                }
+                else
+                {
+                    break;
+                }
+            }
+            if (failed)
+            {
+                throw new Exception($"joints: {jointsSupportError}\n\nno joints: {noJointsSupportError}");
+            }
+            ShaderVersion = Regex.Match(vertexShaderSource, ShaderVersionPattern).Groups[1].Value.Trim();
+
             UniformNormalMatrix = GL.GetUniformLocation(_shaderProgram, UniformNormalMatrixName);
             UniformModelMatrix = GL.GetUniformLocation(_shaderProgram, UniformModelMatrixName);
             UniformMVPMatrix = GL.GetUniformLocation(_shaderProgram, UniformMVPMatrixName);
+            UniformViewMatrix = GL.GetUniformLocation(_shaderProgram, UniformViewMatrixName);
+            UniformProjectionMatrix = GL.GetUniformLocation(_shaderProgram, UniformProjectionMatrixName);
             UniformLightDirection = GL.GetUniformLocation(_shaderProgram, UniformLightDirectionName);
             UniformMaskColor = GL.GetUniformLocation(_shaderProgram, UniformMaskColorName);
             UniformAmbientColor = GL.GetUniformLocation(_shaderProgram, UniformAmbientColorName);
             UniformSolidColor = GL.GetUniformLocation(_shaderProgram, UniformSolidColorName);
             UniformUVOffset = GL.GetUniformLocation(_shaderProgram, UniformUVOffsetName);
+            UniformJointMode = GL.GetUniformLocation(_shaderProgram, UniformJointModeName);
             UniformLightMode = GL.GetUniformLocation(_shaderProgram, UniformLightModeName);
             UniformColorMode = GL.GetUniformLocation(_shaderProgram, UniformColorModeName);
             UniformTextureMode = GL.GetUniformLocation(_shaderProgram, UniformTextureModeName);
@@ -653,7 +757,7 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        private void DrawPassModelMeshBatch(RenderPass pass, MeshBatch meshBatch)
+        private void DrawPassModelMeshBatch(RenderPass pass, MeshBatch meshBatch, ref int triangleCount, ref int meshCount, ref int skinCount)
         {
             // The main model mesh batch uses the scene's settings.
             meshBatch.DrawFaces = DrawFaces;
@@ -677,7 +781,7 @@ namespace PSXPrev.Common.Renderer
 
             if (DrawFaces || (!DrawSolidWireframeVertices && (DrawWireframe || DrawVertices)))
             {
-                meshBatch.DrawPass(pass, _viewMatrix, _projectionMatrix);
+                meshBatch.DrawPass(pass, _viewMatrix, _projectionMatrix, ref triangleCount, ref meshCount, ref skinCount);
             }
 
             // Wireframe/Vertices are being drawn with a solid color, so
@@ -694,11 +798,11 @@ namespace PSXPrev.Common.Renderer
                 meshBatch.SemiTransparencyEnabled = false;
                 meshBatch.SolidColor = (Color)SolidWireframeVerticesColor;
 
-                meshBatch.DrawPass(pass, _viewMatrix, _projectionMatrix);
+                meshBatch.DrawPass(pass, _viewMatrix, _projectionMatrix, ref triangleCount, ref meshCount, ref skinCount);
             }
         }
 
-        public void Draw()
+        public void Draw(out int triangleCount, out int meshCount, out int skinCount)
         {
             GL.Enable(EnableCap.DepthTest);
             GL.Enable(EnableCap.Texture2D);
@@ -709,10 +813,13 @@ namespace PSXPrev.Common.Renderer
             GL.Uniform3(UniformMaskColor, MaskColor.ToVector3());
             GL.Uniform2(UniformUVOffset, Vector2.Zero);
 
+            triangleCount = 0; // Only count triangles/meshes from the models mesh batch.
+            meshCount = 0;
+            skinCount = 0;
 
             foreach (var pass in MeshBatch.GetPasses())
             {
-                DrawPassModelMeshBatch(pass, MeshBatch);
+                DrawPassModelMeshBatch(pass, MeshBatch, ref triangleCount, ref meshCount, ref skinCount);
 
                 // Preserve depth buffer for these batches.
 
@@ -752,7 +859,7 @@ namespace PSXPrev.Common.Renderer
             GL.Clear(ClearBufferMask.DepthBufferBit);
             if (ShowVisuals)
             {
-                GizmosMeshBatch.Draw(_viewMatrix, _projectionMatrix);
+                GizmosBatch.Draw(_viewMatrix, _projectionMatrix);
             }
 
             GL.Disable(EnableCap.DepthTest);
@@ -782,18 +889,18 @@ namespace PSXPrev.Common.Renderer
             _highlightGizmo = highlightGizmo;
             if (selectedEntityBase == null || currentType == GizmoType.None)
             {
-                GizmosMeshBatch.Visible = false;
+                GizmosBatch.Visible = false;
                 return;
             }
-            GizmosMeshBatch.Visible = true;
+            GizmosBatch.Visible = true;
 
             // Force-prepare the batch the first time.
-            var updateMeshData = !GizmosMeshBatch.IsValid;
+            var updateMeshData = !GizmosBatch.IsValid;
 
-            GizmosMeshBatch.ResetMeshIndex();
+            GizmosBatch.ResetMeshIndex();
             if (updateMeshData)
             {
-                GizmosMeshBatch.Reset(3 + 3 + (3 + 1)); // Translate + Rotate + (Scale + Uniform)
+                GizmosBatch.Reset(3 + 3 + (3 + 1)); // Translate + Rotate + (Scale + Uniform)
             }
 
             var matrix = GetGizmoMatrix(selectedEntityBase, currentType);
@@ -838,7 +945,7 @@ namespace PSXPrev.Common.Renderer
                         }
                     }
 
-                    GizmosMeshBatch.BindTriangleMesh(triangleBuilder, matrix, updateMeshData);
+                    GizmosBatch.BindTriangleMesh(triangleBuilder, matrix, updateMeshData);
                 }
             }
         }
@@ -953,10 +1060,26 @@ namespace PSXPrev.Common.Renderer
             rayBatch.BindTriangleMesh(originBuilder, originMatrix, updateMeshData);
         }
 
+        public void ClearUnderMouseCycleLists()
+        {
+            _lastPickedEntities = null;
+            _lastPickedTriangles = null;
+        }
+
+        public void ClearEntityUnderMouseCycleList()
+        {
+            _lastPickedEntities = null;
+        }
+
+        public void ClearTriangleUnderMouseCycleList()
+        {
+            _lastPickedTriangles = null;
+        }
+
         public EntityBase GetEntityUnderMouse(RootEntity[] checkedEntities, RootEntity selectedRootEntity, int x, int y, bool selectRoot = false, bool boundsPicking = true)
         {
             UpdatePicking(x, y);
-            var pickedEntities = new List<EntityBase>();
+            var intersectedEntities = new List<EntityBase>();
             if (!selectRoot)
             {
                 if (checkedEntities != null)
@@ -965,9 +1088,10 @@ namespace PSXPrev.Common.Renderer
                     {
                         if (entity.ChildEntities != null)
                         {
+                            var jointMatrices = !boundsPicking ? entity.JointMatrices : null;
                             foreach (var subEntity in entity.ChildEntities)
                             {
-                                CheckEntity(subEntity, pickedEntities, boundsPicking);
+                                CheckEntity(subEntity, intersectedEntities, boundsPicking, jointMatrices);
                             }
                         }
                     }
@@ -976,20 +1100,21 @@ namespace PSXPrev.Common.Renderer
                 {
                     if (selectedRootEntity.ChildEntities != null)
                     {
+                        var jointMatrices = !boundsPicking ? selectedRootEntity.JointMatrices : null;
                         foreach (var subEntity in selectedRootEntity.ChildEntities)
                         {
-                            CheckEntity(subEntity, pickedEntities, boundsPicking);
+                            CheckEntity(subEntity, intersectedEntities, boundsPicking, jointMatrices);
                         }
                     }
                 }
             }
-            pickedEntities.Sort((a, b) => a.IntersectionDistance.CompareTo(b.IntersectionDistance));
-            if (!ListsMatches(pickedEntities, _lastPickedEntities))
+            intersectedEntities.Sort((a, b) => a.IntersectionDistance.CompareTo(b.IntersectionDistance));
+            if (!ListsMatches(intersectedEntities, _lastPickedEntities))
             {
                 _lastPickedEntityIndex = 0;
             }
-            var pickedEntity = pickedEntities.Count > 0 ? pickedEntities[_lastPickedEntityIndex] : null;
-            if (_lastPickedEntityIndex < pickedEntities.Count - 1)
+            var pickedEntity = intersectedEntities.Count > 0 ? intersectedEntities[_lastPickedEntityIndex] : null;
+            if (_lastPickedEntityIndex < intersectedEntities.Count - 1)
             {
                 _lastPickedEntityIndex++;
             }
@@ -997,7 +1122,7 @@ namespace PSXPrev.Common.Renderer
             {
                 _lastPickedEntityIndex = 0;
             }
-            _lastPickedEntities = pickedEntities;
+            _lastPickedEntities = intersectedEntities;
             if (ShowDebugVisuals && ShowDebugIntersections)
             {
                 DebugIntersectionsBatch.Reset(1);
@@ -1007,24 +1132,22 @@ namespace PSXPrev.Common.Renderer
                     Thickness = DebugIntersectionLineThickness,
                     SolidColor = DebugIntersectionsColor,
                 };
-                foreach (var picked in pickedEntities)
+                foreach (var intersectedEntity in intersectedEntities)
                 {
-                    lineBuilder.AddEntityBounds(picked);
+                    if (intersectedEntity != pickedEntity)
+                    {
+                        lineBuilder.AddEntityBounds(intersectedEntity);
+                    }
                 }
                 DebugIntersectionsBatch.BindLineMesh(lineBuilder, null, true);
             }
             return pickedEntity;
         }
 
-        public void ClearTriangleUnderMouseList()
-        {
-            _lastPickedTriangles = null;
-        }
-
         public Tuple<ModelEntity, Triangle> GetTriangleUnderMouse(RootEntity[] checkedEntities, RootEntity selectedRootEntity, int x, int y, bool selectRoot = false)
         {
             UpdatePicking(x, y);
-            var pickedTriangles = new List<Tuple<ModelEntity, Triangle>>();
+            var intersectedTriangles = new List<Tuple<ModelEntity, Triangle>>();
             if (!selectRoot)
             {
                 if (checkedEntities != null)
@@ -1033,9 +1156,10 @@ namespace PSXPrev.Common.Renderer
                     {
                         if (entity.ChildEntities != null)
                         {
+                            var jointMatrices = entity.JointMatrices;
                             foreach (var subEntity in entity.ChildEntities)
                             {
-                                CheckTriangles(subEntity, pickedTriangles);
+                                CheckTriangles(subEntity, intersectedTriangles, jointMatrices);
                             }
                         }
                     }
@@ -1044,20 +1168,21 @@ namespace PSXPrev.Common.Renderer
                 {
                     if (selectedRootEntity.ChildEntities != null)
                     {
+                        var jointMatrices = selectedRootEntity.JointMatrices;
                         foreach (var subEntity in selectedRootEntity.ChildEntities)
                         {
-                            CheckTriangles(subEntity, pickedTriangles);
+                            CheckTriangles(subEntity, intersectedTriangles, jointMatrices);
                         }
                     }
                 }
             }
-            pickedTriangles.Sort((a, b) => a.Item2.IntersectionDistance.CompareTo(b.Item2.IntersectionDistance));
-            if (!ListsMatches(pickedTriangles, _lastPickedTriangles))
+            intersectedTriangles.Sort((a, b) => a.Item2.IntersectionDistance.CompareTo(b.Item2.IntersectionDistance));
+            if (!ListsMatches(intersectedTriangles, _lastPickedTriangles))
             {
                 _lastPickedTriangleIndex = 0;
             }
-            var pickedTriangle = pickedTriangles.Count > 0 ? pickedTriangles[_lastPickedTriangleIndex] : null;
-            if (_lastPickedTriangleIndex < pickedTriangles.Count - 1)
+            var pickedTriangle = intersectedTriangles.Count > 0 ? intersectedTriangles[_lastPickedTriangleIndex] : null;
+            if (_lastPickedTriangleIndex < intersectedTriangles.Count - 1)
             {
                 _lastPickedTriangleIndex++;
             }
@@ -1065,7 +1190,7 @@ namespace PSXPrev.Common.Renderer
             {
                 _lastPickedTriangleIndex = 0;
             }
-            _lastPickedTriangles = pickedTriangles;
+            _lastPickedTriangles = intersectedTriangles;
             if (ShowDebugVisuals && ShowDebugIntersections)
             {
                 DebugIntersectionsBatch.Reset(1);
@@ -1075,9 +1200,26 @@ namespace PSXPrev.Common.Renderer
                     Thickness = DebugIntersectionLineThickness,
                     SolidColor = DebugIntersectionsColor,
                 };
-                foreach (var picked in pickedTriangles)
+                foreach (var intersectedTriangle in intersectedTriangles)
                 {
-                    lineBuilder.AddTriangleOutline(picked.Item1.WorldMatrix, picked.Item2);
+                    var model = intersectedTriangle.Item1;
+                    var triangle = intersectedTriangle.Item2;
+                    var worldMatrix = model.WorldMatrix;
+                    Vector3 vertex0, vertex1, vertex2;
+                    if (AttachJointsMode != AttachJointsMode.Attach || !model.NeedsJointTransform)
+                    {
+                        Vector3.TransformPosition(ref triangle.Vertices[0], ref worldMatrix, out vertex0);
+                        Vector3.TransformPosition(ref triangle.Vertices[1], ref worldMatrix, out vertex1);
+                        Vector3.TransformPosition(ref triangle.Vertices[2], ref worldMatrix, out vertex2);
+                    }
+                    else
+                    {
+                        // We know that JointMatrices has previously been calculated when picking triangles,
+                        // so we can just use the cached version.
+                        var jointMatrices = model.GetRootEntity().JointMatricesCache;
+                        triangle.TransformPositions(ref worldMatrix, jointMatrices, out vertex0, out vertex1, out vertex2);
+                    }
+                    lineBuilder.AddTriangleOutline(vertex0, vertex1, vertex2);
                 }
                 DebugIntersectionsBatch.BindLineMesh(lineBuilder, null, true);
             }
@@ -1104,33 +1246,58 @@ namespace PSXPrev.Common.Renderer
             return true;
         }
 
-        private void CheckEntity(EntityBase entity, List<EntityBase> pickedEntities, bool boundsPicking)
+        private void CheckEntity(EntityBase entity, List<EntityBase> pickedEntities, bool boundsPicking, Matrix4[] jointMatrices)
         {
-            if (boundsPicking && entity is ModelEntity modelEntity)
+            if (!boundsPicking && entity is ModelEntity model)
             {
-                if (modelEntity.Triangles.Length > 0)
+                if (model.Triangles.Length == 0)
                 {
-                    var worldMatrix = modelEntity.WorldMatrix;
+                    return;
+                }
+                var worldMatrix = model.WorldMatrix;
+                var rayOrigin = _rayOrigin;
+                var rayDirection = _rayDirection;
+                var needsJointTransform = AttachJointsMode == AttachJointsMode.Attach && model.NeedsJointTransform;
+                if (!needsJointTransform)
+                {
                     // It might be cheaper to just transform the ray, for models with a lot of triangles.
-                    GeomMath.TransformRay(_rayOrigin, _rayDirection, worldMatrix, out var rayOrigin, out var rayDirection);
-                    foreach (var triangle in modelEntity.Triangles)
-                    {
-                        //Vector3.TransformPosition(ref triangle.Vertices[0], ref worldMatrix, out var vertex0);
-                        //Vector3.TransformPosition(ref triangle.Vertices[1], ref worldMatrix, out var vertex1);
-                        //Vector3.TransformPosition(ref triangle.Vertices[2], ref worldMatrix, out var vertex2);
-                        //var intersectionDistance = GeomMath.TriangleIntersect(_rayOrigin, _rayDirection, vertex0, vertex1, vertex2, out _);
+                    GeomMath.TransformRay(_rayOrigin, _rayDirection, worldMatrix, out rayOrigin, out rayDirection);
+                }
 
-                        var vertex0 = triangle.Vertices[0];
-                        var vertex1 = triangle.Vertices[1];
-                        var vertex2 = triangle.Vertices[2];
-                        var intersectionDistance = GeomMath.TriangleIntersect(rayOrigin, rayDirection, vertex0, vertex1, vertex2, out _);
-                        if (intersectionDistance > 0f)
-                        {
-                            triangle.IntersectionDistance = intersectionDistance;
-                            pickedEntities.Add(modelEntity);
-                            break;
-                        }
+                var minIntersectionDistance = -1f;
+                foreach (var triangle in model.Triangles)
+                {
+                    if (AttachJointsMode == AttachJointsMode.Hide && triangle.HasAttached)
+                    {
+                        continue;
                     }
+
+                    Vector3 vertex0, vertex1, vertex2;
+                    if (!needsJointTransform)
+                    {
+                        vertex0 = triangle.Vertices[0];
+                        vertex1 = triangle.Vertices[1];
+                        vertex2 = triangle.Vertices[2];
+                        // We would use this if we're not transforming the ray
+                        //Vector3.TransformPosition(ref triangle.Vertices[0], ref worldMatrix, out vertex0);
+                        //Vector3.TransformPosition(ref triangle.Vertices[1], ref worldMatrix, out vertex1);
+                        //Vector3.TransformPosition(ref triangle.Vertices[2], ref worldMatrix, out vertex2);
+                    }
+                    else
+                    {
+                        triangle.TransformPositions(ref worldMatrix, jointMatrices, out vertex0, out vertex1, out vertex2);
+                    }
+                    var intersectionDistance = GeomMath.TriangleIntersect(rayOrigin, rayDirection, vertex0, vertex1, vertex2, out _);
+
+                    if (intersectionDistance > 0f && (intersectionDistance < minIntersectionDistance || minIntersectionDistance <= 0f))
+                    {
+                        minIntersectionDistance = intersectionDistance;
+                    }
+                }
+                if (minIntersectionDistance > 0f)
+                {
+                    model.IntersectionDistance = minIntersectionDistance;
+                    pickedEntities.Add(model);
                 }
             }
             else
@@ -1144,28 +1311,48 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        private void CheckTriangles(EntityBase entity, List<Tuple<ModelEntity, Triangle>> pickedTriangles)
+        private void CheckTriangles(EntityBase entity, List<Tuple<ModelEntity, Triangle>> pickedTriangles, Matrix4[] jointMatrices)
         {
-            if (entity is ModelEntity modelEntity && modelEntity.Triangles.Length > 0)
+            if (entity is ModelEntity model && model.Triangles.Length > 0)
             {
-                var worldMatrix = modelEntity.WorldMatrix;
-                // It might be cheaper to just transform the ray, for models with a lot of triangles.
-                GeomMath.TransformRay(_rayOrigin, _rayDirection, worldMatrix, out var rayOrigin, out var rayDirection);
-                foreach (var triangle in modelEntity.Triangles)
+                var worldMatrix = model.WorldMatrix;
+                var rayOrigin = _rayOrigin;
+                var rayDirection = _rayDirection;
+                var needsJointTransform = AttachJointsMode == AttachJointsMode.Attach && model.NeedsJointTransform;
+                if (!needsJointTransform)
                 {
-                    //Vector3.TransformPosition(ref triangle.Vertices[0], ref worldMatrix, out var vertex0);
-                    //Vector3.TransformPosition(ref triangle.Vertices[1], ref worldMatrix, out var vertex1);
-                    //Vector3.TransformPosition(ref triangle.Vertices[2], ref worldMatrix, out var vertex2);
-                    //var intersectionDistance = GeomMath.TriangleIntersect(_rayOrigin, _rayDirection, vertex0, vertex1, vertex2, out _);
+                    // It might be cheaper to just transform the ray, for models with a lot of triangles.
+                    GeomMath.TransformRay(_rayOrigin, _rayDirection, worldMatrix, out rayOrigin, out rayDirection);
+                }
 
-                    var vertex0 = triangle.Vertices[0];
-                    var vertex1 = triangle.Vertices[1];
-                    var vertex2 = triangle.Vertices[2];
+                foreach (var triangle in model.Triangles)
+                {
+                    if (AttachJointsMode == AttachJointsMode.Hide && triangle.HasAttached)
+                    {
+                        continue;
+                    }
+
+                    Vector3 vertex0, vertex1, vertex2;
+                    if (!needsJointTransform)
+                    {
+                        vertex0 = triangle.Vertices[0];
+                        vertex1 = triangle.Vertices[1];
+                        vertex2 = triangle.Vertices[2];
+                        // We would use this if we're not transforming the ray
+                        //Vector3.TransformPosition(ref triangle.Vertices[0], ref worldMatrix, out vertex0);
+                        //Vector3.TransformPosition(ref triangle.Vertices[1], ref worldMatrix, out vertex1);
+                        //Vector3.TransformPosition(ref triangle.Vertices[2], ref worldMatrix, out vertex2);
+                    }
+                    else
+                    {
+                        triangle.TransformPositions(ref worldMatrix, jointMatrices, out vertex0, out vertex1, out vertex2);
+                    }
                     var intersectionDistance = GeomMath.TriangleIntersect(rayOrigin, rayDirection, vertex0, vertex1, vertex2, out _);
+
                     if (intersectionDistance > 0f)
                     {
                         triangle.IntersectionDistance = intersectionDistance;
-                        pickedTriangles.Add(new Tuple<ModelEntity, Triangle>(modelEntity, triangle));
+                        pickedTriangles.Add(new Tuple<ModelEntity, Triangle>(model, triangle));
                     }
                 }
             }

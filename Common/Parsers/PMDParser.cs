@@ -183,10 +183,10 @@ namespace PSXPrev.Common.Parsers
             EndModel:
             if (models.Count > 0)
             {
-                var entity = new RootEntity();
-                entity.ChildEntities = models.ToArray();
-                entity.ComputeBounds();
-                return entity;
+                var rootEntity = new RootEntity();
+                rootEntity.ChildEntities = models.ToArray();
+                rootEntity.ComputeBounds();
+                return rootEntity;
             }
             return null;
         }
@@ -818,7 +818,6 @@ namespace PSXPrev.Common.Parsers
                 Normals = new[] { normal0, normal1, normal2 },
                 Colors = new[] { color0, color1, color2 },
                 Uv = new[] { uv0, uv1, uv2 },
-                AttachableIndices = Triangle.EmptyAttachableIndices,
             };
 
             return triangle;

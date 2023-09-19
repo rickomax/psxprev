@@ -11,6 +11,13 @@ namespace PSXPrev.Common.Parsers
 {
     public class HMDParser : FileOffsetScanner
     {
+        private uint _blockCount;
+        private bool _modelIsJoint;
+        private readonly Dictionary<RenderInfo, List<Triangle>> _groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
+        private readonly Dictionary<uint, Tuple<uint, Vector3>> _attachableVertices = new Dictionary<uint, Tuple<uint, Vector3>>();
+        private readonly Dictionary<uint, Tuple<uint, Vector3>> _attachableNormals = new Dictionary<uint, Tuple<uint, Vector3>>();
+        private readonly List<ModelEntity> _models = new List<ModelEntity>();
+
         public HMDParser(EntityAddedAction entityAdded, TextureAddedAction textureAdded, AnimationAddedAction animationAdded)
             : base(entityAdded, textureAdded, animationAdded)
         {
@@ -20,29 +27,34 @@ namespace PSXPrev.Common.Parsers
 
         protected override void Parse(BinaryReader reader)
         {
+            // Reset model state
+            _blockCount = 0;
+            _modelIsJoint = false;
+            _groupedTriangles.Clear();
+            _attachableVertices.Clear();
+            _attachableNormals.Clear();
+            _models.Clear();
+
             var version = reader.ReadUInt32();
             if (Limits.IgnoreHMDVersion || version == 0x00000050)
             {
-                var rootEntity = ParseHMD(reader);
-                if (rootEntity != null)
+                if (!ParseHMD(reader))
                 {
-                    EntityResults.Add(rootEntity);
+
                 }
             }
         }
 
-        private RootEntity ParseHMD(BinaryReader reader)
+        private bool ParseHMD(BinaryReader reader)
         {
-            var mapFlag = reader.ReadUInt32();
+            var mappedFlag = reader.ReadUInt32();
             var primitiveHeaderTop = reader.ReadUInt32() * 4;
-            var blockCount = reader.ReadUInt32();
-            if (blockCount == 0 || blockCount > Limits.MaxHMDBlockCount)
+            _blockCount = reader.ReadUInt32();
+            if (_blockCount == 0 || _blockCount > Limits.MaxHMDBlockCount)
             {
-                return null;
+                return false;
             }
-            var modelEntities = new List<ModelEntity>();
-            uint sharedIndex = 0;
-            for (uint i = 0; i < blockCount; i++)
+            for (uint i = 0; i < _blockCount; i++)
             {
                 var primitiveSetTop = reader.ReadUInt32() * 4;
                 if (primitiveSetTop == 0)
@@ -52,14 +64,70 @@ namespace PSXPrev.Common.Parsers
                     continue;
                 }
                 var blockPosition = reader.BaseStream.Position;
-                ProcessPrimitiveSet(reader, modelEntities, i, primitiveSetTop, primitiveHeaderTop, blockCount, ref sharedIndex);
+                ProcessPrimitiveSet(reader, i, primitiveSetTop, primitiveHeaderTop);
                 reader.BaseStream.Seek(blockPosition, SeekOrigin.Begin);
             }
-            RootEntity rootEntity;
-            if (modelEntities.Count > 0)
+
+            // Read hierarchical coordinates table.
+            var coordTop = (uint)(reader.BaseStream.Position - _offset);
+            var coordCount = reader.ReadUInt32();
+            if (coordCount > _blockCount - 2u)
             {
-                rootEntity = new RootEntity();
-                rootEntity.ChildEntities = modelEntities.ToArray();
+                // Coord units start after the first (pre-process) block and end before the last (post-process) block.
+                // We need to allow at least blockCount - 2 coords, so only check the max cap if we're over that.
+                if (coordCount > Limits.MaxHMDCoordCount)
+                {
+                    return false;
+                }
+                if (Program.Debug)
+                {
+                    Program.Logger.WriteLine($"coordCount {coordCount} exceeds blockCount - 2 ({_blockCount - 2u})");
+                }
+            }
+            var coords = new Coordinate[coordCount];
+            for (uint c = 0; c < coordCount; c++)
+            {
+                var coord = ReadCoord(reader, coordTop, c, coords);
+                if (coord == null)
+                {
+                    return false; // Bad coord unit.
+                }
+                coords[c] = coord;
+            }
+            // Now that the table is fully read, ensure no circular references in coord parents.
+            if (Coordinate.FindCircularReferences(coords))
+            {
+                return false; // Bad coords with parents that reference themselves.
+            }
+            // All coords are safe to use. Assign coords to models.
+            foreach (var coord in coords)
+            {
+                if (coord.ID + 2u >= _blockCount)
+                {
+                    break; // Coord units can't be assigned to post-process primitives.
+                }
+                var localMatrix = coord.WorldMatrix;
+                foreach (var model in _models)
+                {
+                    if (model.TMDID == coord.TMDID)
+                    {
+                        model.OriginalLocalMatrix = localMatrix;
+                    }
+                }
+            }
+
+            //var primitiveHeaderCount = reader.ReadUInt32();
+            //for (var i = 0; i < primitiveHeaderCount; i++)
+            //{
+            //    var primitiveHeaderPointer = reader.ReadUInt32() * 4;
+            //}
+
+            // Assign coords table to root entity so that they can be used in animations.
+            if (_models.Count > 0)
+            {
+                var rootEntity = new RootEntity();
+                rootEntity.ChildEntities = _models.ToArray();
+                rootEntity.Coords = coords;
                 rootEntity.OwnedTextures.AddRange(TextureResults);
                 rootEntity.OwnedAnimations.AddRange(AnimationResults);
                 foreach (var texture in TextureResults)
@@ -70,70 +138,14 @@ namespace PSXPrev.Common.Parsers
                 {
                     animation.OwnerEntity = rootEntity;
                 }
+                // PrepareJoints must be called before ComputeBounds
+                rootEntity.PrepareJoints(_attachableVertices.Count > 0 || _attachableNormals.Count > 0);
                 rootEntity.ComputeBounds();
+                EntityResults.Add(rootEntity);
+                return true;
             }
-            else
-            {
-                rootEntity = null;
-            }
-            // Read hierarchical coordinates table.
-            var coordTop = (uint)(reader.BaseStream.Position - _offset);
-            var coordCount = reader.ReadUInt32();
-            if (coordCount > blockCount - 2)
-            {
-                // Coord units start after the first (pre-process) block and end before the last (post-process) block.
-                // We need to allow at least blockCount - 2 coords, so only check the max cap if we're over that.
-                if (coordCount > Limits.MaxHMDCoordCount)
-                {
-                    return null;
-                }
-                if (Program.Debug)
-                {
-                    Program.Logger.WriteLine($"coordCount {coordCount} exceeds blockCount - 2 ({blockCount - 2})");
-                }
-            }
-            var coords = new Coordinate[coordCount];
-            for (uint c = 0; c < coordCount; c++)
-            {
-                var coord = ReadCoord(reader, coordTop, c, coords);
-                if (coord == null)
-                {
-                    return null; // Bad coord unit.
-                }
-                coords[c] = coord;
-            }
-            // Now that the table is fully read, ensure no circular references in coord parents.
-            if (Coordinate.FindCircularReferences(coords))
-            {
-                return null; // Bad coords with parents that reference themselves.
-            }
-            // All coords are safe to use. Assign coords to models.
-            foreach (var coord in coords)
-            {
-                if (coord.ID + 2 >= blockCount)
-                {
-                    break; // Coord units can't be assigned to post-process primitives.
-                }
-                var localMatrix = coord.WorldMatrix;
-                foreach (var modelEntity in modelEntities)
-                {
-                    if (modelEntity.TMDID == coord.TMDID)
-                    {
-                        modelEntity.OriginalLocalMatrix = localMatrix;
-                    }
-                }
-            }
-            // Assign coords table to root entity so that they can be used in animations.
-            if (rootEntity != null)
-            {
-                rootEntity.Coords = coords;
-            }
-            var primitiveHeaderCount = reader.ReadUInt32();
-            //for (var i = 0; i < primitiveHeaderCount; i++)
-            //{
-            //    var primitiveHeaderPointer = reader.ReadUInt32() * 4;
-            //}
-            return rootEntity;
+
+            return TextureResults.Count > 0 || AnimationResults.Count > 0;
         }
 
         private Coordinate ReadCoord(BinaryReader reader, uint coordTop, uint coordID, Coordinate[] coords)
@@ -141,11 +153,12 @@ namespace PSXPrev.Common.Parsers
             var flag = reader.ReadUInt32();
             var localMatrix = ReadMatrix(reader, out var translation);
             var workMatrix = ReadMatrix(reader, out _);
-            
+
+            // 4096 == 360 degrees
             var rx = (float)(reader.ReadInt16() / 4096.0 * (Math.PI * 2.0));
             var ry = (float)(reader.ReadInt16() / 4096.0 * (Math.PI * 2.0));
             var rz = (float)(reader.ReadInt16() / 4096.0 * (Math.PI * 2.0));
-            var pad = reader.ReadInt16();
+            var pad = reader.ReadUInt16();
             var rotation = new Vector3(rx, ry, rz);
 
             var super = reader.ReadUInt32() * 4;
@@ -184,17 +197,17 @@ namespace PSXPrev.Common.Parsers
 
         private static Matrix4 ReadMatrix(BinaryReader reader, out Vector3 translation)
         {
-            var r00 = reader.ReadInt16() / 4096f;
-            var r01 = reader.ReadInt16() / 4096f;
-            var r02 = reader.ReadInt16() / 4096f;
+            var m00 = reader.ReadInt16() / 4096f;
+            var m01 = reader.ReadInt16() / 4096f;
+            var m02 = reader.ReadInt16() / 4096f;
 
-            var r10 = reader.ReadInt16() / 4096f;
-            var r11 = reader.ReadInt16() / 4096f;
-            var r12 = reader.ReadInt16() / 4096f;
+            var m10 = reader.ReadInt16() / 4096f;
+            var m11 = reader.ReadInt16() / 4096f;
+            var m12 = reader.ReadInt16() / 4096f;
 
-            var r20 = reader.ReadInt16() / 4096f;
-            var r21 = reader.ReadInt16() / 4096f;
-            var r22 = reader.ReadInt16() / 4096f;
+            var m20 = reader.ReadInt16() / 4096f;
+            var m21 = reader.ReadInt16() / 4096f;
+            var m22 = reader.ReadInt16() / 4096f;
 
             var x = reader.ReadInt32() / 65536f;
             var y = reader.ReadInt32() / 65536f;
@@ -202,9 +215,9 @@ namespace PSXPrev.Common.Parsers
             translation = new Vector3(x, y, z);
 
             var matrix = new Matrix4(
-                new Vector4(r00, r10, r20, 0f),
-                new Vector4(r01, r11, r21, 0f),
-                new Vector4(r02, r12, r22, 0f),
+                new Vector4(m00, m10, m20, 0f),
+                new Vector4(m01, m11, m21, 0f),
+                new Vector4(m02, m12, m22, 0f),
                 new Vector4(x, y, z, 1f)
             );
             // It's strange that padding comes after the int32s. Would have expected the int32s to get aligned instead.
@@ -212,11 +225,9 @@ namespace PSXPrev.Common.Parsers
             return matrix;
         }
 
-        private void ProcessPrimitiveSet(BinaryReader reader, List<ModelEntity> modelEntities, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop, uint blockCount, ref uint sharedIndex)
+        private void ProcessPrimitiveSet(BinaryReader reader, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop)
         {
-            var groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
-            var sharedVertices = new Dictionary<uint, Vector3>();
-            var sharedNormals = new Dictionary<uint, Vector3>();
+            _groupedTriangles.Clear();
             var hasSharedGeometry = false; // Signals flushing of models when shared indices are read.
 
             uint chainLength = 0;
@@ -283,7 +294,7 @@ namespace PSXPrev.Common.Parsers
                             Program.Logger.WriteLine($"HMD Non-Shared Vertices Geometry");
                         }
 
-                        ProcessGeometryData(groupedTriangles, reader, false, driver, primitiveType, primitiveHeaderPointer, dataCount);
+                        ProcessGeometryData(reader, false, driver, primitiveType, primitiveHeaderPointer, dataCount, primitiveIndex);
                     }
                     else if (category == 1)
                     {
@@ -298,17 +309,16 @@ namespace PSXPrev.Common.Parsers
                             // Shared indices (attachable)
                             if (hasSharedGeometry)
                             {
-                                // Flush models so that previously-defined shared geometry can't reference these shared indices.
-                                FlushModels(modelEntities, groupedTriangles, sharedVertices, sharedNormals, primitiveIndex, sharedIndex);
-                                sharedIndex++;
+                                // Flush models so that previously-defined shared geometry can't reference overwritten shared indices.
+                                FlushModels(primitiveIndex);
                                 hasSharedGeometry = false;
                             }
-                            ProcessSharedIndicesData(sharedVertices, sharedNormals, reader, driver, primitiveHeaderPointer);
+                            ProcessSharedIndicesData(reader, driver, primitiveHeaderPointer, primitiveIndex);
                         }
                         else
                         {
                             // Shared geometry (attached)
-                            ProcessGeometryData(groupedTriangles, reader, true, driver, primitiveType, primitiveHeaderPointer, dataCount);
+                            ProcessGeometryData(reader, true, driver, primitiveType, primitiveHeaderPointer, dataCount, primitiveIndex);
                             // If shared indices are defined after this geometry, then this geometry can't use them.
                             // So make sure the current models are flushed so that we can stop after this shared model.
                             hasSharedGeometry = true;
@@ -334,7 +344,7 @@ namespace PSXPrev.Common.Parsers
                         }
                         try
                         {
-                            var addedAnimations = ProcessAnimationData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, dataCount, blockCount);
+                            var addedAnimations = ProcessAnimationData(reader, driver, primitiveType, primitiveHeaderPointer, dataCount);
                             if (addedAnimations != null)
                             {
                                 AnimationResults.AddRange(addedAnimations);
@@ -368,13 +378,13 @@ namespace PSXPrev.Common.Parsers
                         {
                             // Joint Axes/Roll-Pitch-Yaw: Not supported yet (function doesn't return animation yet)
                             var rpy = code1 == 1;
-                            animation = ProcessMIMeJointData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, dataCount, rpy, reset, blockCount);
+                            animation = ProcessMIMeJointData(reader, driver, primitiveType, primitiveHeaderPointer, dataCount, rpy, reset);
                         }
                         else if (code0 == 2 && code1 == 0 && !reset) // Normal not supported, reset not supported
                         {
                             // Vertex/Normal
                             var normal = code1 == 1;
-                            animation = ProcessMIMeVertexNormalData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, dataCount, normal, reset, blockCount);
+                            animation = ProcessMIMeVertexNormalData(reader, driver, primitiveType, primitiveHeaderPointer, dataCount, normal, reset);
                         }
                         if (animation != null)
                         {
@@ -387,7 +397,7 @@ namespace PSXPrev.Common.Parsers
                         {
                             Program.Logger.WriteLine($"HMD Ground");
                         }
-                        ProcessGroundData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer);
+                        ProcessGroundData(reader, driver, primitiveType, primitiveHeaderPointer);
                     }
                     else if (category == 6)
                     {
@@ -403,18 +413,17 @@ namespace PSXPrev.Common.Parsers
                             // Shared indices (attachable)
                             if (hasSharedGeometry)
                             {
-                                // Flush models so that previously-defined shared geometry can't reference these shared indices.
-                                FlushModels(modelEntities, groupedTriangles, sharedVertices, sharedNormals, primitiveIndex, sharedIndex);
-                                sharedIndex++;
+                                // Flush models so that previously-defined shared geometry can't reference overwritten shared indices.
+                                FlushModels(primitiveIndex);
                                 hasSharedGeometry = false;
                             }
-                            ProcessSharedIndicesData(sharedVertices, sharedNormals, reader, driver, primitiveHeaderPointer);
+                            ProcessSharedIndicesData(reader, driver, primitiveHeaderPointer, primitiveIndex);
                         }
                         else if (shared)
                         {
                             // Shared geometry (attached)
                             var flag = primitiveType & 0xeff;
-                            ProcessGeometryData(groupedTriangles, reader, true, driver, flag, primitiveHeaderPointer, dataCount);
+                            ProcessGeometryData(reader, true, driver, flag, primitiveHeaderPointer, dataCount, primitiveIndex);
                             // If shared indices are defined after this geometry, then this geometry can't use them.
                             // So make sure the current models are flushed so that we can stop after this shared model.
                             hasSharedGeometry = true;
@@ -422,7 +431,7 @@ namespace PSXPrev.Common.Parsers
                         else
                         {
                             // Envmap geometry
-                            ProcessEnvmapData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer, dataCount);
+                            ProcessEnvmapData(reader, driver, primitiveType, primitiveHeaderPointer, dataCount, primitiveIndex);
                         }
                     }
                     else if (category == 7)
@@ -432,7 +441,7 @@ namespace PSXPrev.Common.Parsers
                             Program.Logger.WriteLine($"HMD Equipment");
                         }
                         // Nothing is done with this data yet.
-                        ProcessEquipmentData(groupedTriangles, reader, driver, primitiveType, primitiveHeaderPointer);
+                        ProcessEquipmentData(reader, driver, primitiveType, primitiveHeaderPointer);
                     }
 
                     // Seek to the next type. This is necessary since not all types will fully read up to the next type (i.e. Image Data).
@@ -450,17 +459,13 @@ namespace PSXPrev.Common.Parsers
                 break;
             }
 
-            FlushModels(modelEntities, groupedTriangles, sharedVertices, sharedNormals, primitiveIndex, sharedIndex);
-            if (hasSharedGeometry)
-            {
-                sharedIndex++;
-            }
+            FlushModels(primitiveIndex);
         }
 
         // Needed to flush triangles and shared indices into models (after shared geometry and before shared indices).
-        private void FlushModels(List<ModelEntity> modelEntities, Dictionary<RenderInfo, List<Triangle>> groupedTriangles, Dictionary<uint, Vector3> sharedVertices, Dictionary<uint, Vector3> sharedNormals, uint primitiveIndex, uint sharedIndex)
+        private void FlushModels(uint primitiveIndex)
         {
-            foreach (var kvp in groupedTriangles)
+            foreach (var kvp in _groupedTriangles)
             {
                 var renderInfo = kvp.Key;
                 var triangles = kvp.Value;
@@ -470,59 +475,46 @@ namespace PSXPrev.Common.Parsers
                     TexturePage = renderInfo.TexturePage,
                     RenderFlags = renderInfo.RenderFlags,
                     MixtureRate = renderInfo.MixtureRate,
-                    TMDID = primitiveIndex, //todo
-                    //PrimitiveIndex = primitiveIndex,
-                    SharedID = sharedIndex,
+                    TMDID = primitiveIndex, // Primitive index is already 1-indexed (index 0 is pre-processing)
+                    JointID = primitiveIndex + 1u,
                 };
-                if (sharedVertices.Count > 0 || sharedNormals.Count > 0)
-                {
-                    // We can add shared indices onto this existing model, instead of adding a dummy model.
-                    // A model is used so that it can transform the shared vertices.
-                    model.AttachableVertices = new Dictionary<uint, Vector3>(sharedVertices);
-                    model.AttachableNormals = new Dictionary<uint, Vector3>(sharedNormals);
-                    // Reset dictionaries so that we don't add shared indices again for this block.
-                    sharedVertices.Clear();
-                    sharedNormals.Clear();
-                }
-                model.ComputeAttached();
-                modelEntities.Add(model);
+                _models.Add(model);
+                // We can add shared indices onto this existing model, instead of adding a dummy model.
+                // A model is used so that it can transform the shared vertices.
+                _modelIsJoint = false;
             }
-            if (sharedVertices.Count > 0 || sharedNormals.Count > 0)
+            if (_modelIsJoint)
             {
-                // No models were added for this primitive index, add a dummy model.
-                var sharedModel = new ModelEntity
+                // No models were added for this primitive index, add a dummy model to serve as the joint transform.
+                var jointModel = new ModelEntity
                 {
                     Triangles = new Triangle[0], // No triangles. Is it possible this could break exporters?
                     RenderFlags = RenderFlags.None, // Assign flags since None is not the default flags.
-                    TMDID = primitiveIndex, //todo
-                    //PrimitiveIndex = primitiveIndex,
-                    SharedID = sharedIndex,
+                    TMDID = primitiveIndex, // Primitive index is already 1-indexed (index 0 is pre-processing)
+                    JointID = primitiveIndex + 1u,
                     Visible = false,
-                    AttachableVertices = new Dictionary<uint, Vector3>(sharedVertices),
-                    AttachableNormals = new Dictionary<uint, Vector3>(sharedNormals),
                 };
-                modelEntities.Add(sharedModel);
-                sharedVertices.Clear();
-                sharedNormals.Clear();
+                _models.Add(jointModel);
+                _modelIsJoint = false;
             }
-            groupedTriangles.Clear();
+            _groupedTriangles.Clear();
         }
 
-        private static void ReadMappedValue(BinaryReader reader, out uint mapped, out uint value)
+        private static void ReadMappedValue(BinaryReader reader, out bool mapped, out uint value)
         {
             var valueMapped = reader.ReadUInt32();
-            mapped = (valueMapped >> 31) & 0b00000001;
-            value = valueMapped & 0b01111111111111111111111111111111;
+            mapped = ((valueMapped >> 31) & 0x1) != 0;
+            value = valueMapped & 0x7fffffffu;
         }
 
-        private static void ReadMappedValue16(BinaryReader reader, out uint mapped, out uint value)
+        private static void ReadMappedValue16(BinaryReader reader, out bool mapped, out uint value)
         {
             var valueMapped = reader.ReadUInt16();
-            mapped = (uint)((valueMapped >> 15) & 0b00000001);
-            value = (uint)(valueMapped & 0b0111111111111111);
+            mapped = ((valueMapped >> 15) & 0x1) != 0;
+            value = valueMapped & 0x7fffu;
         }
 
-        private static void ReadMappedPointer(BinaryReader reader, out uint mapped, out uint pointer)
+        private static void ReadMappedPointer(BinaryReader reader, out bool mapped, out uint pointer)
         {
             ReadMappedValue(reader, out mapped, out pointer);
             pointer *= 4;
@@ -535,7 +527,7 @@ namespace PSXPrev.Common.Parsers
             var x = reader.ReadInt16();
             var y = reader.ReadInt16();
             var z = reader.ReadInt16();
-            var pad = reader.ReadInt16();
+            var pad = reader.ReadUInt16();
             var vertex = new Vector3(x, y, z);
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
             return vertex;
@@ -548,13 +540,13 @@ namespace PSXPrev.Common.Parsers
             var nx = TMDHelper.ConvertNormal(reader.ReadInt16());
             var ny = TMDHelper.ConvertNormal(reader.ReadInt16());
             var nz = TMDHelper.ConvertNormal(reader.ReadInt16());
-            var pad = reader.ReadInt16();
+            var pad = reader.ReadUInt16();
             var normal = new Vector3(nx, ny, nz);
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
             return normal;
         }
 
-        private void ProcessGeometryData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, bool shared, uint driver, uint flag, uint primitiveHeaderPointer, uint dataCount)
+        private void ProcessGeometryData(BinaryReader reader, bool shared, uint driver, uint flag, uint primitiveHeaderPointer, uint dataCount, uint primitiveIndex)
         {
             var polygonIndex = reader.ReadUInt32() * 4;
 
@@ -580,21 +572,35 @@ namespace PSXPrev.Common.Parsers
                         case PrimitiveType.Triangle:
                         case PrimitiveType.Quad:
                         case PrimitiveType.StripMesh:
-                            TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, shared,
-                                index =>
+                            TMDHelper.AddTrianglesToGroup(_groupedTriangles, packetStructure, shared, primitiveIndex + 1u,
+                                (uint index, out uint joint) =>
                                 {
                                     if (shared)
                                     {
+                                        if (_attachableVertices.TryGetValue(index, out var tuple))
+                                        {
+                                            joint = tuple.Item1;
+                                            return tuple.Item2;
+                                        }
+                                        joint = Triangle.NoJoint;
                                         return Vector3.Zero; // This is an attached vertex.
                                     }
+                                    joint = Triangle.NoJoint;
                                     return ReadVertex(reader, vertTop, index);
                                 },
-                                index =>
+                                (uint index, out uint joint) =>
                                 {
                                     if (shared)
                                     {
+                                        if (_attachableNormals.TryGetValue(index, out var tuple))
+                                        {
+                                            joint = tuple.Item1;
+                                            return tuple.Item2;
+                                        }
+                                        joint = Triangle.NoJoint;
                                         return Vector3.UnitZ; // This is an attached normal. Return Unit vector in-case it somehow gets used in a calculation.
                                     }
+                                    joint = Triangle.NoJoint;
                                     return ReadNormal(reader, normTop, index);
                                 });
                             break;
@@ -604,7 +610,7 @@ namespace PSXPrev.Common.Parsers
             reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
         }
 
-        private void ProcessSharedIndicesData(Dictionary<uint, Vector3> sharedVertices, Dictionary<uint, Vector3> sharedNormals, BinaryReader reader, uint driver, uint primitiveHeaderPointer)
+        private void ProcessSharedIndicesData(BinaryReader reader, uint driver, uint primitiveHeaderPointer, uint primitiveIndex)
         {
             // Pre-calculation driver for shared indices data.
             var primitivePosition = reader.BaseStream.Position;
@@ -629,13 +635,20 @@ namespace PSXPrev.Common.Parsers
             {
                 var vertexIndex = vertSrcOffset + i;
                 var lookupIndex = vertDstOffset + i; //vertexIndex;
-                sharedVertices[lookupIndex] = ReadVertex(reader, vertTop, vertexIndex);
+                var vertex = ReadVertex(reader, vertTop, vertexIndex);
+                _attachableVertices[lookupIndex] = new Tuple<uint, Vector3>(primitiveIndex + 1u, vertex);
             }
             for (uint i = 0; i < normCount; i++)
             {
                 var normalIndex = normSrcOffset + i;
                 var lookupIndex = normDstOffset + i; //normalIndex;
-                sharedNormals[lookupIndex] = ReadNormal(reader, normTop, normalIndex);
+                var normal = ReadNormal(reader, normTop, normalIndex);
+                _attachableNormals[lookupIndex] = new Tuple<uint, Vector3>(primitiveIndex + 1u, normal);
+            }
+
+            if (vertCount > 0 || normCount > 0)
+            {
+                _modelIsJoint = true; // This model must be added, even if there are no triangles.
             }
 
             reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
@@ -692,7 +705,7 @@ namespace PSXPrev.Common.Parsers
             return texture;
         }
 
-        private List<Animation> ProcessAnimationData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, uint blockCount)
+        private List<Animation> ProcessAnimationData(BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount)
         {
             var primitivePosition = reader.BaseStream.Position;
             ProcessAnimationPrimitiveHeader(reader, primitiveHeaderPointer, out var interpTop, out var ctrlTop, out var paramTop, out var sectionList);
@@ -740,7 +753,7 @@ namespace PSXPrev.Common.Parsers
                     // Another animation object exists that modifies the same TMDID.
                     // This and the other object run in parallel.
                     // We need a new objectId.
-                    objectId += blockCount;
+                    objectId += _blockCount;
                 }
                 var animationObject = new AnimationObject { Animation = animationList[index], ID = objectId };
                 animationObject.TMDID.Add(tmdid);
@@ -1043,7 +1056,7 @@ namespace PSXPrev.Common.Parsers
             return animationList;
         }
 
-        private Animation ProcessMIMeJointData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, bool rpy, bool reset, uint blockCount)
+        private Animation ProcessMIMeJointData(BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, bool rpy, bool reset)
         {
             Animation animation;
             Dictionary<uint, AnimationObject> animationObjects;
@@ -1071,7 +1084,7 @@ namespace PSXPrev.Common.Parsers
                     // Another animation object exists that modifies the same TMDID.
                     // This and the other object run in parallel.
                     // We need a new objectId.
-                    objectId += blockCount;
+                    objectId += _blockCount;
                 }
                 if (!animationObjects.TryGetValue(objectId, out var animationObject))
                 {
@@ -1118,7 +1131,7 @@ namespace PSXPrev.Common.Parsers
                 {
                     return null;
                 }
-                if (coordID + 2 >= blockCount)
+                if (coordID + 2u >= _blockCount)
                 {
                     return null; // First and last block are pre/post-processing and don't have coords
                 }
@@ -1197,7 +1210,7 @@ namespace PSXPrev.Common.Parsers
             return animation;
         }
 
-        private Animation ProcessMIMeVertexNormalData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, bool normal, bool reset, uint blockCount)
+        private Animation ProcessMIMeVertexNormalData(BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, bool normal, bool reset)
         {
             Animation animation;
             Dictionary<uint, AnimationObject> animationObjects;
@@ -1225,7 +1238,7 @@ namespace PSXPrev.Common.Parsers
                     // Another animation object exists that modifies the same TMDID.
                     // This and the other object run in parallel.
                     // We need a new objectId.
-                    objectId += blockCount;
+                    objectId += _blockCount;
                 }
                 if (!animationObjects.TryGetValue(objectId, out var animationObject))
                 {
@@ -1360,7 +1373,7 @@ namespace PSXPrev.Common.Parsers
             return animation;
         }
 
-        private void ProcessGroundData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer)
+        private void ProcessGroundData(BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer)
         {
             var texture = primitiveType == 1;
 
@@ -1371,10 +1384,10 @@ namespace PSXPrev.Common.Parsers
                     triangle.CorrectUVTearing();
                 }
                 var renderInfo = new RenderInfo(tPageNum, renderFlags, mixtureRate);
-                if (!groupedTriangles.TryGetValue(renderInfo, out var triangles))
+                if (!_groupedTriangles.TryGetValue(renderInfo, out var triangles))
                 {
                     triangles = new List<Triangle>();
-                    groupedTriangles.Add(renderInfo, triangles);
+                    _groupedTriangles.Add(renderInfo, triangles);
                 }
                 triangles.Add(triangle);
             }
@@ -1509,7 +1522,6 @@ namespace PSXPrev.Common.Parsers
                         Normals = new[] { normal1, normal1, normal1 },
                         Colors = new[] { color, color, color },
                         Uv = new[] { uv0, uv1, uv2 },
-                        AttachableIndices = Triangle.EmptyAttachableIndices,
                     }, tPage, renderFlags, mixtureRate);
 
                     AddTriangle(new Triangle
@@ -1518,7 +1530,6 @@ namespace PSXPrev.Common.Parsers
                         Normals = new[] { normal2, normal2, normal2 },
                         Uv = new[] { uv1, uv3, uv2 },
                         Colors = new[] { color, color, color },
-                        AttachableIndices = Triangle.EmptyAttachableIndices,
                     }, tPage, renderFlags, mixtureRate);
                 }
                 reader.BaseStream.Seek(polyPosition, SeekOrigin.Begin);
@@ -1526,7 +1537,7 @@ namespace PSXPrev.Common.Parsers
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ProcessEnvmapData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount)
+        private void ProcessEnvmapData(BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer, uint dataCount, uint primitiveIndex)
         {
             var polygonIndex = reader.ReadUInt32() * 4;
 
@@ -1584,11 +1595,13 @@ namespace PSXPrev.Common.Parsers
                         case PrimitiveType.Triangle:
                         case PrimitiveType.Quad:
                         case PrimitiveType.StripMesh:
-                            TMDHelper.AddTrianglesToGroup(groupedTriangles, packetStructure, false,
-                                index => {
+                            TMDHelper.AddTrianglesToGroup(_groupedTriangles, packetStructure, false, primitiveIndex + 1u,
+                                (uint index, out uint joint) => {
+                                    joint = Triangle.NoJoint;
                                     return ReadVertex(reader, vertTop, index);
                                 },
-                                index => {
+                                (uint index, out uint joint) => {
+                                    joint = Triangle.NoJoint;
                                     return ReadNormal(reader, normTop, index);
                                 });
                             break;
@@ -1598,7 +1611,7 @@ namespace PSXPrev.Common.Parsers
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
         }
 
-        private void ProcessEquipmentData(Dictionary<RenderInfo, List<Triangle>> groupedTriangles, BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer)
+        private void ProcessEquipmentData(BinaryReader reader, uint driver, uint primitiveType, uint primitiveHeaderPointer)
         {
             var position = reader.BaseStream.Position;
             // Note: with coordPointers, we need to find out coordTop to get the actual coordinate indices.

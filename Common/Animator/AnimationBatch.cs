@@ -205,13 +205,6 @@ namespace PSXPrev.Common.Animator
         {
             var rootEntity = selectedRootEntity ?? selectedModelEntity?.GetRootEntity();
 
-            // Support using AnimationBatch even if we have no Scene.
-            if (!simulate && _scene != null)
-            {
-                updateMeshData |= _scene.AutoAttach;
-                _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, selectedModelEntity, selectedRootEntity, updateMeshData);
-            }
-
             ComputePlaybackFrameTime();
 
             var needsUpdate = (_animationStateChanged) ||
@@ -227,6 +220,14 @@ namespace PSXPrev.Common.Animator
             // The result has been changed to signal if anything has been processed or not.
             if (needsUpdate)
             {
+                // Support using AnimationBatch even if we have no Scene.
+                if (!simulate && _scene != null)
+                {
+                    updateMeshData |= _scene.AttachJointsMode == AttachJointsMode.Attach && !Scene.JointsSupported;
+                    updateMeshData |= _animation.AnimationType.IsVertexBased();
+                    _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, selectedModelEntity, selectedRootEntity, updateMeshData);
+                }
+
                 // todo: What does ProcessAnimationObject's return boolean signify?
                 ProcessAnimationObject(_animation.RootAnimationObject, rootEntity, Matrix4.Identity);
                 return true;
@@ -279,11 +280,11 @@ namespace PSXPrev.Common.Animator
                         if (selectedRootEntity != null && animationObject.Parent != null)
                         {
                             selectedRootEntity.TempMatrix = Matrix4.Identity;
-                            foreach (var objectId in animationObject.TMDID)
+                            foreach (var tmdid in animationObject.TMDID)
                             {
                                 foreach (ModelEntity childModel in selectedRootEntity.ChildEntities)
                                 {
-                                    if (childModel.TMDID == objectId)
+                                    if (childModel.TMDID == tmdid)
                                     {
                                         if (frameIndex > animationObject.AnimationFrames.Count - 1)
                                         {
@@ -392,19 +393,15 @@ namespace PSXPrev.Common.Animator
                             }
                             else
                             {
-                                foreach (var objectId in animationObject.TMDID)
+                                foreach (var tmdid in animationObject.TMDID)
                                 {
-                                    if (objectId > 0)
+                                    if (tmdid > 0)
                                     {
-                                        List<ModelEntity> models;
-                                        if (_animation.TMDBindings.TryGetValue(objectId, out var binding))
+                                        if (!_animation.TMDBindings.TryGetValue(tmdid, out var binding))
                                         {
-                                            models = selectedRootEntity.GetModelsWithTMDID(binding);
+                                            binding = tmdid;
                                         }
-                                        else
-                                        {
-                                            models = selectedRootEntity.GetModelsWithTMDID(objectId - 1);
-                                        }
+                                        var models = selectedRootEntity.GetModelsWithTMDID(binding);
                                         foreach (var childModel in models)
                                         {
                                             childModel.Interpolator = 0;
@@ -442,11 +439,15 @@ namespace PSXPrev.Common.Animator
 
                                 foreach (var tmdid in animationObject.TMDID)
                                 {
-                                    if (tmdid <= 0 || tmdid > selectedRootEntity.Coords.Length)
+                                    if (!_animation.TMDBindings.TryGetValue(tmdid, out var binding))
+                                    {
+                                        binding = tmdid;
+                                    }
+                                    if (binding <= 0 || binding > selectedRootEntity.Coords.Length)
                                     {
                                         continue;
                                     }
-                                    var coord = selectedRootEntity.Coords[tmdid - 1];
+                                    var coord = selectedRootEntity.Coords[binding - 1];
 
                                     var delta = GetInterpolator(srcFrame, frameTime);
 
@@ -548,11 +549,15 @@ namespace PSXPrev.Common.Animator
 
                             foreach (var tmdid in animationObject.TMDID)
                             {
-                                if (tmdid <= 0 || tmdid > selectedRootEntity.Coords.Length)
+                                if (!_animation.TMDBindings.TryGetValue(tmdid, out var binding))
+                                {
+                                    binding = tmdid;
+                                }
+                                if (binding <= 0 || binding > selectedRootEntity.Coords.Length)
                                 {
                                     continue;
                                 }
-                                var coord = selectedRootEntity.Coords[tmdid - 1];
+                                var coord = selectedRootEntity.Coords[binding - 1];
 
                                 var delta = GetInterpolator(srcFrame, frameTime);
 
