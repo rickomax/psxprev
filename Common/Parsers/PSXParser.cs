@@ -25,7 +25,7 @@ namespace PSXPrev.Common.Parsers
         private float _scaleDivisor = 1f;
         private bool _useModelIndexAsObjectIndex; // Actor models use the model index to get the transform of the object
         private PSXObject[] _objects;
-        //private Coordinate[] _coords; // Same count as _objects (not ready yet)
+        private Coordinate[] _coords;
         private uint _objectCount;
         private uint _modelCount;
         private Vector3[] _vertices;
@@ -58,6 +58,7 @@ namespace PSXPrev.Common.Parsers
         protected override void Parse(BinaryReader reader)
         {
             _scaleDivisor = _scaleDivisorTranslation = Settings.Instance.AdvancedPSXScaleDivisor;
+            _coords = null;
             _modelIsJoint = false;
             _gouraudPaletteSize = 0;
             _textureHashCount = 0;
@@ -106,7 +107,6 @@ namespace PSXPrev.Common.Parsers
             if (_objects == null || _objects.Length < _objectCount)
             {
                 _objects = new PSXObject[_objectCount];
-                //_coords = new Coordinate[_objectCount];
             }
             for (uint i = 0; i < _objectCount; i++)
             {
@@ -169,17 +169,6 @@ namespace PSXPrev.Common.Parsers
             reader.BaseStream.Seek(modelsStartPosition, SeekOrigin.Begin);
 
 
-            /*var coords = new Coordinate[_objectCount];
-            Array.Copy(_coords, coords, coords.Length);
-            foreach (var coord in coords)
-            {
-                coord.Coords = coords;
-            }
-            if (Coordinate.FindCircularReferences(coords))
-            {
-                return false;
-            }*/
-
             // We need to go through and read each model's vertices first, since we need to know joint vertex positions ahead of time
             var modelsPosition = reader.BaseStream.Position;
             for (uint i = 0; i < _modelCount; i++)
@@ -226,6 +215,7 @@ namespace PSXPrev.Common.Parsers
             {
                 var rootEntity = new RootEntity();
                 rootEntity.ChildEntities = _models.ToArray();
+                rootEntity.Coords = _coords;
                 //rootEntity.OwnedTextures.AddRange(TextureResults); // todo: need to change how owned textures are handled
                 foreach (var texture in TextureResults)
                 {
@@ -363,20 +353,48 @@ namespace PSXPrev.Common.Parsers
 
             // Models with hierarchy are scaled down by x16.
             _scaleDivisor = _scaleDivisorTranslation * 16f;
-
-            // Can't rely on chunk length, since it's padded to 4 bytes
-            var count = Math.Min(chunkLength / 2, _objectCount);
-            if (count != _objectCount)
+            if (_coords != null)
             {
                 var breakHere = 0;
             }
-            for (uint i = 0; i < count; i++)
+            _coords = new Coordinate[_objectCount];
+
+            // Can't rely on chunk length, since it's padded to 4 bytes
+            var count = chunkLength / 2;
+            for (uint i = 0; i < _objectCount; i++)
             {
-                var parentIndex = reader.ReadUInt16();
-                if (parentIndex != i)
+                var coord = new Coordinate
                 {
-                    //_coords[i].ParentID = parentIndex;
+                    Coords = _coords,
+                    ID = i,
+                };
+                if (i < count)
+                {
+                    var parentIndex = reader.ReadUInt16();
+                    if (parentIndex != i)
+                    {
+                        coord.ParentID = parentIndex;
+                    }
                 }
+                _coords[i] = coord;
+            }
+            if (Coordinate.FindCircularReferences(_coords))
+            {
+                return false;
+            }
+            for (uint i = 0; i < _objectCount; i++)
+            {
+                var coord = _coords[i];
+                var translation = _objects[i].Translation;
+                if (coord.HasParent)
+                {
+                    // Convert absolute translation to relative translation.
+                    // We only need to do this for the first-level parent,
+                    // since that object's translation is also absolute.
+                    translation -= _objects[coord.ParentID].Translation;
+                }
+                coord.OriginalLocalMatrix = Matrix4.CreateTranslation(translation);
+                coord.OriginalTranslation = translation;
             }
             return true;
         }

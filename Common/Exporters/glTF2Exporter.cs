@@ -379,7 +379,7 @@ namespace PSXPrev.Common.Exporters
                             for (var t = 0f; t < totalTime; t += timeStep, frame++)
                             {
                                 animationBatch.Time = t;
-                                if (animationBatch.SetupAnimationFrame(null, entity, null, simulate: true))
+                                if (animationBatch.SetupAnimationFrame(null, entity, null, simulate: true, force: true))
                                 {
                                     var transformIndex = transformStart;
                                     if ((isTransformBased || isCoordinateBased) && entity.Coords != null)

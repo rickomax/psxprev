@@ -19,6 +19,12 @@ namespace PSXPrev.Common.Utils
             return sb.ToString();
         }
 
+        // Replaces the text of a Regex Match or Group. This DOES NOT use substitution replacement.
+        public static string Replace(this string input, Capture capture, string replacement)
+        {
+            return input.Substring(0, capture.Index) + replacement + input.Substring(capture.Index + capture.Length);
+        }
+
         public static Regex WildcardToRegex(string wildcard, TimeSpan? matchTimeout = null)
         {
             // This is not Windows compliant: <https://ss64.com/nt/syntax-wildcards.html>

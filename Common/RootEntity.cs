@@ -263,7 +263,7 @@ namespace PSXPrev.Common
         {
             if (!bake.HasValue)
             {
-                bake = !Renderer.Scene.JointsSupported;
+                bake = !Renderer.Shader.JointsSupported;
             }
             if (!bake.Value && tempJointMatrices == null)
             {

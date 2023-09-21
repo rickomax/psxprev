@@ -35,6 +35,8 @@ namespace PSXPrev.Common.Renderer
 
         public bool IsTextured => RenderFlags.HasFlag(RenderFlags.Textured);
 
+        public bool IsSprite => RenderFlags.HasFlag(RenderFlags.Sprite) || RenderFlags.HasFlag(RenderFlags.SpriteNoPitch);
+
         public bool IsOpaque => RenderInfo.IsOpaque(RenderFlags, MixtureRate, _alpha);
 
         public bool IsSemiTransparent => RenderInfo.IsSemiTransparent(RenderFlags, MixtureRate, _alpha);

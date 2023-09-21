@@ -201,13 +201,14 @@ namespace PSXPrev.Common.Animator
         }
 
         // Returns true if the animation has been processed (updated), or false if nothing needed to be updated.
-        public bool SetupAnimationFrame(RootEntity[] checkedEntities, RootEntity selectedRootEntity, ModelEntity selectedModelEntity, bool updateMeshData = false, bool simulate = false)
+        public bool SetupAnimationFrame(RootEntity[] checkedEntities, RootEntity selectedRootEntity, ModelEntity selectedModelEntity, bool updateMeshData = false, bool simulate = false, bool force = false)
         {
             var rootEntity = selectedRootEntity ?? selectedModelEntity?.GetRootEntity();
 
             ComputePlaybackFrameTime();
 
-            var needsUpdate = (_animationStateChanged) ||
+            var needsUpdate = force ||
+                              (_animationStateChanged) ||
                               (_lastFinished != _finished) ||
                               (!_finished && _lastPlaybackFrameTime != _playbackFrameTime) ||
                               (!_lastRootEntity.TryGetTarget(out var lastRootEntity) || lastRootEntity != rootEntity);
@@ -220,16 +221,17 @@ namespace PSXPrev.Common.Animator
             // The result has been changed to signal if anything has been processed or not.
             if (needsUpdate)
             {
+                // todo: What does ProcessAnimationObject's return boolean signify?
+                ProcessAnimationObject(_animation.RootAnimationObject, rootEntity, Matrix4.Identity);
+
                 // Support using AnimationBatch even if we have no Scene.
                 if (!simulate && _scene != null)
                 {
-                    updateMeshData |= _scene.AttachJointsMode == AttachJointsMode.Attach && !Scene.JointsSupported;
+                    updateMeshData |= _scene.AttachJointsMode == AttachJointsMode.Attach && !Shader.JointsSupported;
                     updateMeshData |= _animation.AnimationType.IsVertexBased();
                     _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, selectedModelEntity, selectedRootEntity, updateMeshData);
                 }
 
-                // todo: What does ProcessAnimationObject's return boolean signify?
-                ProcessAnimationObject(_animation.RootAnimationObject, rootEntity, Matrix4.Identity);
                 return true;
             }
             return false;

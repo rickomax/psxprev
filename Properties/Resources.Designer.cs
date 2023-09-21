@@ -453,6 +453,16 @@ namespace PSXPrev.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap Models_Focus_ResetCameraRotation {
+            get {
+                object obj = ResourceManager.GetObject("Models_Focus_ResetCameraRotation", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Models_ForceDoubleSided {
             get {
                 object obj = ResourceManager.GetObject("Models_ForceDoubleSided", resourceCulture);
@@ -513,9 +523,49 @@ namespace PSXPrev.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap Models_SelectionMode {
+            get {
+                object obj = ResourceManager.GetObject("Models_SelectionMode", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Models_SelectionMode_Bounds {
+            get {
+                object obj = ResourceManager.GetObject("Models_SelectionMode_Bounds", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Models_SelectionMode_Triangle {
+            get {
+                object obj = ResourceManager.GetObject("Models_SelectionMode_Triangle", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Models_ShowBounds {
             get {
                 object obj = ResourceManager.GetObject("Models_ShowBounds", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Models_ShowSkeleton {
+            get {
+                object obj = ResourceManager.GetObject("Models_ShowSkeleton", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -706,6 +756,26 @@ namespace PSXPrev.Properties {
         internal static System.Drawing.Bitmap Textures_ShowMissingTextures {
             get {
                 object obj = ResourceManager.GetObject("Textures_ShowMissingTextures", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Textures_ShowPalette {
+            get {
+                object obj = ResourceManager.GetObject("Textures_ShowPalette", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Textures_ShowSemiTransparency {
+            get {
+                object obj = ResourceManager.GetObject("Textures_ShowSemiTransparency", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

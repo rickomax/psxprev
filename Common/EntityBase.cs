@@ -359,6 +359,7 @@ namespace PSXPrev.Common
                 }
             }
             TempMatrix = Matrix4.Identity;
+            TempLocalMatrix = Matrix4.Identity;
             if (ChildEntities != null)
             {
                 foreach (var child in ChildEntities)

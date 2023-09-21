@@ -860,10 +860,10 @@ namespace PSXPrev.Common.Parsers
 
             var triangle1 = new Triangle
             {
-                Vertices = new[] { vertex2, vertex1, vertex0 },
+                Vertices = new[] { vertex0, vertex1, vertex2 },
                 Normals = Triangle.EmptyNormals,
                 Colors = new[] { color, color, color },
-                Uv = new[] { uv2, uv1, uv0 },
+                Uv = new[] { uv0, uv1, uv2 },
             };
             triangle1.TiledUv = new TiledUV(triangle1.Uv, 0f, 0f, 1f, 1f);
             triangle1.Uv = (Vector2[])triangle1.Uv.Clone();
@@ -872,10 +872,10 @@ namespace PSXPrev.Common.Parsers
 
             var triangle2 = new Triangle
             {
-                Vertices = new[] { vertex2, vertex3, vertex1 },
+                Vertices = new[] { vertex1, vertex3, vertex2 },
                 Normals = Triangle.EmptyNormals,
                 Colors = new[] { color, color, color },
-                Uv = new[] { uv2, uv3, uv1 },
+                Uv = new[] { uv1, uv3, uv2 },
             };
             triangle2.TiledUv = new TiledUV(triangle2.Uv, 0f, 0f, 1f, 1f);
             triangle2.Uv = (Vector2[])triangle2.Uv.Clone();

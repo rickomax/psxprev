@@ -125,9 +125,11 @@ namespace PSXPrev.Forms
         private bool _autoFocusOnSubModel;
         private bool _autoFocusIncludeWholeModel;
         private bool _autoFocusIncludeCheckedModels;
+        private bool _autoFocusResetCameraRotation;
         private bool _showTexturePalette;
         private bool _showTextureSemiTransparency;
-        private bool _boundsEntityPicking = true;
+        private EntitySelectionMode _modelSelectionMode;
+        private bool _showSkeleton;
         private uint? _fallbackTextureID;
 
         private GizmoType _gizmoType;
@@ -459,12 +461,15 @@ namespace PSXPrev.Forms
             wireframeSizeUpDown.SetValueSafe((decimal)settings.WireframeSize);
             vertexSizeUpDown.SetValueSafe((decimal)settings.VertexSize);
             SetGizmoType(settings.GizmoType, force: true);
+            SetModelSelectionMode(settings.ModelSelectionMode, force: true);
             SetSubModelVisibility(settings.SubModelVisibility, force: true);
             autoFocusOnRootModelToolStripMenuItem.Checked = settings.AutoFocusOnRootModel;
             autoFocusOnSubModelToolStripMenuItem.Checked = settings.AutoFocusOnSubModel;
             autoFocusIncludeWholeModelToolStripMenuItem.Checked = settings.AutoFocusIncludeWholeModel;
             autoFocusIncludeCheckedModelsToolStripMenuItem.Checked = settings.AutoFocusIncludeCheckedModels;
+            autoFocusResetCameraRotationToolStripMenuItem.Checked = settings.AutoFocusResetCameraRotation;
             showBoundsToolStripMenuItem.Checked = settings.ShowBounds;
+            showSkeletonToolStripMenuItem.Checked = settings.ShowSkeleton;
             _scene.ShowLightRotationRay = settings.ShowLightRotationRay;
             _scene.ShowDebugVisuals = settings.ShowDebugVisuals;
             _scene.ShowDebugPickingRay = settings.ShowDebugPickingRay;
@@ -475,6 +480,8 @@ namespace PSXPrev.Forms
             SetSolidWireframeVerticesColor(settings.SolidWireframeVerticesColor);
             SetCurrentCLUTIndex(settings.CurrentCLUTIndex);
             showUVToolStripMenuItem.Checked = settings.ShowUVsInVRAM;
+            showTexturePaletteToolStripMenuItem.Checked = settings.ShowTexturePalette;
+            showTextureSemiTransparencyToolStripMenuItem.Checked = settings.ShowTextureSemiTransparency;
             showMissingTexturesToolStripMenuItem.Checked = settings.ShowMissingTextures;
             autoDrawModelTexturesToolStripMenuItem.Checked = settings.AutoDrawModelTextures;
             autoPackModelTexturesToolStripMenuItem.Checked = settings.AutoPackModelTextures;
@@ -515,12 +522,15 @@ namespace PSXPrev.Forms
             settings.WireframeSize = (float)wireframeSizeUpDown.Value;
             settings.VertexSize = (float)vertexSizeUpDown.Value;
             settings.GizmoType = _gizmoType;
+            settings.ModelSelectionMode = _modelSelectionMode;
             settings.SubModelVisibility = _subModelVisibility;
             settings.AutoFocusOnRootModel = autoFocusOnRootModelToolStripMenuItem.Checked;
             settings.AutoFocusOnSubModel = autoFocusOnSubModelToolStripMenuItem.Checked;
             settings.AutoFocusIncludeWholeModel = autoFocusIncludeWholeModelToolStripMenuItem.Checked;
             settings.AutoFocusIncludeCheckedModels = autoFocusIncludeCheckedModelsToolStripMenuItem.Checked;
+            settings.AutoFocusResetCameraRotation = autoFocusResetCameraRotationToolStripMenuItem.Checked;
             settings.ShowBounds = showBoundsToolStripMenuItem.Checked;
+            settings.ShowSkeleton = showSkeletonToolStripMenuItem.Checked;
             settings.ShowLightRotationRay = _scene.ShowLightRotationRay;
             settings.ShowDebugVisuals = _scene.ShowDebugVisuals;
             settings.ShowDebugPickingRay = _scene.ShowDebugPickingRay;
@@ -531,6 +541,8 @@ namespace PSXPrev.Forms
             settings.SolidWireframeVerticesColor = _scene.SolidWireframeVerticesColor;
             settings.CurrentCLUTIndex = _clutIndex;
             settings.ShowUVsInVRAM = showUVToolStripMenuItem.Checked;
+            settings.ShowTexturePalette = showTexturePaletteToolStripMenuItem.Checked;
+            settings.ShowTextureSemiTransparency = showTextureSemiTransparencyToolStripMenuItem.Checked;
             settings.ShowMissingTextures = showMissingTexturesToolStripMenuItem.Checked;
             settings.AutoDrawModelTextures = autoDrawModelTexturesToolStripMenuItem.Checked;
             settings.AutoPackModelTextures = autoPackModelTexturesToolStripMenuItem.Checked;
@@ -682,11 +694,12 @@ namespace PSXPrev.Forms
                 Program.ClearResults();
 
                 // Clear selections
-                SelectEntity(null);
+                //SelectEntity(null);
                 UnselectTriangle();
                 _selectedTriangle = null;
                 _selectedModelEntity = null;
                 _selectedRootEntity = null;
+                UpdateSelectedEntity();
                 _curAnimation = null;
                 _curAnimationObject = null;
                 _curAnimationFrame = null;
@@ -804,7 +817,7 @@ namespace PSXPrev.Forms
                         var bmpData = bitmap.LockBits(rect, System.Drawing.Imaging.ImageLockMode.WriteOnly, bitmap.PixelFormat);
                         try
                         {
-                            OpenTK.Graphics.OpenGL.GL.ReadPixels(0, 0, width, height, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, OpenTK.Graphics.OpenGL.PixelType.UnsignedByte, bmpData.Scan0);
+                            OpenTK.Graphics.OpenGL.GL.ReadPixels(0, 0, bmpData.Width, bmpData.Height, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, OpenTK.Graphics.OpenGL.PixelType.UnsignedByte, bmpData.Scan0);
                         }
                         finally
                         {
@@ -975,16 +988,7 @@ namespace PSXPrev.Forms
                     case Keys.Space when state && sceneFocused:
                         if (_selectedRootEntity != null || _selectedModelEntity != null)
                         {
-                            _scene.FocusOnBounds(GetFocusBounds(GetCheckedEntities()));
-                            e.Handled = true;
-                        }
-                        break;
-
-                    case Keys.B when state && sceneFocused:
-                        if (!IsControlDown)
-                        {
-                            _boundsEntityPicking = !_boundsEntityPicking;
-                            Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"_boundsEntityPicking: {_boundsEntityPicking}");
+                            _scene.FocusOnBounds(GetFocusBounds(GetCheckedEntities()), resetRotation: _autoFocusResetCameraRotation);
                             e.Handled = true;
                         }
                         break;
@@ -1044,6 +1048,7 @@ namespace PSXPrev.Forms
                     case Keys.P when state && textureFocused:
                         if (!IsControlDown)
                         {
+                            showTexturePaletteToolStripMenuItem.Checked = !showTexturePaletteToolStripMenuItem.Checked;
                             _showTexturePalette = !_showTexturePalette;
                             Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"_showTexturePalette: {_showTexturePalette}");
                             UpdateTexturePreviewSize();
@@ -1055,7 +1060,7 @@ namespace PSXPrev.Forms
                     case Keys.T when state && (textureFocused || vramFocused):
                         if (!IsControlDown)
                         {
-                            _showTextureSemiTransparency = !_showTextureSemiTransparency;
+                            showTextureSemiTransparencyToolStripMenuItem.Checked = !showTextureSemiTransparencyToolStripMenuItem.Checked;
                             Program.ConsoleLogger.WriteColorLine(ConsoleColor.Magenta, $"_showTextureSemiTransparency: {_showTextureSemiTransparency}");
                             texturePreviewPictureBox.Invalidate();
                             vramPagePictureBox.Invalidate();
@@ -1101,14 +1106,14 @@ namespace PSXPrev.Forms
                             else if (_scene.ShowDebugIntersections) // Hold I/Hold Shift+I (Update debug intersections)
                             {
                                 var checkedEntities = GetCheckedEntities();
-                                var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
+                                var rootEntity = GetSelectedRootEntity();
                                 if (IsTriangleSelectMode())
                                 {
                                     _scene.GetTriangleUnderMouse(checkedEntities, rootEntity, _lastMouseX, _lastMouseY);
                                 }
                                 else
                                 {
-                                    _scene.GetEntityUnderMouse(checkedEntities, rootEntity, _lastMouseX, _lastMouseY, boundsPicking: _boundsEntityPicking);
+                                    _scene.GetEntityUnderMouse(checkedEntities, rootEntity, _lastMouseX, _lastMouseY, selectionMode: _modelSelectionMode);
                                 }
                                 e.Handled = true;
                             }
@@ -1202,7 +1207,7 @@ namespace PSXPrev.Forms
                 if (_animationBatch.SetupAnimationFrame(checkedEntities, _selectedRootEntity, _selectedModelEntity, false))
                 {
                     // Animation has been processed. Update attached limbs while animating.
-                    var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
+                    var rootEntity = GetSelectedRootEntity();
                     if (rootEntity != null)
                     {
                         if (_scene.AttachJointsMode == AttachJointsMode.Attach)
@@ -1212,6 +1217,10 @@ namespace PSXPrev.Forms
                         else
                         {
                             rootEntity.UnfixConnections();
+                        }
+                        if (_showSkeleton)
+                        {
+                            _scene.SkeletonBatch.SetupEntitySkeleton(rootEntity, updateMeshData: false);
                         }
                     }
                 }
@@ -1236,7 +1245,7 @@ namespace PSXPrev.Forms
             var mouseLeft = e.Button == MouseButtons.Left;
             var mouseMiddle = e.Button == MouseButtons.Middle;
             var mouseRight = e.Button == MouseButtons.Right;
-            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+            var selectedEntityBase = GetSelectedEntityBase();
             _scene.UpdatePicking(e.X, e.Y);
             var hoveredGizmo = _scene.GetGizmoUnderPosition(selectedEntityBase, _gizmoType);
             switch (_selectedGizmo)
@@ -1247,7 +1256,7 @@ namespace PSXPrev.Forms
                         if (hoveredGizmo == GizmoId.None)
                         {
                             var checkedEntities = GetCheckedEntities();
-                            var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
+                            var rootEntity = GetSelectedRootEntity();
                             if (IsTriangleSelectMode())
                             {
                                 var newSelectedTriangle = _scene.GetTriangleUnderMouse(checkedEntities, rootEntity, e.X, e.Y);
@@ -1262,7 +1271,7 @@ namespace PSXPrev.Forms
                             }
                             else
                             {
-                                var newSelectedEntity = _scene.GetEntityUnderMouse(checkedEntities, rootEntity, e.X, e.Y, boundsPicking: _boundsEntityPicking);
+                                var newSelectedEntity = _scene.GetEntityUnderMouse(checkedEntities, rootEntity, e.X, e.Y, selectionMode: _modelSelectionMode);
                                 if (newSelectedEntity != null)
                                 {
                                     SelectEntity(newSelectedEntity, false);
@@ -1499,6 +1508,16 @@ namespace PSXPrev.Forms
 
         #region GetChecked/AddResults
 
+        private RootEntity GetSelectedRootEntity()
+        {
+            return _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
+        }
+
+        private EntityBase GetSelectedEntityBase()
+        {
+            return (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+        }
+
         private RootEntity[] GetCheckedEntities(bool defaultToSelected = false)
         {
             var selectedEntities = new List<RootEntity>();
@@ -1516,7 +1535,7 @@ namespace PSXPrev.Forms
             }
             if (selectedEntities.Count == 0 && defaultToSelected)
             {
-                var selectedRootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
+                var selectedRootEntity = GetSelectedRootEntity();
                 if (selectedRootEntity != null)
                 {
                     selectedEntities.Add(selectedRootEntity);
@@ -1901,7 +1920,7 @@ namespace PSXPrev.Forms
                 sceneControlsFlowLayoutPanel.ResumeLayout();
 
                 // Gizmo shape has changed, recalculate hovered.
-                var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+                var selectedEntityBase = GetSelectedEntityBase();
 
                 _scene.UpdatePicking(_lastMouseX, _lastMouseY);
                 var hoveredGizmo = _scene.GetGizmoUnderPosition(selectedEntityBase, _gizmoType);
@@ -1912,7 +1931,7 @@ namespace PSXPrev.Forms
 
         private void UpdateGizmoVisualAndState(GizmoId selectedGizmo, GizmoId hoveredGizmo)
         {
-            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+            var selectedEntityBase = GetSelectedEntityBase();
 
             // Don't highlight hovered gizmo while selecting
             var highlightGizmo = selectedGizmo != GizmoId.None ? selectedGizmo : hoveredGizmo;
@@ -1931,7 +1950,7 @@ namespace PSXPrev.Forms
             {
                 return;
             }
-            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+            var selectedEntityBase = GetSelectedEntityBase();
 
             switch (hoveredGizmo)
             {
@@ -1968,7 +1987,7 @@ namespace PSXPrev.Forms
             {
                 return;
             }
-            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+            var selectedEntityBase = GetSelectedEntityBase();
 
             switch (_gizmoType)
             {
@@ -1992,7 +2011,7 @@ namespace PSXPrev.Forms
             {
                 return;
             }
-            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+            var selectedEntityBase = GetSelectedEntityBase();
 
             switch (_gizmoType)
             {
@@ -2018,7 +2037,7 @@ namespace PSXPrev.Forms
             {
                 return;
             }
-            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+            var selectedEntityBase = GetSelectedEntityBase();
 
             switch (_gizmoType)
             {
@@ -2750,8 +2769,8 @@ namespace PSXPrev.Forms
         private void UpdateSelectedEntity(bool updateMeshData = true, bool noDelayUpdatePropertyGrid = true, bool focus = false)
         {
             _scene.BoundsBatch.Reset(1);
-            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
-            var rootEntity = selectedEntityBase?.GetRootEntity();
+            var selectedEntityBase = GetSelectedEntityBase();
+            var rootEntity = GetSelectedRootEntity();
             if (rootEntity != null)
             {
                 rootEntity.ResetAnimationData();
@@ -2763,10 +2782,16 @@ namespace PSXPrev.Forms
                 {
                     rootEntity.UnfixConnections();
                 }
+                rootEntity.ComputeBounds(_scene.AttachJointsMode);
             }
+
+            if (_showSkeleton)
+            {
+                _scene.SkeletonBatch.SetupEntitySkeleton(rootEntity, updateMeshData: updateMeshData);
+            }
+
             if (selectedEntityBase != null)
             {
-                selectedEntityBase.GetRootEntity().ComputeBounds(_scene.AttachJointsMode);
                 _scene.BoundsBatch.BindEntityBounds(selectedEntityBase);
 
                 var checkedEntities = GetCheckedEntities();
@@ -2862,7 +2887,7 @@ namespace PSXPrev.Forms
                     }
                 }
 
-                updateMeshData |= _scene.AttachJointsMode == AttachJointsMode.Attach && !Scene.JointsSupported;
+                updateMeshData |= _scene.AttachJointsMode == AttachJointsMode.Attach && !Shader.JointsSupported;
                 _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, _selectedModelEntity, _selectedRootEntity, updateMeshData, subModelVisibility: _subModelVisibility);
 
                 // todo: Ensure we focus when switching to a different root entity, even if the selected entity is a sub-model.
@@ -2879,7 +2904,7 @@ namespace PSXPrev.Forms
 
                     if (focus)
                     {
-                        _scene.FocusOnBounds(GetFocusBounds(checkedEntities));
+                        _scene.FocusOnBounds(GetFocusBounds(checkedEntities), resetRotation: _autoFocusResetCameraRotation);
                     }
                 }
             }
@@ -2933,6 +2958,18 @@ namespace PSXPrev.Forms
             }
         }
 
+        private void SetModelSelectionMode(EntitySelectionMode selectionMode, bool force = false)
+        {
+            if (force || _modelSelectionMode != selectionMode)
+            {
+                _modelSelectionMode = selectionMode;
+
+                selectionModeNoneToolStripMenuItem.Checked = _modelSelectionMode == EntitySelectionMode.None;
+                selectionModeBoundsToolStripMenuItem.Checked = _modelSelectionMode == EntitySelectionMode.Bounds;
+                selectionModeTriangleToolStripMenuItem.Checked = _modelSelectionMode == EntitySelectionMode.Triangle;
+            }
+        }
+
         private void SetSubModelVisibility(SubModelVisibility visibility, bool force = false)
         {
             if (force || _subModelVisibility != visibility)
@@ -2950,7 +2987,7 @@ namespace PSXPrev.Forms
         private BoundingBox GetFocusBounds(RootEntity[] checkedEntities)
         {
             var bounds = new BoundingBox();
-            var selectedRootEntity = _selectedRootEntity ?? _selectedModelEntity.GetRootEntity();
+            var selectedRootEntity = GetSelectedRootEntity();
 
             if (_autoFocusIncludeCheckedModels && checkedEntities != null)
             {
@@ -3009,7 +3046,7 @@ namespace PSXPrev.Forms
             var tagInfo = (EntitiesTreeViewTagInfo)checkedNode.Tag;
             // todo: If we support checking things other than root entities, then we need to handle it here
             var rootEntity = tagInfo.Entity as RootEntity;
-            var selectedRootEntity = (_selectedRootEntity ?? _selectedModelEntity?.GetRootEntity());
+            var selectedRootEntity = GetSelectedRootEntity();
             if (rootEntity != null && rootEntity != selectedRootEntity)
             {
                 if (_scene.AttachJointsMode == AttachJointsMode.Attach)
@@ -3046,7 +3083,7 @@ namespace PSXPrev.Forms
                 _selectedModelEntity = tagInfo.Entity as ModelEntity;
                 UnselectTriangle();
             }
-            var rootEntity = _selectedRootEntity ?? _selectedModelEntity?.GetRootEntity();
+            var rootEntity = GetSelectedRootEntity();
             UpdateSelectedEntity(focus: _selectionSource == EntitySelectionSource.TreeView);
         }
 
@@ -3086,7 +3123,7 @@ namespace PSXPrev.Forms
             {
                 _vram.AssignModelTextures(_selectedModelEntity);
             }
-            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+            var selectedEntityBase = GetSelectedEntityBase();
             if (selectedEntityBase != null)
             {
                 selectedNode.Text = selectedEntityBase.EntityName;
@@ -3146,19 +3183,19 @@ namespace PSXPrev.Forms
 
         private void resetWholeModelToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
-            if (selectedEntityBase != null)
+            var selectedRootEntity = GetSelectedRootEntity();
+            if (selectedRootEntity != null)
             {
                 // This could be changed to only reset the selected model and its children.
                 // But that's only necessary if sub-sub-model support is ever added.
-                selectedEntityBase.GetRootEntity()?.ResetTransform(true);
+                selectedRootEntity.ResetTransform(true);
                 UpdateSelectedEntity();
             }
         }
 
         private void resetSelectedModelToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var selectedEntityBase = (EntityBase)_selectedRootEntity ?? _selectedModelEntity;
+            var selectedEntityBase = GetSelectedEntityBase();
             if (selectedEntityBase != null)
             {
                 selectedEntityBase.ResetTransform(false);
@@ -3184,6 +3221,21 @@ namespace PSXPrev.Forms
         private void gizmoToolScaleToolStripMenuItem_Click(object sender, EventArgs e)
         {
             SetGizmoType(GizmoType.Scale);
+        }
+
+        private void selectionModeNoneToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SetModelSelectionMode(EntitySelectionMode.None);
+        }
+
+        private void selectionModeBoundsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SetModelSelectionMode(EntitySelectionMode.Bounds);
+        }
+
+        private void selectionModeTriangleToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SetModelSelectionMode(EntitySelectionMode.Triangle);
         }
 
         private void drawModeFacesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
@@ -3239,6 +3291,20 @@ namespace PSXPrev.Forms
             Redraw();
         }
 
+        private void showSkeletonToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _showSkeleton = showSkeletonToolStripMenuItem.Checked;
+            if (!_showSkeleton)
+            {
+                _scene.SkeletonBatch.Reset(0);
+            }
+            else
+            {
+                var rootEntity = GetSelectedRootEntity();
+                _scene.SkeletonBatch.SetupEntitySkeleton(rootEntity, updateMeshData: true);
+            }
+        }
+
         private void enableLightToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _scene.LightEnabled = enableLightToolStripMenuItem.Checked;
@@ -3281,7 +3347,7 @@ namespace PSXPrev.Forms
                 _scene.AttachJointsMode = AttachJointsMode.Hide;
             }
             var newHide = _scene.AttachJointsMode == AttachJointsMode.Hide;
-            var updateMeshData = !Scene.JointsSupported || (oldHide != newHide);
+            var updateMeshData = !Shader.JointsSupported || (oldHide != newHide);
             // Update mesh data, since limb vertices may have changed
             UpdateSelectedEntity(updateMeshData: updateMeshData);
         }
@@ -3303,7 +3369,7 @@ namespace PSXPrev.Forms
                     break;
             }
             var newHide = _scene.AttachJointsMode == AttachJointsMode.Hide;
-            var updateMeshData = !Scene.JointsSupported || (oldHide != newHide);
+            var updateMeshData = !Shader.JointsSupported || (oldHide != newHide);
             // Update mesh data, since limb vertices may have changed
             UpdateSelectedEntity(updateMeshData: updateMeshData);*/
         }
@@ -3359,6 +3425,11 @@ namespace PSXPrev.Forms
         private void autoFocusIncludeCheckedModelsToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _autoFocusIncludeCheckedModels = autoFocusIncludeCheckedModelsToolStripMenuItem.Checked;
+        }
+
+        private void autoFocusResetCameraRotationToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _autoFocusResetCameraRotation = autoFocusResetCameraRotationToolStripMenuItem.Checked;
         }
 
         private void lineRendererToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
@@ -4016,7 +4087,7 @@ namespace PSXPrev.Forms
                         DrawUV(checkedEntity, e.Graphics);
                     }
                 }
-                DrawUV((EntityBase)_selectedRootEntity ?? _selectedModelEntity, e.Graphics);
+                DrawUV(GetSelectedEntityBase(), e.Graphics);
             }
 
             // Reset drawing mode back to default.
@@ -4255,6 +4326,20 @@ namespace PSXPrev.Forms
             //ShowMessageBox("Pages cleared", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
+        private void showPaletteToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _showTexturePalette = showTexturePaletteToolStripMenuItem.Checked;
+            UpdateTexturePreviewSize();
+            texturePreviewPictureBox.Invalidate();
+        }
+
+        private void showSemiTransparencyToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
+        {
+            _showTextureSemiTransparency = showTextureSemiTransparencyToolStripMenuItem.Checked;
+            texturePreviewPictureBox.Invalidate();
+            vramPagePictureBox.Invalidate();
+        }
+
         private void showMissingTexturesToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _scene.ShowMissingTextures = showMissingTexturesToolStripMenuItem.Checked;
@@ -4293,11 +4378,19 @@ namespace PSXPrev.Forms
             _animationBatch.SetupAnimationBatch(_curAnimation);
             if (_curAnimation != null)
             {
-                _animationBatch.SetupAnimationFrame(GetCheckedEntities(), _selectedRootEntity, _selectedModelEntity, true);
+                _animationBatch.SetupAnimationFrame(GetCheckedEntities(), _selectedRootEntity, _selectedModelEntity, true, force: true);
             }
             else
             {
                 _scene.MeshBatch.SetupMultipleEntityBatch(GetCheckedEntities(), _selectedModelEntity, _selectedRootEntity, true, SubModelVisibility.All);
+            }
+            if (_showSkeleton)
+            {
+                var rootEntity = GetSelectedRootEntity();
+                if (rootEntity != null)
+                {
+                    _scene.SkeletonBatch.SetupEntitySkeleton(rootEntity, updateMeshData: true);
+                }
             }
 
             UpdateAnimationProgressLabel();
@@ -4607,11 +4700,11 @@ namespace PSXPrev.Forms
 
         private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var jointsSupportStr = Scene.JointsSupported ? "Shader-time joints" : "Pre-computed joints";
+            var jointsSupportStr = Shader.JointsSupported ? "Shader-time joints" : "Pre-computed joints";
             var message = "PSXPrev - PlayStation (PSX) Files Previewer/Extractor\n" +
                           "\u00a9 PSXPrev Contributors - 2020-2023\n" +
                           $"Program Version {GetVersionString()}\n" +
-                          $"GLSL Version {Scene.ShaderVersion} ({jointsSupportStr})";
+                          $"GLSL Version {Shader.GLSLVersion} ({jointsSupportStr})";
             ShowMessageBox(message, "About", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 

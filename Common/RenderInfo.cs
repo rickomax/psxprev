@@ -32,10 +32,10 @@ namespace PSXPrev.Common
     public enum MixtureRate
     {
         None             = 0,
-        Back50_Poly50    = 1, //  50% back +  50% poly
-        Back100_Poly100  = 2, // 100% back + 100% poly
-        Back100_PolyM100 = 3, // 100% back - 100% poly
-        Back100_Poly25   = 4, // 100% back +  25% poly
+        Back50_Poly50    = 1, //  50% back +  50% poly (translucent, 50% alpha)
+        Back100_Poly100  = 2, // 100% back + 100% poly (additive)
+        Back100_PolyM100 = 3, // 100% back - 100% poly (subtractive)
+        Back100_Poly25   = 4, // 100% back +  25% poly (???, subtract 25%)
         Alpha            = 5, // 1-A% back +   A% poly (not a PSX mixture rate! for use with 3D visuals)
     }
     

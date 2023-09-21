@@ -11,9 +11,6 @@ namespace PSXPrev.Common.Renderer
 {
     public class Scene
     {
-        public static bool JointsSupported { get; private set; } = true;
-        public static string ShaderVersion { get; private set; }
-
         public const float CameraMinFOV = 1f;
         public const float CameraMaxFOV = 160f; // Anything above this just looks unintelligible
         private const float CameraDefaultNearClip = 0.1f;
@@ -144,68 +141,18 @@ namespace PSXPrev.Common.Renderer
         };
 
 
-        public static int AttributeIndexPosition = 0;
-        public static int AttributeIndexColor = 1;
-        public static int AttributeIndexNormal = 2;
-        public static int AttributeIndexUv = 3;
-        public static int AttributeIndexTiledArea = 4;
-        public static int AttributeIndexTexture = 5;
-        public static int AttributeIndexJoint = 6;
-
-        public static int BufferIndexJoints = 0;
-
-        public static int UniformNormalMatrix;
-        public static int UniformModelMatrix;
-        public static int UniformMVPMatrix;
-        public static int UniformViewMatrix;
-        public static int UniformProjectionMatrix;
-        public static int UniformLightDirection;
-        public static int UniformMaskColor;
-        public static int UniformAmbientColor;
-        public static int UniformSolidColor;
-        public static int UniformUVOffset;
-        public static int UniformJointMode;
-        public static int UniformLightMode;
-        public static int UniformColorMode;
-        public static int UniformTextureMode;
-        public static int UniformSemiTransparentPass;
-        public static int UniformLightIntensity;
-
-        public const string AttributeNamePosition = "in_Position";
-        public const string AttributeNameColor = "in_Color";
-        public const string AttributeNameNormal = "in_Normal";
-        public const string AttributeNameUv = "in_Uv";
-        public const string AttributeNameTiledArea = "in_TiledArea";
-        public const string AttributeNameTexture = "mainTex";
-        public const string AttributeNameJoint = "in_Joint";
-
-        public const string UniformNormalMatrixName = "normalMatrix";
-        public const string UniformModelMatrixName = "modelMatrix";
-        public const string UniformMVPMatrixName = "mvpMatrix";
-        public const string UniformViewMatrixName = "viewMatrix";
-        public const string UniformProjectionMatrixName = "projectionMatrix";
-        public const string UniformLightDirectionName = "lightDirection";
-        public const string UniformMaskColorName = "maskColor";
-        public const string UniformAmbientColorName = "ambientColor";
-        public const string UniformSolidColorName = "solidColor";
-        public const string UniformUVOffsetName = "uvOffset";
-        public const string UniformJointModeName = "jointMode";
-        public const string UniformLightModeName = "lightMode";
-        public const string UniformColorModeName = "colorMode";
-        public const string UniformTextureModeName = "textureMode";
-        public const string UniformSemiTransparentPassName = "semiTransparentPass";
-        public const string UniformLightIntensityName = "lightIntensity";
-
         public bool Initialized { get; private set; }
 
         public MeshBatch MeshBatch { get; private set; }
         public MeshBatch GizmosBatch { get; private set; }
         public MeshBatch BoundsBatch { get; private set; }
         public MeshBatch TriangleOutlineBatch { get; private set; }
+        public MeshBatch SkeletonBatch { get; private set; }
         public MeshBatch LightRotationRayBatch { get; private set; }
         public MeshBatch DebugPickingRayBatch { get; private set; }
         public MeshBatch DebugIntersectionsBatch { get; private set; }
         public TextureBinder TextureBinder { get; private set; }
+        public Shader Shader { get; private set; }
 
         public event EventHandler CameraChanged;
         public event EventHandler LightChanged;
@@ -474,7 +421,7 @@ namespace PSXPrev.Common.Renderer
             TextureBinder = new TextureBinder();
             MeshBatch = new MeshBatch(this)
             {
-                TextureBinder = TextureBinder,
+                ShouldSortMeshes = true,
             };
             GizmosBatch = new MeshBatch(this)
             {
@@ -487,6 +434,7 @@ namespace PSXPrev.Common.Renderer
             };
             BoundsBatch = new MeshBatch(this);
             TriangleOutlineBatch = new MeshBatch(this);
+            SkeletonBatch = new MeshBatch(this);
             LightRotationRayBatch = new MeshBatch(this)
             {
                 Visible = false,
@@ -529,160 +477,14 @@ namespace PSXPrev.Common.Renderer
 
         private void SetupGL()
         {
-            GL.ClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            GL.ClearColor(0f, 0f, 0f, 1f);
             GL.Hint(HintTarget.PerspectiveCorrectionHint, HintMode.Nicest);
-        }
-
-        // Note: Use "(?=[\r\n]|\z)" instead, because "$" doesn't handle CRLF... Wow.
-        private const string ShaderFallbackVersionPrefix = "//FALLBACK_VERSION";
-        private const string ShaderJointsDefine = "#define JOINTS_SUPPORTED";
-        private const string ShaderVersionPattern = @"^#version\s+([0-9]+[^\n\r]*)(?=[\r\n]|\z)";
-
-        private static string GetShaderFallbackVersion(string shaderSource)
-        {
-            // Capture string after FallbackVersion const until comment or EOL.
-            var match = Regex.Match(shaderSource, $@"^{Regex.Escape(ShaderFallbackVersionPrefix)}\s+([0-9]+[^\n\r]*)(?=[\r\n]|\z)", RegexOptions.Multiline);
-            if (match.Success)
-            {
-                return $"#version {match.Groups[1].Value.Trim()}";
-            }
-            return null;
         }
 
         private void SetupShaders()
         {
-            var vertexShaderSource = ManifestResourceLoader.LoadTextFile("Shaders\\Shader.vert");
-            var fragmentShaderSource = ManifestResourceLoader.LoadTextFile("Shaders\\Shader.frag");
-
-#if DEBUG
-            JointsSupported = true; // Set to false to test shader without joints support
-            const bool DebugTestFallback = false; // Set to true to allow joints support to silently fail
-#endif
-
-            var vertexFallbackVersion = GetShaderFallbackVersion(vertexShaderSource);
-            if (vertexFallbackVersion == null)
-            {
-                throw new Exception($"Missing \"{ShaderFallbackVersionPrefix}\" in vertex shader");
-            }
-            if (!vertexShaderSource.Contains(ShaderJointsDefine))
-            {
-                throw new Exception($"Missing \"{ShaderJointsDefine}\" in vertex shader");
-            }
-            if (!Regex.IsMatch(vertexShaderSource, ShaderVersionPattern, RegexOptions.Multiline))
-            {
-                throw new Exception($"Failed to find \"#version\" in vertex shader");
-            }
-
-            string jointsSupportError = null, noJointsSupportError = null;
-            var failed = false;
-            for (var i = 0; i < 2; i++)
-            {
-                _shaderProgram = GL.CreateProgram();
-
-                if (!JointsSupported)
-                {
-                    // Remove the define that enables joints
-                    vertexShaderSource = vertexShaderSource.Replace(ShaderJointsDefine, string.Empty);
-                    // Overwrite the version header with the fallback version
-                    vertexShaderSource = Regex.Replace(vertexShaderSource, ShaderVersionPattern, vertexFallbackVersion);
-                }
-
-                var vertexShaderAddress = GL.CreateShader(ShaderType.VertexShader);
-                GL.ShaderSource(vertexShaderAddress, vertexShaderSource);
-                GL.CompileShader(vertexShaderAddress);
-                GL.AttachShader(_shaderProgram, vertexShaderAddress);
-
-                var fragmentShaderAddress = GL.CreateShader(ShaderType.FragmentShader);
-                GL.ShaderSource(fragmentShaderAddress, fragmentShaderSource);
-                GL.CompileShader(fragmentShaderAddress);
-                GL.AttachShader(_shaderProgram, fragmentShaderAddress);
-
-                var attributes = new Dictionary<int, string>
-                {
-                    { AttributeIndexPosition, AttributeNamePosition },
-                    { AttributeIndexNormal, AttributeNameNormal },
-                    { AttributeIndexColor, AttributeNameColor },
-                    { AttributeIndexUv, AttributeNameUv },
-                    { AttributeIndexTiledArea, AttributeNameTiledArea },
-                    { AttributeIndexTexture, AttributeNameTexture },
-                    //{ AttributeIndexJoint, AttributeNameJoint },
-                };
-                if (JointsSupported)
-                {
-                    attributes.Add(AttributeIndexJoint, AttributeNameJoint);
-                }
-                foreach (var vertexAttributeLocation in attributes)
-                {
-                    GL.BindAttribLocation(_shaderProgram, vertexAttributeLocation.Key, vertexAttributeLocation.Value);
-                }
-
-                GL.LinkProgram(_shaderProgram);
-                if (!GetLinkStatus())
-                {
-                    if (JointsSupported)
-                    {
-                        // Try again but without joints support
-                        jointsSupportError = GetInfoLog();
-                        JointsSupported = false;
-#if DEBUG
-                        // Always throw an exception if we're debugging and not testing fallback
-                        failed |= !DebugTestFallback;
-#endif
-                        GL.DeleteProgram(_shaderProgram);
-                        _shaderProgram = 0;
-                        continue;
-                    }
-                    else
-                    {
-                        // Both with and without joints failed
-                        noJointsSupportError = GetInfoLog();
-                        failed = true;
-                        break;
-                    }
-                }
-                else
-                {
-                    break;
-                }
-            }
-            if (failed)
-            {
-                throw new Exception($"joints: {jointsSupportError}\n\nno joints: {noJointsSupportError}");
-            }
-            ShaderVersion = Regex.Match(vertexShaderSource, ShaderVersionPattern).Groups[1].Value.Trim();
-
-            UniformNormalMatrix = GL.GetUniformLocation(_shaderProgram, UniformNormalMatrixName);
-            UniformModelMatrix = GL.GetUniformLocation(_shaderProgram, UniformModelMatrixName);
-            UniformMVPMatrix = GL.GetUniformLocation(_shaderProgram, UniformMVPMatrixName);
-            UniformViewMatrix = GL.GetUniformLocation(_shaderProgram, UniformViewMatrixName);
-            UniformProjectionMatrix = GL.GetUniformLocation(_shaderProgram, UniformProjectionMatrixName);
-            UniformLightDirection = GL.GetUniformLocation(_shaderProgram, UniformLightDirectionName);
-            UniformMaskColor = GL.GetUniformLocation(_shaderProgram, UniformMaskColorName);
-            UniformAmbientColor = GL.GetUniformLocation(_shaderProgram, UniformAmbientColorName);
-            UniformSolidColor = GL.GetUniformLocation(_shaderProgram, UniformSolidColorName);
-            UniformUVOffset = GL.GetUniformLocation(_shaderProgram, UniformUVOffsetName);
-            UniformJointMode = GL.GetUniformLocation(_shaderProgram, UniformJointModeName);
-            UniformLightMode = GL.GetUniformLocation(_shaderProgram, UniformLightModeName);
-            UniformColorMode = GL.GetUniformLocation(_shaderProgram, UniformColorModeName);
-            UniformTextureMode = GL.GetUniformLocation(_shaderProgram, UniformTextureModeName);
-            UniformSemiTransparentPass = GL.GetUniformLocation(_shaderProgram, UniformSemiTransparentPassName);
-            UniformLightIntensity = GL.GetUniformLocation(_shaderProgram, UniformLightIntensityName);
-        }
-
-        private bool GetLinkStatus()
-        {
-            int[] parameters = { 0 };
-            GL.GetProgram(_shaderProgram, GetProgramParameterName.LinkStatus, parameters);
-            return parameters[0] == 1;
-        }
-
-        private string GetInfoLog()
-        {
-            int[] infoLength = { 0 };
-            GL.GetProgram(_shaderProgram, GetProgramParameterName.InfoLogLength, infoLength);
-            var bufSize = infoLength[0];
-            GL.GetProgramInfoLog(_shaderProgram, bufSize, out var bufferLength, out var log);
-            return log;
+            Shader = new Shader(this);
+            Shader.Initialize();
         }
 
         private void SetupMatrices()
@@ -804,14 +606,8 @@ namespace PSXPrev.Common.Renderer
 
         public void Draw(out int triangleCount, out int meshCount, out int skinCount)
         {
-            GL.Enable(EnableCap.DepthTest);
-            GL.Enable(EnableCap.Texture2D);
-            GL.DepthFunc(DepthFunction.Lequal);
-            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-            GL.UseProgram(_shaderProgram);
-
-            GL.Uniform3(UniformMaskColor, MaskColor.ToVector3());
-            GL.Uniform2(UniformUVOffset, Vector2.Zero);
+            Shader.Use();
+            Shader.UniformMaskColor = MaskColor.ToVector3();
 
             triangleCount = 0; // Only count triangles/meshes from the models mesh batch.
             meshCount = 0;
@@ -843,28 +639,29 @@ namespace PSXPrev.Common.Renderer
                 }
             }
 
-            GL.Clear(ClearBufferMask.DepthBufferBit);
+            Shader.ClearDepthBuffer();
+            SkeletonBatch.Draw(_viewMatrix, _projectionMatrix);
+
+            Shader.ClearDepthBuffer();
             if (ShowVisuals && ShowDebugVisuals && ShowDebugIntersections)
             {
                 DebugIntersectionsBatch.Draw(_viewMatrix, _projectionMatrix);
             }
 
-            GL.Clear(ClearBufferMask.DepthBufferBit);
+            Shader.ClearDepthBuffer();
             // todo: Should ShowBounds really determine if the selected triangle is highlighted?
             if (ShowVisuals && ShowBounds)
             {
                 TriangleOutlineBatch.Draw(_viewMatrix, _projectionMatrix);
             }
 
-            GL.Clear(ClearBufferMask.DepthBufferBit);
+            Shader.ClearDepthBuffer();
             if (ShowVisuals)
             {
                 GizmosBatch.Draw(_viewMatrix, _projectionMatrix);
             }
 
-            GL.Disable(EnableCap.DepthTest);
-            GL.Disable(EnableCap.Texture2D);
-            GL.UseProgram(0);
+            //Shader.Unuse();
         }
 
         public void ResetModelBatches(int meshCount)
@@ -1076,8 +873,13 @@ namespace PSXPrev.Common.Renderer
             _lastPickedTriangles = null;
         }
 
-        public EntityBase GetEntityUnderMouse(RootEntity[] checkedEntities, RootEntity selectedRootEntity, int x, int y, bool selectRoot = false, bool boundsPicking = true)
+        public EntityBase GetEntityUnderMouse(RootEntity[] checkedEntities, RootEntity selectedRootEntity, int x, int y, bool selectRoot = false, EntitySelectionMode selectionMode = EntitySelectionMode.Bounds)
         {
+            if (selectionMode == EntitySelectionMode.None)
+            {
+                ClearEntityUnderMouseCycleList();
+                return null;
+            }
             UpdatePicking(x, y);
             var intersectedEntities = new List<EntityBase>();
             if (!selectRoot)
@@ -1088,10 +890,10 @@ namespace PSXPrev.Common.Renderer
                     {
                         if (entity.ChildEntities != null)
                         {
-                            var jointMatrices = !boundsPicking ? entity.JointMatrices : null;
+                            var jointMatrices = selectionMode == EntitySelectionMode.Triangle ? entity.JointMatrices : null;
                             foreach (var subEntity in entity.ChildEntities)
                             {
-                                CheckEntity(subEntity, intersectedEntities, boundsPicking, jointMatrices);
+                                CheckEntity(subEntity, intersectedEntities, selectionMode, jointMatrices);
                             }
                         }
                     }
@@ -1100,10 +902,10 @@ namespace PSXPrev.Common.Renderer
                 {
                     if (selectedRootEntity.ChildEntities != null)
                     {
-                        var jointMatrices = !boundsPicking ? selectedRootEntity.JointMatrices : null;
+                        var jointMatrices = selectionMode == EntitySelectionMode.Triangle ? selectedRootEntity.JointMatrices : null;
                         foreach (var subEntity in selectedRootEntity.ChildEntities)
                         {
-                            CheckEntity(subEntity, intersectedEntities, boundsPicking, jointMatrices);
+                            CheckEntity(subEntity, intersectedEntities, selectionMode, jointMatrices);
                         }
                     }
                 }
@@ -1246,9 +1048,9 @@ namespace PSXPrev.Common.Renderer
             return true;
         }
 
-        private void CheckEntity(EntityBase entity, List<EntityBase> pickedEntities, bool boundsPicking, Matrix4[] jointMatrices)
+        private void CheckEntity(EntityBase entity, List<EntityBase> pickedEntities, EntitySelectionMode selectionMode, Matrix4[] jointMatrices)
         {
-            if (!boundsPicking && entity is ModelEntity model)
+            if (selectionMode == EntitySelectionMode.Triangle && entity is ModelEntity model)
             {
                 if (model.Triangles.Length == 0)
                 {
@@ -1300,7 +1102,7 @@ namespace PSXPrev.Common.Renderer
                     pickedEntities.Add(model);
                 }
             }
-            else
+            else if (selectionMode == EntitySelectionMode.Bounds)
             {
                 var intersectionDistance = GeomMath.BoxIntersect2(_rayOrigin, _rayDirection, entity.Bounds3D.Center, entity.Bounds3D.Extents);
                 if (intersectionDistance > 0f)
@@ -1358,10 +1160,13 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        public void FocusOnBounds(BoundingBox bounds)
+        public void FocusOnBounds(BoundingBox bounds, bool resetRotation = true)
         {
-            _cameraYaw = 0f;
-            _cameraPitch = 0f;
+            if (resetRotation)
+            {
+                _cameraYaw = 0f;
+                _cameraPitch = 0f;
+            }
             _cameraX = 0f;
             _cameraY = 0f;
             // Target the center of the bounding box, so that models that aren't close to the origin are easy to view.
@@ -1385,11 +1190,6 @@ namespace PSXPrev.Common.Renderer
 
             UpdateViewMatrix();
             OnCameraChanged();
-        }
-
-        public void UpdateTexture(Bitmap textureBitmap, int texturePage)
-        {
-            TextureBinder.UpdateTexture(textureBitmap, texturePage);
         }
 
         private float DistanceToFitBounds(BoundingBox bounds)
