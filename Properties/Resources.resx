@@ -334,4 +334,25 @@
   <data name="Textures_ShowMissingTextures" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Icons\Custom\Textures_ShowMissingTextures.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="Models_Focus_ResetCameraRotation" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icons\Fugue\Models_Focus_ResetCameraRotation.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Models_SelectionMode" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icons\Fugue\Models_SelectionMode.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Models_SelectionMode_Bounds" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icons\Custom\Models_SelectionMode_Bounds.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Models_SelectionMode_Triangle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icons\Custom\Models_SelectionMode_Triangle.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Models_ShowSkeleton" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icons\Custom\Models_ShowSkeleton.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Textures_ShowPalette" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icons\Fugue\Textures_ShowPalette.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Textures_ShowSemiTransparency" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icons\Fugue\Textures_ShowSemiTransparency.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
 </root>

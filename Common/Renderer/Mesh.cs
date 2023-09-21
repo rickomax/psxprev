@@ -12,28 +12,29 @@ namespace PSXPrev.Common.Renderer
         Point,
     }
 
-    public class Mesh : MeshRenderInfo, IDisposable
+    public class Mesh : MeshRenderInfo, IDisposable, IComparable<Mesh>
     {
-        private readonly uint _meshId;
-        private readonly uint[] _bufferIds = new uint[Scene.JointsSupported ? 6 : 5];
-        private readonly uint _positionBufferId;
-        private readonly uint _colorBufferId;
-        private readonly uint _normalBufferId;
-        private readonly uint _uvBufferId;
-        private readonly uint _tiledAreaBufferId;
-        private readonly uint _jointBufferId;
+        private readonly int _meshIndex;
+        private readonly int _meshId; // Vertex array object
+        private readonly int[] _bufferIds = new int[Shader.JointsSupported ? 6 : 5];
+        private readonly int _positionBufferId;
+        private readonly int _colorBufferId;
+        private readonly int _normalBufferId;
+        private readonly int _uvBufferId;
+        private readonly int _tiledAreaBufferId;
+        private readonly int _jointBufferId;
 
         private MeshDataType _meshDataType;
         private int _elementCount; // Number of elements assigned during SetData
 
-        public MeshDataType MeshDataType => _meshDataType;
-        public int VertexCount => _elementCount;
-        public int PrimitiveCount => _elementCount / VerticesPerElement;
+        public MeshDataType MeshDataType => SourceMesh?._meshDataType ?? _meshDataType;
+        public int VertexCount => SourceMesh?._elementCount ?? _elementCount;
+        public int PrimitiveCount => VertexCount / VerticesPerElement;
         public int VerticesPerElement
         {
             get
             {
-                switch (_meshDataType)
+                switch (MeshDataType)
                 {
                     case MeshDataType.Triangle:
                         return 3;
@@ -46,12 +47,16 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
+        public Mesh SourceMesh { get; private set; } // Use mesh data of this mesh
+        public Mesh OwnerMesh => SourceMesh ?? this; // Mesh who owns the mesh data
         public Matrix4 WorldMatrix { get; set; } = Matrix4.Identity;
-        public uint TextureID { get; set; } // Texture ID assinged by TextureBinder
+        public int TextureID { get; set; } // Texture ID assinged by TextureBinder
         public Skin Skin { get; set; } // Skin used for joint matrices
+        public bool IsDisposed { get; private set; }
 
-        public Mesh(uint meshId)
+        public Mesh(int meshIndex, int meshId)
         {
+            _meshIndex = meshIndex;
             _meshId = meshId;
             GL.GenBuffers(_bufferIds.Length, _bufferIds);
             _positionBufferId  = _bufferIds[0];
@@ -59,57 +64,93 @@ namespace PSXPrev.Common.Renderer
             _normalBufferId    = _bufferIds[2];
             _uvBufferId        = _bufferIds[3];
             _tiledAreaBufferId = _bufferIds[4];
-            _jointBufferId     = Scene.JointsSupported ? _bufferIds[5] : 0u;
+            _jointBufferId     = Shader.JointsSupported ? _bufferIds[5] : 0;
+        }
+
+        // Share the mesh data of an existing mesh, but allow different render settings
+        public Mesh(int meshIndex, Mesh sourceMesh)
+        {
+            _meshIndex = meshIndex;
+            SourceMesh = sourceMesh;
+            _meshId = sourceMesh._meshId; // We use this for comparison, so might as well store it locally
+            //_positionBufferId  = sourceMesh._positionBufferId;
+            //_colorBufferId     = sourceMesh._colorBufferId;
+            //_normalBufferId    = sourceMesh._normalBufferId;
+            //_uvBufferId        = sourceMesh._uvBufferId;
+            //_tiledAreaBufferId = sourceMesh._tiledAreaBufferId;
+            //_jointBufferId     = sourceMesh._jointBufferId;
+            //_meshDataType = sourceMesh._meshDataType;
+            //_elementCount = sourceMesh._elementCount;
+            IsDisposed = sourceMesh.IsDisposed;
         }
 
         public void Dispose()
         {
-            GL.DeleteBuffers(_bufferIds.Length, _bufferIds);
+            if (!IsDisposed)
+            {
+                IsDisposed = true;
+                if (SourceMesh == null)
+                {
+                    GL.DeleteBuffers(_bufferIds.Length, _bufferIds);
+                }
+                else
+                {
+                    SourceMesh = null;
+                }
+            }
         }
 
-        public int Draw(TextureBinder textureBinder = null, bool drawFaces = true, bool drawWireframe = false, bool drawVertices = false, float wireframeSize = 1f, float vertexSize = 1f)
+        public void Bind()
         {
+            if (SourceMesh != null)
+            {
+                SourceMesh.Bind();
+                return;
+            }
+
             // Bind buffers
             GL.BindVertexArray(_meshId);
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, _positionBufferId);
-            GL.EnableVertexAttribArray((uint)Scene.AttributeIndexPosition);
-            GL.VertexAttribPointer((uint)Scene.AttributeIndexPosition, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
+            GL.EnableVertexAttribArray(Shader.AttributeIndex_Position);
+            GL.VertexAttribPointer(Shader.AttributeIndex_Position, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
+
+            GL.BindBuffer(BufferTarget.ArrayBuffer, _colorBufferId);
+            GL.EnableVertexAttribArray(Shader.AttributeIndex_Color);
+            GL.VertexAttribPointer(Shader.AttributeIndex_Color, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, _normalBufferId);
-            GL.EnableVertexAttribArray((uint)Scene.AttributeIndexNormal);
-            GL.VertexAttribPointer((uint)Scene.AttributeIndexNormal, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
-
-            // True argument normalizes normals
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _colorBufferId);
-            GL.EnableVertexAttribArray((uint)Scene.AttributeIndexColor);
-            GL.VertexAttribPointer((uint)Scene.AttributeIndexColor, 3, VertexAttribPointerType.Float, true, 0, IntPtr.Zero);
+            GL.EnableVertexAttribArray(Shader.AttributeIndex_Normal);
+            GL.VertexAttribPointer(Shader.AttributeIndex_Normal, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, _uvBufferId);
-            GL.EnableVertexAttribArray((uint)Scene.AttributeIndexUv);
-            GL.VertexAttribPointer((uint)Scene.AttributeIndexUv, 2, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
+            GL.EnableVertexAttribArray(Shader.AttributeIndex_Uv);
+            GL.VertexAttribPointer(Shader.AttributeIndex_Uv, 2, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, _tiledAreaBufferId);
-            GL.EnableVertexAttribArray((uint)Scene.AttributeIndexTiledArea);
-            GL.VertexAttribPointer((uint)Scene.AttributeIndexTiledArea, 4, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
+            GL.EnableVertexAttribArray(Shader.AttributeIndex_TiledArea);
+            GL.VertexAttribPointer(Shader.AttributeIndex_TiledArea, 4, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
 
-            if (Scene.JointsSupported)
+            if (Shader.JointsSupported)
             {
                 GL.BindBuffer(BufferTarget.ArrayBuffer, _jointBufferId);
-                GL.EnableVertexAttribArray((uint)Scene.AttributeIndexJoint);
-                GL.VertexAttribIPointer((uint)Scene.AttributeIndexJoint, 2, VertexAttribIntegerType.UnsignedInt, 0, IntPtr.Zero);
+                GL.EnableVertexAttribArray(Shader.AttributeIndex_Joint);
+                GL.VertexAttribIPointer(Shader.AttributeIndex_Joint, 2, VertexAttribIntegerType.UnsignedInt, 0, IntPtr.Zero);
             }
+        }
 
-            // Bind joint matrices
-            if (Scene.JointsSupported && Skin != null)
-            {
-                Skin.Bind();
-            }
+        public void Unbind()
+        {
+            // Unbind buffers
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+            GL.BindVertexArray(0);
+        }
 
-            // Bind texture
-            if (textureBinder != null && TextureID != 0)
+        public int Draw(Shader shader, bool drawFaces = true, bool drawWireframe = false, bool drawVertices = false, float wireframeSize = 1f, float vertexSize = 1f)
+        {
+            if (SourceMesh != null)
             {
-                textureBinder.BindTexture(TextureID);
+                return SourceMesh.Draw(shader, drawFaces, drawWireframe, drawVertices, wireframeSize, vertexSize);
             }
 
             // Setup point size and/or line width
@@ -119,7 +160,7 @@ namespace PSXPrev.Common.Renderer
                 {
                     vertexSize = Math.Max(vertexSize, Thickness);
                 }
-                GL.PointSize(drawVertices ? vertexSize : Thickness);
+                shader.PointSize = drawVertices ? vertexSize : Thickness;
             }
             if (drawWireframe || _meshDataType == MeshDataType.Line)
             {
@@ -127,7 +168,7 @@ namespace PSXPrev.Common.Renderer
                 {
                     wireframeSize = Math.Max(wireframeSize, Thickness);
                 }
-                GL.LineWidth(drawWireframe ? wireframeSize : Thickness);
+                shader.LineWidth = drawWireframe ? wireframeSize : Thickness;
             }
 
             var drawCalls = 0;
@@ -138,23 +179,21 @@ namespace PSXPrev.Common.Renderer
                 case MeshDataType.Triangle:
                     if (drawFaces)
                     {
-                        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
+                        shader.PolygonMode = PolygonMode.Fill;
                         GL.DrawArrays(PrimitiveType.Triangles, 0, _elementCount);
                         drawCalls++;
                     }
                     if (drawWireframe)
                     {
-                        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
+                        shader.PolygonMode = PolygonMode.Line;
                         GL.DrawArrays(PrimitiveType.Triangles, 0, _elementCount);
                         drawCalls++;
-                        GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
                     }
                     if (drawVertices)
                     {
-                        //GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Point);
+                        //shader.PolygonMode = PolygonMode.Point;
                         //GL.DrawArrays(PrimitiveType.Triangles, 0, _elementCount);
                         //drawCalls++;
-                        //GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
                         goto case MeshDataType.Point;
                     }
                     break;
@@ -167,10 +206,9 @@ namespace PSXPrev.Common.Renderer
                     }
                     if (drawVertices)
                     {
-                        //GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Point);
+                        //shader.PolygonMode = PolygonMode.Point;
                         //GL.DrawArrays(PrimitiveType.Lines, 0, _elementCount);
                         //drawCalls++;
-                        //GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
                         goto case MeshDataType.Point;
                     }
                     break;
@@ -184,37 +222,13 @@ namespace PSXPrev.Common.Renderer
                     break;
             }
 
-            // Restore point size and/or line width
-            if (drawVertices || _meshDataType == MeshDataType.Point)
-            {
-                GL.PointSize(1f);
-            }
-            if (drawWireframe || _meshDataType == MeshDataType.Line)
-            {
-                GL.LineWidth(1f);
-            }
-
-            // Unbind texture
-            if (textureBinder != null && TextureID != 0)
-            {
-                textureBinder.Unbind();
-            }
-
-            // Unbind joint matrices
-            if (Scene.JointsSupported && Skin != null)
-            {
-                Skin.Unbind();
-            }
-
-            // Unbind buffers
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-            GL.BindVertexArray(0);
-
             return drawCalls;
         }
 
         public void SetData(MeshDataType meshDataType, int elementCount, float[] positionList, float[] normalList, float[] colorList, float[] uvList, float[] tiledAreaList, uint[] jointList)
         {
+            Trace.Assert(SourceMesh == null, "SetData cannot be called for mesh with a source mesh");
+
             _meshDataType = meshDataType;
             _elementCount = elementCount;
 
@@ -223,14 +237,14 @@ namespace PSXPrev.Common.Renderer
             BufferData(_colorBufferId,     colorList,     3); // Vector3 (Color)
             BufferData(_uvBufferId,        uvList,        2); // Vector2
             BufferData(_tiledAreaBufferId, tiledAreaList, 4); // Vector4
-            if (Scene.JointsSupported)
+            if (Shader.JointsSupported)
             {
                 BufferData(_jointBufferId,     jointList,     2); // uint[2]
             }
         }
 
         // Passing null for list will fill the data with zeros.
-        private void BufferData<T>(uint bufferId, T[] list, int elementSize) where T : struct
+        private void BufferData<T>(int bufferId, T[] list, int elementSize) where T : struct
         {
             var length = _elementCount * elementSize;
             if (list == null)
@@ -245,7 +259,40 @@ namespace PSXPrev.Common.Renderer
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, bufferId);
             GL.BufferData(BufferTarget.ArrayBuffer, size, list, BufferUsageHint.StaticDraw);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+        }
+
+        public int CompareTo(Mesh other)
+        {
+            var semiTransparent = RenderFlags.HasFlag(RenderFlags.SemiTransparent);
+            if (semiTransparent != other.RenderFlags.HasFlag(RenderFlags.SemiTransparent))
+            {
+                return (!semiTransparent ? -1 : 1);
+            }
+            else if (!semiTransparent)
+            {
+                // Only sort opaque meshes, since the draw order of semi-transparent meshes matters
+                if (Skin != other.Skin)
+                {
+                    if ((Skin == null) != (other.Skin == null))
+                    {
+                        return (Skin == null ? -1 : 1);
+                    }
+                    return Skin.CompareTo(other.Skin);
+                }
+                //else if (MixtureRate != other.MixtureRate)
+                //{
+                //    return MixtureRate.CompareTo(other.MixtureRate);
+                //}
+                else if (TextureID != other.TextureID)
+                {
+                    return TextureID.CompareTo(other.TextureID);
+                }
+                else if (RenderFlags != other.RenderFlags)
+                {
+                    return RenderFlags.CompareTo(other.RenderFlags);
+                }
+            }
+            return _meshIndex.CompareTo(other._meshIndex);
         }
 
 

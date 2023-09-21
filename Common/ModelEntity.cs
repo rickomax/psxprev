@@ -194,6 +194,21 @@ namespace PSXPrev.Common
         [DisplayName("TMD ID")]
         public uint TMDID { get; set; }
 
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [DisplayName("Parent TMD ID"), ReadOnly(true)]
+        public int PropertyGrid_ParentTMDID
+        {
+            get
+            {
+                var coords = GetRootEntity()?.Coords;
+                if (coords != null && TMDID > 0 && TMDID <= coords.Length)
+                {
+                    return (int)(coords[TMDID - 1u].Parent?.TMDID ?? Coordinate.NoID);
+                }
+                return unchecked((int)Coordinate.NoID);
+            }
+        }
+
         // This value will be modified by RootEntity.PrepareJoints.
         [Browsable(false)]
         public uint JointID { get; set; } = Triangle.NoJoint;
@@ -388,7 +403,7 @@ namespace PSXPrev.Common
         {
             if (!bake.HasValue)
             {
-                bake = !Renderer.Scene.JointsSupported;
+                bake = !Renderer.Shader.JointsSupported;
             }
             if (bake.Value && HasAttached && tempJointMatrices == null)
             {

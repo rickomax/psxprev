@@ -54,12 +54,17 @@ namespace PSXPrev.Common.Renderer
 
         public void Dispose()
         {
-            for (var i = 0; i < PageCount; i++)
+            if (Initialized)
             {
-                _vramPages[i]?.Dispose();
-                _vramPages[i] = null;
-                _modifiedPages[i] = false;
-                _usedPages[i] = false;
+                for (var i = 0; i < PageCount; i++)
+                {
+                    _vramPages[i]?.Dispose();
+                    _vramPages[i] = null;
+                    _modifiedPages[i] = false;
+                    _usedPages[i] = false;
+                }
+                ClearAllPagePacking();
+                Initialized = false;
             }
         }
 
@@ -149,7 +154,7 @@ namespace PSXPrev.Common.Renderer
             if (force || _modifiedPages[index])
             {
                 // Support using VRAM even if we have no Scene.
-                _scene?.UpdateTexture(_vramPages[index].Bitmap, index);
+                _scene?.TextureBinder.UpdateTexture(_vramPages[index].Bitmap, index);
                 _modifiedPages[index] = false;
                 return true;
             }

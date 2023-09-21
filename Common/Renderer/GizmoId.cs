@@ -16,4 +16,11 @@
         AxisZ,
         Uniform, // For Scale only
     }
+
+    public enum EntitySelectionMode
+    {
+        None,
+        Bounds,
+        Triangle,
+    }
 }

@@ -117,6 +117,10 @@ namespace PSXPrev.Forms
             this.gizmoToolTranslateToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.gizmoToolRotateToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.gizmoToolScaleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.selectionModeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.selectionModeNoneToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.selectionModeBoundsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.selectionModeTriangleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator12 = new System.Windows.Forms.ToolStripSeparator();
             this.drawModeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.drawModeFacesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -130,6 +134,7 @@ namespace PSXPrev.Forms
             this.enableSemiTransparencyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.forceDoubleSidedToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoAttachLimbsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.showSkeletonToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator14 = new System.Windows.Forms.ToolStripSeparator();
             this.subModelVisibilityToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.subModelVisibilityAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -140,6 +145,7 @@ namespace PSXPrev.Forms
             this.autoFocusOnSubModelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoFocusIncludeWholeModelToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoFocusIncludeCheckedModelsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.autoFocusResetCameraRotationToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator7 = new System.Windows.Forms.ToolStripSeparator();
             this.setAmbientColorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.setBackgroundColorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -157,6 +163,10 @@ namespace PSXPrev.Forms
             this.clearSearchToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.setPaletteIndexToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
+            this.showTexturePaletteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.showTextureSemiTransparencyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator15 = new System.Windows.Forms.ToolStripSeparator();
+            this.showMissingTexturesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoDrawModelTexturesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoPackModelTexturesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
@@ -211,7 +221,6 @@ namespace PSXPrev.Forms
             this.wireframeSizeUpDown = new System.Windows.Forms.NumericUpDown();
             this.vertexSizeUpDown = new System.Windows.Forms.NumericUpDown();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
-            this.showMissingTexturesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.entitiesTabPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.modelsSplitContainer)).BeginInit();
             this.modelsSplitContainer.Panel1.SuspendLayout();
@@ -1198,9 +1207,11 @@ namespace PSXPrev.Forms
             this.toolStripSeparator2,
             this.resetTransformToolStripMenuItem,
             this.gizmoToolToolStripMenuItem,
+            this.selectionModeToolStripMenuItem,
             this.toolStripSeparator12,
             this.drawModeToolStripMenuItem,
             this.showBoundsToolStripMenuItem,
+            this.showSkeletonToolStripMenuItem,
             this.enableLightToolStripMenuItem,
             this.enableTexturesToolStripMenuItem,
             this.enableVertexColorToolStripMenuItem,
@@ -1349,6 +1360,40 @@ namespace PSXPrev.Forms
             this.gizmoToolScaleToolStripMenuItem.Text = "Scale";
             this.gizmoToolScaleToolStripMenuItem.Click += new System.EventHandler(this.gizmoToolScaleToolStripMenuItem_Click);
             // 
+            // selectionModeToolStripMenuItem
+            // 
+            this.selectionModeToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.selectionModeNoneToolStripMenuItem,
+            this.selectionModeBoundsToolStripMenuItem,
+            this.selectionModeTriangleToolStripMenuItem});
+            this.selectionModeToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Models_SelectionMode;
+            this.selectionModeToolStripMenuItem.Name = "selectionModeToolStripMenuItem";
+            this.selectionModeToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
+            this.selectionModeToolStripMenuItem.Text = "Selection Mode";
+            // 
+            // selectionModeNoneToolStripMenuItem
+            // 
+            this.selectionModeNoneToolStripMenuItem.Name = "selectionModeNoneToolStripMenuItem";
+            this.selectionModeNoneToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.selectionModeNoneToolStripMenuItem.Text = "None";
+            this.selectionModeNoneToolStripMenuItem.Click += new System.EventHandler(this.selectionModeNoneToolStripMenuItem_Click);
+            // 
+            // selectionModeBoundsToolStripMenuItem
+            // 
+            this.selectionModeBoundsToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Models_SelectionMode_Bounds;
+            this.selectionModeBoundsToolStripMenuItem.Name = "selectionModeBoundsToolStripMenuItem";
+            this.selectionModeBoundsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.selectionModeBoundsToolStripMenuItem.Text = "Bounds Intersection";
+            this.selectionModeBoundsToolStripMenuItem.Click += new System.EventHandler(this.selectionModeBoundsToolStripMenuItem_Click);
+            // 
+            // selectionModeTriangleToolStripMenuItem
+            // 
+            this.selectionModeTriangleToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Models_SelectionMode_Triangle;
+            this.selectionModeTriangleToolStripMenuItem.Name = "selectionModeTriangleToolStripMenuItem";
+            this.selectionModeTriangleToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.selectionModeTriangleToolStripMenuItem.Text = "Triangle Intersection";
+            this.selectionModeTriangleToolStripMenuItem.Click += new System.EventHandler(this.selectionModeTriangleToolStripMenuItem_Click);
+            // 
             // toolStripSeparator12
             // 
             this.toolStripSeparator12.Name = "toolStripSeparator12";
@@ -1463,9 +1508,18 @@ namespace PSXPrev.Forms
             this.autoAttachLimbsToolStripMenuItem.Name = "autoAttachLimbsToolStripMenuItem";
             this.autoAttachLimbsToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
             this.autoAttachLimbsToolStripMenuItem.Text = "Auto Attach Limbs";
-            this.autoAttachLimbsToolStripMenuItem.Click += new System.EventHandler(this.autoAttachLimbsToolStripMenuItem_Click);
             this.autoAttachLimbsToolStripMenuItem.CheckedChanged += new System.EventHandler(this.autoAttachLimbsToolStripMenuItem_CheckedChanged);
             this.autoAttachLimbsToolStripMenuItem.CheckStateChanged += new System.EventHandler(this.autoAttachLimbsToolStripMenuItem_CheckStateChanged);
+            this.autoAttachLimbsToolStripMenuItem.Click += new System.EventHandler(this.autoAttachLimbsToolStripMenuItem_Click);
+            // 
+            // showSkeletonToolStripMenuItem
+            // 
+            this.showSkeletonToolStripMenuItem.CheckOnClick = true;
+            this.showSkeletonToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Models_ShowSkeleton;
+            this.showSkeletonToolStripMenuItem.Name = "showSkeletonToolStripMenuItem";
+            this.showSkeletonToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
+            this.showSkeletonToolStripMenuItem.Text = "Show Skeleton";
+            this.showSkeletonToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showSkeletonToolStripMenuItem_CheckedChanged);
             // 
             // toolStripSeparator14
             // 
@@ -1513,7 +1567,8 @@ namespace PSXPrev.Forms
             this.autoFocusOnRootModelToolStripMenuItem,
             this.autoFocusOnSubModelToolStripMenuItem,
             this.autoFocusIncludeWholeModelToolStripMenuItem,
-            this.autoFocusIncludeCheckedModelsToolStripMenuItem});
+            this.autoFocusIncludeCheckedModelsToolStripMenuItem,
+            this.autoFocusResetCameraRotationToolStripMenuItem});
             this.autoFocusToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Models_Focus;
             this.autoFocusToolStripMenuItem.Name = "autoFocusToolStripMenuItem";
             this.autoFocusToolStripMenuItem.Size = new System.Drawing.Size(225, 22);
@@ -1554,6 +1609,15 @@ namespace PSXPrev.Forms
             this.autoFocusIncludeCheckedModelsToolStripMenuItem.Size = new System.Drawing.Size(216, 22);
             this.autoFocusIncludeCheckedModelsToolStripMenuItem.Text = "Include Checked Models";
             this.autoFocusIncludeCheckedModelsToolStripMenuItem.CheckedChanged += new System.EventHandler(this.autoFocusIncludeCheckedModelsToolStripMenuItem_CheckedChanged);
+            // 
+            // autoFocusResetCameraRotationToolStripMenuItem
+            // 
+            this.autoFocusResetCameraRotationToolStripMenuItem.CheckOnClick = true;
+            this.autoFocusResetCameraRotationToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Models_Focus_ResetCameraRotation;
+            this.autoFocusResetCameraRotationToolStripMenuItem.Name = "autoFocusResetCameraRotationToolStripMenuItem";
+            this.autoFocusResetCameraRotationToolStripMenuItem.Size = new System.Drawing.Size(216, 22);
+            this.autoFocusResetCameraRotationToolStripMenuItem.Text = "Reset Camera Rotation";
+            this.autoFocusResetCameraRotationToolStripMenuItem.CheckedChanged += new System.EventHandler(this.autoFocusResetCameraRotationToolStripMenuItem_CheckedChanged);
             // 
             // toolStripSeparator7
             // 
@@ -1606,6 +1670,9 @@ namespace PSXPrev.Forms
             this.clearSearchToolStripMenuItem,
             this.setPaletteIndexToolStripMenuItem,
             this.toolStripSeparator1,
+            this.showTexturePaletteToolStripMenuItem,
+            this.showTextureSemiTransparencyToolStripMenuItem,
+            this.toolStripSeparator15,
             this.showMissingTexturesToolStripMenuItem,
             this.autoDrawModelTexturesToolStripMenuItem,
             this.autoPackModelTexturesToolStripMenuItem,
@@ -1622,7 +1689,7 @@ namespace PSXPrev.Forms
             this.exportAllTexturesToolStripMenuItem});
             this.exportTexturesToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_Export;
             this.exportTexturesToolStripMenuItem.Name = "exportTexturesToolStripMenuItem";
-            this.exportTexturesToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
+            this.exportTexturesToolStripMenuItem.Size = new System.Drawing.Size(206, 22);
             this.exportTexturesToolStripMenuItem.Text = "Export Textures";
             // 
             // exportSelectedTexturesToolStripMenuItem
@@ -1644,13 +1711,13 @@ namespace PSXPrev.Forms
             // toolStripSeparator3
             // 
             this.toolStripSeparator3.Name = "toolStripSeparator3";
-            this.toolStripSeparator3.Size = new System.Drawing.Size(190, 6);
+            this.toolStripSeparator3.Size = new System.Drawing.Size(203, 6);
             // 
             // drawToVRAMToolStripMenuItem
             // 
             this.drawToVRAMToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_DrawToVRAM;
             this.drawToVRAMToolStripMenuItem.Name = "drawToVRAMToolStripMenuItem";
-            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
+            this.drawToVRAMToolStripMenuItem.Size = new System.Drawing.Size(206, 22);
             this.drawToVRAMToolStripMenuItem.Text = "Draw to VRAM";
             this.drawToVRAMToolStripMenuItem.Click += new System.EventHandler(this.drawSelectedToVRAM_Click);
             // 
@@ -1658,7 +1725,7 @@ namespace PSXPrev.Forms
             // 
             this.drawAllToVRAMToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_DrawToVRAM_All;
             this.drawAllToVRAMToolStripMenuItem.Name = "drawAllToVRAMToolStripMenuItem";
-            this.drawAllToVRAMToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
+            this.drawAllToVRAMToolStripMenuItem.Size = new System.Drawing.Size(206, 22);
             this.drawAllToVRAMToolStripMenuItem.Text = "Draw All to VRAM";
             this.drawAllToVRAMToolStripMenuItem.Click += new System.EventHandler(this.drawAllToVRAM_Click);
             // 
@@ -1666,7 +1733,7 @@ namespace PSXPrev.Forms
             // 
             this.findByPageToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Find;
             this.findByPageToolStripMenuItem.Name = "findByPageToolStripMenuItem";
-            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
+            this.findByPageToolStripMenuItem.Size = new System.Drawing.Size(206, 22);
             this.findByPageToolStripMenuItem.Text = "Find by Page";
             this.findByPageToolStripMenuItem.Click += new System.EventHandler(this.findTextureByVRAMPage_Click);
             // 
@@ -1674,7 +1741,7 @@ namespace PSXPrev.Forms
             // 
             this.clearSearchToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.FindClear;
             this.clearSearchToolStripMenuItem.Name = "clearSearchToolStripMenuItem";
-            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
+            this.clearSearchToolStripMenuItem.Size = new System.Drawing.Size(206, 22);
             this.clearSearchToolStripMenuItem.Text = "Clear Find Results";
             this.clearSearchToolStripMenuItem.Click += new System.EventHandler(this.clearTextureFindResults_Click);
             // 
@@ -1682,21 +1749,53 @@ namespace PSXPrev.Forms
             // 
             this.setPaletteIndexToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_SetPaletteIndex;
             this.setPaletteIndexToolStripMenuItem.Name = "setPaletteIndexToolStripMenuItem";
-            this.setPaletteIndexToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
+            this.setPaletteIndexToolStripMenuItem.Size = new System.Drawing.Size(206, 22);
             this.setPaletteIndexToolStripMenuItem.Text = "Set CLUT Index";
             this.setPaletteIndexToolStripMenuItem.Click += new System.EventHandler(this.setPaletteIndexToolStripMenuItem_Click);
             // 
             // toolStripSeparator1
             // 
             this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(190, 6);
+            this.toolStripSeparator1.Size = new System.Drawing.Size(203, 6);
+            // 
+            // showTexturePaletteToolStripMenuItem
+            // 
+            this.showTexturePaletteToolStripMenuItem.CheckOnClick = true;
+            this.showTexturePaletteToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_ShowPalette;
+            this.showTexturePaletteToolStripMenuItem.Name = "showTexturePaletteToolStripMenuItem";
+            this.showTexturePaletteToolStripMenuItem.Size = new System.Drawing.Size(206, 22);
+            this.showTexturePaletteToolStripMenuItem.Text = "Show Palette";
+            this.showTexturePaletteToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showPaletteToolStripMenuItem_CheckedChanged);
+            // 
+            // showTextureSemiTransparencyToolStripMenuItem
+            // 
+            this.showTextureSemiTransparencyToolStripMenuItem.CheckOnClick = true;
+            this.showTextureSemiTransparencyToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_ShowSemiTransparency;
+            this.showTextureSemiTransparencyToolStripMenuItem.Name = "showTextureSemiTransparencyToolStripMenuItem";
+            this.showTextureSemiTransparencyToolStripMenuItem.Size = new System.Drawing.Size(206, 22);
+            this.showTextureSemiTransparencyToolStripMenuItem.Text = "Show Semi-Transparency";
+            this.showTextureSemiTransparencyToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showSemiTransparencyToolStripMenuItem_CheckedChanged);
+            // 
+            // toolStripSeparator15
+            // 
+            this.toolStripSeparator15.Name = "toolStripSeparator15";
+            this.toolStripSeparator15.Size = new System.Drawing.Size(203, 6);
+            // 
+            // showMissingTexturesToolStripMenuItem
+            // 
+            this.showMissingTexturesToolStripMenuItem.CheckOnClick = true;
+            this.showMissingTexturesToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_ShowMissingTextures;
+            this.showMissingTexturesToolStripMenuItem.Name = "showMissingTexturesToolStripMenuItem";
+            this.showMissingTexturesToolStripMenuItem.Size = new System.Drawing.Size(206, 22);
+            this.showMissingTexturesToolStripMenuItem.Text = "Show Missing Textures";
+            this.showMissingTexturesToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showMissingTexturesToolStripMenuItem_CheckedChanged);
             // 
             // autoDrawModelTexturesToolStripMenuItem
             // 
             this.autoDrawModelTexturesToolStripMenuItem.CheckOnClick = true;
             this.autoDrawModelTexturesToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_AutoDrawTextures;
             this.autoDrawModelTexturesToolStripMenuItem.Name = "autoDrawModelTexturesToolStripMenuItem";
-            this.autoDrawModelTexturesToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
+            this.autoDrawModelTexturesToolStripMenuItem.Size = new System.Drawing.Size(206, 22);
             this.autoDrawModelTexturesToolStripMenuItem.Text = "Auto Draw Textures";
             this.autoDrawModelTexturesToolStripMenuItem.CheckedChanged += new System.EventHandler(this.autoDrawModelTexturesToolStripMenuItem_CheckedChanged);
             // 
@@ -1705,20 +1804,20 @@ namespace PSXPrev.Forms
             this.autoPackModelTexturesToolStripMenuItem.CheckOnClick = true;
             this.autoPackModelTexturesToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_AutoPackTextures;
             this.autoPackModelTexturesToolStripMenuItem.Name = "autoPackModelTexturesToolStripMenuItem";
-            this.autoPackModelTexturesToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
+            this.autoPackModelTexturesToolStripMenuItem.Size = new System.Drawing.Size(206, 22);
             this.autoPackModelTexturesToolStripMenuItem.Text = "Auto Pack Textures";
             this.autoPackModelTexturesToolStripMenuItem.CheckedChanged += new System.EventHandler(this.autoPackModelTexturesToolStripMenuItem_CheckedChanged);
             // 
             // toolStripSeparator6
             // 
             this.toolStripSeparator6.Name = "toolStripSeparator6";
-            this.toolStripSeparator6.Size = new System.Drawing.Size(190, 6);
+            this.toolStripSeparator6.Size = new System.Drawing.Size(203, 6);
             // 
             // setMaskColorToolStripMenuItem
             // 
             this.setMaskColorToolStripMenuItem.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.setMaskColorToolStripMenuItem.Name = "setMaskColorToolStripMenuItem";
-            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
+            this.setMaskColorToolStripMenuItem.Size = new System.Drawing.Size(206, 22);
             this.setMaskColorToolStripMenuItem.Text = "Set Mask Color";
             this.setMaskColorToolStripMenuItem.Click += new System.EventHandler(this.setMaskColorToolStripMenuItem_Click);
             // 
@@ -2228,15 +2327,6 @@ namespace PSXPrev.Forms
             this.toolTip.SetToolTip(this.vertexSizeUpDown, "Vertex");
             this.vertexSizeUpDown.ValueChanged += new System.EventHandler(this.vertexSizeUpDown_ValueChanged);
             // 
-            // showMissingTexturesToolStripMenuItem
-            // 
-            this.showMissingTexturesToolStripMenuItem.CheckOnClick = true;
-            this.showMissingTexturesToolStripMenuItem.Image = global::PSXPrev.Properties.Resources.Textures_ShowMissingTextures;
-            this.showMissingTexturesToolStripMenuItem.Name = "showMissingTexturesToolStripMenuItem";
-            this.showMissingTexturesToolStripMenuItem.Size = new System.Drawing.Size(193, 22);
-            this.showMissingTexturesToolStripMenuItem.Text = "Show Missing Textures";
-            this.showMissingTexturesToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showMissingTexturesToolStripMenuItem_CheckedChanged);
-            // 
             // PreviewForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -2528,5 +2618,14 @@ namespace PSXPrev.Forms
         private System.Windows.Forms.ToolStripMenuItem autoFocusIncludeWholeModelToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator14;
         private System.Windows.Forms.ToolStripMenuItem showMissingTexturesToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem showSkeletonToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem autoFocusResetCameraRotationToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem selectionModeToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem selectionModeNoneToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem selectionModeBoundsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem selectionModeTriangleToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator15;
+        private System.Windows.Forms.ToolStripMenuItem showTextureSemiTransparencyToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem showTexturePaletteToolStripMenuItem;
     }
 }

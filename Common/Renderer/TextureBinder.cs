@@ -6,7 +6,7 @@ namespace PSXPrev.Common.Renderer
 {
     public class TextureBinder : IDisposable
     {
-        private readonly uint[] _textureIds = new uint[VRAM.PageCount];
+        private readonly int[] _textureIds = new int[VRAM.PageCount];
 
         public TextureBinder()
         {
@@ -18,32 +18,37 @@ namespace PSXPrev.Common.Renderer
             GL.DeleteTextures(VRAM.PageCount, _textureIds);
         }
 
-        public uint GetTextureID(int index)
+        public int GetTextureID(int index)
         {
             return _textureIds[index];
         }
 
-        public uint UpdateTexture(Bitmap bitmap, int index)
+        public void UpdateTexture(Bitmap bitmap, int index)
         {
-            var texture = _textureIds[index];
-            GL.BindTexture(TextureTarget.Texture2D, texture);
+            var textureId = _textureIds[index];
+            GL.BindTexture(TextureTarget.Texture2D, textureId);
 
-            var bitmapData = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, bitmap.Width, bitmap.Height, 0, PixelFormat.Bgra, PixelType.UnsignedByte, bitmapData.Scan0);
-            bitmap.UnlockBits(bitmapData);
+            var rect = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
+            var bmpData = bitmap.LockBits(rect, System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            try
+            {
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, bmpData.Width, bmpData.Height, 0, PixelFormat.Bgra, PixelType.UnsignedByte, bmpData.Scan0);
+            }
+            finally
+            {
+                bitmap.UnlockBits(bmpData);
+            }
 
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
-
-            Unbind();
-            return texture;
         }
 
-        public void BindTexture(uint textureId)
+        public void BindTexture(int textureId)
         {
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.BindTexture(TextureTarget.Texture2D, textureId);
-            GL.Uniform1(Scene.AttributeIndexTexture, textureId);
+            // Sampler uniform NEEDS to be set with uint, not int!
+            GL.Uniform1(Shader.AttributeIndex_Texture, (uint)textureId);
         }
 
         public void Unbind()

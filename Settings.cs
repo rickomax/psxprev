@@ -101,6 +101,9 @@ namespace PSXPrev
         [JsonProperty("gizmoTool"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
         public GizmoType GizmoType { get; set; } = GizmoType.Translate;
 
+        [JsonProperty("modelSelectionMode"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
+        public EntitySelectionMode ModelSelectionMode { get; set; } = EntitySelectionMode.Bounds;
+
         [JsonProperty("subModelVisibility"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
         public SubModelVisibility SubModelVisibility { get; set; } = SubModelVisibility.All;
 
@@ -116,8 +119,14 @@ namespace PSXPrev
         [JsonProperty("autoFocusIncludeCheckedModels")]
         public bool AutoFocusIncludeCheckedModels { get; set; } = true;
 
+        [JsonProperty("autoFocusResetCameraRotation")]
+        public bool AutoFocusResetCameraRotation { get; set; } = true;
+
         [JsonProperty("showBounds")]
         public bool ShowBounds { get; set; } = true;
+
+        [JsonProperty("showSkeleton")]
+        public bool ShowSkeleton { get; set; } = false;
 
         [JsonProperty("showLightRotationRay")]
         public bool ShowLightRotationRay { get; set; } = true;
@@ -151,6 +160,12 @@ namespace PSXPrev
 
         [JsonProperty("showUVsInVRAM")]
         public bool ShowUVsInVRAM { get; set; } = true;
+
+        [JsonProperty("showTexturePalette")]
+        public bool ShowTexturePalette { get; set; } = false;
+
+        [JsonProperty("showTextureSemiTransparency")]
+        public bool ShowTextureSemiTransparency { get; set; } = false;
 
         [JsonProperty("showMissingTextures")]
         public bool ShowMissingTextures { get; set; } = true;
@@ -399,6 +414,7 @@ namespace PSXPrev
             VertexSize        = ValidateMax(  VertexSize,        Defaults.VertexSize,    1f);
             GizmoType         = ValidateEnum( GizmoType,         Defaults.GizmoType);
             SubModelVisibility = ValidateEnum(SubModelVisibility, Defaults.SubModelVisibility);
+            ModelSelectionMode     = ValidateEnum( ModelSelectionMode,     Defaults.ModelSelectionMode);
             BackgroundColor   = ValidateColor(BackgroundColor,   Defaults.BackgroundColor);
             AmbientColor      = ValidateColor(AmbientColor,      Defaults.AmbientColor);
             MaskColor         = ValidateColor(MaskColor,         Defaults.MaskColor);

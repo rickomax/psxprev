@@ -6,21 +6,29 @@ using OpenTK.Graphics.OpenGL;
 namespace PSXPrev.Common.Renderer
 {
     // Represents a list of joint matrices that allow vertices to attach to other models
-    public class Skin : IDisposable
+    public class Skin : IDisposable, IComparable<Skin>
     {
-        private readonly uint _jointMatrixBufferId;
+        private readonly int _skinIndex;
+        private readonly int _jointMatrixBufferId;
         private int _elementCount; // Number of elements assigned during SetData
 
         public int JointCount => _elementCount;
 
-        public Skin()
+        public bool IsDisposed { get; private set; }
+
+        public Skin(int skinIndex)
         {
-            _jointMatrixBufferId = (uint)GL.GenBuffer();
+            _skinIndex = skinIndex;
+            _jointMatrixBufferId = GL.GenBuffer();
         }
 
         public void Dispose()
         {
-            GL.DeleteBuffer(_jointMatrixBufferId);
+            if (!IsDisposed)
+            {
+                IsDisposed = true;
+                GL.DeleteBuffer(_jointMatrixBufferId);
+            }
         }
 
         public void SetData(int elementCount, float[] jointMatrixList)
@@ -31,7 +39,7 @@ namespace PSXPrev.Common.Renderer
         }
 
         // Passing null for list will fill the data with zeros.
-        private void BufferData<T>(uint bufferId, T[] list, int elementSize) where T : struct
+        private void BufferData<T>(int bufferId, T[] list, int elementSize) where T : struct
         {
             var length = _elementCount * elementSize;
             if (list == null)
@@ -46,20 +54,24 @@ namespace PSXPrev.Common.Renderer
 
             GL.BindBuffer(BufferTarget.ShaderStorageBuffer, bufferId);
             GL.BufferData(BufferTarget.ShaderStorageBuffer, size, list, BufferUsageHint.DynamicDraw); //.StaticDraw);
-            GL.BindBuffer(BufferTarget.ShaderStorageBuffer, 0);
         }
 
         public void Bind()
         {
             GL.BindBuffer(BufferTarget.ShaderStorageBuffer, _jointMatrixBufferId);
-            GL.BindBufferBase(BufferTarget.ShaderStorageBuffer, (uint)Scene.BufferIndexJoints, _jointMatrixBufferId);
+            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, Shader.BufferIndex_Joints, _jointMatrixBufferId);
         }
 
         public void Unbind()
         {
             GL.BindBuffer(BufferTarget.ShaderStorageBuffer, 0);
             // todo: Is this necessary?
-            GL.BindBufferBase(BufferTarget.ShaderStorageBuffer, (uint)Scene.BufferIndexJoints, 0);
+            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, Shader.BufferIndex_Joints, 0);
+        }
+
+        public int CompareTo(Skin other)
+        {
+            return _skinIndex.CompareTo(other._skinIndex);
         }
 
 
