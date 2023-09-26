@@ -41,7 +41,6 @@ namespace PSXPrev.Common.Parsers
                 };
                 animationFrames.Add(frameTime, animationFrame);
 
-                //animation.FrameCount = Math.Max(animation.FrameCount, animationFrame.FrameEnd);
                 return animationFrame;
             }
             AnimationObject GetAnimationObject(uint objectId)
@@ -110,7 +109,7 @@ namespace PSXPrev.Common.Parsers
                     var vx = reader.ReadInt16();
                     var vy = reader.ReadInt16();
                     var vz = reader.ReadInt16();
-                    reader.ReadInt16();
+                    reader.ReadUInt16(); //pad
                     var vertex = new Vector3(vx, vy, vz);
                     vertices[i + skippedVertices] = vertex;
                     //if (Program.Debug)
@@ -125,7 +124,7 @@ namespace PSXPrev.Common.Parsers
 
             animation.AnimationType = AnimationType.VertexDiff;
             animation.FPS = 1f;
-            animation.AssignObjects(animationObjects, false, false);
+            animation.AssignObjects(animationObjects, true, false);
             return animation;
         }
     }

@@ -45,8 +45,6 @@ namespace PSXPrev.Common.Parsers
                         AnimationObject = animationObject
                     };
                     animationFrames.Add(frameTime, animationFrame);
-
-                    //animation.FrameCount = Math.Max(animation.FrameCount, animationFrame.FrameEnd);
                 }
                 return animationFrame;
             }
@@ -72,102 +70,123 @@ namespace PSXPrev.Common.Parsers
             animation = new Animation();
             animationObjects = new Dictionary<uint, AnimationObject>();
 
+            var hasFrameTransform = false;
             for (var f = 0; f < frameCount; f++)
             {
                 var framePosition = reader.BaseStream.Position;
-                var frameSize = reader.ReadUInt16();
+                var frameLength = reader.ReadUInt16() * 4u;
                 var packetCount = reader.ReadUInt16();
                 if (packetCount > Limits.MaxTODPackets)
                 {
                     return null;
                 }
-                var frameNumber = reader.ReadUInt32();
-                if (packetCount == 0 || frameSize == 0)
+                if (frameLength < 8 + packetCount * 4)
                 {
-                    continue;
+                    return null; // Invalid minimum frame size, must include header size of 8 and room for each packet header size of 4.
                 }
-                for (var p = 0; p < packetCount; p++)
+                var frameNumber = reader.ReadUInt32();
+                for (var pk = 0; pk < packetCount; pk++)
                 {
                     var packetPosition = reader.BaseStream.Position;
                     var objectId = reader.ReadUInt16();
                     var packetTypeAndFlag = reader.ReadByte();
                     var packetType = (packetTypeAndFlag & 0xF);
                     var flag = (packetTypeAndFlag & 0xF0) >> 0x4;
-                    var packetLength = reader.ReadByte();
+                    var packetLength = reader.ReadByte() * 4u;
+                    if (packetLength < 4)
+                    {
+                        return null; // Invalid minimum packet length, must include header size of 4.
+                    }
                     var animationObject = GetAnimationObject(objectId);
+                    if (animationObjects.Count > (int)Limits.MaxTODObjects)
+                    {
+                        return null;
+                    }
                     var animationFrame = GetAnimationFrame(animationObject, frameNumber);
                     switch (packetType)
                     {
                         case 0b0001: //Coordinate
-                            var matrixType = (flag & 0x1);
-                            var rotation = (flag & 0x2) >> 0x1;
-                            var scaling = (flag & 0x4) >> 0x2;
-                            var transfer = (flag & 0x8) >> 0x3;
-                            if (rotation != 0x00)
+                            var isAbsolute  = ((flag     ) & 0x1) == 0;
+                            var hasRotation = ((flag >> 1) & 0x1) != 0;
+                            var hasScaling  = ((flag >> 2) & 0x1) != 0;
+                            var hasTransfer = ((flag >> 3) & 0x1) != 0;
+                            animationFrame.AbsoluteMatrix = isAbsolute;
+                            if (hasRotation)
                             {
+                                hasFrameTransform = true;
                                 var rx = (reader.ReadInt32() / 4096f) * GeomMath.Deg2Rad;
                                 var ry = (reader.ReadInt32() / 4096f) * GeomMath.Deg2Rad;
                                 var rz = (reader.ReadInt32() / 4096f) * GeomMath.Deg2Rad;
                                 animationFrame.EulerRotation = new Vector3(rx, ry, rz);
                             }
-                            if (scaling != 0x00)
+                            if (hasScaling)
                             {
+                                hasFrameTransform = true;
                                 var sx = reader.ReadInt16() / 4096f;
                                 var sy = reader.ReadInt16() / 4096f;
                                 var sz = reader.ReadInt16() / 4096f;
-                                reader.ReadUInt16();
+                                reader.ReadUInt16(); //pad
                                 animationFrame.Scale = new Vector3(sx, sy, sz);
                             }
-                            if (transfer != 0x00)
+                            if (hasTransfer)
                             {
-                                float tx = reader.ReadInt32();
-                                float ty = reader.ReadInt32();
-                                float tz = reader.ReadInt32();
+                                hasFrameTransform = true;
+                                var tx = reader.ReadInt32();
+                                var ty = reader.ReadInt32();
+                                var tz = reader.ReadInt32();
                                 animationFrame.Transfer = new Vector3(tx, ty, tz);
                             }
-                            animationFrame.AbsoluteMatrix = matrixType == 0x00;
                             break;
                         case 0b0010: //TMD data ID
                             animationObject.TMDID.Add(reader.ReadUInt16());
-                            reader.ReadUInt16();
+                            reader.ReadUInt16(); //pad
                             break;
                         case 0b0011: //Parent Object ID
                             animationObject.ParentID = reader.ReadUInt16();
-                            reader.ReadUInt16();
+                            reader.ReadUInt16(); //pad
                             break;
                         case 0b0100: //Matrix
-                            var r00 = reader.ReadInt16() / 4096f;
-                            var r01 = reader.ReadInt16() / 4096f;
-                            var r02 = reader.ReadInt16() / 4096f;
+                            hasFrameTransform = true;
+                            var m00 = reader.ReadInt16() / 4096f;
+                            var m01 = reader.ReadInt16() / 4096f;
+                            var m02 = reader.ReadInt16() / 4096f;
 
-                            var r10 = reader.ReadInt16() / 4096f;
-                            var r11 = reader.ReadInt16() / 4096f;
-                            var r12 = reader.ReadInt16() / 4096f;
+                            var m10 = reader.ReadInt16() / 4096f;
+                            var m11 = reader.ReadInt16() / 4096f;
+                            var m12 = reader.ReadInt16() / 4096f;
 
-                            var r20 = reader.ReadInt16() / 4096f;
-                            var r21 = reader.ReadInt16() / 4096f;
-                            var r22 = reader.ReadInt16() / 4096f;
+                            var m20 = reader.ReadInt16() / 4096f;
+                            var m21 = reader.ReadInt16() / 4096f;
+                            var m22 = reader.ReadInt16() / 4096f;
 
-                            reader.ReadInt16();
+                            reader.ReadUInt16(); //pad
 
                             var x = reader.ReadInt32();
                             var y = reader.ReadInt32();
                             var z = reader.ReadInt32();
 
-                            var matrix = new Matrix3(new Vector3(r00, r01, r02), new Vector3(r10, r11, r12), new Vector3(r20, r21, r22));
                             animationFrame.Transfer = new Vector3(x, y, z);
-                            animationFrame.Matrix = matrix;
+                            // todo: Should this be transposed like other matrices?
+                            animationFrame.Matrix = new Matrix3(m00, m01, m02,
+                                                                m10, m11, m12,
+                                                                m20, m21, m22);
                             break;
                         default:
-                            reader.BaseStream.Seek(packetPosition + packetLength * 4, SeekOrigin.Begin);
                             break;
                     }
+                    reader.BaseStream.Seek(packetPosition + packetLength, SeekOrigin.Begin);
                 }
+                reader.BaseStream.Seek(framePosition + frameLength, SeekOrigin.Begin);
             }
-            animation.AnimationType = AnimationType.Common;
-            animation.FPS = resolution == 0 ? 60f : 1f / resolution * 60f;
-            animation.AssignObjects(animationObjects, false, false);
-            return animation;
+
+            if (hasFrameTransform && animationObjects.Count > 0)
+            {
+                animation.AnimationType = AnimationType.Common;
+                animation.FPS = resolution == 0 ? 60f : 1f / resolution * 60f;
+                animation.AssignObjects(animationObjects, true, false);
+                return animation;
+            }
+            return null;
         }
     }
 }
