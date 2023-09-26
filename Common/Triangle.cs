@@ -147,11 +147,11 @@ namespace PSXPrev.Common
         [Browsable(false)]
         public float IntersectionDistance { get; set; }
 
-#if DEBUG
+//#if DEBUG
         [DisplayName("Debug Data"), ReadOnly(true)]
-#else
-        [Browsable(false)]
-#endif
+//#else
+//        [Browsable(false)]
+//#endif
         public string[] DebugData { get; set; }
 
 
