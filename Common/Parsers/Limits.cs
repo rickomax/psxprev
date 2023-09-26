@@ -10,6 +10,7 @@
         // Sanity check values
         public static uint MaxANJoints = 512;
         public static uint MaxANFrames = 5000;
+        public static uint MaxANTotalFrames = 10000;
 
         public static ulong MaxBFFPackets = 40000;
         public static ulong MaxBFFVertices = 20000;
@@ -64,6 +65,7 @@
 
         public static ulong MaxTODPackets = 10000;
         public static ulong MaxTODFrames = 10000;
+        public static ulong MaxTODObjects = 1024;
 
         public static ulong MinVDFFrames = 3;
         public static ulong MaxVDFFrames = 512;
