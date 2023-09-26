@@ -92,7 +92,7 @@ namespace PSXPrev.Common.Parsers
                                 continue;
                             }
                             passed = true;
-                            entity.EntityName = name;
+                            entity.Name = name;
                             entity.FormatName = CombineFormatName(FormatName, entity.FormatName);
                             entity.FileOffset = _offset;
                             entity.ResultIndex = resultIndex++;
@@ -114,7 +114,7 @@ namespace PSXPrev.Common.Parsers
                                 continue;
                             }
                             passed = true;
-                            texture.TextureName = name;
+                            texture.Name = name;
                             texture.FormatName = CombineFormatName(FormatName, texture.FormatName);
                             texture.FileOffset = _offset;
                             texture.ResultIndex = resultIndex++;
@@ -142,7 +142,7 @@ namespace PSXPrev.Common.Parsers
                                 continue;
                             }
                             passed = true;
-                            animation.AnimationName = name;
+                            animation.Name = name;
                             animation.FormatName = CombineFormatName(FormatName, animation.FormatName);
                             animation.FileOffset = _offset;
                             animation.ResultIndex = resultIndex++;

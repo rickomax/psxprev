@@ -209,20 +209,18 @@ namespace PSXPrev.Common.Parsers
             var m21 = reader.ReadInt16() / 4096f;
             var m22 = reader.ReadInt16() / 4096f;
 
-            var x = reader.ReadInt32() / 65536f;
-            var y = reader.ReadInt32() / 65536f;
-            var z = reader.ReadInt32() / 65536f;
-            translation = new Vector3(x, y, z);
+            var pad = reader.ReadUInt16();
 
-            var matrix = new Matrix4(
-                new Vector4(m00, m10, m20, 0f),
-                new Vector4(m01, m11, m21, 0f),
-                new Vector4(m02, m12, m22, 0f),
-                new Vector4(x, y, z, 1f)
-            );
-            // It's strange that padding comes after the int32s. Would have expected the int32s to get aligned instead.
-            var pad = reader.ReadInt16();
-            return matrix;
+            var tx = reader.ReadInt32();
+            var ty = reader.ReadInt32();
+            var tz = reader.ReadInt32();
+            translation = new Vector3(tx, ty, tz);
+
+            return new Matrix4(
+                m00, m10, m20, 0f,
+                m01, m11, m21, 0f,
+                m02, m12, m22, 0f,
+                tx, ty, tz, 1f);
         }
 
         private void ProcessPrimitiveSet(BinaryReader reader, uint primitiveIndex, uint primitiveSetTop, uint primitiveHeaderTop)

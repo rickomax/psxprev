@@ -38,7 +38,7 @@ namespace PSXPrev.Forms
                 {
                     foreach (var animation in _animations)
                     {
-                        checkedAnimationsListBox.Items.Add(animation.AnimationName);
+                        checkedAnimationsListBox.Items.Add(animation.Name);
                     }
                 }
                 else

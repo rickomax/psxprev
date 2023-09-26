@@ -232,6 +232,9 @@ namespace PSXPrev
         [JsonProperty("advancedPSXScaleDivisor")]
         public float AdvancedPSXScaleDivisor { get; set; } = 2.25f;
 
+        [JsonProperty("advancedPSXIncludeLODLevels")]
+        public bool AdvancedPSXIncludeLODLevels { get; set; } = false;
+
         [JsonProperty("advancedPSXIncludeInvisible")]
         public bool AdvancedPSXIncludeInvisible { get; set; } = false;
 

@@ -350,7 +350,7 @@ namespace PSXPrev.Common
 
         public override string ToString()
         {
-            var name = EntityName ?? GetType().Name;
+            var name = Name ?? GetType().Name;
             var page = IsTextured ? TexturePage.ToString() : "null";
             return $"{name} Triangles={TrianglesCount} TexturePage={page}";
         }

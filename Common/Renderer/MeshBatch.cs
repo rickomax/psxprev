@@ -776,12 +776,6 @@ namespace PSXPrev.Common.Renderer
         public Mesh BindTriangleMesh(TriangleMeshBuilder triangleBuilder, out Skin skin, Matrix4? matrix = null, bool updateMeshData = true, Mesh sourceMesh = null, Skin sourceSkin = null)
         {
             skin = null;
-            if (triangleBuilder.Count == 0)
-            {
-                MeshIndex++; // Still consume the mesh index
-                return null;
-            }
-
             var mesh = GetMesh(MeshIndex++, sourceMesh);
             if (mesh == null)
             {
@@ -809,12 +803,6 @@ namespace PSXPrev.Common.Renderer
 
         public Mesh BindLineMesh(LineMeshBuilder lineBuilder, Matrix4? matrix = null, bool updateMeshData = true, Mesh sourceMesh = null)
         {
-            if (lineBuilder.Count == 0)
-            {
-                MeshIndex++; // Still consume the mesh index
-                return null;
-            }
-
             var mesh = GetMesh(MeshIndex++, sourceMesh);
             if (mesh == null)
             {

@@ -14,7 +14,7 @@ namespace PSXPrev.Common
         private Vector3 _scale;
 
         [DisplayName("Name")]
-        public string EntityName { get; set; }
+        public string Name { get; set; }
 
 #if DEBUG
         [DisplayName("Debug Data"), ReadOnly(true)]
@@ -187,10 +187,10 @@ namespace PSXPrev.Common
             {
                 for (var i = 0; i < value.Length; i++)
                 {
-                    value[i].EntityName = "Sub-Model " + i;
+                    value[i].Name = "Sub-Model " + i;
                     if (value[i] is ModelEntity model && !string.IsNullOrEmpty(model.MeshName))
                     {
-                        model.EntityName += " " + model.MeshName;
+                        model.Name += " " + model.MeshName;
                     }
                     value[i].ParentEntity = this;
                 }
@@ -223,7 +223,7 @@ namespace PSXPrev.Common
 
         protected EntityBase(EntityBase fromEntity)
         {
-            EntityName = fromEntity.EntityName;
+            Name = fromEntity.Name;
             ParentEntity = fromEntity.ParentEntity;
             Bounds3D = fromEntity.Bounds3D;
             TempMatrix = fromEntity.TempMatrix;
@@ -300,7 +300,7 @@ namespace PSXPrev.Common
 
         public override string ToString()
         {
-            var name = EntityName ?? GetType().Name;
+            var name = Name ?? GetType().Name;
             return $"{name} Children={ChildEntities?.Length ?? 0}";
         }
 

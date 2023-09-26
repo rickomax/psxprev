@@ -44,12 +44,15 @@
         public static ulong MaxPMDPointers = 4000;
         public static ulong MaxPMDPackets = 4000;
 
-        public static ulong MaxPSXObjectCount = 1024;
+        public static ulong MaxPSXObjectCount = 2048;
         public static ulong MaxPSXTaggedChunks = 256;
         public static ulong MaxPSXTextureHashes = 10000;
         public static ulong MaxPSXTextures = 2048;
         public static ulong MaxPSXVertices = 20000;
         public static ulong MaxPSXFaces = 10000;
+        public static ulong MaxPSXAnimationFrames = 2048;
+        public static ulong MaxPSXAnimations = 1024;
+        public static ulong MaxPSXLODLevel = 10;
 
         public static ulong MaxSPTSprites = 1024;
 

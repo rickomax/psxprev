@@ -50,7 +50,7 @@ namespace PSXPrev.Common
             Y = fromTexture.Y;
             TexturePage = fromTexture.TexturePage;
             IsVRAMPage = fromTexture.IsVRAMPage;
-            TextureName = fromTexture.TextureName;
+            Name = fromTexture.Name;
             FormatName = fromTexture.FormatName;
             FileOffset = fromTexture.FileOffset;
             ResultIndex = fromTexture.ResultIndex;
@@ -91,7 +91,7 @@ namespace PSXPrev.Common
         }
 
         [DisplayName("Name")]
-        public string TextureName { get; set; }
+        public string Name { get; set; }
 
         [DisplayName("Format"), ReadOnly(true)]
         public string FormatName { get; set; }
@@ -193,7 +193,7 @@ namespace PSXPrev.Common
 
         public override string ToString()
         {
-            var name = TextureName ?? nameof(Texture);
+            var name = Name ?? nameof(Texture);
             return $"{name} {Width}x{Height} {Bpp}bpp";
         }
 

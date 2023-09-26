@@ -392,7 +392,7 @@ namespace PSXPrev.Common.Exporters
                     {
                         // A copy doesn't exist yet, create one.
                         vramTexture = new Texture(texture, true);
-                        vramTexture.TextureName = $"{texture.TextureName ?? nameof(Texture)} Copy";
+                        vramTexture.Name = $"{texture.Name ?? nameof(Texture)} Copy";
                         _copiedVRAMPages[texturePage] = vramTexture;
                     }
                     texture = vramTexture;
@@ -737,7 +737,7 @@ namespace PSXPrev.Common.Exporters
                     try
                     {
                         SingleTexture = new Texture(bitmap, 0, 0, 32, 0, 0, null, null);
-                        SingleTexture.TextureName = $"Single[{_countX}x{_countY}]";
+                        SingleTexture.Name = $"Single[{_countX}x{_countY}]";
                         //SingleTexture.SemiTransparentMap = VRAM.ConvertSingleTexture(_packedTextures, _countX, _countY, true);
                     }
                     catch
@@ -905,8 +905,8 @@ namespace PSXPrev.Common.Exporters
                     try
                     {
                         TiledTexture = new Texture(bitmap, 0, 0, 32, TexturePage, 0, null, null);
-                        //TiledTexture.TextureName = $"Tiled[{srcX},{srcY} {srcWidth}x{srcHeight}]";
-                        TiledTexture.TextureName = $"Tiled[{_repeatX}x{_repeatY}]";
+                        //TiledTexture.Name = $"Tiled[{srcX},{srcY} {srcWidth}x{srcHeight}]";
+                        TiledTexture.Name = $"Tiled[{_repeatX}x{_repeatY}]";
                         //TiledTexture.SemiTransparentMap = VRAM.ConvertTiledTexture(OriginalTexture, srcRect, _repeatX, _repeatY, fullWidth, fullHeight, true);
                     }
                     catch
