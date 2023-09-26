@@ -81,7 +81,7 @@ namespace PSXPrev.Common.Renderer
                     // X coordinates [0,256) store texture data.
                     // X coordinates [256,512) store semi-transparency information for textures.
                     _vramPages[i] = new Texture(PageSize * 2, PageSize, 0, 0, 32, i, 0, null, null, true); // Is VRAM page
-                    _vramPages[i].TextureName = $"VRAM[{i}]";
+                    _vramPages[i].Name = $"VRAM[{i}]";
                     ClearPage(i, suppressUpdate);
                 }
             }

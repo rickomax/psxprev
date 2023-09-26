@@ -16,7 +16,7 @@ namespace PSXPrev.Forms.Dialogs
                 entitiesListBox.Items.Clear();
                 foreach (var entity in _rootEntities)
                 {
-                    entitiesListBox.Items.Add(entity.EntityName ?? nameof(RootEntity));
+                    entitiesListBox.Items.Add(entity.Name ?? nameof(RootEntity));
                 }
             }
         }

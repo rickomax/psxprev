@@ -328,8 +328,6 @@ namespace PSXPrev.Common.Parsers
             // (Because primitives can reference vertices defined by any mesh.....)
             _psiMeshStack.Push(new Tuple<PSIMesh, uint>(null, rootMeshTop));
             uint modelIndex = 0;
-            uint vertexIndex = 0; // Offsets into each table that the mesh writes to
-            uint normalIndex = 0;
             while (_psiMeshStack.Count > 0)
             {
                 if (_psiMeshes.Count + _psiMeshStack.Count > (int)Limits.MaxBFFModels)
@@ -342,7 +340,7 @@ namespace PSXPrev.Common.Parsers
                 var meshTop = tuple.Item2;
                 reader.BaseStream.Seek(_offset2 + meshTop, SeekOrigin.Begin);
 
-                if (!ReadMesh(reader, skinned, d2m, totalVertexCount, parent, modelIndex, ref vertexIndex, ref normalIndex))
+                if (!ReadMesh(reader, skinned, d2m, totalVertexCount, parent, modelIndex))
                 {
                     return false;
                 }
@@ -497,7 +495,7 @@ namespace PSXPrev.Common.Parsers
             return false;
         }
 
-        private bool ReadMesh(BinaryReader reader, bool skinned, bool d2m, uint totalVertexCount, PSIMesh parent, uint modelIndex, ref uint vertexIndex, ref uint normalIndex)
+        private bool ReadMesh(BinaryReader reader, bool skinned, bool d2m, uint totalVertexCount, PSIMesh parent, uint modelIndex)
         {
             // Mesh header length is 120 bytes
             var meshPosition = reader.BaseStream.Position;
@@ -510,6 +508,8 @@ namespace PSXPrev.Common.Parsers
             var meshVertexCount = reader.ReadUInt32();
             var meshNormalTop   = reader.ReadUInt32();
             var meshNormalCount = reader.ReadUInt32();
+            var vertexIndex = _vertexCount;
+            var normalIndex = _normalCount;
             _vertexCount += meshVertexCount;
             _normalCount += meshNormalCount;
             if (_vertexCount > totalVertexCount || _normalCount > Limits.MaxBFFVertices)
@@ -707,8 +707,6 @@ namespace PSXPrev.Common.Parsers
                 RotateKeys = rotateKeys,
             };
             _psiMeshes.Add(psiMesh);
-            vertexIndex += meshVertexCount;
-            normalIndex += meshNormalCount;
 
             // Add next first, since we parse depth-first (adding child last will mean its first out)
             if (nextTop != 0)

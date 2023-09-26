@@ -112,7 +112,7 @@ namespace PSXPrev.Common.Exporters
                 // "nodes:" [
                 //  {
                 //   "mesh": {i},
-                //   "name": "{model.EntityName}",
+                //   "name": "{model.Name}",
                 //   "translation": [ {model.WorldMatrix.ExtractTranslation()} ],
                 //   "rotation": [ {model.WorldMatrix.ExtractRotationSafe()} ],
                 //   "scale": [ {model.WorldMatrix.ExtractScale()} ]
@@ -121,10 +121,10 @@ namespace PSXPrev.Common.Exporters
                 //  {
                 //   "mesh": {i},
                 //   "skin": 0,
-                //   "name": "Mesh {model.EntityName}"
+                //   "name": "Mesh {model.Name}"
                 //  },
                 //  {
-                //   "name": "Joint {model.EntityName}",
+                //   "name": "Joint {model.Name}",
                 //   "translation": [ {model.WorldMatrix.ExtractTranslation()} ],
                 //   "rotation": [ {model.WorldMatrix.ExtractRotationSafe()} ],
                 //   "scale": [ {model.WorldMatrix.ExtractScale()} ]
@@ -141,7 +141,7 @@ namespace PSXPrev.Common.Exporters
                     _root.scenes[0].nodes.Add(_root.nodes.Count); // Add root nodes
                     _root.nodes.Add(new node
                     {
-                        name = $"{entity.EntityName}: Root",
+                        name = $"{entity.Name}: Root",
                         translation = WriteVector3(matrix.ExtractTranslation(), true),
                         rotation = WriteQuaternion(matrix.ExtractRotationSafe(), true),
                         scale = WriteVector3(matrix.ExtractScale(), false),
@@ -182,8 +182,8 @@ namespace PSXPrev.Common.Exporters
                             matrix = model.LocalMatrix;
                         }
 
-                        var meshName = $"{entity.EntityName}: Mesh {model.EntityName}";
-                        var jointName = $"{entity.EntityName}: Joint {model.EntityName}";
+                        var meshName = $"{entity.Name}: Mesh {model.Name}";
+                        var jointName = $"{entity.Name}: Joint {model.Name}";
 
                         var isJoint = _options.AttachLimbs && model.IsJoint;
                         var needsJoints = NeedsJoints(model);
@@ -252,7 +252,7 @@ namespace PSXPrev.Common.Exporters
                             coordNodes.Add(coord, _root.nodes.Count);
                             _root.nodes.Add(new node
                             {
-                                name = $"{entity.EntityName}: Coord-{j}",
+                                name = $"{entity.Name}: Coord-{j}",
                                 translation = WriteVector3(matrix.ExtractTranslation(), true),
                                 rotation = WriteQuaternion(matrix.ExtractRotationSafe(), true),
                                 scale = WriteVector3(matrix.ExtractScale(), false),
@@ -273,7 +273,7 @@ namespace PSXPrev.Common.Exporters
                         foreach (var coord in entity.Coords)
                         {
                             node parentNode;
-                            if (coord.HasParent)
+                            if (coord.HasParent && !coord.IsAbsolute)
                             {
                                 parentNode = _root.nodes[coordNodes[coord.Parent]];
                             }
@@ -671,7 +671,7 @@ namespace PSXPrev.Common.Exporters
                 // Write Meshes
                 // "meshes": [
                 //  {
-                //   "name": "{model.EntityName}",
+                //   "name": "{model.Name}",
                 //   "primitives": [
                 //    {
                 //     "attributes": {
@@ -698,7 +698,7 @@ namespace PSXPrev.Common.Exporters
                     }
                     _root.meshes.Add(new mesh
                     {
-                        name = model.EntityName,
+                        name = model.Name,
                         primitives = new List<mesh_primitive>
                         {
                             new mesh_primitive

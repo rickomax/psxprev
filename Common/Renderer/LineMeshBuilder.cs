@@ -103,7 +103,7 @@ namespace PSXPrev.Common.Renderer
             var modelEntity = CreateModelEntity(modelMatrix);
             var rootEntity = new RootEntity
             {
-                EntityName = rootEntityName ?? nameof(RootEntity),
+                Name = rootEntityName ?? nameof(RootEntity),
                 ChildEntities = new EntityBase[] { modelEntity },
             };
             return rootEntity;

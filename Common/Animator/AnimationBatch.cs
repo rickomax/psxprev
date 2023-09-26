@@ -351,7 +351,7 @@ namespace PSXPrev.Common.Animator
                                 }
                                 if (animationFrame.Matrix != null)
                                 {
-                                    frameMatrix = Matrix4.CreateFromQuaternion(animationFrame.Matrix.Value.ExtractRotation()) * Matrix4.CreateScale(animationFrame.Matrix.Value.ExtractScale()) * Matrix4.CreateTranslation(animationFrame.Transfer.GetValueOrDefault());
+                                    frameMatrix = Matrix4.CreateFromQuaternion(animationFrame.Matrix.Value.ExtractRotationSafe()) * Matrix4.CreateScale(animationFrame.Matrix.Value.ExtractScale()) * Matrix4.CreateTranslation(animationFrame.Transfer.GetValueOrDefault());
                                 }
                                 if (!animationFrame.AbsoluteMatrix)
                                 {

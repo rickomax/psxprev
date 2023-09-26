@@ -164,6 +164,12 @@ namespace PSXPrev.Common
         }
 
         // Avoid getting NaN quaternions when any matrix scale dimension is 0.
+        public static Quaternion ExtractRotationSafe(this Matrix3 matrix)
+        {
+            var rotation = matrix.ExtractRotation();
+            return float.IsNaN(rotation.X) ? Quaternion.Identity : rotation;
+        }
+
         public static Quaternion ExtractRotationSafe(this Matrix4 matrix)
         {
             var rotation = matrix.ExtractRotation();

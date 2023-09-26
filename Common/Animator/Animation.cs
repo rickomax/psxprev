@@ -40,7 +40,6 @@ namespace PSXPrev.Common.Animator
                 case AnimationType.RPYDiff:
                 case AnimationType.MatrixDiff:
                 case AnimationType.AxisDiff:
-                //case AnimationType.HMD:
                     return true;
 
                 default:
@@ -67,7 +66,7 @@ namespace PSXPrev.Common.Animator
         private readonly WeakReference<RootEntity> _ownerEntity = new WeakReference<RootEntity>(null);
 
         [DisplayName("Name")]
-        public string AnimationName { get; set; }
+        public string Name { get; set; }
 
         [DisplayName("Format"), ReadOnly(true)]
         public string FormatName { get; set; }
@@ -116,6 +115,31 @@ namespace PSXPrev.Common.Animator
         // TOD TMD bindings
         public Dictionary<uint, uint> TMDBindings = new Dictionary<uint, uint>();
 
+        [DisplayName("Total Key Frames"), ReadOnly(true)]
+        public int TotalKeyFrames
+        {
+            get
+            {
+                var count = 0;
+                var queue = new Queue<AnimationObject>();
+                queue.Enqueue(RootAnimationObject);
+                while (queue.Count > 0)
+                {
+                    var animationObject = queue.Dequeue();
+                    count += animationObject.AnimationFrames.Count;
+
+                    foreach (var child in animationObject.Children)
+                    {
+                        if (child.Children.Count > 0 || child.AnimationFrames.Count > 0)
+                        {
+                            queue.Enqueue(child);
+                        }
+                    }
+                }
+                return count;
+            }
+        }
+
         // When animation objects have their own frame counts/speeds, they will become unsynced as the animation loops.
         [DisplayName("Unsynced Objects")]
         public bool HasUnsyncedObjects
@@ -145,7 +169,7 @@ namespace PSXPrev.Common.Animator
 
         public override string ToString()
         {
-            var name = AnimationName ?? nameof(Animation);
+            var name = Name ?? nameof(Animation);
             return $"{name} Frames={FrameCount} Objects={ObjectCount}";
         }
 

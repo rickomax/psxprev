@@ -152,6 +152,12 @@ namespace PSXPrev.Forms
             _animationBatch = new AnimationBatch(_scene);
             _texturesListViewAdaptor = new TexturesListViewItemAdaptor(this);
             Toolkit.Init();
+            // todo: It's observed in GLControl's source that this is called with PreferNative in the control's constructor.
+            // Maybe we should be using it here too, since our init will prevent GLControl's init from choosing its preferred backend.
+            //Toolkit.Init(new ToolkitOptions
+            //{
+            //    Backend = PlatformBackend.PreferNative,
+            //});
             InitializeComponent();
             SetupControls();
         }
@@ -1595,7 +1601,7 @@ namespace PSXPrev.Forms
         private TreeNode CreateRootEntityNode(RootEntity rootEntity, int rootIndex)
         {
             var loaded = rootEntity.ChildEntities.Length == 0;
-            var rootEntityNode = new TreeNode(rootEntity.EntityName)
+            var rootEntityNode = new TreeNode(rootEntity.Name)
             {
                 Tag = new EntitiesTreeViewTagInfo
                 {
@@ -1613,7 +1619,7 @@ namespace PSXPrev.Forms
 
         private TreeNode CreateModelEntityNode(EntityBase modelEntity, int rootIndex, int childIndex)
         {
-            var modelNode = new TreeNode(modelEntity.EntityName)
+            var modelNode = new TreeNode(modelEntity.Name)
             {
                 Tag = new EntitiesTreeViewTagInfo
                 {
@@ -1677,7 +1683,7 @@ namespace PSXPrev.Forms
             var textureItem = new ImageListViewItem(key)
             {
                 //Text = index.ToString(), //debug
-                Text = texture.TextureName,
+                Text = texture.Name,
                 Tag = new TexturesListViewTagInfo
                 {
                     //Texture = texture,
@@ -1715,7 +1721,7 @@ namespace PSXPrev.Forms
         private TreeNode CreateAnimationNode(Animation animation, int rootIndex)
         {
             var loaded = animation.RootAnimationObject.Children.Count == 0;
-            var animationNode = new TreeNode(animation.AnimationName)
+            var animationNode = new TreeNode(animation.Name)
             {
                 Tag = new AnimationsTreeViewTagInfo
                 {
@@ -3126,7 +3132,7 @@ namespace PSXPrev.Forms
             var selectedEntityBase = GetSelectedEntityBase();
             if (selectedEntityBase != null)
             {
-                selectedNode.Text = selectedEntityBase.EntityName;
+                selectedNode.Text = selectedEntityBase.Name;
                 selectedEntityBase.Translation = SnapToGrid(selectedEntityBase.Translation);
             }
             UpdateSelectedEntity(false);
@@ -4207,8 +4213,8 @@ namespace PSXPrev.Forms
             texture.X = VRAM.ClampTextureX(texture.X);
             texture.Y = VRAM.ClampTextureY(texture.Y);
             texture.TexturePage = VRAM.ClampTexturePage(texture.TexturePage);
-            // Update changes to TextureName property in ListViewItem.
-            selectedItem.Text = texture.TextureName;
+            // Update changes to Name property in ListViewItem.
+            selectedItem.Text = texture.Name;
         }
 
         private void drawSelectedToVRAM_Click(object sender, EventArgs e)

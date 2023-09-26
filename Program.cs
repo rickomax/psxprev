@@ -772,9 +772,20 @@ namespace PSXPrev
                 var hours = (int)watch.Elapsed.TotalHours;
                 var minutes = watch.Elapsed.Minutes;
                 var seconds = watch.Elapsed.Seconds;
+                var milliseconds = watch.Elapsed.Milliseconds;
                 //Program.Logger.WriteLine();
                 Program.Logger.WriteLine("Scan end {0}", DateTime.Now.ToString(CultureInfo.InvariantCulture));
-                Program.Logger.WriteLine("Scan took {0} hours {1} minutes {2} seconds", hours, minutes, seconds);
+                var millisecondsStr = string.Empty;
+#if DEBUG
+                // Always print time taken to console for debug builds, and include milliseconds
+                var oldLogToConsole = Program.Logger.LogToConsole;
+                Program.Logger.LogToConsole = true;
+                millisecondsStr = $" {milliseconds} milliseconds";
+#endif
+                Program.Logger.WriteLine("Scan took {0} hours {1} minutes {2} seconds{3}", hours, minutes, seconds, millisecondsStr);
+#if DEBUG
+                Program.Logger.LogToConsole = oldLogToConsole;
+#endif
                 Program.Logger.WritePositiveLine("Found {0} Models", _scannedEntityCount);
                 Program.Logger.WritePositiveLine("Found {0} Textures", _scannedTextureCount);
                 Program.Logger.WritePositiveLine("Found {0} Animations", _scannedAnimationCount);
@@ -1005,6 +1016,7 @@ namespace PSXPrev
         {
             var parsers = new List<Func<FileOffsetScanner>>();
 
+            // todo: AN produces too many false positives to be enabled by default
             if (_options.CheckAll || _options.CheckAN)
             {
                 parsers.Add(() => new ANParser(AddAnimation));
@@ -1032,7 +1044,7 @@ namespace PSXPrev
             }
             if (_options.CheckAll || _options.CheckPSX)
             {
-                parsers.Add(() => new PSXParser(AddEntity, AddTexture));
+                parsers.Add(() => new PSXParser(AddEntity, AddTexture, AddAnimation));
             }
             // SPT produces too many false positives to be enabled by default
             if (/*_options.CheckAll ||*/ _options.CheckSPT)
@@ -1051,6 +1063,7 @@ namespace PSXPrev
             {
                 parsers.Add(() => new TODParser(AddAnimation));
             }
+            // todo: VDF produces too many false positives
             if (_options.CheckAll || _options.CheckVDF)
             {
                 parsers.Add(() => new VDFParser(AddAnimation));

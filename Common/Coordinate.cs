@@ -44,12 +44,14 @@ namespace PSXPrev.Common
         
         public uint ID { get; set; } = NoID;
         public uint ParentID { get; set; } = NoID;
+        public bool IsAbsolute { get; set; } // True if parents do not affect WorldMatrix
 
         public Coordinate[] Coords { get; set; }
 
         public uint TMDID => ID + 1;
 
         public bool HasParent => ParentID != NoID && ParentID != ID;
+        public bool HasTransformParent => HasParent && !IsAbsolute;
         public Coordinate Parent => (HasParent ? Coords?[ParentID] : null);
         
         public Matrix4 WorldMatrix
@@ -57,11 +59,14 @@ namespace PSXPrev.Common
             get
             {
                 var matrix = _localMatrix;
-                var coord = Parent;
-                while (coord != null)
+                if (!IsAbsolute)
                 {
-                    Matrix4.Mult(ref matrix, ref coord._localMatrix, out matrix);
-                    coord = coord.Parent;
+                    var coord = Parent;
+                    while (coord != null)
+                    {
+                        Matrix4.Mult(ref matrix, ref coord._localMatrix, out matrix);
+                        coord = coord.Parent;
+                    }
                 }
                 return matrix;
             }
@@ -89,6 +94,7 @@ namespace PSXPrev.Common
 
             ID = fromCoordinate.ID;
             ParentID = fromCoordinate.ParentID;
+            IsAbsolute = fromCoordinate.IsAbsolute;
 
             Coords = coords;
         }
