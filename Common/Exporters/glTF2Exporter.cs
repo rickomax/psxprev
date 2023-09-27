@@ -350,6 +350,16 @@ namespace PSXPrev.Common.Exporters
                         WriteMeshBufferViews(modelJoints, model, ref offset, initialOffset);
                     }
                 }
+
+                if (_root.skins != null)
+                {
+                    // Inverse Bind Matrices
+                    foreach (var skin in _root.skins)
+                    {
+                        WriteInverseBindMatricesBufferView(skin.joints.Count, ref offset, initialOffset);
+                    }
+                }
+
                 if (exportAnimations)
                 {
                     _root.bufferViews.Capacity = _root.bufferViews.Count + animations.Length * (1 + models.Count * 3);
@@ -643,6 +653,16 @@ namespace PSXPrev.Common.Exporters
                         }
                     }
                 }
+
+                // Write Accessor Inverse Bind Matrices
+                if (_root.skins != null)
+                {
+                    foreach (var skin in _root.skins)
+                    {
+                        WriteAccessor(bufferViewIndex++, 0, accessor_componentType.FLOAT, skin.joints.Count, accessor_type.MAT4);
+                    }
+                }
+
                 // Write Accessor Animations
                 if (exportAnimations)
                 {
@@ -726,6 +746,14 @@ namespace PSXPrev.Common.Exporters
                     meshIndex++;
                 }
 
+                // Write Inverse Bind Matrices
+                if (_root.skins != null)
+                {
+                    foreach (var skin in _root.skins)
+                    {
+                        skin.inverseBindMatrices = accessorIndex++;
+                    }
+                }
 
                 // Write Animations 
                 if (exportAnimations)
@@ -1113,6 +1141,18 @@ namespace PSXPrev.Common.Exporters
             }
         }
 
+        private void WriteInverseBindMatricesBufferView(int count, ref long offset, long initialOffset)
+        {
+            WriteStartBufferView(initialOffset);
+            for (var i = 0; i < count; i++)
+            {
+                // This is an optional property that defaults to an identity matrix, but some implementations require it,
+                // Because following a clearly-layed out spec is too hard...
+                WriteBinaryMatrix4(Matrix4.Identity);
+            }
+            WriteEndBufferView(ref offset);
+        }
+
         private float[] WriteVector3(Vector3 vector, bool fixHandiness = false)
         {
             if (fixHandiness)
@@ -1182,6 +1222,31 @@ namespace PSXPrev.Common.Exporters
         {
             _binaryWriter.Write(vector.X);
             _binaryWriter.Write(vector.Y);
+        }
+
+        private void WriteBinaryMatrix4(Matrix4 matrix)
+        {
+            // todo: Do we need to take handiness into account for matrices?
+            // For now it doesn't matter, since we're only writing identity matrices.
+            _binaryWriter.Write(matrix.Row0.X);
+            _binaryWriter.Write(matrix.Row0.Y);
+            _binaryWriter.Write(matrix.Row0.Z);
+            _binaryWriter.Write(matrix.Row0.W);
+
+            _binaryWriter.Write(matrix.Row1.X);
+            _binaryWriter.Write(matrix.Row1.Y);
+            _binaryWriter.Write(matrix.Row1.Z);
+            _binaryWriter.Write(matrix.Row1.W);
+
+            _binaryWriter.Write(matrix.Row2.X);
+            _binaryWriter.Write(matrix.Row2.Y);
+            _binaryWriter.Write(matrix.Row2.Z);
+            _binaryWriter.Write(matrix.Row2.W);
+
+            _binaryWriter.Write(matrix.Row3.X);
+            _binaryWriter.Write(matrix.Row3.Y);
+            _binaryWriter.Write(matrix.Row3.Z);
+            _binaryWriter.Write(matrix.Row3.W);
         }
 
         private bool NeedsTexture(ModelEntity model)
