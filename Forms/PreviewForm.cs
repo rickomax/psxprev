@@ -151,13 +151,13 @@ namespace PSXPrev.Forms
             _vram = new VRAM(_scene);
             _animationBatch = new AnimationBatch(_scene);
             _texturesListViewAdaptor = new TexturesListViewItemAdaptor(this);
-            Toolkit.Init();
-            // todo: It's observed in GLControl's source that this is called with PreferNative in the control's constructor.
-            // Maybe we should be using it here too, since our init will prevent GLControl's init from choosing its preferred backend.
-            //Toolkit.Init(new ToolkitOptions
-            //{
-            //    Backend = PlatformBackend.PreferNative,
-            //});
+            // It's observed in GLControl's source that this is called with PreferNative in the
+            // control's constructor. Changing this from PreferDefault is needed to prevent SDL2
+            // from creating the graphics context for certain users, which can throw an AccessViolationException.
+            Toolkit.Init(new ToolkitOptions
+            {
+                Backend = PlatformBackend.PreferNative,
+            });
             InitializeComponent();
             SetupControls();
         }
