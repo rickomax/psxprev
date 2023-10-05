@@ -139,9 +139,8 @@ namespace PSXPrev.Common.Animator
         public double CurrentFrameTime => GeomMath.Clamp(LoopFrameTime(), 0, FrameCount);
 
 
-        public AnimationBatch(Scene scene)
+        public AnimationBatch()
         {
-            _scene = scene;
             _lastRootEntity = new WeakReference<RootEntity>(null);
             Invalidate();
         }
@@ -180,17 +179,8 @@ namespace PSXPrev.Common.Animator
             }
         }
 
-        public void SetupAnimationBatch(Animation animation, bool simulate = false)
+        public void SetupAnimationBatch(Animation animation)
         {
-            // Support using AnimationBatch even if we have no Scene.
-            if (!simulate && _scene != null)
-            {
-                // todo: Is this correct for handling reseting the mesh batch?
-                // What if the animation doesn't match the object?
-                var objectCount = animation == null ? 0 : (animation.ObjectCount + 1);
-                _scene.MeshBatch.Reset(objectCount);
-            }
-
             if (_animation != animation)
             {
                 _animation = animation;
@@ -201,10 +191,8 @@ namespace PSXPrev.Common.Animator
         }
 
         // Returns true if the animation has been processed (updated), or false if nothing needed to be updated.
-        public bool SetupAnimationFrame(RootEntity[] checkedEntities, RootEntity selectedRootEntity, ModelEntity selectedModelEntity, bool updateMeshData = false, bool simulate = false, bool force = false)
+        public bool SetupAnimationFrame(RootEntity rootEntity, bool force = false)
         {
-            var rootEntity = selectedRootEntity ?? selectedModelEntity?.GetRootEntity();
-
             ComputePlaybackFrameTime();
 
             var needsUpdate = force ||
@@ -219,57 +207,49 @@ namespace PSXPrev.Common.Animator
             _lastRootEntity.SetTarget(rootEntity);
 
             // The result has been changed to signal if anything has been processed or not.
-            if (needsUpdate)
+            if (needsUpdate && rootEntity != null)
             {
                 // todo: What does ProcessAnimationObject's return boolean signify?
                 ProcessAnimationObject(_animation.RootAnimationObject, rootEntity, Matrix4.Identity);
-
-                // Support using AnimationBatch even if we have no Scene.
-                if (!simulate && _scene != null)
-                {
-                    updateMeshData |= _scene.AttachJointsMode == AttachJointsMode.Attach && !Shader.JointsSupported;
-                    updateMeshData |= _animation.AnimationType.IsVertexBased();
-                    _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, selectedModelEntity, selectedRootEntity, updateMeshData);
-                }
 
                 return true;
             }
             return false;
         }
 
-        private void ResetAnimationCoords(AnimationObject animationObject, RootEntity selectedRootEntity)
+        private void ResetAnimationCoords(AnimationObject animationObject, RootEntity rootEntity)
         {
-            if (selectedRootEntity?.Coords != null)
+            if (rootEntity?.Coords != null)
             {
-                var coords = selectedRootEntity.Coords;
-                foreach (var coord in selectedRootEntity.Coords)
+                var coords = rootEntity.Coords;
+                foreach (var coord in rootEntity.Coords)
                 {
                     coord.ResetTransform();
                 }
                 /*foreach (var tmdid in animationObject.TMDID)
                 {
-                    if (tmdid <= 0 || tmdid > selectedRootEntity.Coords.Length)
+                    if (tmdid <= 0 || tmdid > rootEntity.Coords.Length)
                     {
                         continue;
                     }
-                    var coord = selectedRootEntity.Coords[tmdid - 1];
+                    var coord = rootEntity.Coords[tmdid - 1];
 
                     coord.ResetTransform();
                 }
                 foreach (var childAnimationObject in animationObject.Children)
                 {
-                    ResetAnimationCoords(childAnimationObject, selectedRootEntity);
+                    ResetAnimationCoords(childAnimationObject, rootEntity);
                 }*/
             }
         }
 
-        private bool ProcessAnimationObject(AnimationObject animationObject, RootEntity selectedRootEntity, Matrix4 worldMatrix)
+        private bool ProcessAnimationObject(AnimationObject animationObject, RootEntity rootEntity, Matrix4 worldMatrix)
         {
             // Reset coordinate matrices in-case a frame requires the last state of the matrix.
             // This is important because there's no guarantee the animation won't skip a frame due to lag.
             if (_animation.RootAnimationObject == animationObject && _animation.AnimationType.IsCoordinateBased())
             {
-                ResetAnimationCoords(animationObject, selectedRootEntity);
+                ResetAnimationCoords(animationObject, rootEntity);
             }
 
             var frameTime = LoopFrameTime(animationObject, out var frameIndex, out var frameDelta);
@@ -279,12 +259,12 @@ namespace PSXPrev.Common.Animator
                 case AnimationType.VertexDiff:
                 case AnimationType.NormalDiff:
                     {
-                        if (selectedRootEntity != null && animationObject.Parent != null)
+                        if (rootEntity != null && animationObject.Parent != null)
                         {
-                            selectedRootEntity.TempMatrix = Matrix4.Identity;
+                            rootEntity.TempMatrix = Matrix4.Identity;
                             foreach (var tmdid in animationObject.TMDID)
                             {
-                                foreach (ModelEntity childModel in selectedRootEntity.ChildEntities)
+                                foreach (ModelEntity childModel in rootEntity.ChildEntities)
                                 {
                                     if (childModel.TMDID == tmdid)
                                     {
@@ -335,7 +315,7 @@ namespace PSXPrev.Common.Animator
                     }
                 case AnimationType.Common:
                     {
-                        if (selectedRootEntity != null)
+                        if (rootEntity != null)
                         {
                             var animationFrames = animationObject.AnimationFrames;
                             var totalFrames = animationFrames.Count;
@@ -391,7 +371,7 @@ namespace PSXPrev.Common.Animator
                             worldMatrix = frameMatrix.Value * worldMatrix;
                             if (animationObject.HandlesRoot)
                             {
-                                selectedRootEntity.TempMatrix = worldMatrix;
+                                rootEntity.TempMatrix = worldMatrix;
                             }
                             else
                             {
@@ -403,7 +383,7 @@ namespace PSXPrev.Common.Animator
                                         {
                                             binding = tmdid;
                                         }
-                                        var models = selectedRootEntity.GetModelsWithTMDID(binding);
+                                        var models = rootEntity.GetModelsWithTMDID(binding);
                                         foreach (var childModel in models)
                                         {
                                             childModel.Interpolator = 0;
@@ -421,7 +401,7 @@ namespace PSXPrev.Common.Animator
                     }
                 case AnimationType.HMD:
                     {
-                        if (selectedRootEntity != null && selectedRootEntity.Coords != null)
+                        if (rootEntity != null && rootEntity.Coords != null)
                         {
                             var animationFrames = animationObject.AnimationFrames;
                             if (animationFrames.Count == 0)
@@ -445,11 +425,11 @@ namespace PSXPrev.Common.Animator
                                     {
                                         binding = tmdid;
                                     }
-                                    if (binding <= 0 || binding > selectedRootEntity.Coords.Length)
+                                    if (binding <= 0 || binding > rootEntity.Coords.Length)
                                     {
                                         continue;
                                     }
-                                    var coord = selectedRootEntity.Coords[binding - 1];
+                                    var coord = rootEntity.Coords[binding - 1];
 
                                     var delta = GetInterpolator(srcFrame, frameTime);
 
@@ -531,7 +511,7 @@ namespace PSXPrev.Common.Animator
                     }
                 case AnimationType.PSI:
                     {
-                        if (selectedRootEntity == null || selectedRootEntity.Coords == null)
+                        if (rootEntity == null || rootEntity.Coords == null)
                         {
                             break;
                         }
@@ -555,11 +535,11 @@ namespace PSXPrev.Common.Animator
                                 {
                                     binding = tmdid;
                                 }
-                                if (binding <= 0 || binding > selectedRootEntity.Coords.Length)
+                                if (binding <= 0 || binding > rootEntity.Coords.Length)
                                 {
                                     continue;
                                 }
-                                var coord = selectedRootEntity.Coords[binding - 1];
+                                var coord = rootEntity.Coords[binding - 1];
 
                                 var delta = GetInterpolator(srcFrame, frameTime);
 
@@ -621,7 +601,7 @@ namespace PSXPrev.Common.Animator
             }
             foreach (var childAnimationObject in animationObject.Children)
             {
-                if (!ProcessAnimationObject(childAnimationObject, selectedRootEntity, worldMatrix))
+                if (!ProcessAnimationObject(childAnimationObject, rootEntity, worldMatrix))
                 {
                     return false;
                 }
@@ -630,12 +610,12 @@ namespace PSXPrev.Common.Animator
             // HMD: Update the temporary matrices of all models, now that the coordinate system has been updated.
             if (_animation.RootAnimationObject == animationObject && _animation.AnimationType.IsCoordinateBased())
             {
-                var coords = selectedRootEntity?.Coords;
+                var coords = rootEntity?.Coords;
                 if (coords != null)
                 {
                     foreach (var coord in coords)
                     {
-                        var models = selectedRootEntity.GetModelsWithTMDID(coord.TMDID);
+                        var models = rootEntity.GetModelsWithTMDID(coord.TMDID);
                         foreach (var childModel in models)
                         {
                             childModel.Interpolator = 0;

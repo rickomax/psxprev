@@ -32,7 +32,7 @@ namespace PSXPrev.Common.Exporters
             _modelPreparer = new ModelPreparerExporter(_options, bakeConnections: false);
 
             var exportAnimations = _options.ExportAnimations && animations?.Length > 0;
-            var animationBatch = exportAnimations ? new AnimationBatch(null) : null;
+            var animationBatch = exportAnimations ? new AnimationBatch() : null;
 
             // Prepare the shared state for all models being exported (mainly setting up tiled textures).
             var groups = _modelPreparer.PrepareAll(entities);
@@ -377,7 +377,7 @@ namespace PSXPrev.Common.Exporters
                         var rotations = new Quaternion[count, totalFrames];
                         var scales = new Vector3[count, totalFrames];
                         var oldLoopMode = animationBatch.LoopMode;
-                        animationBatch.SetupAnimationBatch(animation, simulate: true);
+                        animationBatch.SetupAnimationBatch(animation);
                         animationBatch.LoopMode = AnimationLoopMode.Once;
                         var isCoordinateBased = animation.AnimationType.IsCoordinateBased();
                         var isTransformBased = animation.AnimationType.IsTransformBased();
@@ -389,7 +389,7 @@ namespace PSXPrev.Common.Exporters
                             for (var t = 0f; t < totalTime; t += timeStep, frame++)
                             {
                                 animationBatch.Time = t;
-                                if (animationBatch.SetupAnimationFrame(null, entity, null, simulate: true, force: true))
+                                if (animationBatch.SetupAnimationFrame(entity, force: true))
                                 {
                                     var transformIndex = transformStart;
                                     if ((isTransformBased || isCoordinateBased) && entity.Coords != null)

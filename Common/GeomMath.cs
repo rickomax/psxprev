@@ -210,6 +210,37 @@ namespace PSXPrev.Common
             return false;
         }
 
+        public static Matrix4 CreateFromQuaternionAroundOrigin(Quaternion rotation, Vector3 origin)
+        {
+            CreateFromQuaternionAroundOrigin(ref rotation, ref origin, out var result);
+            return result;
+        }
+
+        public static void CreateFromQuaternionAroundOrigin(ref Quaternion rotation, ref Vector3 origin, out Matrix4 result)
+        {
+            Matrix4.CreateFromQuaternion(ref rotation, out var rotationMatrix);
+
+            var invOrigin = -origin;
+            Matrix4.CreateTranslation(ref invOrigin, out var invOriginMatrix);
+            Matrix4.Mult(ref invOriginMatrix, ref rotationMatrix, out result);
+
+            Matrix4.CreateTranslation(ref origin, out var originMatrix);
+            Matrix4.Mult(ref result, ref originMatrix, out result);
+        }
+
+        public static Matrix4 CreateSpriteWorldMatrix(Matrix4 worldMatrix, Vector3 origin)
+        {
+            CreateSpriteWorldMatrix(ref worldMatrix, ref origin, out var result);
+            return result;
+        }
+
+        public static void CreateSpriteWorldMatrix(ref Matrix4 worldMatrix, ref Vector3 origin, out Matrix4 result)
+        {
+            var invWorldRotation = worldMatrix.ExtractRotationSafe().Inverted();
+            CreateFromQuaternionAroundOrigin(ref invWorldRotation, ref origin, out result);
+            Matrix4.Mult(ref result, ref worldMatrix, out result);
+        }
+
         public static Vector3 UnProject(this Vector3 position, Matrix4 projection, Matrix4 view, float width, float height)
         {
             // Not entirely sure if the -1 in `height - 1f - position.Y` should be there or not.

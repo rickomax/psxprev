@@ -346,7 +346,6 @@ namespace PSXPrev.Forms
             this.entitiesTreeView.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.entitiesTreeView_AfterCheck);
             this.entitiesTreeView.BeforeExpand += new System.Windows.Forms.TreeViewCancelEventHandler(this.entitiesTreeView_BeforeExpand);
             this.entitiesTreeView.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.entitiesTreeView_AfterSelect);
-            this.entitiesTreeView.NodeMouseClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.entitiesTreeView_NodeMouseClick);
             // 
             // tableLayoutPanel5
             // 

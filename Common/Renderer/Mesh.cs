@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
@@ -12,25 +13,43 @@ namespace PSXPrev.Common.Renderer
         Point,
     }
 
-    public class Mesh : MeshRenderInfo, IDisposable, IComparable<Mesh>
+    public class Mesh : MeshRenderInfo, IComparable<Mesh>
     {
-        private readonly int _meshIndex;
-        private readonly int _meshId; // Vertex array object
-        private readonly int[] _bufferIds = new int[Shader.JointsSupported ? 6 : 5];
-        private readonly int _positionBufferId;
-        private readonly int _colorBufferId;
-        private readonly int _normalBufferId;
-        private readonly int _uvBufferId;
-        private readonly int _tiledAreaBufferId;
-        private readonly int _jointBufferId;
+        // Static arrays used for calls to GL.MultiDrawArrays.
+        // We can make these static, since there's no way we're going to be making GL calls on multiple threads.
+        // These arrays are only populated and used within the Mesh.Draw call.
+        private static int[] _batchedFirsts = null;
+        private static int[] _batchedCounts = null;
+
 
         private MeshDataType _meshDataType;
         private int _elementCount; // Number of elements assigned during SetData
+        private int _elementFirst;
 
         public MeshDataType MeshDataType => SourceMesh?._meshDataType ?? _meshDataType;
         public int VertexCount => SourceMesh?._elementCount ?? _elementCount;
-        public int PrimitiveCount => VertexCount / VerticesPerElement;
-        public int VerticesPerElement
+        public int VertexFirst => SourceMesh?._elementFirst ?? _elementFirst;
+        public int PrimitiveCount => VertexCount / VerticesPerPrimitive;
+
+        public int BatchedVertexCount
+        {
+            get
+            {
+                var count = VertexCount;
+                if (BatchedMeshes != null)
+                {
+                    foreach (var batchedMesh in BatchedMeshes)
+                    {
+                        count += batchedMesh.VertexCount;
+                    }
+                }
+                return count;
+            }
+        }
+        public int BatchedPrimitiveCount => BatchedVertexCount / VerticesPerPrimitive;
+        public int BatchedMeshCount => 1 + (BatchedMeshes?.Count ?? 0);
+
+        public int VerticesPerPrimitive
         {
             get
             {
@@ -47,103 +66,44 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        public Mesh SourceMesh { get; private set; } // Use mesh data of this mesh
-        public Mesh OwnerMesh => SourceMesh ?? this; // Mesh who owns the mesh data
-        public Matrix4 WorldMatrix { get; set; } = Matrix4.Identity;
-        public int TextureID { get; set; } // Texture ID assinged by TextureBinder
-        public Skin Skin { get; set; } // Skin used for joint matrices
-        public bool IsDisposed { get; private set; }
-
-        public Mesh(int meshIndex, int meshId)
+        //private static readonly int _identityMatrixHashCode = Matrix4.Identity.GetHashCode();
+        private Matrix4 _worldMatrix;// = Matrix4.Identity;
+        private int _worldMatrixHashCode;// = _identityMatrixHashCode;
+        public Matrix4 WorldMatrix
         {
-            _meshIndex = meshIndex;
-            _meshId = meshId;
-            GL.GenBuffers(_bufferIds.Length, _bufferIds);
-            _positionBufferId  = _bufferIds[0];
-            _colorBufferId     = _bufferIds[1];
-            _normalBufferId    = _bufferIds[2];
-            _uvBufferId        = _bufferIds[3];
-            _tiledAreaBufferId = _bufferIds[4];
-            _jointBufferId     = Shader.JointsSupported ? _bufferIds[5] : 0;
+            get => _worldMatrix;
+            set
+            {
+                _worldMatrix = value;
+                _worldMatrixHashCode = value.GetHashCode();
+            }
+        }
+
+        public int OrderIndex { get; set; }
+        public Mesh SourceMesh { get; private set; } // Use mesh data of this mesh
+        public VertexArrayObject VertexArrayObject { get; private set; }
+        public Skin Skin { get; set; } // Skin used for joint matrices
+        public int TextureID { get; set; } // Texture ID assinged by TextureBinder
+        public bool IsBatchable { get; set; }
+        public bool IsBatched => BatchedParent != null;
+        public Mesh BatchedParent { get; private set; }
+        public List<Mesh> BatchedMeshes { get; private set; }
+
+        public bool HasTexture => TextureID != 0 && RenderFlags.HasFlag(RenderFlags.Textured);
+
+        public Mesh(int orderIndex, VertexArrayObject vao)
+        {
+            OrderIndex = orderIndex;
+            VertexArrayObject = vao;
         }
 
         // Share the mesh data of an existing mesh, but allow different render settings
-        public Mesh(int meshIndex, Mesh sourceMesh)
+        // SetData/SetDataSource should not be called for this mesh
+        public Mesh(int orderIndex, Mesh sourceMesh)
         {
-            _meshIndex = meshIndex;
+            OrderIndex = orderIndex;
             SourceMesh = sourceMesh;
-            _meshId = sourceMesh._meshId; // We use this for comparison, so might as well store it locally
-            //_positionBufferId  = sourceMesh._positionBufferId;
-            //_colorBufferId     = sourceMesh._colorBufferId;
-            //_normalBufferId    = sourceMesh._normalBufferId;
-            //_uvBufferId        = sourceMesh._uvBufferId;
-            //_tiledAreaBufferId = sourceMesh._tiledAreaBufferId;
-            //_jointBufferId     = sourceMesh._jointBufferId;
-            //_meshDataType = sourceMesh._meshDataType;
-            //_elementCount = sourceMesh._elementCount;
-            IsDisposed = sourceMesh.IsDisposed;
-        }
-
-        public void Dispose()
-        {
-            if (!IsDisposed)
-            {
-                IsDisposed = true;
-                if (SourceMesh == null)
-                {
-                    GL.DeleteBuffers(_bufferIds.Length, _bufferIds);
-                }
-                else
-                {
-                    SourceMesh = null;
-                }
-            }
-        }
-
-        public void Bind()
-        {
-            if (SourceMesh != null)
-            {
-                SourceMesh.Bind();
-                return;
-            }
-
-            // Bind buffers
-            GL.BindVertexArray(_meshId);
-
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _positionBufferId);
-            GL.EnableVertexAttribArray(Shader.AttributeIndex_Position);
-            GL.VertexAttribPointer(Shader.AttributeIndex_Position, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
-
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _colorBufferId);
-            GL.EnableVertexAttribArray(Shader.AttributeIndex_Color);
-            GL.VertexAttribPointer(Shader.AttributeIndex_Color, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
-
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _normalBufferId);
-            GL.EnableVertexAttribArray(Shader.AttributeIndex_Normal);
-            GL.VertexAttribPointer(Shader.AttributeIndex_Normal, 3, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
-
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _uvBufferId);
-            GL.EnableVertexAttribArray(Shader.AttributeIndex_Uv);
-            GL.VertexAttribPointer(Shader.AttributeIndex_Uv, 2, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
-
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _tiledAreaBufferId);
-            GL.EnableVertexAttribArray(Shader.AttributeIndex_TiledArea);
-            GL.VertexAttribPointer(Shader.AttributeIndex_TiledArea, 4, VertexAttribPointerType.Float, false, 0, IntPtr.Zero);
-
-            if (Shader.JointsSupported)
-            {
-                GL.BindBuffer(BufferTarget.ArrayBuffer, _jointBufferId);
-                GL.EnableVertexAttribArray(Shader.AttributeIndex_Joint);
-                GL.VertexAttribIPointer(Shader.AttributeIndex_Joint, 2, VertexAttribIntegerType.UnsignedInt, 0, IntPtr.Zero);
-            }
-        }
-
-        public void Unbind()
-        {
-            // Unbind buffers
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-            GL.BindVertexArray(0);
+            VertexArrayObject = sourceMesh.VertexArrayObject;
         }
 
         public int Draw(Shader shader, bool drawFaces = true, bool drawWireframe = false, bool drawVertices = false, float wireframeSize = 1f, float vertexSize = 1f)
@@ -171,6 +131,25 @@ namespace PSXPrev.Common.Renderer
                 shader.LineWidth = drawWireframe ? wireframeSize : Thickness;
             }
 
+            // Check if we need to use MultiDrawArrays for batching
+            var multiCount = BatchedMeshCount;
+            if (multiCount > 1)
+            {
+                if (_batchedFirsts == null || _batchedFirsts.Length < multiCount)
+                {
+                    _batchedFirsts = new int[multiCount];
+                    _batchedCounts = new int[multiCount];
+                }
+                _batchedFirsts[0] = _elementFirst;
+                _batchedCounts[0] = _elementCount;
+                for (var i = 0; i < BatchedMeshes.Count; i++)
+                {
+                    var batchedMesh = BatchedMeshes[i];
+                    _batchedFirsts[i + 1] = batchedMesh._elementFirst;
+                    _batchedCounts[i + 1] = batchedMesh._elementCount;
+                }
+            }
+
             var drawCalls = 0;
 
             // Draw geometry
@@ -180,19 +159,19 @@ namespace PSXPrev.Common.Renderer
                     if (drawFaces)
                     {
                         shader.PolygonMode = PolygonMode.Fill;
-                        GL.DrawArrays(PrimitiveType.Triangles, 0, _elementCount);
+                        DrawArrays(PrimitiveType.Triangles);
                         drawCalls++;
                     }
                     if (drawWireframe)
                     {
                         shader.PolygonMode = PolygonMode.Line;
-                        GL.DrawArrays(PrimitiveType.Triangles, 0, _elementCount);
+                        DrawArrays(PrimitiveType.Triangles);
                         drawCalls++;
                     }
                     if (drawVertices)
                     {
                         //shader.PolygonMode = PolygonMode.Point;
-                        //GL.DrawArrays(PrimitiveType.Triangles, 0, _elementCount);
+                        //DrawArrays(PrimitiveType.Triangles);
                         //drawCalls++;
                         goto case MeshDataType.Point;
                     }
@@ -201,14 +180,12 @@ namespace PSXPrev.Common.Renderer
                 case MeshDataType.Line:
                     if (drawFaces || drawWireframe)
                     {
-                        GL.DrawArrays(PrimitiveType.Lines, 0, _elementCount);
+                        // Note that changing PolygonMode has no effect for Lines or Points
+                        DrawArrays(PrimitiveType.Lines);
                         drawCalls++;
                     }
                     if (drawVertices)
                     {
-                        //shader.PolygonMode = PolygonMode.Point;
-                        //GL.DrawArrays(PrimitiveType.Lines, 0, _elementCount);
-                        //drawCalls++;
                         goto case MeshDataType.Point;
                     }
                     break;
@@ -216,7 +193,7 @@ namespace PSXPrev.Common.Renderer
                 case MeshDataType.Point:
                     if (drawFaces || drawWireframe || drawVertices)
                     {
-                        GL.DrawArrays(PrimitiveType.Points, 0, _elementCount);
+                        DrawArrays(PrimitiveType.Points);
                         drawCalls++;
                     }
                     break;
@@ -225,44 +202,53 @@ namespace PSXPrev.Common.Renderer
             return drawCalls;
         }
 
-        public void SetData(MeshDataType meshDataType, int elementCount, float[] positionList, float[] normalList, float[] colorList, float[] uvList, float[] tiledAreaList, uint[] jointList)
+        private void DrawArrays(PrimitiveType primitiveType)
         {
-            Trace.Assert(SourceMesh == null, "SetData cannot be called for mesh with a source mesh");
-
-            _meshDataType = meshDataType;
-            _elementCount = elementCount;
-
-            BufferData(_positionBufferId,  positionList,  3); // Vector3
-            BufferData(_normalBufferId,    normalList,    3); // Vector3
-            BufferData(_colorBufferId,     colorList,     3); // Vector3 (Color)
-            BufferData(_uvBufferId,        uvList,        2); // Vector2
-            BufferData(_tiledAreaBufferId, tiledAreaList, 4); // Vector4
-            if (Shader.JointsSupported)
+            var multiCount = BatchedMeshCount;
+            if (multiCount > 1)
             {
-                BufferData(_jointBufferId,     jointList,     2); // uint[2]
-            }
-        }
-
-        // Passing null for list will fill the data with zeros.
-        private void BufferData<T>(int bufferId, T[] list, int elementSize) where T : struct
-        {
-            var length = _elementCount * elementSize;
-            if (list == null)
-            {
-                list = new T[length]; // Treat null as zeroed data.
+                GL.MultiDrawArrays(primitiveType, _batchedFirsts, _batchedCounts, multiCount);
             }
             else
             {
-                Trace.Assert(list.Length >= length, "BufferData cannot use list that's smaller than expected length");
+                GL.DrawArrays(primitiveType, _elementFirst, _elementCount);
             }
-            var size = (IntPtr)(length * 4);// sizeof(T));
-
-            GL.BindBuffer(BufferTarget.ArrayBuffer, bufferId);
-            GL.BufferData(BufferTarget.ArrayBuffer, size, list, BufferUsageHint.StaticDraw);
         }
 
+        // Set the data for a mesh that shares ownership of a VertexArrayObject
+        // VertexArrayObject.SetData must be handled by the caller (and can be called before or after this function)
+        public void SetDataSource(MeshDataType meshDataType, int elementFirst, int elementCount)
+        {
+            Trace.Assert(SourceMesh == null, nameof(SetDataSource) + " cannot be called for mesh with a source mesh");
+
+            _meshDataType = meshDataType;
+            _elementCount = elementCount;
+            _elementFirst = elementFirst;
+        }
+
+        // Set the data for a mesh that is the sole owner of a VertexArrayObject
+        // VertexArrayObject.SetData should NOT be handled by the caller
+        public void SetData(MeshDataType meshDataType, int elementCount, float[] positionList, float[] normalList, float[] colorList, float[] uvList, float[] tiledAreaList, uint[] jointList)
+        {
+            Trace.Assert(SourceMesh == null, nameof(SetData) + " cannot be called for mesh with a source mesh");
+
+            VertexArrayObject.SetData(elementCount, positionList, normalList, colorList, uvList, tiledAreaList, jointList);
+
+            _meshDataType = meshDataType;
+            _elementCount = elementCount;
+            _elementFirst = 0;
+        }
+
+        // This is intended for Meshes created from ModelEntitys, so some render settings are ignored
         public int CompareTo(Mesh other)
         {
+            // Sorting by VAO is essential to allow for more batching
+            if (VertexArrayObject != other.VertexArrayObject)
+            {
+                return VertexArrayObject.CompareTo(other.VertexArrayObject);
+            }
+
+            // Only sort opaque meshes, since the draw order of semi-transparent meshes matters
             var semiTransparent = RenderFlags.HasFlag(RenderFlags.SemiTransparent);
             if (semiTransparent != other.RenderFlags.HasFlag(RenderFlags.SemiTransparent))
             {
@@ -270,7 +256,6 @@ namespace PSXPrev.Common.Renderer
             }
             else if (!semiTransparent)
             {
-                // Only sort opaque meshes, since the draw order of semi-transparent meshes matters
                 if (Skin != other.Skin)
                 {
                     if ((Skin == null) != (other.Skin == null))
@@ -279,65 +264,108 @@ namespace PSXPrev.Common.Renderer
                     }
                     return Skin.CompareTo(other.Skin);
                 }
-                //else if (MixtureRate != other.MixtureRate)
-                //{
-                //    return MixtureRate.CompareTo(other.MixtureRate);
-                //}
-                else if (TextureID != other.TextureID)
+
+                if (TextureID != other.TextureID && RenderFlags.HasFlag(RenderFlags.Textured))
                 {
                     return TextureID.CompareTo(other.TextureID);
                 }
-                else if (RenderFlags != other.RenderFlags)
+
+                // Only sort by render flags that we support
+                var supportedRenderFlags = RenderFlags & RenderInfo.SupportedFlags;
+                var otherSupportedRenderFlags = other.RenderFlags & RenderInfo.SupportedFlags;
+                if (supportedRenderFlags != otherSupportedRenderFlags)
                 {
-                    return RenderFlags.CompareTo(other.RenderFlags);
+                    return ((uint)supportedRenderFlags).CompareTo((uint)otherSupportedRenderFlags);
+                }
+
+                // We don't sort semi-transparenct surfaces
+                //if (MixtureRate != other.MixtureRate && RenderFlags.HasFlag(RenderFlags.SemiTransparent))
+                //{
+                //    return MixtureRate.CompareTo(other.MixtureRate);
+                //}
+
+                if (MissingTexture != other.MissingTexture && RenderFlags.HasFlag(RenderFlags.Textured))
+                {
+                    return MissingTexture.CompareTo(other.MissingTexture);
+                }
+
+                // This information is rarely different, and is not worth sorting by
+                //if (MeshDataType != other.MeshDataType)
+                //{
+                //    return MeshDataType.CompareTo(other.MeshDataType);
+                //}
+                //if (Visible != other.Visible)
+                //{
+                //    return Visible.CompareTo(other.Visible);
+                //}
+
+                // Note: The benefits of sorting matrices is somewhat limited, and doesn't reduce the number of draw calls by much.
+                // It probably depends on the sorting algorithm used, but putting meshes even more out of order could potentially be slower,
+                // although not by a significant amount.
+                if (_worldMatrixHashCode != other._worldMatrixHashCode)
+                {
+                    return _worldMatrixHashCode.CompareTo(other._worldMatrixHashCode);
                 }
             }
-            return _meshIndex.CompareTo(other._meshIndex);
+            return OrderIndex.CompareTo(other.OrderIndex);
         }
 
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void AssignVector2(float[] data, int baseIndex, ref Vector2 vector)
+        // This is intended for Meshes created from ModelEntitys, so some render settings are ignored
+        // Batching is not supported for sprites
+        public bool CanBatch(Mesh other)
         {
-            var index = baseIndex * 2;
-            data[index++] = vector.X;
-            data[index++] = vector.Y;
+            // Ordered by most-to-least likely to be different (except Matrix4.Equals)
+            return (other.IsBatchable &&
+                    VertexArrayObject    == other.VertexArrayObject &&
+                    Skin                 == other.Skin &&
+                    _worldMatrixHashCode == other._worldMatrixHashCode &&
+                    ((RenderFlags ^ other.RenderFlags) & RenderInfo.SupportedFlags) == 0 &&
+                    (TextureID           == other.TextureID      || !RenderFlags.HasFlag(RenderFlags.Textured)) &&
+                    (MixtureRate         == other.MixtureRate    || !RenderFlags.HasFlag(RenderFlags.SemiTransparent)) &&
+                    (MissingTexture      == other.MissingTexture || !RenderFlags.HasFlag(RenderFlags.Textured)) &&
+                    MeshDataType         == other.MeshDataType &&
+                    Visible              == other.Visible &&
+                    //TextureAnimation.Equals(other.TextureAnimation) &&
+                    _worldMatrix.Equals(other._worldMatrix));
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void AssignVector3(float[] data, int baseIndex, ref Vector3 vector)
+        public void ResetBatch()
         {
-            var index = baseIndex * 3;
-            data[index++] = vector.X;
-            data[index++] = vector.Y;
-            data[index++] = vector.Z;
+            /*if (BatchedMeshes != null)
+            {
+                foreach (var batchedMesh in BatchedMeshes)
+                {
+                    batchedMesh.BatchedParent = null;
+                }
+                BatchedMeshes.Clear();
+            }*/
+            BatchedMeshes?.Clear();
+            BatchedParent = null;
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void AssignVector4(float[] data, int baseIndex, ref Vector4 vector)
+        public void AddToBatch(Mesh other)
         {
-            var index = baseIndex * 4;
-            data[index++] = vector.X;
-            data[index++] = vector.Y;
-            data[index++] = vector.Z;
-            data[index++] = vector.W;
+            if (BatchedMeshes == null)
+            {
+                BatchedMeshes = new List<Mesh>();
+            }
+            BatchedMeshes.Add(other);
+            other.BatchedParent = this; // Mark this mesh as batched, so that we don't try to draw it by itself
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void AssignColor(float[] data, int baseIndex, Color color)
+        public bool RemoveFromBatch(Mesh other)
         {
-            var index = baseIndex * 3;
-            data[index++] = color.R;
-            data[index++] = color.G;
-            data[index++] = color.B;
+            if (BatchedMeshes?.Remove(other) ?? false)
+            {
+                other.BatchedParent = null;
+                return true;
+            }
+            return false;
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void AssignJoint(uint[] data, int baseIndex, uint? vertexJoint, uint? normalJoint)
+        public bool ContainsInBatch(Mesh other)
         {
-            var index = baseIndex * 2;
-            data[index++] = (vertexJoint ?? Triangle.NoJoint) + 1u;
-            data[index++] = (normalJoint ?? Triangle.NoJoint) + 1u;
+            return BatchedMeshes?.Contains(other) ?? false;
         }
     }
 }

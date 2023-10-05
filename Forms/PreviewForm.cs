@@ -149,7 +149,7 @@ namespace PSXPrev.Forms
         {
             _scene = new Scene();
             _vram = new VRAM(_scene);
-            _animationBatch = new AnimationBatch(_scene);
+            _animationBatch = new AnimationBatch();
             _texturesListViewAdaptor = new TexturesListViewItemAdaptor(this);
             // It's observed in GLControl's source that this is called with PreferNative in the
             // control's constructor. Changing this from PreferDefault is needed to prevent SDL2
@@ -868,6 +868,10 @@ namespace PSXPrev.Forms
 
             // Start timers that should always be running
             _mainTimer.Start();
+
+#if DEBUG
+            SetupTestModels();
+#endif
         }
 
         private void previewForm_Shown(object sender, EventArgs e)
@@ -926,7 +930,7 @@ namespace PSXPrev.Forms
                 Playing = false;
                 UpdateAnimationProgressLabel();
                 // Update selected entity to invalidate the animation changes to the model.
-                UpdateSelectedEntity();
+                UpdateSelectedEntity(updateTextures: false);
             }
             // Force-hide all visuals when in animation tab.
             _scene.ShowVisuals = menusTabControl.SelectedTab.TabIndex != AnimationsTabIndex;
@@ -1175,7 +1179,7 @@ namespace PSXPrev.Forms
             // Make sure to use ClientSize to exclude size added by the borders.
             var width  = Math.Max(1, _openTkControl.ClientSize.Width);
             var height = Math.Max(1, _openTkControl.ClientSize.Height);
-            if (_scene.Initialized)
+            if (_scene.IsInitialized)
             {
                 _openTkControl.MakeCurrent();
                 _scene.Resize(width, height);
@@ -1209,25 +1213,26 @@ namespace PSXPrev.Forms
             _openTkControl.MakeCurrent();
             if (_inAnimationTab && _curAnimation != null)
             {
-                var checkedEntities = GetCheckedEntities();
-                if (_animationBatch.SetupAnimationFrame(checkedEntities, _selectedRootEntity, _selectedModelEntity, false))
+                var rootEntity = GetSelectedRootEntity();
+                if (_animationBatch.SetupAnimationFrame(rootEntity) && rootEntity != null)
                 {
+                    var updateMeshData = _curAnimation.AnimationType.IsVertexBased();
+                    //_scene.MeshBatch.UpdateMultipleEntityBatch(_selectedRootEntity, _selectedModelEntity, updateMeshData, fastSetup: true);
+                    _scene.MeshBatch.SetupMultipleEntityBatch(GetCheckedEntities(), _selectedRootEntity, _selectedModelEntity, updateMeshData, fastSetup: true);
+
                     // Animation has been processed. Update attached limbs while animating.
-                    var rootEntity = GetSelectedRootEntity();
-                    if (rootEntity != null)
+                    if (_scene.AttachJointsMode == AttachJointsMode.Attach)
                     {
-                        if (_scene.AttachJointsMode == AttachJointsMode.Attach)
-                        {
-                            rootEntity.FixConnections();
-                        }
-                        else
-                        {
-                            rootEntity.UnfixConnections();
-                        }
-                        if (_showSkeleton)
-                        {
-                            _scene.SkeletonBatch.SetupEntitySkeleton(rootEntity, updateMeshData: false);
-                        }
+                        rootEntity.FixConnections();
+                    }
+                    else
+                    {
+                        rootEntity.UnfixConnections();
+                    }
+
+                    if (_showSkeleton)
+                    {
+                        _scene.SkeletonBatch.SetupEntitySkeleton(rootEntity, updateMeshData: false);
                     }
                 }
             }
@@ -1634,6 +1639,7 @@ namespace PSXPrev.Forms
 
         private void LoadEntityChildNodes(TreeNode entityNode)
         {
+            //entitiesTreeView.BeginUpdate();
             var tagInfo = (EntitiesTreeViewTagInfo)entityNode.Tag;
             var entity = tagInfo.Entity;
 
@@ -1651,16 +1657,19 @@ namespace PSXPrev.Forms
                 modelNode.HideCheckBox();
             }
             tagInfo.LazyLoaded = true;
+            //entitiesTreeView.EndUpdate();
         }
 
         private void EntitiesAdded(IReadOnlyList<RootEntity> rootEntities, int startIndex)
         {
+            //entitiesTreeView.BeginUpdate();
             var rootEntityNodes = new TreeNode[rootEntities.Count];
             for (var i = 0; i < rootEntities.Count; i++)
             {
                 rootEntityNodes[i] = CreateRootEntityNode(rootEntities[i], startIndex + i);
             }
             entitiesTreeView.Nodes.AddRange(rootEntityNodes);
+            //entitiesTreeView.EndUpdate();
 
             // Assign textures to models
             foreach (var rootEntity in rootEntities)
@@ -1675,6 +1684,58 @@ namespace PSXPrev.Forms
 
             // Assign texture to model
             _vram.AssignModelTextures(rootEntity);
+        }
+
+        private TreeNode FindEntityNode(EntityBase entityBase, bool lazyLoad = true)
+        {
+            // First check if the selected node is the node we're looking for
+            var selectedNode = entitiesTreeView.SelectedNode;
+
+            var tagInfo = (EntitiesTreeViewTagInfo)selectedNode?.Tag;
+            if (selectedNode == null || tagInfo.Entity != entityBase)
+            {
+                var modelEntity = entityBase as ModelEntity;
+                var rootEntity = entityBase.GetRootEntity();
+                // If the selected node is the root node of our child node, then skip enumerating through all other root nodes
+                var startIndex = selectedNode != null && tagInfo.Entity == rootEntity ? selectedNode.Index : 0;
+
+                // The selected node differs, find the associated node
+                selectedNode = null;
+                for (var i = startIndex; i < entitiesTreeView.Nodes.Count; i++)
+                {
+                    var rootNode = entitiesTreeView.Nodes[i];
+                    tagInfo = (EntitiesTreeViewTagInfo)rootNode.Tag;
+                    if (tagInfo.Entity == rootEntity)
+                    {
+                        if (modelEntity == null)
+                        {
+                            // Root entity is selected, use this node
+                            selectedNode = rootNode;
+                        }
+                        else if (tagInfo.LazyLoaded || lazyLoad)
+                        {
+                            // Child of root entity is selected, find that node
+                            if (!tagInfo.LazyLoaded)
+                            {
+                                // We can't search for this node if we haven't lazy-loaded yet
+                                LoadEntityChildNodes(rootNode);
+                            }
+                            for (var j = 0; j < rootNode.Nodes.Count; j++)
+                            {
+                                var modelNode = rootNode.Nodes[j];
+                                tagInfo = (EntitiesTreeViewTagInfo)rootNode.Tag;
+                                if (tagInfo.Entity == modelEntity)
+                                {
+                                    selectedNode = modelNode;
+                                    break;
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            return selectedNode;
         }
 
         private ImageListViewItem CreateTextureItem(Texture texture, int index)
@@ -1784,6 +1845,7 @@ namespace PSXPrev.Forms
 
         private void LoadAnimationChildNodes(TreeNode animationNode)
         {
+            //animationsTreeView.BeginUpdate();
             var tagInfo = (AnimationsTreeViewTagInfo)animationNode.Tag;
             var animationObject = tagInfo.AnimationObject ?? tagInfo.Animation?.RootAnimationObject;
 
@@ -1814,21 +1876,160 @@ namespace PSXPrev.Forms
                 animationChildNode.HideCheckBox();
             }
             tagInfo.LazyLoaded = true;
+            //animationsTreeView.EndUpdate();
         }
 
         private void AnimationsAdded(IReadOnlyList<Animation> animations, int startIndex)
         {
+            //animationsTreeView.BeginUpdate();
             var animationNodes = new TreeNode[animations.Count];
             for (var i = 0; i < animations.Count; i++)
             {
                 animationNodes[i] = CreateAnimationNode(animations[i], startIndex + i);
             }
             animationsTreeView.Nodes.AddRange(animationNodes);
+            //animationsTreeView.EndUpdate();
         }
 
         private void AnimationAdded(Animation animation, int index)
         {
             animationsTreeView.Nodes.Add(CreateAnimationNode(animation, index));
+        }
+
+        private TreeNode FindAnimationNode(Animation animation, bool lazyLoad = true)
+        {
+            // First check if the selected node is the node we're looking for
+            var selectedNode = entitiesTreeView.SelectedNode;
+
+            var tagInfo = (AnimationsTreeViewTagInfo)selectedNode?.Tag;
+            if (selectedNode == null || tagInfo.Animation != animation)
+            {
+                // The selected node differs, find the associated node
+                selectedNode = null;
+                for (var i = 0; i < animationsTreeView.Nodes.Count; i++)
+                {
+                    var animationNode = animationsTreeView.Nodes[i];
+                    tagInfo = (AnimationsTreeViewTagInfo)animationNode.Tag;
+                    if (tagInfo.Animation == animation)
+                    {
+                        selectedNode = animationNode;
+                        break;
+                    }
+                }
+            }
+            return selectedNode;
+        }
+
+        private TreeNode FindAnimationNode(AnimationObject animationObject, AnimationFrame animationFrame, bool lazyLoad = true)
+        {
+            // First check if the selected node is the node we're looking for
+            var selectedNode = entitiesTreeView.SelectedNode;
+
+            var tagInfo = (AnimationsTreeViewTagInfo)selectedNode?.Tag;
+            var objectMatches = (animationObject != null && tagInfo?.AnimationObject == animationObject);
+            var frameMatches  = (animationFrame  != null && tagInfo?.AnimationFrame  == animationFrame);
+            if (selectedNode == null || (!objectMatches && !frameMatches))
+            {
+                var animation = animationObject.Animation;
+                if (animation.RootAnimationObject == animationObject)
+                {
+                    return null; // We don't show nodes for root animation objects, unless we want to return the animation node...
+                }
+                // If the selected node is the root node of our child node, then skip enumerating through all other root nodes
+                var startIndex = selectedNode != null && tagInfo.Animation == animation ? selectedNode.Index : 0;
+
+                // The selected node differs, find the associated node
+                selectedNode = null;
+                for (var i = startIndex; i < animationsTreeView.Nodes.Count; i++)
+                {
+                    var animationNode = animationsTreeView.Nodes[i];
+                    tagInfo = (AnimationsTreeViewTagInfo)animationNode.Tag;
+                    if (tagInfo.Animation == animation)
+                    {
+                        var parentAnimationObject = animationObject?.Parent ?? animationFrame.AnimationObject;
+                        var parentNode = FindAnimationParentNode(animationNode, parentAnimationObject, lazyLoad);
+                        if (parentNode == null)
+                        {
+                            break; // Parent not found, or not loaded
+                        }
+
+                        for (var j = 0; j < parentNode.Nodes.Count; j++)
+                        {
+                            var childNode = parentNode.Nodes[j];
+                            tagInfo = (AnimationsTreeViewTagInfo)childNode.Tag;
+                            if (animationObject != null && tagInfo.AnimationObject == animationObject)
+                            {
+                                selectedNode = childNode;
+                                break;
+                            }
+                            else if (animationFrame != null && tagInfo.AnimationFrame == animationFrame)
+                            {
+                                selectedNode = childNode;
+                                break;
+                            }
+                        }
+
+                        break;
+                    }
+                }
+            }
+            return selectedNode;
+        }
+
+        private TreeNode FindAnimationParentNode(TreeNode animationNode, AnimationObject parentObject, bool lazyLoad)
+        {
+            var tagInfo = (AnimationsTreeViewTagInfo)animationNode.Tag;
+            if (!tagInfo.LazyLoaded)
+            {
+                if (!lazyLoad)
+                {
+                    return null; // We can't continue
+                }
+                // We can't search for this node if we haven't lazy-loaded yet
+                LoadAnimationChildNodes(animationNode);
+            }
+
+            if (parentObject.Parent == null)
+            {
+                return animationNode; // This is the parent node
+            }
+
+            var stack = new Stack<AnimationObject>();
+            while (parentObject != null && parentObject.Parent != null) // Don't include RootAnimationObject
+            {
+                stack.Push(parentObject);
+                parentObject = parentObject.Parent;
+            }
+
+            var nextParentNode = animationNode;
+            while (stack.Count > 0 && nextParentNode != null)
+            {
+                parentObject = stack.Pop();
+                var parentNode = nextParentNode;
+
+                nextParentNode = null;
+                for (var j = 0; j < parentNode.Nodes.Count; j++)
+                {
+                    var childNode = parentNode.Nodes[j];
+                    tagInfo = (AnimationsTreeViewTagInfo)childNode.Tag;
+                    if (tagInfo.AnimationObject == parentObject)
+                    {
+                        if (!tagInfo.LazyLoaded)
+                        {
+                            if (!lazyLoad)
+                            {
+                                break; // We can't continue
+                            }
+                            // We can't search for this node if we haven't lazy-loaded yet
+                            LoadAnimationChildNodes(parentNode);
+                        }
+                        nextParentNode = childNode;
+                        break;
+                    }
+                }
+            }
+
+            return nextParentNode;
         }
 
         // Helper functions primarily intended for debugging models made by MeshBuilders.
@@ -2008,7 +2209,7 @@ namespace PSXPrev.Forms
                     break;
             }
 
-            UpdateSelectedEntity(false, noDelayUpdatePropertyGrid: false); // Delay updating property grid to reduce lag
+            UpdateSelectedEntity(false, noDelayUpdatePropertyGrid: false, fastSetup: true, selectedOnly: true, updateTextures: false); // Delay updating property grid to reduce lag
         }
 
         private void FinishGizmoAction()
@@ -2057,7 +2258,7 @@ namespace PSXPrev.Forms
                     selectedEntityBase.Scale = _gizmoInitialScale;
                     break;
             }
-            UpdateSelectedEntity(false);
+            UpdateSelectedEntity(false, selectedOnly: true, updateTextures: false);
             // Recalculate hovered gizmo, since the gizmo position/rotation may have changed after alignment.
             var hoveredGizmo = _scene.GetGizmoUnderPosition(selectedEntityBase, _gizmoType);
             UpdateGizmoVisualAndState(GizmoId.None, hoveredGizmo);
@@ -2169,7 +2370,7 @@ namespace PSXPrev.Forms
             if (selectedEntityBase != null)
             {
                 selectedEntityBase.Translation = SnapToGrid(selectedEntityBase.Translation);
-                UpdateSelectedEntity(false);
+                UpdateSelectedEntity(false, selectedOnly: true, updateTextures: false);
             }
         }
 
@@ -2180,7 +2381,7 @@ namespace PSXPrev.Forms
                 var angle = SnapAngle(_gizmoRotateAngle); // Grid size is in units of 1 degree.
                 var newRotation = _gizmoInitialRotation * Quaternion.FromAxisAngle(_gizmoAxis, angle);
                 selectedEntityBase.Rotation = newRotation;
-                UpdateSelectedEntity(false);
+                UpdateSelectedEntity(false, selectedOnly: true, updateTextures: false);
             }
         }
 
@@ -2189,7 +2390,7 @@ namespace PSXPrev.Forms
             if (selectedEntityBase != null)
             {
                 selectedEntityBase.Scale = SnapScale(selectedEntityBase.Scale);
-                UpdateSelectedEntity(false);
+                UpdateSelectedEntity(false, selectedOnly: true, updateTextures: false);
             }
         }
 
@@ -2772,7 +2973,7 @@ namespace PSXPrev.Forms
             return IsShiftDown;
         }
 
-        private void UpdateSelectedEntity(bool updateMeshData = true, bool noDelayUpdatePropertyGrid = true, bool focus = false)
+        private void UpdateSelectedEntity(bool updateMeshData = true, bool noDelayUpdatePropertyGrid = true, bool focus = false, bool fastSetup = false, bool selectedOnly = false, bool updateTextures = true)
         {
             _scene.BoundsBatch.Reset(1);
             var selectedEntityBase = GetSelectedEntityBase();
@@ -2800,9 +3001,10 @@ namespace PSXPrev.Forms
             {
                 _scene.BoundsBatch.BindEntityBounds(selectedEntityBase);
 
-                var checkedEntities = GetCheckedEntities();
+                var needsCheckedEntities = true; // (updateMeshData && updateTextures) || !selectedOnly || focus;
+                var checkedEntities = needsCheckedEntities ? GetCheckedEntities() : null;
 
-                if (updateMeshData)
+                if (updateMeshData && updateTextures)
                 {
                     if (_autoDrawModelTextures || _autoPackModelTextures)
                     {
@@ -2893,8 +3095,18 @@ namespace PSXPrev.Forms
                     }
                 }
 
-                updateMeshData |= _scene.AttachJointsMode == AttachJointsMode.Attach && !Shader.JointsSupported;
-                _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, _selectedModelEntity, _selectedRootEntity, updateMeshData, subModelVisibility: _subModelVisibility);
+                // SubModelVisibility setting is not supported in the Animations tab.
+                var subModelVisibility = _inAnimationTab ? SubModelVisibility.All : _subModelVisibility;
+                /*if (selectedOnly)
+                {
+                    _scene.MeshBatch.UpdateMultipleEntityBatch(_selectedRootEntity, _selectedModelEntity, updateMeshData,
+                                                               subModelVisibility: subModelVisibility, fastSetup: fastSetup);
+                }
+                else*/
+                {
+                    _scene.MeshBatch.SetupMultipleEntityBatch(checkedEntities, _selectedRootEntity, _selectedModelEntity, updateMeshData,
+                                                              subModelVisibility: subModelVisibility, fastSetup: fastSetup);
+                }
 
                 // todo: Ensure we focus when switching to a different root entity, even if the selected entity is a sub-model.
                 if (focus)
@@ -2986,7 +3198,7 @@ namespace PSXPrev.Forms
                 subModelVisibilitySelectedToolStripMenuItem.Checked = _subModelVisibility == SubModelVisibility.Selected;
                 subModelVisibilityWithSameTMDIDToolStripMenuItem.Checked = _subModelVisibility == SubModelVisibility.WithSameTMDID;
 
-                UpdateSelectedEntity();
+                UpdateSelectedEntity(selectedOnly: true, updateTextures: false);
             }
         }
 
@@ -3107,35 +3319,100 @@ namespace PSXPrev.Forms
             }
         }
 
-        private void entitiesTreeView_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
-        {
-            // handle unselecting triangle when clicking on a node in the tree view if that node is already selected.
-            if (e.Node != null)
-            {
-                // Removed for now, because this also triggers when pressing
-                // the expand button (which doesn't perform selection).
-                //UnselectTriangle();
-            }
-        }
-
         private void modelPropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
         {
-            var selectedNode = entitiesTreeView.SelectedNode;
-            if (selectedNode == null)
+            var updateEntity = true;
+            var updateMeshData = false;
+            var updateTextures = false;
+            var selectedOnly = true;
+
+            var propertyName = e.ChangedItem.PropertyDescriptor.Name;
+            var parentPropertyName = e.ChangedItem.Parent?.PropertyDescriptor?.Name;
+            var parentParentPropertyName = e.ChangedItem.Parent?.Parent?.PropertyDescriptor?.Name;
+
+            if (modelPropertyGrid.SelectedObject is EntityBase entityBase)
             {
-                return;
+                var modelEntity = entityBase as ModelEntity;
+                var rootEntity = entityBase.GetRootEntity();
+
+
+                if (propertyName == nameof(ModelEntity.RenderFlags))
+                {
+                    var oldRenderFlags = (RenderFlags)e.OldValue;
+                    var newRenderFlags = (RenderFlags)e.ChangedItem.Value;
+                    // Check if any render flags have changed that require changes to mesh data
+                    var changedRenderFlags = (oldRenderFlags ^ newRenderFlags);
+                    if ((changedRenderFlags & (RenderFlags.Line | RenderFlags.Sprite | RenderFlags.SpriteNoPitch)) != 0)
+                    {
+                        updateMeshData = true;
+                    }
+                }
+                else if (propertyName == nameof(ModelEntity.PositionX))
+                {
+                    // We shouldn't be snapping when the change is made by the user
+                    //entityBase.PositionX = SnapToGrid(entityBase.PositionX);
+                }
+                else if (propertyName == nameof(ModelEntity.PositionY))
+                {
+                    // We shouldn't be snapping when the change is made by the user
+                    //entityBase.PositionY = SnapToGrid(entityBase.PositionY);
+                }
+                else if (propertyName == nameof(ModelEntity.PositionZ))
+                {
+                    // We shouldn't be snapping when the change is made by the user
+                    //entityBase.PositionZ = SnapToGrid(entityBase.PositionZ);
+                }
+                else if (propertyName == nameof(ModelEntity.TexturePage))
+                {
+                    // Update the texture associated with this model
+                    if (modelEntity != null)
+                    {
+                        _vram.AssignModelTextures(modelEntity);
+                    }
+                    updateMeshData = true;
+                    updateTextures = true;
+                }
+                else if (parentPropertyName == nameof(ModelEntity.TextureLookup) || parentParentPropertyName == nameof(ModelEntity.TextureLookup))
+                {
+                    updateMeshData = true;
+                    updateTextures = true;
+                }
+                else if (parentPropertyName == nameof(ModelEntity.Texture) || parentPropertyName == nameof(TextureLookup.Texture))
+                {
+                    updateMeshData = true;
+                    updateTextures = true;
+                    selectedOnly = false; // We modified a texture, and may need to modify the UVs in the mesh data
+                }
+                else if (propertyName == nameof(EntityBase.Name))
+                {
+                    updateEntity = false;
+                    // Updating TreeNodes can be extremely slow (before we fixed that),
+                    // and the property setter doesn't check if the value is the same.
+                    // So do the work ourselves and reduce some lag... WinForms moment.
+                    var entityNode = FindEntityNode(entityBase);
+                    if (entityNode != null && entityNode.Text != entityBase.Name)
+                    {
+                        entityNode.Text = entityBase.Name;
+                    }
+                }
+                else if (parentPropertyName == nameof(EntityBase.DebugData))
+                {
+                    updateEntity = false;
+                }
             }
-            if (_selectedModelEntity != null)
+            else if (modelPropertyGrid.SelectedObject is Triangle triangle)
             {
-                _vram.AssignModelTextures(_selectedModelEntity);
+                if (parentPropertyName == nameof(Triangle.DebugData))
+                {
+                    updateEntity = false;
+                }
             }
-            var selectedEntityBase = GetSelectedEntityBase();
-            if (selectedEntityBase != null)
+
+            if (updateEntity)
             {
-                selectedNode.Text = selectedEntityBase.Name;
-                selectedEntityBase.Translation = SnapToGrid(selectedEntityBase.Translation);
+                // If updating textures, then we may need to update the UV coordinates of meshes
+                UpdateSelectedEntity(updateMeshData, selectedOnly: selectedOnly, updateTextures: updateTextures, fastSetup: true);
             }
-            UpdateSelectedEntity(false);
         }
 
         private void checkAllModelsToolStripMenuItem_Click(object sender, EventArgs e)
@@ -3195,7 +3472,7 @@ namespace PSXPrev.Forms
                 // This could be changed to only reset the selected model and its children.
                 // But that's only necessary if sub-sub-model support is ever added.
                 selectedRootEntity.ResetTransform(true);
-                UpdateSelectedEntity();
+                UpdateSelectedEntity(false, selectedOnly: true, updateTextures: false);
             }
         }
 
@@ -3205,7 +3482,7 @@ namespace PSXPrev.Forms
             if (selectedEntityBase != null)
             {
                 selectedEntityBase.ResetTransform(false);
-                UpdateSelectedEntity();
+                UpdateSelectedEntity(false, selectedOnly: true, updateTextures: false);
             }
         }
 
@@ -3353,9 +3630,9 @@ namespace PSXPrev.Forms
                 _scene.AttachJointsMode = AttachJointsMode.Hide;
             }
             var newHide = _scene.AttachJointsMode == AttachJointsMode.Hide;
-            var updateMeshData = !Shader.JointsSupported || (oldHide != newHide);
+            var updateMeshData = (oldHide != newHide);
             // Update mesh data, since limb vertices may have changed
-            UpdateSelectedEntity(updateMeshData: updateMeshData);
+            UpdateSelectedEntity(updateMeshData: updateMeshData, updateTextures: false);
         }
 
         // These two events are for testing AttachJointsMode.DontAttach. We don't have a proper UI selection for it yet.
@@ -3375,9 +3652,9 @@ namespace PSXPrev.Forms
                     break;
             }
             var newHide = _scene.AttachJointsMode == AttachJointsMode.Hide;
-            var updateMeshData = !Shader.JointsSupported || (oldHide != newHide);
+            var updateMeshData = (oldHide != newHide);
             // Update mesh data, since limb vertices may have changed
-            UpdateSelectedEntity(updateMeshData: updateMeshData);*/
+            UpdateSelectedEntity(updateMeshData: updateMeshData, updateTextures: false);*/
         }
 
         private void autoAttachLimbsToolStripMenuItem_Click(object sender, EventArgs e)
@@ -3441,7 +3718,7 @@ namespace PSXPrev.Forms
         private void lineRendererToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
             _scene.VibRibbonWireframe = lineRendererToolStripMenuItem.Checked;
-            UpdateSelectedEntity(); // Update mesh data, since vib ribbon redefines how mesh data is built.
+            UpdateSelectedEntity(updateTextures: false); // Update mesh data, since vib ribbon redefines how mesh data is built.
         }
 
         private void UpdateLightDirection()
@@ -4192,29 +4469,82 @@ namespace PSXPrev.Forms
 
         private void texturePropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
         {
-            var selectedItems = texturesListView.SelectedItems;
-            if (selectedItems.Count == 0)
-            {
-                return;
-            }
-            var selectedItem = texturesListView.SelectedItems[0];
-            if (selectedItem == null)
-            {
-                return;
-            }
-            var texture = GetSelectedTexture();
-            if (texture == null)
-            {
-                return;
-            }
-            texture.CLUTIndex = GeomMath.Clamp(texture.CLUTIndex, 0, Math.Max(0, texture.CLUTCount - 1));
-            texture.SetCLUTIndex(texture.CLUTIndex);
+            var updateEntities = false;
+            var updateMeshData = false;
+            var updateTextures = false;
+
+            var propertyName = e.ChangedItem.PropertyDescriptor.Name;
+            var parentPropertyName = e.ChangedItem.Parent?.PropertyDescriptor?.Name;
+            //var parentParentPropertyName = e.ChangedItem.Parent?.Parent?.PropertyDescriptor?.Name;
+
             // Validate changes to texture properties.
-            texture.X = VRAM.ClampTextureX(texture.X);
-            texture.Y = VRAM.ClampTextureY(texture.Y);
-            texture.TexturePage = VRAM.ClampTexturePage(texture.TexturePage);
-            // Update changes to Name property in ListViewItem.
-            selectedItem.Text = texture.Name;
+            if (texturePropertyGrid.SelectedObject is Texture texture)
+            {
+                if (propertyName == nameof(Texture.X))
+                {
+                    if (!texture.IsPacked)
+                    {
+                        texture.X = VRAM.ClampTextureX(texture.X);
+                    }
+                    else
+                    {
+                        texture.X = (int)e.OldValue; // Can't changed value used to determine packing
+                    }
+                }
+                else if (propertyName == nameof(Texture.Y))
+                {
+                    if (!texture.IsPacked)
+                    {
+                        texture.Y = VRAM.ClampTextureY(texture.Y);
+                    }
+                    else
+                    {
+                        texture.Y = (int)e.OldValue; // Can't changed value used to determine packing
+                    }
+                }
+                else if (propertyName == nameof(Texture.TexturePage))
+                {
+                    if (!texture.IsPacked)
+                    {
+                        texture.TexturePage = VRAM.ClampTexturePage(texture.TexturePage);
+                    }
+                    else
+                    {
+                        texture.TexturePage = (int)e.OldValue; // Can't changed value used to determine packing
+                    }
+                }
+                else if (propertyName == nameof(Texture.CLUTIndex))
+                {
+                    texture.CLUTIndex = GeomMath.Clamp(texture.CLUTIndex, 0, Math.Max(0, texture.CLUTCount - 1));
+                    texture.SetCLUTIndex(texture.CLUTIndex);
+                }
+                else if (propertyName == nameof(Texture.Name))
+                {
+                    // Update changes to Name property in ListViewItem.
+                    var selectedItems = texturesListView.SelectedItems;
+                    var selectedItem = selectedItems.Count > 0 ? selectedItems[0] : null;
+
+                    var tagInfo = (TexturesListViewTagInfo)selectedItem?.Tag;
+                    if (selectedItem == null || _textures[tagInfo.Index] != texture)
+                    {
+                        // The selected item differs from the property grid's selected object, find the associated item
+                        selectedItem = null;
+                        foreach (var item in texturesListView.Items)
+                        {
+                            tagInfo = (TexturesListViewTagInfo)item.Tag;
+                            if (_textures[tagInfo.Index] == texture)
+                            {
+                                selectedItem = item;
+                                break;
+                            }
+                        }
+                    }
+                    if (selectedItem != null && selectedItem.Text != texture.Name)
+                    {
+                        selectedItem.Text = texture.Name;
+                    }
+                }
+            }
         }
 
         private void drawSelectedToVRAM_Click(object sender, EventArgs e)
@@ -4380,19 +4710,19 @@ namespace PSXPrev.Forms
             animationPlayButtonx.Enabled = (_curAnimation != null);
             Playing = play;
 
+            var rootEntity = GetSelectedRootEntity();
+
             animationPropertyGrid.SelectedObject = propertyObject;
             _animationBatch.SetupAnimationBatch(_curAnimation);
             if (_curAnimation != null)
             {
-                _animationBatch.SetupAnimationFrame(GetCheckedEntities(), _selectedRootEntity, _selectedModelEntity, true, force: true);
+                _animationBatch.SetupAnimationFrame(rootEntity, force: true);
             }
-            else
-            {
-                _scene.MeshBatch.SetupMultipleEntityBatch(GetCheckedEntities(), _selectedModelEntity, _selectedRootEntity, true, SubModelVisibility.All);
-            }
+            //_scene.MeshBatch.UpdateMultipleEntityBatch(_selectedRootEntity, _selectedModelEntity, true, fastSetup: false);
+            _scene.MeshBatch.SetupMultipleEntityBatch(GetCheckedEntities(), _selectedRootEntity, _selectedModelEntity, true, fastSetup: false);
+
             if (_showSkeleton)
             {
-                var rootEntity = GetSelectedRootEntity();
                 if (rootEntity != null)
                 {
                     _scene.SkeletonBatch.SetupEntitySkeleton(rootEntity, updateMeshData: true);
@@ -4492,9 +4822,34 @@ namespace PSXPrev.Forms
 
         private void animationPropertyGrid_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
         {
+            var propertyName = e.ChangedItem.PropertyDescriptor.Name;
+            var parentPropertyName = e.ChangedItem.Parent?.PropertyDescriptor?.Name;
+            var parentParentPropertyName = e.ChangedItem.Parent?.Parent?.PropertyDescriptor?.Name;
+
+            if (animationPropertyGrid.SelectedObject is Animation animation)
+            {
+                if (propertyName == nameof(Animation.Name))
+                {
+                    var animationNode = FindAnimationNode(animation);
+                    if (animationNode != null && animationNode.Text != animation.Name)
+                    {
+                        animationNode.Text = animation.Name;
+                    }
+                }
+            }
+            else if (animationPropertyGrid.SelectedObject is AnimationObject animationObject)
+            {
+
+            }
+            else if (animationPropertyGrid.SelectedObject is AnimationFrame animationFrame)
+            {
+
+            }
+
             // Restart animation to force invalidate.
             _animationBatch.Restart();
-            UpdateSelectedEntity();
+            // todo: Can we remove this?
+            UpdateSelectedEntity(updateTextures: false);
             UpdateSelectedAnimation();
         }
 
@@ -4706,12 +5061,61 @@ namespace PSXPrev.Forms
 
         private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var jointsSupportStr = Shader.JointsSupported ? "Shader-time joints" : "Pre-computed joints";
+            // Don't bother showing joints limit if it's high enough to never be a problem
+            var maxJointsStr = Shader.MaxJoints <= 2048 ? $", max: {Shader.MaxJoints}" : string.Empty;
+            var jointsSupportStr = Shader.JointsSupported ? $"Shader-time joints{maxJointsStr}" : "Pre-computed joints";
             var message = "PSXPrev - PlayStation (PSX) Files Previewer/Extractor\n" +
                           "\u00a9 PSXPrev Contributors - 2020-2023\n" +
                           $"Program Version {GetVersionString()}\n" +
                           $"GLSL Version {Shader.GLSLVersion} ({jointsSupportStr})";
             ShowMessageBox(message, "About", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        #endregion
+
+        #region Testing
+
+        // Create models that are used to test renderer/builder functionality.
+        // Uncomment return; before committing.
+        private void SetupTestModels()
+        {
+            return;
+
+            SetupTestSpriteTransformModels();
+
+            SelectFirstEntity();
+        }
+
+        // Testing for sprites that have model transforms applied, along with confirming normal transforms are correct.
+        private void SetupTestSpriteTransformModels()
+        {
+            var size = 40;
+            var center = new Vector3(size * 3, 0f, 0f);
+            var triBuilder = new TriangleMeshBuilder
+            {
+                RenderFlags = /*RenderFlags.Unlit |*/ RenderFlags.Sprite,// | RenderFlags.DoubleSided,
+                SpriteCenter = center,
+            };
+            /*var vertex0 = center + new Vector3(-size,  size, 0f);
+            var vertex1 = center + new Vector3( size,  size, 0f);
+            var vertex2 = center + new Vector3(-size, -size, 0f);
+            var vertex3 = center + new Vector3( size, -size, 0f);*/
+            //triBuilder.AddQuad(vertex0, vertex1, vertex2, vertex3,
+            //    Common.Color.Red, Common.Color.Green, Common.Color.Blue, Common.Color.Yellow);
+            triBuilder.AddSprite(center, new Vector2(size),
+                Common.Color.Red, Common.Color.Green, Common.Color.Blue, Common.Color.Yellow);
+            var model0 = triBuilder.CreateModelEntity(Matrix4.CreateTranslation(center * -2));
+            triBuilder.Clear();
+            triBuilder.RenderFlags &= ~(RenderFlags.Sprite | RenderFlags.SpriteNoPitch);
+            triBuilder.AddOctaSphere(Vector3.Zero, size / 5, 4, true, Common.Color.Purple);
+            //triBuilder.AddSphere(Vector3.Zero, size / 5, 16, 8, true, Common.Color.Purple);
+            var model1 = triBuilder.CreateModelEntity();
+            AddRootEntity(new RootEntity
+            {
+                Name = "Sprite",
+                ChildEntities = new[] { model0, model1 },
+                OriginalLocalMatrix = Matrix4.CreateRotationY(45f * GeomMath.Deg2Rad) * Matrix4.CreateTranslation(0f, 70f, -30f),
+            });
         }
 
         #endregion

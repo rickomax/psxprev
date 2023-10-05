@@ -19,6 +19,9 @@ namespace PSXPrev.Common
         [Browsable(false)]
         public ModelEntity[] Joints { get; set; }
 
+        [Browsable(false)]
+        public bool NeedsBakedJoints => Joints != null && (!Renderer.Shader.JointsSupported || Joints.Length > Renderer.Shader.MaxJoints);
+
         // Gets world joint transform matrices
         private Matrix4[] _jointMatrices;
         [Browsable(false)]
@@ -136,6 +139,9 @@ namespace PSXPrev.Common
                 return count;
             }
         }
+
+        [DisplayName("Total Joints"), ReadOnly(true)]
+        public int JointCount => Joints?.Length ?? 0;
 
         [Browsable(false)]
         public WeakReferenceCollection<Texture> OwnedTextures { get; } = new WeakReferenceCollection<Texture>();
@@ -257,13 +263,14 @@ namespace PSXPrev.Common
             }
 #endif
             Joints = joints;
+            //NeedsBakedJoints = joints != null && (!Renderer.Shader.JointsSupported || joints.Length > Renderer.Shader.MaxJoints);
         }
 
         public override void FixConnections(bool? bake = null, Matrix4[] tempJointMatrices = null)
         {
             if (!bake.HasValue)
             {
-                bake = !Renderer.Shader.JointsSupported;
+                bake = NeedsBakedJoints;
             }
             if (!bake.Value && tempJointMatrices == null)
             {

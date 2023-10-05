@@ -403,7 +403,7 @@ namespace PSXPrev.Common
         {
             if (!bake.HasValue)
             {
-                bake = !Renderer.Shader.JointsSupported;
+                bake = GetRootEntity().NeedsBakedJoints;
             }
             if (bake.Value && HasAttached && tempJointMatrices == null)
             {
@@ -422,6 +422,8 @@ namespace PSXPrev.Common
             else if (bake.Value)
             {
                 var invTempWorldMatrix = TempWorldMatrix.Inverted();
+                var spriteCenter = SpriteCenter;
+                var isSprite = IsSprite;
                 foreach (var triangle in Triangles)
                 {
                     // If we have cached connections, then use those. It'll make things much faster.
@@ -438,7 +440,16 @@ namespace PSXPrev.Common
                             var jointID = triangle.VertexJoints[i];
                             if (jointID != Triangle.NoJoint)
                             {
-                                Vector3.TransformPosition(ref triangle.OriginalVertices[i], ref tempJointMatrices[jointID], out var vertex);
+                                Vector3 vertex;
+                                if (!isSprite)
+                                {
+                                    Vector3.TransformPosition(ref triangle.OriginalVertices[i], ref tempJointMatrices[jointID], out vertex);
+                                }
+                                else
+                                {
+                                    GeomMath.CreateSpriteWorldMatrix(ref tempJointMatrices[jointID], ref spriteCenter, out var spriteMatrix);
+                                    Vector3.TransformPosition(ref triangle.OriginalVertices[i], ref spriteMatrix, out vertex);
+                                }
                                 Vector3.TransformPosition(ref vertex, ref invTempWorldMatrix, out triangle.Vertices[i]);
                             }
                         }
@@ -457,8 +468,17 @@ namespace PSXPrev.Common
                             var jointID = triangle.NormalJoints[i];
                             if (jointID != Triangle.NoJoint)
                             {
+                                Vector3 normal;
                                 // todo: Is the first normalize needed for if the first scale is non-uniform?
-                                GeomMath.TransformNormalNormalized(ref triangle.OriginalNormals[i], ref tempJointMatrices[jointID], out var normal);
+                                if (!isSprite)
+                                {
+                                    GeomMath.TransformNormalNormalized(ref triangle.OriginalNormals[i], ref tempJointMatrices[jointID], out normal);
+                                }
+                                else
+                                {
+                                    GeomMath.CreateSpriteWorldMatrix(ref tempJointMatrices[jointID], ref spriteCenter, out var spriteMatrix);
+                                    GeomMath.TransformNormalNormalized(ref triangle.OriginalNormals[i], ref spriteMatrix, out normal);
+                                }
                                 GeomMath.TransformNormalNormalized(ref normal, ref invTempWorldMatrix, out triangle.Normals[i]);
                             }
                         }

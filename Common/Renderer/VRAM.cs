@@ -11,7 +11,7 @@ namespace PSXPrev.Common.Renderer
         public const int PageSize = 256;
         public const int PackAlign = 8;
         public const int PackBlocks = PageSize / PackAlign;
-        private const int PageSemiTransparencyX = PageSize;
+        public const int PageSemiTransparencyX = PageSize;
 
         public static readonly System.Drawing.Color DefaultBackgroundColor = System.Drawing.Color.White;
 
@@ -28,7 +28,7 @@ namespace PSXPrev.Common.Renderer
 
         public System.Drawing.Color BackgroundColor { get; set; } = DefaultBackgroundColor;
 
-        public bool Initialized { get; private set; }
+        public bool IsInitialized { get; private set; }
 
         public VRAM(Scene scene)
         {
@@ -54,7 +54,7 @@ namespace PSXPrev.Common.Renderer
 
         public void Dispose()
         {
-            if (Initialized)
+            if (IsInitialized)
             {
                 for (var i = 0; i < PageCount; i++)
                 {
@@ -64,13 +64,13 @@ namespace PSXPrev.Common.Renderer
                     _usedPages[i] = false;
                 }
                 ClearAllPagePacking();
-                Initialized = false;
+                IsInitialized = false;
             }
         }
 
         public void Initialize(bool suppressUpdate = false)
         {
-            if (Initialized)
+            if (IsInitialized)
             {
                 return;
             }
@@ -85,7 +85,7 @@ namespace PSXPrev.Common.Renderer
                     ClearPage(i, suppressUpdate);
                 }
             }
-            Initialized = true;
+            IsInitialized = true;
         }
 
         public void AssignModelTextures(RootEntity rootEntity)

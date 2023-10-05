@@ -10,7 +10,9 @@ namespace PSXPrev.Common.Renderer
     // OpenGL state machine wrapper to avoid unecessary expensive changes to state
     public class Shader : IDisposable
     {
+        public static bool SSBOSupported { get; private set; } = true;
         public static bool JointsSupported { get; private set; } = true;
+        public static int MaxJoints { get; private set; } // Maximum number of shader-time joints
         public static string GLSLVersion { get; private set; }
 
         // True to always force state changes, even if the shader's cached variable is the same
@@ -19,8 +21,8 @@ namespace PSXPrev.Common.Renderer
 
         private readonly Scene _scene;
         private int _programId;
-        public bool Initialized { get; private set; }
-        public bool Using { get; private set; }
+        public bool IsInitialized { get; private set; }
+        public bool IsUsing { get; private set; }
 
         public Shader(Scene scene)
         {
@@ -29,19 +31,19 @@ namespace PSXPrev.Common.Renderer
 
         public void Dispose()
         {
-            if (Initialized)
+            if (IsInitialized)
             {
                 GL.DeleteProgram(_programId);
                 _programId = 0;
-                Initialized = false;
+                IsInitialized = false;
             }
         }
 
         public void Use()
         {
-            if (ForceState || !Using)
+            if (ForceState || !IsUsing)
             {
-                Using = true;
+                IsUsing = true;
                 GL.UseProgram(_programId);
                 GL.Enable(EnableCap.Texture2D);
                 GL.DepthFunc(DepthFunction.Lequal);
@@ -52,16 +54,17 @@ namespace PSXPrev.Common.Renderer
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
             // Reset bindings, since they could have been modified outside of the draw call
-            _activeTextureId = 0;
-            _mesh = null;
+            _activeTextureUnit = -1;
+            _mainTextureId = 0;
+            _vertexArrayObject = null;
             _skin = null;
         }
 
         public void Unuse()
         {
-            if (ForceState || Using)
+            if (ForceState || IsUsing)
             {
-                Using = false;
+                IsUsing = false;
                 DepthTest = false;
                 GL.Disable(EnableCap.Texture2D);
                 GL.UseProgram(0);
@@ -77,18 +80,21 @@ namespace PSXPrev.Common.Renderer
         #region Shader Locations
 
         public const int AttributeIndex_Position  = 0;
-        public const int AttributeIndex_Color     = 1;
-        public const int AttributeIndex_Normal    = 2;
+        public const int AttributeIndex_Normal    = 1;
+        public const int AttributeIndex_Color     = 2;
         public const int AttributeIndex_Uv        = 3;
         public const int AttributeIndex_TiledArea = 4;
-        public const int AttributeIndex_Texture   = 5;
-        public const int AttributeIndex_Joint     = 6;
+        public const int AttributeIndex_Joint     = 5;
 
-        public const int BufferIndex_Joints       = 0;
+        public const int BufferIndex_JointTransforms = 0;
 
+        public const int TextureUnit_MainTexture = 0;
+
+        public static int UniformIndex_MainTexture;
         private static int UniformIndex_NormalMatrix;
+        private static int UniformIndex_NormalSpriteMatrix;
         private static int UniformIndex_ModelMatrix;
-        private static int UniformIndex_MVPMatrix;
+        private static int UniformIndex_ModelSpriteMatrix;
         private static int UniformIndex_ViewMatrix;
         private static int UniformIndex_ProjectionMatrix;
         private static int UniformIndex_LightDirection;
@@ -107,18 +113,13 @@ namespace PSXPrev.Common.Renderer
         {
             var attributes = new Dictionary<int, string>
             {
-                { AttributeIndex_Position,   "in_Position" },
-                { AttributeIndex_Color,      "in_Color" },
-                { AttributeIndex_Normal,     "in_Normal" },
-                { AttributeIndex_Uv,         "in_Uv" },
-                { AttributeIndex_TiledArea,  "in_TiledArea" },
-                { AttributeIndex_Texture,    "mainTex" },
-                //{ AttributeIndex_Joint,      "in_Joint" },
+                { AttributeIndex_Position,  "in_Position" },
+                { AttributeIndex_Normal,    "in_Normal" },
+                { AttributeIndex_Color,     "in_Color" },
+                { AttributeIndex_Uv,        "in_Uv" },
+                { AttributeIndex_TiledArea, "in_TiledArea" },
+                { AttributeIndex_Joint,     "in_Joint" },
             };
-            if (JointsSupported)
-            {
-                attributes.Add(AttributeIndex_Joint, "in_Joint");
-            }
             foreach (var vertexAttributeLocation in attributes)
             {
                 GL.BindAttribLocation(_programId, vertexAttributeLocation.Key, vertexAttributeLocation.Value);
@@ -127,26 +128,35 @@ namespace PSXPrev.Common.Renderer
 
         private void GetUniformLocations()
         {
-            int Loc(string name)
+            int Get(string name)
             {
                 return GL.GetUniformLocation(_programId, name);
             }
-            UniformIndex_NormalMatrix        = Loc("normalMatrix");
-            UniformIndex_ModelMatrix         = Loc("modelMatrix");
-            UniformIndex_MVPMatrix           = Loc("mvpMatrix");
-            UniformIndex_ViewMatrix          = Loc("viewMatrix");
-            UniformIndex_ProjectionMatrix    = Loc("projectionMatrix");
-            UniformIndex_LightDirection      = Loc("lightDirection");
-            UniformIndex_MaskColor           = Loc("maskColor");
-            UniformIndex_AmbientColor        = Loc("ambientColor");
-            UniformIndex_SolidColor          = Loc("solidColor");
-            UniformIndex_UVOffset            = Loc("uvOffset");
-            UniformIndex_JointMode           = Loc("jointMode");
-            UniformIndex_LightMode           = Loc("lightMode");
-            UniformIndex_ColorMode           = Loc("colorMode");
-            UniformIndex_TextureMode         = Loc("textureMode");
-            UniformIndex_SemiTransparentPass = Loc("semiTransparentPass");
-            UniformIndex_LightIntensity      = Loc("lightIntensity");
+
+            if (!SSBOSupported && JointsSupported)
+            {
+                var blockIndex_JointTransforms = GL.GetUniformBlockIndex(_programId, "buffer_JointTransforms");
+                GL.UniformBlockBinding(_programId, blockIndex_JointTransforms, BufferIndex_JointTransforms);
+            }
+
+            UniformIndex_MainTexture         = Get("u_MainTexture");
+            UniformIndex_NormalMatrix        = Get("u_NormalMatrix");
+            UniformIndex_NormalSpriteMatrix  = Get("u_NormalSpriteMatrix");
+            UniformIndex_ModelMatrix         = Get("u_ModelMatrix");
+            UniformIndex_ModelSpriteMatrix   = Get("u_ModelSpriteMatrix");
+            UniformIndex_ViewMatrix          = Get("u_ViewMatrix");
+            UniformIndex_ProjectionMatrix    = Get("u_ProjectionMatrix");
+            UniformIndex_LightDirection      = Get("u_LightDirection");
+            UniformIndex_MaskColor           = Get("u_MaskColor");
+            UniformIndex_AmbientColor        = Get("u_AmbientColor");
+            UniformIndex_SolidColor          = Get("u_SolidColor");
+            UniformIndex_UVOffset            = Get("u_UvOffset");
+            UniformIndex_JointMode           = Get("u_JointMode");
+            UniformIndex_LightMode           = Get("u_LightMode");
+            UniformIndex_ColorMode           = Get("u_ColorMode");
+            UniformIndex_TextureMode         = Get("u_TextureMode");
+            UniformIndex_SemiTransparentPass = Get("u_SemiTransparentPass");
+            UniformIndex_LightIntensity      = Get("u_LightIntensity");
         }
 
         #endregion
@@ -155,16 +165,30 @@ namespace PSXPrev.Common.Renderer
 
         public void Initialize()
         {
-            if (Initialized)
+            if (IsInitialized)
             {
                 return;
             }
+
+            var glVersion = GL.GetString(StringName.Version);
+            var shadingLanguageVersion = GL.GetString(StringName.ShadingLanguageVersion);
+            var maxSSBOBlockSize = GL.GetInteger((GetPName)ArbShaderStorageBufferObject.MaxShaderStorageBlockSize);
+            var maxUBOBlockSize  = GL.GetInteger(GetPName.MaxUniformBlockSize);
+            var maxSSBOJoints = maxSSBOBlockSize / (sizeof(float) * 32); // sizeof(Matrix4[2])
+            var maxUBOJoints  = maxUBOBlockSize  / (sizeof(float) * 32); // sizeof(Matrix4[2])
+
             // DON'T CHANGE THIS FOR TESTING. Change the property inside the DEBUG preprocessor.
-            JointsSupported = true; // First try to support joints, then fallback to no joints on failure
+            SSBOSupported = JointsSupported = true; // First try to support joints, then fallback to no joints on failure
 
 #if DEBUG
+            SSBOSupported = true; // Set to false to test shader with uniform buffer object joints support (limited joint count)
             JointsSupported = true; // Set to false to test shader without joints support
-            const bool DebugTestFallback = false; // Set to true to allow joints support to silently fail
+            const bool DebugTestFallbackNoSSBO = false; // Set to true to allow joints (SSBO) support to silently fail
+            const bool DebugTestFallbackNoJoints = false; // Set to true to allow joints support to silently fail
+            //Program.ConsoleLogger.WriteLine($"OpenGL   Version: {glVersion}");
+            //Program.ConsoleLogger.WriteLine($"Max GLSL Version: {shadingLanguageVersion}");
+            //Program.ConsoleLogger.WriteLine($"Max SSBO Joints: {maxSSBOJoints}");
+            //Program.ConsoleLogger.WriteLine($"Max UBO  Joints: {maxUBOJoints}");
 #endif
 
             var vertexShaderSource   = ManifestResourceLoader.LoadTextFile("Shaders/Shader.vert");
@@ -174,21 +198,34 @@ namespace PSXPrev.Common.Renderer
             CheckSource(VersionRegex, VersionPrefix, fragmentShaderSource, "fragment");
             CheckSource(VersionRegex, VersionPrefix, vertexShaderSource, "vertex");
             CheckSource(FallbackVersionRegex, FallbackPrefix, vertexShaderSource, "vertex");
+            CheckSource(SSBODefineRegex, SSBODefine, vertexShaderSource, "vertex");
             CheckSource(JointsDefineRegex, JointsDefine, vertexShaderSource, "vertex");
+            CheckSource(MaxJointsDefineRegex, MaxJointsDefine, vertexShaderSource, "vertex");
 
-            string jointsError = null, noJointsError = null;
+            if (maxSSBOJoints <= 0)
+            {
+                SSBOSupported = false;
+            }
+
+            string withSSBOJointsError = null, noSSBOJointsError = null, noJointsError = null;
             var failed = false;
             for (var i = 0; i < 2; i++)
             {
                 _programId = GL.CreateProgram();
 
+                if (!SSBOSupported)
+                {
+                    // Remove the define that enables SSBOs,
+                    // and overwrite the version header with the fallback version.
+                    var fallbackVertexVer = GetVersion(vertexShaderSource, FallbackVersionRegex);
+                    vertexShaderSource = SSBODefineRegex.Replace(vertexShaderSource, string.Empty);
+                    vertexShaderSource = ChangeVersion(vertexShaderSource, fallbackVertexVer);
+                    vertexShaderSource = MaxJointsDefineRegex.Replace(vertexShaderSource, $"{MaxJointsDefine} {maxUBOJoints}");
+                }
                 if (!JointsSupported)
                 {
-                    // Remove the define that enables joints,
-                    // and overwrite the version header with the fallback version.
-                    var fallbackVersion = GetVersion(vertexShaderSource, FallbackVersionRegex);
+                    // Remove the define that enables joints.
                     vertexShaderSource = JointsDefineRegex.Replace(vertexShaderSource, string.Empty);
-                    vertexShaderSource = ChangeVersion(vertexShaderSource, fallbackVersion);
                 }
 
                 var vertexShaderAddress = GL.CreateShader(ShaderType.VertexShader);
@@ -218,12 +255,29 @@ namespace PSXPrev.Common.Renderer
                 else
                 {
                     // With joints support failed, try again but without joints support
-                    jointsError = GetInfoLog();
-                    JointsSupported = false;
+                    if (!SSBOSupported)
+                    {
+                        noSSBOJointsError = GetInfoLog();
+                        JointsSupported = false;
 #if DEBUG
-                    // Always throw an exception if we're debugging and not testing fallback
-                    failed |= !DebugTestFallback;
+                        // Always throw an exception if we're debugging and not testing fallback
+                        failed |= !DebugTestFallbackNoJoints;
 #endif
+                    }
+                    else
+                    {
+                        withSSBOJointsError = GetInfoLog();
+                        SSBOSupported = false;
+                        if (maxUBOJoints <= 0)
+                        {
+                            JointsSupported = false;
+                        }
+#if DEBUG
+                        // Always throw an exception if we're debugging and not testing fallback
+                        failed |= !DebugTestFallbackNoSSBO;
+#endif
+                    }
+
                     GL.DeleteProgram(_programId);
                     _programId = 0;
                 }
@@ -231,7 +285,10 @@ namespace PSXPrev.Common.Renderer
 
             if (failed)
             {
-                throw new Exception($"joints: {jointsError}\n\nno joints: {noJointsError}");
+#if DEBUG
+                //Program.ConsoleLogger.WriteLine(vertexShaderSource);
+#endif
+                throw new Exception($"joints: {withSSBOJointsError}\n\nno ssbo:{noSSBOJointsError}\n\nno joints: {noJointsError}");
             }
 
             GetUniformLocations();
@@ -241,14 +298,24 @@ namespace PSXPrev.Common.Renderer
             // Find the higher version to display to the user.
             // Note: This won't work if one of the versions is compatibility.
             GLSLVersion = (vertexVer.CompareTo(fragmentVer) > 0 ? vertexVer : fragmentVer);
+            if (JointsSupported)
+            {
+                MaxJoints = (SSBOSupported ? maxSSBOJoints : maxUBOJoints);
+            }
+            else
+            {
+                MaxJoints = 0;
+            }
 
-            Initialized = true;
+            IsInitialized = true;
         }
 
         // Note: Use "(?=[\r\n]|\z)" instead, because "$" doesn't handle CRLF... Wow.
         private const string FallbackPrefix = "//FALLBACK_VERSION ";
         private const string VersionPrefix = "#version ";
+        private const string SSBODefine = "#define SSBO_SUPPORTED";
         private const string JointsDefine = "#define JOINTS_SUPPORTED";
+        private const string MaxJointsDefine = "#define MAX_JOINTS";
         private const string PatternEnd = @"[ \t]*(?=//|[\r\n]|\z)";
         private const string PatternVersion = @"([0-9]+[^\n\r/]*?)" + PatternEnd;
 
@@ -256,7 +323,11 @@ namespace PSXPrev.Common.Renderer
                                                                        RegexOptions.Multiline);
         private static readonly Regex FallbackVersionRegex = new Regex($@"^{RegexEscapeWS(FallbackPrefix)}{PatternVersion}",
                                                                        RegexOptions.Multiline);
+        private static readonly Regex SSBODefineRegex      = new Regex($@"^({RegexEscapeWS(SSBODefine)}){PatternEnd}",
+                                                                       RegexOptions.Multiline);
         private static readonly Regex JointsDefineRegex    = new Regex($@"^({RegexEscapeWS(JointsDefine)}){PatternEnd}",
+                                                                       RegexOptions.Multiline);
+        private static readonly Regex MaxJointsDefineRegex = new Regex($@"^{RegexEscapeWS(MaxJointsDefine)}[ \t]+([0-9]+){PatternEnd}",
                                                                        RegexOptions.Multiline);
 
         // Regex.Escape that also replaces spaces with any variable-length whitespace matching
@@ -447,6 +518,20 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
+        private int _activeTextureUnit;
+        public int ActiveTextureUnit
+        {
+            get => _activeTextureUnit;
+            set
+            {
+                if (ForceState || _activeTextureUnit != value)
+                {
+                    _activeTextureUnit = value;
+                    GL.ActiveTexture(TextureUnit.Texture0 + value);
+                }
+            }
+        }
+
         #endregion
 
         #region Uniform States
@@ -541,7 +626,7 @@ namespace PSXPrev.Common.Renderer
             get => _lightDirection;
             set
             {
-                if (ForceState || _lightDirection != value)
+                if (ForceState || !_lightDirection.Equals(value))
                 {
                     _lightDirection = value;
                     GL.Uniform3(UniformIndex_LightDirection, ref value);
@@ -555,7 +640,7 @@ namespace PSXPrev.Common.Renderer
             get => _maskColor;
             set
             {
-                if (ForceState || _maskColor != value)
+                if (ForceState || !_maskColor.Equals(value))
                 {
                     _maskColor = value;
                     GL.Uniform3(UniformIndex_MaskColor, ref value);
@@ -569,7 +654,7 @@ namespace PSXPrev.Common.Renderer
             get => _ambientColor;
             set
             {
-                if (ForceState || _ambientColor != value)
+                if (ForceState || !_ambientColor.Equals(value))
                 {
                     _ambientColor = value;
                     GL.Uniform3(UniformIndex_AmbientColor, ref value);
@@ -583,7 +668,7 @@ namespace PSXPrev.Common.Renderer
             get => _solidColor;
             set
             {
-                if (ForceState || _solidColor != value)
+                if (ForceState || !_solidColor.Equals(value))
                 {
                     _solidColor = value;
                     GL.Uniform3(UniformIndex_SolidColor, ref value);
@@ -597,7 +682,7 @@ namespace PSXPrev.Common.Renderer
             get => _uvOffset;
             set
             {
-                if (ForceState || _uvOffset != value)
+                if (ForceState || !_uvOffset.Equals(value))
                 {
                     _uvOffset = value;
                     GL.Uniform2(UniformIndex_UVOffset, ref value);
@@ -608,37 +693,47 @@ namespace PSXPrev.Common.Renderer
         private Matrix3 _normalMatrix;
         public void UniformNormalMatrix(ref Matrix3 value)
         {
-            if (ForceState || _normalMatrix != value)
+            if (ForceState || !_normalMatrix.Equals(value))
             {
                 _normalMatrix = value;
                 GL.UniformMatrix3(UniformIndex_NormalMatrix, true, ref value);
             }
         }
 
+        private Matrix3 _normalSpriteMatrix;
+        public void UniformNormalSpriteMatrix(ref Matrix3 value)
+        {
+            if (ForceState || !_normalSpriteMatrix.Equals(value))
+            {
+                _normalSpriteMatrix = value;
+                GL.UniformMatrix3(UniformIndex_NormalSpriteMatrix, true, ref value);
+            }
+        }
+
         private Matrix4 _modelMatrix;
         public void UniformModelMatrix(ref Matrix4 value)
         {
-            if (ForceState || _modelMatrix != value)
+            if (ForceState || !_modelMatrix.Equals(value))
             {
                 _modelMatrix = value;
                 GL.UniformMatrix4(UniformIndex_ModelMatrix, false, ref value);
             }
         }
 
-        private Matrix4 _mvpMatrix;
-        public void UniformMVPMatrix(ref Matrix4 value)
+        private Matrix4 _modelSpriteMatrix;
+        public void UniformModelSpriteMatrix(ref Matrix4 value)
         {
-            if (ForceState || _mvpMatrix != value)
+            if (ForceState || !_modelSpriteMatrix.Equals(value))
             {
-                _mvpMatrix = value;
-                GL.UniformMatrix4(UniformIndex_MVPMatrix, false, ref value);
+                _modelSpriteMatrix = value;
+                GL.UniformMatrix4(UniformIndex_ModelSpriteMatrix, false, ref value);
             }
         }
 
         private Matrix4 _viewMatrix;
         public void UniformViewMatrix(ref Matrix4 value)
         {
-            if (ForceState || _viewMatrix != value)
+            if (ForceState || !_viewMatrix.Equals(value))
             {
                 _viewMatrix = value;
                 GL.UniformMatrix4(UniformIndex_ViewMatrix, false, ref value);
@@ -648,7 +743,7 @@ namespace PSXPrev.Common.Renderer
         private Matrix4 _projectionMatrix;
         public void UniformProjectionMatrix(ref Matrix4 value)
         {
-            if (ForceState || _projectionMatrix != value)
+            if (ForceState || !_projectionMatrix.Equals(value))
             {
                 _projectionMatrix = value;
                 GL.UniformMatrix4(UniformIndex_ProjectionMatrix, false, ref value);
@@ -659,44 +754,52 @@ namespace PSXPrev.Common.Renderer
 
         #region Bindings
 
-        private int _activeTextureId;
+        private int _mainTextureId;
+        private int _mainTextureUnit;
         public void BindTexture(int textureId)
         {
-            if (ForceState || _activeTextureId != textureId)
+            if (ForceState || _mainTextureId != textureId)
             {
                 if (textureId == 0)
                 {
-                    //_scene.TextureBinder.Unbind();
-                    _activeTextureId = 0;
+                    _mainTextureId = 0;
                     GL.BindTexture(TextureTarget.Texture2D, 0);
                 }
                 else
                 {
-                    _activeTextureId = textureId;
-                    //_scene.TextureBinder.BindTexture(textureId);
-                    GL.ActiveTexture(TextureUnit.Texture0);
+                    ActiveTextureUnit = TextureUnit_MainTexture;
+
+                    _mainTextureId = textureId;
                     GL.BindTexture(TextureTarget.Texture2D, textureId);
+
                     // Sampler uniform NEEDS to be set with uint, not int!
-                    GL.Uniform1(AttributeIndex_Texture, (uint)textureId);
+                    //GL.Uniform1(UniformIndex_MainTexture, (uint)textureId); // Using uint overload binds to textureId
+                    if (ForceState || _mainTextureUnit != TextureUnit_MainTexture)
+                    {
+                        _mainTextureUnit = TextureUnit_MainTexture;
+                        GL.Uniform1(UniformIndex_MainTexture, TextureUnit_MainTexture); // Using int overload binds to TextureUnit (Texture0)
+                    }
                 }
             }
         }
 
-        private Mesh _mesh;
-        public void BindMesh(Mesh mesh)
+        private VertexArrayObject _vertexArrayObject;
+        public void BindMesh(Mesh mesh) => BindMesh(mesh?.VertexArrayObject);
+
+        public void BindMesh(VertexArrayObject vertexArrayObject)
         {
             // Meshes may use the same mesh data as another mesh, so compare against the meshes with the data
-            if (ForceState || _mesh?.OwnerMesh != mesh?.OwnerMesh)
+            if (ForceState || _vertexArrayObject != vertexArrayObject)
             {
-                if (mesh == null)
+                if (vertexArrayObject == null)
                 {
-                    _mesh?.Unbind();
-                    _mesh = null;
+                    _vertexArrayObject?.Unbind();
+                    _vertexArrayObject = null;
                 }
                 else
                 {
-                    _mesh = mesh;
-                    mesh.Bind();
+                    _vertexArrayObject = vertexArrayObject;
+                    vertexArrayObject.Bind();
                 }
             }
         }
