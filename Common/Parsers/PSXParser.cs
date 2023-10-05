@@ -1314,7 +1314,7 @@ namespace PSXPrev.Common.Parsers
             //var flag0200  = (faceFlags & 0x0200) != 0;
             //var flag0400  = (faceFlags & 0x0400) != 0;
             var gouraud   = (faceFlags & 0x0800) != 0;
-            //var subdiv    = (faceFlags & 0x1000) != 0;
+            var subdiv    = (faceFlags & 0x1000) != 0;
             //var flag2000  = (faceFlags & 0x2000) != 0;
             //var flag4000  = (faceFlags & 0x4000) != 0;
 
@@ -1463,6 +1463,11 @@ namespace PSXPrev.Common.Parsers
             }
 
             var normal = _normals[normalIndex];
+            if (spriteCenter.HasValue)
+            {
+                // Neversoft PSX normals point in the opposite direction of how PSXPrev renders sprites, so invert the normal to match
+                normal = -normal;
+            }
 
             Color color0, color1, color2, color3;
             if (!gouraud)
@@ -1526,6 +1531,11 @@ namespace PSXPrev.Common.Parsers
                     case 2: mixtureRate = MixtureRate.Back100_PolyM100; break;
                     case 3: mixtureRate = MixtureRate.Back100_Poly25; break;
                 }
+            }
+
+            if (subdiv)
+            {
+                renderFlags |= RenderFlags.Subdivision;
             }
 
 

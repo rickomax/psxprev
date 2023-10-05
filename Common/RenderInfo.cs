@@ -10,11 +10,11 @@ namespace PSXPrev.Common
         DoubleSided       = (1 << 0),
         Unlit             = (1 << 1),
         SemiTransparent   = (1 << 3),
-        Fog               = (1 << 4),
+        Fog               = (1 << 4), // (Not supported)
         Textured          = (1 << 5),
         // todo: Are these even render-related?
-        Subdivision       = (1 << 6),
-        AutomaticDivision = (1 << 7),
+        Subdivision       = (1 << 6), // (Not supported)
+        AutomaticDivision = (1 << 7), // (Not supported)
 
         // Also known as VibRibbon (only use Vertex0 and Vertex1).
         Line              = (1 << 16),
@@ -45,9 +45,10 @@ namespace PSXPrev.Common
         // Use this mask when separating meshes by render info.
         public const RenderFlags SupportedFlags = RenderFlags.DoubleSided | RenderFlags.Unlit |
                                                   RenderFlags.SemiTransparent | RenderFlags.Textured |
-                                                  RenderFlags.Line | RenderFlags.Sprite | RenderFlags.SpriteNoPitch;
+                                                  RenderFlags.Line | RenderFlags.Sprite | RenderFlags.SpriteNoPitch |
+                                                  RenderFlags.NoAmbient;
 
-        public uint TexturePage { get; }
+        public uint TexturePage { get; } // May be a LookupID for packed texture types
         public RenderFlags RenderFlags { get; }
         public MixtureRate MixtureRate { get; }
         
@@ -82,6 +83,7 @@ namespace PSXPrev.Common
 
         public bool Equals(RenderInfo other)
         {
+            //return TexturePage == other.TexturePage && RenderFlags == other.RenderFlags && MixtureRate == other.MixtureRate;
             return RawValue.Equals(other.RawValue);
         }
 

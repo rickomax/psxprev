@@ -26,7 +26,7 @@ namespace PSXPrev.Common.Renderer
         private const float TriangleOutlineThickness = 2f;
 
         private static readonly Color LightRotationRayColor = Color.Yellow;
-        private const float LightRotationRayDelayTime = 2.5f;
+        private const float LightRotationRayDelayTime = 2.5f * 10000;
         private const float LightRotationRayFadeTime = 0.5f;
 
         private const float DebugPickingRayLineThickness = 3f;
@@ -141,7 +141,7 @@ namespace PSXPrev.Common.Renderer
         };
 
 
-        public bool Initialized { get; private set; }
+        public bool IsInitialized { get; private set; }
 
         public MeshBatch MeshBatch { get; private set; }
         public MeshBatch GizmosBatch { get; private set; }
@@ -230,6 +230,7 @@ namespace PSXPrev.Common.Renderer
         public bool VertexColorEnabled { get; set; }
         public bool SemiTransparencyEnabled { get; set; }
         public bool ForceDoubleSided { get; set; }
+        //public bool CalculateNormals { get; set; } // Compute flat normals from triangles, even for unlit faces
 
         public float LightIntensity { get; set; }
 
@@ -353,7 +354,15 @@ namespace PSXPrev.Common.Renderer
         }
         //public Quaternion CameraRotationOld => _viewOriginMatrix.Inverted().ExtractRotation();
 
-        public Quaternion CameraYawRotation => Quaternion.FromAxisAngle(Vector3.UnitY, _cameraYaw).Inverted();
+        public Quaternion CameraYawRotation
+        {
+            get
+            {
+                // +180deg to X since camera faces opposite direction and up-side down
+                return (Quaternion.FromAxisAngle(Vector3.UnitX, (float)Math.PI) *
+                        Quaternion.FromAxisAngle(Vector3.UnitY, _cameraYaw)).Inverted();
+            }
+        }
 
         public Vector3 CameraDirection => CameraRotation * Vector3.UnitZ;
 
@@ -392,7 +401,7 @@ namespace PSXPrev.Common.Renderer
 
         public void Initialize(float width, float height)
         {
-            if (Initialized)
+            if (IsInitialized)
             {
                 return;
             }
@@ -401,7 +410,7 @@ namespace PSXPrev.Common.Renderer
             Resize(width, height, true); // Force-resize if width/height equals initial values
             SetupMatrices();
             SetupInternals();
-            Initialized = true;
+            IsInitialized = true;
         }
 
         public void Resize(float width, float height, bool force = false)
@@ -419,10 +428,7 @@ namespace PSXPrev.Common.Renderer
         private void SetupInternals()
         {
             TextureBinder = new TextureBinder();
-            MeshBatch = new MeshBatch(this)
-            {
-                ShouldSortMeshes = true,
-            };
+            MeshBatch = new MeshBatch(this, modelsMeshBatch: true, sortingEnabled: true, batchingEnabled: true);
             GizmosBatch = new MeshBatch(this)
             {
                 Visible = false,
@@ -537,7 +543,7 @@ namespace PSXPrev.Common.Renderer
 
         private void OnCameraChanged()
         {
-            if (Initialized)
+            if (IsInitialized)
             {
                 CameraChanged?.Invoke(this, EventArgs.Empty);
             }
@@ -545,7 +551,7 @@ namespace PSXPrev.Common.Renderer
 
         private void OnLightChanged()
         {
-            if (Initialized)
+            if (IsInitialized)
             {
                 LightChanged?.Invoke(this, EventArgs.Empty);
             }
@@ -553,7 +559,7 @@ namespace PSXPrev.Common.Renderer
 
         private void OnTimeChanged()
         {
-            if (Initialized)
+            if (IsInitialized)
             {
                 TimeChanged?.Invoke(this, EventArgs.Empty);
             }
@@ -572,6 +578,7 @@ namespace PSXPrev.Common.Renderer
             meshBatch.TexturesEnabled = TexturesEnabled;
             meshBatch.SemiTransparencyEnabled = SemiTransparencyEnabled;
             meshBatch.ForceDoubleSided = ForceDoubleSided;
+            //meshBatch.CalculateNormals = CalculateNormals;
             meshBatch.LightDirection = null; //LightDirection;
             meshBatch.LightIntensity = null; //LightIntensity;
             meshBatch.AmbientColor = null; //(Color)AmbientColor;
@@ -692,9 +699,9 @@ namespace PSXPrev.Common.Renderer
             GizmosBatch.Visible = true;
 
             // Force-prepare the batch the first time.
-            var updateMeshData = !GizmosBatch.IsValid;
+            var updateMeshData = !GizmosBatch.IsInitialized;
 
-            GizmosBatch.ResetMeshIndex();
+            GizmosBatch.ResetIndex();
             if (updateMeshData)
             {
                 GizmosBatch.Reset(3 + 3 + (3 + 1)); // Translate + Rotate + (Scale + Uniform)
@@ -806,9 +813,9 @@ namespace PSXPrev.Common.Renderer
         private void BindRay(MeshBatch rayBatch, Vector3 rayOrigin, Quaternion rayRotation, Color color, float blend = 1f)
         {
             // Force-prepare the batch the first time.
-            var updateMeshData = !rayBatch.IsValid;
+            var updateMeshData = !rayBatch.IsInitialized;
 
-            rayBatch.ResetMeshIndex();
+            rayBatch.ResetIndex();
             if (updateMeshData)
             {
                 rayBatch.Reset(3);

@@ -30,7 +30,7 @@ namespace PSXPrev.Common.Renderer
             new Vector3(-1f,  1f, -1f),
             new Vector3(-1f, -1f, -1f),
         };
-        private static readonly Vector3 SpriteNormal = -Vector3.UnitZ;
+        private static readonly Vector3 SpriteNormal = Vector3.UnitZ;
 
 
         public bool CalculateNormals { get; set; }
@@ -891,8 +891,8 @@ namespace PSXPrev.Common.Renderer
                 {
                     for (var w = 1; w <= h; w++)
                     {
-                        var w1 = order ? w : w - 1;
-                        var w2 = order ? w - 1 : w;
+                        var w1 = order ? w - 1 : w;
+                        var w2 = order ? w : w - 1;
 
                         var v0 = vertices[face, h - 1, w - 1];
                         var v1 = vertices[face, h, w1];

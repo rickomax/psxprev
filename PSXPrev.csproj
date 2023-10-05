@@ -118,6 +118,7 @@
     <Compile Include="Common\Renderer\Mesh.cs" />
     <Compile Include="Common\Renderer\MeshBatch.cs" />
     <Compile Include="Common\Renderer\MeshRenderInfo.cs" />
+    <Compile Include="Common\Renderer\VertexArrayObject.cs" />
     <Compile Include="Common\Renderer\Shader.cs" />
     <Compile Include="Common\Renderer\Skin.cs" />
     <Compile Include="Common\Renderer\TriangleMeshBuilder.cs" />
@@ -175,6 +176,7 @@
     </Compile>
     <Compile Include="Forms\Utils\ControlExtensions.cs" />
     <Compile Include="Forms\Utils\DictionaryPropertyGridAdapter.cs" />
+    <Compile Include="Forms\Utils\NativeMethods.cs" />
     <Compile Include="Forms\Utils\TreeViewExtensions.cs" />
     <Compile Include="Forms\PreviewForm.cs">
       <SubType>Form</SubType>
