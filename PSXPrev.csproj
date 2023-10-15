@@ -149,13 +149,34 @@
     <Compile Include="Common\Texture.cs" />
     <Compile Include="Common\TiledUV.cs" />
     <Compile Include="Common\Triangle.cs" />
+    <Compile Include="Forms\AdvancedSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\AdvancedSettingsForm.Designer.cs">
+      <DependentUpon>AdvancedSettingsForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="Forms\Controls\ExtendedImageListView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Forms\Controls\ExtendedPanel.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Forms\Controls\ExtendedTreeView.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Forms\Controls\RootEntitySelectorEditor.cs" />
+    <Compile Include="Forms\Controls\ScenePreviewer.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Forms\Controls\ScenePreviewer.Designer.cs">
+      <DependentUpon>ScenePreviewer.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\Controls\TexturePreviewer.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Forms\Controls\TexturePreviewer.Designer.cs">
+      <DependentUpon>TexturePreviewer.cs</DependentUpon>
+    </Compile>
     <Compile Include="Forms\Dialogs\InputDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -176,7 +197,9 @@
     </Compile>
     <Compile Include="Forms\Utils\ControlExtensions.cs" />
     <Compile Include="Forms\Utils\DictionaryPropertyGridAdapter.cs" />
+    <Compile Include="Forms\Utils\ClipboardUtils.cs" />
     <Compile Include="Forms\Utils\NativeMethods.cs" />
+    <Compile Include="Forms\Utils\RefreshDelayTimer.cs" />
     <Compile Include="Forms\Utils\TreeViewExtensions.cs" />
     <Compile Include="Forms\PreviewForm.cs">
       <SubType>Form</SubType>
@@ -208,6 +231,15 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <EmbeddedResource Include="Forms\AdvancedSettingsForm.resx">
+      <DependentUpon>AdvancedSettingsForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\Controls\ScenePreviewer.resx">
+      <DependentUpon>ScenePreviewer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\Controls\TexturePreviewer.resx">
+      <DependentUpon>TexturePreviewer.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Forms\Dialogs\InputDialog.resx">
       <DependentUpon>InputDialog.cs</DependentUpon>
       <SubType>Designer</SubType>

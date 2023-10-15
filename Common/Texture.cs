@@ -13,6 +13,9 @@ namespace PSXPrev.Common
         public static readonly System.Drawing.Color NoSemiTransparentFlag = System.Drawing.Color.FromArgb(0, 0, 0, 0);
         public static readonly System.Drawing.Color SemiTransparentFlag = System.Drawing.Color.FromArgb(255, 255, 255, 255);
 
+        public static readonly SolidBrush NoSemiTransparentBrush = new SolidBrush(NoSemiTransparentFlag);
+        public static readonly SolidBrush SemiTransparentBrush   = new SolidBrush(SemiTransparentFlag);
+
         private static readonly ushort[][] EmptyPalettes16  = new ushort[][] { new ushort[16] };
         private static readonly ushort[][] EmptyPalettes256 = new ushort[][] { new ushort[256] };
 
@@ -353,7 +356,7 @@ namespace PSXPrev.Common
             return IntPtr.Zero;
         }
 
-        public unsafe System.Drawing.Color GetPixel(int x, int y, out bool stp, out int? paletteIndex)
+        public unsafe System.Drawing.Color GetPixel(int x, int y, out bool stp, out bool transparent, out int? paletteIndex)
         {
             if (x < 0 || x >= Width)
             {
@@ -385,10 +388,11 @@ namespace PSXPrev.Common
                 switch (Bpp)
                 {
                     case 4:
-                        p += x / 2;
+                        p += (x / 2);
                         paletteIndex = (*p >> (x % 2 == 0 ? 4 : 0)) & 0xf; // First x is in MSBs
                         paletteColor = Palettes[CLUTIndex][paletteIndex.Value];
                         stp = TexturePalette.GetStp(paletteColor);
+                        transparent = paletteColor == TexturePalette.Transparent;
                         return TexturePalette.ToColor(paletteColor);
 
                     case 8:
@@ -396,32 +400,43 @@ namespace PSXPrev.Common
                         paletteIndex = *p;
                         paletteColor = Palettes[CLUTIndex][paletteIndex.Value];
                         stp = TexturePalette.GetStp(paletteColor);
+                        transparent = paletteColor == TexturePalette.Transparent;
                         return TexturePalette.ToColor(paletteColor);
 
                     case 16:
                     case 24:
                     case 32:
-                        if (s != null)
+                        p += (x * 4);
+                        var b = p[0];
+                        var g = p[1];
+                        var r = p[2];
+                        var a = p[3];
+                        stp = false;
+                        if (!IsVRAMPage)
                         {
-                            s += (x * 4);
-                            stp = *s == SemiTransparentFlag.B;
+                            if (s != null)
+                            {
+                                s += (x * 4); // Normal textures store stp bits in a separate image
+                                stp = *s != NoSemiTransparentFlag.B;
+                            }
                         }
                         else
                         {
-                            stp = false;
+                            if (VRAM.PageSemiTransparencyX + x < Width)
+                            {
+                                p += (VRAM.PageSemiTransparencyX * 4); // VRAM textures store stp bits directly in the same image
+                                stp = *p != NoSemiTransparentFlag.B;
+                            }
                         }
-                        p += (x * 4);
-                        var b = *p++;
-                        var g = *p++;
-                        var r = *p++;
-                        var a = *p++;
+                        transparent = a == 0 || (!stp && r == 0 && g == 0 && b == 0);
                         paletteIndex = null;
                         return System.Drawing.Color.FromArgb(a, r, g, b);
 
                     default:
                         stp = false;
+                        transparent = false;
                         paletteIndex = null;
-                        return System.Drawing.Color.Black;
+                        return default(System.Drawing.Color);// System.Drawing.Color.Black;
                 }
             }
             finally
@@ -496,6 +511,7 @@ namespace PSXPrev.Common
                     stpColorPalette.Entries[i] = TexturePalette.GetStp(color) ? SemiTransparentFlag : NoSemiTransparentFlag;
                 }
             }
+            // Palette must be reassigned for changes to Entries to take effect
             if (bitmap != null)
             {
                 bitmap.Palette = colorPalette;

@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Text;
 using OpenTK;
+using OpenTK.Graphics;
 
 namespace PSXPrev.Common
 {
@@ -42,6 +43,21 @@ namespace PSXPrev.Common
         public static Vector4 ToVector4(this System.Drawing.Color color)
         {
             return new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
+        }
+
+        public static Vector4 ToVector4WithAlpha(this System.Drawing.Color color, float alpha)
+        {
+            return new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, alpha);
+        }
+
+        public static Color4 ToColor4(this System.Drawing.Color color)
+        {
+            return new Color4(color.R, color.G, color.B, color.A);
+        }
+
+        public static Color4 ToColor4WithAlpha(this System.Drawing.Color color, float alpha)
+        {
+            return new Color4(color.R, color.G, color.B, (byte)(alpha * 255));
         }
 
 

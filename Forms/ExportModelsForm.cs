@@ -140,7 +140,10 @@ namespace PSXPrev.Forms
             //WriteSettings(Settings.Instance, null); // For now, at least save UI settings (none yet).
             var options = CreateOptions();
             WriteSettings(Settings.Instance, options);
-            Settings.Instance.Save();
+            if (Settings.ImplicitSave)
+            {
+                Settings.Instance.Save();
+            }
 
             Options = options;
         }

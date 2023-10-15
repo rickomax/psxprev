@@ -223,6 +223,26 @@ namespace PSXPrev.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap File_ShowStatusBar {
+            get {
+                object obj = ResourceManager.GetObject("File_ShowStatusBar", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap File_ShowUI {
+            get {
+                object obj = ResourceManager.GetObject("File_ShowUI", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Find {
             get {
                 object obj = ResourceManager.GetObject("Find", resourceCulture);
@@ -623,6 +643,16 @@ namespace PSXPrev.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap Settings_Advanced {
+            get {
+                object obj = ResourceManager.GetObject("Settings_Advanced", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Settings_Defaults {
             get {
                 object obj = ResourceManager.GetObject("Settings_Defaults", resourceCulture);
@@ -783,6 +813,16 @@ namespace PSXPrev.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap Textures_ShowUVs {
+            get {
+                object obj = ResourceManager.GetObject("Textures_ShowUVs", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap VRAM_Clear_All {
             get {
                 object obj = ResourceManager.GetObject("VRAM_Clear_All", resourceCulture);
@@ -836,6 +876,16 @@ namespace PSXPrev.Properties {
         internal static System.Drawing.Bitmap VRAM_Export_Selected {
             get {
                 object obj = ResourceManager.GetObject("VRAM_Export_Selected", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap VRAM_ShowSemiTransparency {
+            get {
+                object obj = ResourceManager.GetObject("VRAM_ShowSemiTransparency", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

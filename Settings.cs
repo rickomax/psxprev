@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Windows.Forms;
 using Newtonsoft.Json;
@@ -22,247 +24,348 @@ namespace PSXPrev
 
         public static Settings Instance { get; set; } = new Settings();
 
+        // Version of settings file, to check if we need to make changes to loaded settings.
         public const uint CurrentVersion = 2;
+
+        // True if actions like leaving the scanner/export form, or accepting
+        // the advanced settings form will save settings changes to file.
+        public const bool ImplicitSave = true;
 
 
         // Any settings that need to be changed beteen versions can be handled with this.
-        [JsonProperty("version")]
+        [JsonProperty("version"), Browsable(false)]
         public uint Version { get; set; } = CurrentVersion;
 
         [JsonProperty("antialiasing")]
+        [TypeConverter(typeof(MultisamplingTypeConverter))]
+        [Category("Graphics"), DisplayName("Anti-aliasing")]
+        [Description("Anti-aliasing level for the renderer.\n(Requires restart)")]
+        [DefaultValue(0)]
         public int Multisampling { get; set; } = 0;
 
-        [JsonProperty("gridSnap")]
+        /*[JsonProperty("oldUVAlignment")]
+        [Category("Graphics"), DisplayName("Old UV Alignment")]
+        [Description("Use old incorrect alignment for UVs.\n(Requires Clear Scan Results)")]
+        [DefaultValue(false)]
+        public bool OldUVAlignment { get; set; } = false;*/
+
+        [JsonProperty("gridSnap"), Browsable(false)]
         public float GridSnap { get; set; } = 1f;
 
-        [JsonProperty("angleSnap")]
+        [JsonProperty("angleSnap"), Browsable(false)]
         public float AngleSnap { get; set; } = 1f;
 
-        [JsonProperty("scaleSnap")]
+        [JsonProperty("scaleSnap"), Browsable(false)]
         public float ScaleSnap { get; set; } = 0.05f;
 
-        [JsonProperty("cameraFOV")]
+        [JsonProperty("cameraFOV"), Browsable(false)]
         public float CameraFOV { get; set; } = 60f;
 
-        [JsonIgnore]
+        [JsonIgnore, Browsable(false)]
         public float CameraFOVRads => CameraFOV * GeomMath.Deg2Rad;
 
-        [JsonProperty("lightIntensity")]
+        [JsonProperty("lightIntensity"), Browsable(false)]
         public float LightIntensity { get; set; } = 1f;
 
-        [JsonProperty("lightYaw")]
+        [JsonProperty("lightYaw"), Browsable(false)]
         public float LightYaw { get; set; } = 135f;
 
-        [JsonProperty("lightPitch")]
+        [JsonProperty("lightPitch"), Browsable(false)]
         public float LightPitch { get; set; } = 225f;
 
-        [JsonIgnore]
+        [JsonIgnore, Browsable(false)]
         public Vector2 LightPitchYawRads => new Vector2(LightPitch * GeomMath.Deg2Rad, LightYaw * GeomMath.Deg2Rad);
 
-        [JsonProperty("lightEnabled")]
+        [JsonProperty("lightEnabled"), Browsable(false)]
         public bool LightEnabled { get; set; } = true;
 
-        [JsonProperty("ambientEnabled")]
+        [JsonProperty("ambientEnabled"), Browsable(false)]
         public bool AmbientEnabled { get; set; } = true; // We can probably remove this, it's just the same as changing ambient color to black.
 
-        [JsonProperty("texturesEnabled")]
+        [JsonProperty("texturesEnabled"), Browsable(false)]
         public bool TexturesEnabled { get; set; } = true;
 
-        [JsonProperty("vertexColorEnabled")]
+        [JsonProperty("vertexColorEnabled"), Browsable(false)]
         public bool VertexColorEnabled { get; set; } = true;
 
-        [JsonProperty("semiTransparencyEnabled")]
+        [JsonProperty("semiTransparencyEnabled"), Browsable(false)]
         public bool SemiTransparencyEnabled { get; set; } = true;
 
-        [JsonProperty("forceDoubleSided")]
+        [JsonProperty("forceDoubleSided"), Browsable(false)]
         public bool ForceDoubleSided { get; set; } = false;
 
-        [JsonProperty("autoAttachLimbs")]
+        [JsonProperty("autoAttachLimbs"), Browsable(false)]
         public bool AutoAttachLimbs { get; set; } = true;
 
-        [JsonProperty("drawModeFaces")]
+        [JsonProperty("drawModeFaces"), Browsable(false)]
         public bool DrawFaces { get; set; } = true;
 
-        [JsonProperty("drawModeWireframe")]
+        [JsonProperty("drawModeWireframe"), Browsable(false)]
         public bool DrawWireframe { get; set; } = false;
 
-        [JsonProperty("drawModeVertices")]
+        [JsonProperty("drawModeVertices"), Browsable(false)]
         public bool DrawVertices { get; set; } = false;
 
-        [JsonProperty("drawModeSolidWireframeAndVertices")]
+        [JsonProperty("drawModeSolidWireframeAndVertices"), Browsable(false)]
         public bool DrawSolidWireframeVertices { get; set; } = true;
 
-        [JsonProperty("wireframeSize")]
+        [JsonProperty("wireframeSize"), Browsable(false)]
         public float WireframeSize { get; set; } = 1f;
 
-        [JsonProperty("vertexSize")]
+        [JsonProperty("vertexSize"), Browsable(false)]
         public float VertexSize { get; set; } = 2f;
 
         [JsonProperty("gizmoTool"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
+        [Browsable(false)]
         public GizmoType GizmoType { get; set; } = GizmoType.Translate;
 
         [JsonProperty("modelSelectionMode"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
+        [Browsable(false)]
         public EntitySelectionMode ModelSelectionMode { get; set; } = EntitySelectionMode.Bounds;
 
         [JsonProperty("subModelVisibility"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
+        [Browsable(false)]
         public SubModelVisibility SubModelVisibility { get; set; } = SubModelVisibility.All;
 
-        [JsonProperty("autoFocusOnRootModel")]
+        [JsonProperty("autoFocusOnRootModel"), Browsable(false)]
         public bool AutoFocusOnRootModel { get; set; } = true;
 
-        [JsonProperty("autoFocusOnSubModel")]
+        [JsonProperty("autoFocusOnSubModel"), Browsable(false)]
         public bool AutoFocusOnSubModel { get; set; } = false;
 
-        [JsonProperty("autoFocusIncludeWholeModel")]
+        [JsonProperty("autoFocusIncludeWholeModel"), Browsable(false)]
         public bool AutoFocusIncludeWholeModel { get; set; } = false;
 
-        [JsonProperty("autoFocusIncludeCheckedModels")]
+        [JsonProperty("autoFocusIncludeCheckedModels"), Browsable(false)]
         public bool AutoFocusIncludeCheckedModels { get; set; } = true;
 
-        [JsonProperty("autoFocusResetCameraRotation")]
+        [JsonProperty("autoFocusResetCameraRotation"), Browsable(false)]
         public bool AutoFocusResetCameraRotation { get; set; } = true;
 
-        [JsonProperty("showBounds")]
+        [JsonProperty("showBounds"), Browsable(false)]
         public bool ShowBounds { get; set; } = true;
 
-        [JsonProperty("showSkeleton")]
+        [JsonProperty("showSkeleton"), Browsable(false)]
         public bool ShowSkeleton { get; set; } = false;
 
         [JsonProperty("showLightRotationRay")]
+        [Category("Graphics"), DisplayName("Show Light Rotation Ray")]
+        [Description("Show a visual when changing light rotation to see where it's pointed.")]
+        [DefaultValue(true)]
         public bool ShowLightRotationRay { get; set; } = true;
 
+        [JsonProperty("durationLightRotationRay")]
+        [Category("Graphics"), DisplayName("Light Rotation Ray Duration")]
+        [Description("Change how long the light rotation visual shows before fading away (in seconds).")]
+        [DefaultValue(2.5f)]
+        public float LightRotationRayDelayTime { get; set; } = 2.5f;
+
         [JsonProperty("showDebugVisuals")]
+        [Category("Graphics"), DisplayName("Show Debug Visuals")]
+        [Description("Show debugging visuals in the renderer (requires enabling individual visual types).")]
+        [DefaultValue(false)]
         public bool ShowDebugVisuals { get; set; } = false;
 
         [JsonProperty("showDebugPickingRay")]
+        [Category("Graphics"), DisplayName("Show Debug Picking Ray")]
+        [Description("Show a magenta ray when pressing P to see the line of intersection used for selecting models.\n(Requires Show Debug Visuals)")]
+        [DefaultValue(false)]
         public bool ShowDebugPickingRay { get; set; } = false;
 
         [JsonProperty("showDebugIntersections")]
+        [Category("Graphics"), DisplayName("Show Debug Intersections")]
+        [Description("Show magenta outlines for all intersected models when selecting models.\n(Requires Show Debug Visuals)")]
+        [DefaultValue(false)]
         public bool ShowDebugIntersections { get; set; } = false;
 
         [JsonProperty("backgroundColor"), JsonConverter(typeof(JsonStringColorConverter))]
+        [Browsable(false)]
         public System.Drawing.Color BackgroundColor { get; set; } = System.Drawing.Color.LightSkyBlue;
 
         [JsonProperty("ambientColor"), JsonConverter(typeof(JsonStringColorConverter))]
+        [Browsable(false)]
         public System.Drawing.Color AmbientColor { get; set; } = System.Drawing.Color.LightGray;
 
         [JsonProperty("maskColor"), JsonConverter(typeof(JsonStringColorConverter))]
+        [Browsable(false)]
         public System.Drawing.Color MaskColor { get; set; } = System.Drawing.Color.Black;
 
         [JsonProperty("solidWireframeAndVerticesColor"), JsonConverter(typeof(JsonStringColorConverter))]
+        [Browsable(false)]
         public System.Drawing.Color SolidWireframeVerticesColor { get; set; } = System.Drawing.Color.Gray;
 
         [JsonProperty("colorDialogCustomColors", ItemConverterType = typeof(JsonStringColorConverter))]
+        [Browsable(false)]
         private System.Drawing.Color[] ColorDialogCustomColors { get; set; } = new System.Drawing.Color[0];
 
-        [JsonProperty("currentCLUTIndex")]
+        [JsonProperty("currentCLUTIndex"), Browsable(false)]
         public int CurrentCLUTIndex { get; set; } = 0;
 
-        [JsonProperty("showUVsInVRAM")]
-        public bool ShowUVsInVRAM { get; set; } = true;
+        [JsonProperty("showVRAMSemiTransparency"), Browsable(false)]
+        public bool ShowVRAMSemiTransparency { get; set; } = false;
 
-        [JsonProperty("showTexturePalette")]
+        [JsonProperty("showVRAMUVs"), Browsable(false)]
+        public bool ShowVRAMUVs { get; set; } = true;
+
+        [JsonProperty("showTexturePalette"), Browsable(false)]
         public bool ShowTexturePalette { get; set; } = false;
 
-        [JsonProperty("showTextureSemiTransparency")]
+        [JsonProperty("showTextureSemiTransparency"), Browsable(false)]
         public bool ShowTextureSemiTransparency { get; set; } = false;
 
-        [JsonProperty("showMissingTextures")]
+        [JsonProperty("showTextureUVs"), Browsable(false)]
+        public bool ShowTextureUVs { get; set; } = false;
+
+        [JsonProperty("showMissingTextures"), Browsable(false)]
         public bool ShowMissingTextures { get; set; } = true;
 
-        [JsonProperty("autoDrawModelTextures")]
+        [JsonProperty("autoDrawModelTextures"), Browsable(false)]
         public bool AutoDrawModelTextures { get; set; } = false;
 
-        [JsonProperty("autoPackModelTextures")]
+        [JsonProperty("autoPackModelTextures"), Browsable(false)]
         public bool AutoPackModelTextures { get; set; } = false;
 
-        [JsonProperty("autoPlayAnimation")]
+        [JsonProperty("autoPlayAnimation"), Browsable(false)]
         public bool AutoPlayAnimation { get; set; } = false;
 
-        [JsonProperty("autoSelectAnimationModel")]
+        [JsonProperty("autoSelectAnimationModel"), Browsable(false)]
         public bool AutoSelectAnimationModel { get; set; } = true;
 
         [JsonProperty("animationLoopMode"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
+        [Browsable(false)]
         public AnimationLoopMode AnimationLoopMode { get; set; } = AnimationLoopMode.Loop;
 
-        [JsonProperty("animationReverse")]
+        [JsonProperty("animationReverse"), Browsable(false)]
         public bool AnimationReverse { get; set; } = false;
 
-        [JsonProperty("animationSpeed")]
+        [JsonProperty("animationSpeed"), Browsable(false)]
         public float AnimationSpeed { get; set; } = 1f;
 
-        [JsonProperty("showFPS")]
+        [JsonProperty("showFPS"), Browsable(false)]
         public bool ShowFPS { get; set; } = false;
 
-        [JsonProperty("fastWindowResize")]
+        [JsonProperty("fastWindowResize"), Browsable(false)]
         public bool FastWindowResize { get; set; } = false;
 
         [JsonProperty("logStandardColor"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
+        [Category("Log"), DisplayName("Standard Color")]
+        [Description("Standard color used when logging to the console (requires new scan).")]
+        [DefaultValue(ConsoleColor.White)]
         public ConsoleColor LogStandardColor { get; set; } = ConsoleColor.White;
 
         [JsonProperty("logPositiveColor"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
+        [Category("Log"), DisplayName("Positive Color")]
+        [Description("Positive color used when logging to the console (requires new scan).")]
+        [DefaultValue(ConsoleColor.Green)]
         public ConsoleColor LogPositiveColor { get; set; } = ConsoleColor.Green;
 
         [JsonProperty("logWarningColor"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
+        [Category("Log"), DisplayName("Warning Color")]
+        [Description("Warning color used when logging to the console (requires new scan).")]
+        [DefaultValue(ConsoleColor.Yellow)]
         public ConsoleColor LogWarningColor { get; set; } = ConsoleColor.Yellow;
 
         [JsonProperty("logErrorColor"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
+        [Category("Log"), DisplayName("Error Color")]
+        [Description("Error color used when logging to the console (requires new scan).")]
+        [DefaultValue(ConsoleColor.Red)]
         public ConsoleColor LogErrorColor { get; set; } = ConsoleColor.Red;
 
         [JsonProperty("logExceptionPrefixColor"), JsonConverter(typeof(JsonStringEnumIgnoreCaseConverter))]
+        [Category("Log"), DisplayName("Exception Prefix Color")]
+        [Description("Error message color displayed before the stack trace when logging to the console (requires new scan).")]
+        [DefaultValue(ConsoleColor.DarkGray)]
         public ConsoleColor LogExceptionPrefixColor { get; set; } = ConsoleColor.DarkGray;
 
 
         // 30f for Frogger 2 and Chicken Run, 60f for Action Man 2.
         [JsonProperty("advancedBFFFrameRate")]
+        [Category("Parsers"), DisplayName("BFF Framerate")]
+        [Description("The default framerate for scanned BFF/PSI animations.")]
+        [DefaultValue(30f)]
         public float AdvancedBFFFrameRate { get; set; } = 30f;
 
         [JsonProperty("advancedBFFSpriteScale")]
+        [Category("Parsers"), DisplayName("BFF Sprite Scale")]
+        [Description("The scaling for sprite size in scanned BFF/FMM models.")]
+        [DefaultValue(2.5f)]
         public float AdvancedBFFSpriteScale { get; set; } = 2.5f;
 
         // Unknown what the real divisor is, but the default setting creates very large models.
         [JsonProperty("advancedBFFScaleDivisor")]
+        [Category("Parsers"), DisplayName("BFF Scale Divisor")]
+        [Description("The value vertex positions are divided by for scanned BFF/FMM and BFF/PSI models.")]
+        [DefaultValue(1.0f)]
         public float AdvancedBFFScaleDivisor { get; set; } = 1.0f;
 
         // The real divisor is supposedly 4096f, but that creates VERY SMALL models.
         [JsonProperty("advancedMODScaleDivisor")]
+        [Category("Parsers"), DisplayName("MOD Scale Divisor")]
+        [Description("The value vertex positions are divided by for scanned MOD (Croc) models.")]
+        [DefaultValue(16.0f)]
         public float AdvancedMODScaleDivisor { get; set; } = 16.0f;
 
         // The real divisor is supposedly 4096f, but that creates VERY SMALL models.
         [JsonProperty("advancedPSXScaleDivisor")]
+        [Category("Parsers"), DisplayName("PSX Scale Divisor")]
+        [Description("The value vertex positions are divided by for scanned PSX (Neversoft) models.")]
+        [DefaultValue(2.25f)]
         public float AdvancedPSXScaleDivisor { get; set; } = 2.25f;
 
         [JsonProperty("advancedPSXIncludeLODLevels")]
+        [Category("Parsers"), DisplayName("PSX Include All LOD Levels")]
+        [Description("All level of detail versions of each model will be included when scanning PSX (Neversoft) models. Otherwise only the highest quality model is included.")]
+        [DefaultValue(false)]
         public bool AdvancedPSXIncludeLODLevels { get; set; } = false;
 
         [JsonProperty("advancedPSXIncludeInvisible")]
+        [Category("Parsers"), DisplayName("PSX Include Invisible Triangles")]
+        [Description("Include triangle faces marked as invisible when scanning PSX (Neversoft) models. These are usually faces that show debug surfaces for map interactions.")]
+        [DefaultValue(false)]
         public bool AdvancedPSXIncludeInvisible { get; set; } = false;
 
+        [JsonProperty("clearConsoleAfterClearResults")]
+        [Category("Scanning"), DisplayName("Clear Console after Clear Results")]
+        [Description("Pressing the Clear Scan Results option will also clear the console log.")]
+        [DefaultValue(false)]
+        public bool ClearConsoleAfterClearResults { get; set; } = false;
 
         [JsonProperty("scanProgressFrequency")]
+        [Category("Scanning"), DisplayName("Scan Progress Frequency")]
+        [Description("Change how often the status bar updates the progress bar/text for the current scan (in seconds).")]
+        [DefaultValue(1f / 60f)]
         public float ScanProgressFrequency { get; set; } = 1f / 60f; // 1 frame (60FPS)
 
         [JsonProperty("scanPopulateFrequency")]
+        [Category("Scanning"), DisplayName("Scan Populate Frequency")]
+        [Description("Change how often the results are populated into the tree and list views for the current scan (in seconds).")]
+        [DefaultValue(4f)]
         public float ScanPopulateFrequency { get; set; } = 4f; // 4 seconds
 
-        [JsonProperty("scanOptionsShowAdvanced")]
+        [JsonProperty("scanOptionsShowAdvanced"), Browsable(false)]
         public bool ShowAdvancedScanOptions { get; set; } = false;
 
-        [JsonProperty("scanOptions")]
+        [JsonProperty("scanOptions"), Browsable(false)]
         public ScanOptions ScanOptions { get; set; } = new ScanOptions();
 
-        [JsonProperty("exportOptions")]
+        [JsonProperty("exportOptions"), Browsable(false)]
         public ExportModelOptions ExportModelOptions { get; set; } = new ExportModelOptions();
 
         [JsonProperty("recentScanOptionsMax")]
+        [Category("Scanning"), DisplayName("Max Scan History")]
+        [Description("Change how many recent scan histories will be remembered at a single time.")]
+        [DefaultValue(20)]
         public int ScanHistoryMax { get; set; } = 20;
 
         // If true when adding scan history, any previous history will be removed if it matches.
         // Otherwise only the first history will be checked.
         [JsonProperty("recentScanOptionsRemoveDuplicates")]
+        [Category("Scanning"), DisplayName("Remove Duplicate Scan History")]
+        [Description("Change if a scan will replace old recent scan histories that use the same options.")]
+        [DefaultValue(true)]
         public bool ScanHistoryRemoveDuplicates { get; set; } = true;
 
-        [JsonProperty("recentScanOptions")]
+        [JsonProperty("recentScanOptions"), Browsable(false)]
         public List<ScanOptions> ScanHistory { get; set; } = new List<ScanOptions>();
 
 
@@ -417,7 +520,8 @@ namespace PSXPrev
             VertexSize        = ValidateMax(  VertexSize,        Defaults.VertexSize,    1f);
             GizmoType         = ValidateEnum( GizmoType,         Defaults.GizmoType);
             SubModelVisibility = ValidateEnum(SubModelVisibility, Defaults.SubModelVisibility);
-            ModelSelectionMode     = ValidateEnum( ModelSelectionMode,     Defaults.ModelSelectionMode);
+            ModelSelectionMode = ValidateEnum(ModelSelectionMode, Defaults.ModelSelectionMode);
+            LightRotationRayDelayTime = ValidateMax(LightRotationRayDelayTime, Defaults.LightRotationRayDelayTime, 0.1f);
             BackgroundColor   = ValidateColor(BackgroundColor,   Defaults.BackgroundColor);
             AmbientColor      = ValidateColor(AmbientColor,      Defaults.AmbientColor);
             MaskColor         = ValidateColor(MaskColor,         Defaults.MaskColor);
@@ -455,11 +559,11 @@ namespace PSXPrev
             {
                 Multisampling = 4;
             }
-            else if (Multisampling >= 2)
+            else if (Multisampling >= 1) // samples value of 1 is treated as 2
             {
                 Multisampling = 2;
             }
-            else if (Multisampling < 0)
+            else
             {
                 Multisampling = 0;
             }
@@ -528,9 +632,11 @@ namespace PSXPrev
         public Settings Clone()
         {
             var settings = (Settings)MemberwiseClone();
-            settings.ColorDialogCustomColors = (System.Drawing.Color[])settings.ColorDialogCustomColors?.Clone();
-            settings.ScanOptions = settings.ScanOptions?.Clone();
-            settings.ExportModelOptions = settings.ExportModelOptions?.Clone();
+            settings.ColorDialogCustomColors = (System.Drawing.Color[])settings.ColorDialogCustomColors?.Clone() ?? new System.Drawing.Color[0];
+            settings.ScanOptions = settings.ScanOptions?.Clone() ?? new ScanOptions();
+            settings.ExportModelOptions = settings.ExportModelOptions?.Clone() ?? new ExportModelOptions();
+            // We don't need to clone these ScanOptions since we treat them as immutable
+            settings.ScanHistory = new List<ScanOptions>((IEnumerable<ScanOptions>)settings.ScanHistory ?? new ScanOptions[0]);
             return settings;
         }
 
@@ -565,7 +671,7 @@ namespace PSXPrev
             }
         }
 
-        public static bool Load(bool loadDefaults, bool preserveScanOptions = false, bool preserveExportModelOptions = false)
+        public static bool Load(bool loadDefaults, bool preserveScanOptions = false, bool preserveExportModelOptions = false, bool preserveScanHistory = false)
         {
             try
             {
@@ -584,7 +690,7 @@ namespace PSXPrev
                 var newInstance = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(FilePath), jsonSettings);
                 newInstance.Validate();
 
-                Preserve(newInstance, false, false, preserveScanOptions, preserveExportModelOptions);
+                Preserve(newInstance, false, false, preserveScanOptions, preserveExportModelOptions, preserveScanHistory);
 
                 Instance = newInstance;
 
@@ -605,12 +711,12 @@ namespace PSXPrev
             }
         }
 
-        public static void LoadDefaults(bool preserveScanOptions = false, bool preserveExportModelOptions = false)
+        public static void LoadDefaults(bool preserveScanOptions = false, bool preserveExportModelOptions = false, bool preserveScanHistory = true)
         {
             var newInstance = new Settings();
 
             // There's no reason not to preserve color dialog custom colors when resetting settings.
-            Preserve(newInstance, true, true, preserveScanOptions, preserveExportModelOptions);
+            Preserve(newInstance, true, true, preserveScanOptions, preserveExportModelOptions, preserveScanHistory);
 
             Instance = newInstance;
 
@@ -622,7 +728,7 @@ namespace PSXPrev
         }
 
 
-        private static void Preserve(Settings newInstance, bool customColors, bool paths, bool scanOptions, bool exportModelOptions)
+        private static void Preserve(Settings newInstance, bool customColors, bool paths, bool scanOptions, bool exportModelOptions, bool scanHistory)
         {
             if (Instance?.ColorDialogCustomColors != null && customColors)
             {
@@ -650,6 +756,14 @@ namespace PSXPrev
                 else if (paths)
                 {
                     newInstance.ExportModelOptions.Path = Instance.ExportModelOptions.Path;
+                }
+            }
+
+            if (Instance.ScanHistory != null)
+            {
+                if (scanHistory)
+                {
+                    newInstance.ScanHistory = new List<ScanOptions>(Instance.ScanHistory);
                 }
             }
         }
@@ -698,6 +812,75 @@ namespace PSXPrev
         private static TEnum ValidateEnum<TEnum>(TEnum value, TEnum @default)
         {
             return !Enum.IsDefined(typeof(TEnum), value) ? @default : value;
+        }
+
+
+        // All this boilerplate just to make a clean dropdown setting...
+        private class MultisamplingTypeConverter : Int32Converter
+        {
+            private static readonly int[] _standardValues = { 0, 2, 4, 8, 16 };
+            private static readonly string[] _standardValueNames = { "Off", "2x FSAA", "4x FSAA", "8x FSAA", "16x FSAA" };
+
+            public override bool GetStandardValuesSupported(ITypeDescriptorContext context)
+            {
+                return true;
+            }
+
+            public override bool GetStandardValuesExclusive(ITypeDescriptorContext context)
+            {
+                return true;
+            }
+
+            public override StandardValuesCollection GetStandardValues(ITypeDescriptorContext context)
+            {
+                return new StandardValuesCollection(_standardValueNames);
+            }
+
+            public override bool CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
+            {
+                return sourceType == typeof(int) || sourceType == typeof(string);
+            }
+
+            public override bool CanConvertTo(ITypeDescriptorContext context, Type t)
+            {
+                return t == typeof(int) || t == typeof(string);
+            }
+
+            public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
+            {
+                if (value is string str)
+                {
+                    if (int.TryParse(str, out var intResult))
+                    {
+                        return intResult;
+                    }
+                    var index = Array.IndexOf(_standardValueNames, str);
+                    if (index != -1)
+                    {
+                        return _standardValues[index];
+                    }
+                    throw new Exception("Invalid value");
+                }
+                else if (value is int intValue)
+                {
+                    return intValue;
+                }
+                return base.ConvertFrom(context, culture, value);
+            }
+
+            public override object ConvertTo(ITypeDescriptorContext context, CultureInfo culture, object value, Type destinationType)
+            {
+                if (value is int intValue)
+                {
+                    var index = Array.IndexOf(_standardValues, intValue);
+                    if (index != -1)
+                    {
+                        return _standardValueNames[index];
+                    }
+                    return intValue;
+                }
+                return base.ConvertTo(context, culture, value, destinationType);
+            }
         }
     }
 }

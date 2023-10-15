@@ -355,4 +355,19 @@
   <data name="Textures_ShowSemiTransparency" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Icons\Fugue\Textures_ShowSemiTransparency.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="File_ShowUI" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icons\Fugue\File_ShowUI.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Settings_Advanced" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icons\Fugue\Settings_Advanced.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Textures_ShowUVs" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icons\Fugue\Textures_ShowUVs.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="VRAM_ShowSemiTransparency" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icons\Fugue\VRAM_ShowSemiTransparency.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="File_ShowStatusBar" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icons\Fugue\File_ShowStatusBar.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
 </root>

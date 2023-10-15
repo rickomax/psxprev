@@ -26,7 +26,6 @@ namespace PSXPrev.Common.Renderer
         private const float TriangleOutlineThickness = 2f;
 
         private static readonly Color LightRotationRayColor = Color.Yellow;
-        private const float LightRotationRayDelayTime = 2.5f * 10000;
         private const float LightRotationRayFadeTime = 0.5f;
 
         private const float DebugPickingRayLineThickness = 3f;
@@ -186,20 +185,9 @@ namespace PSXPrev.Common.Renderer
         private GizmoType _currentGizmoType;
         private GizmoId _highlightGizmo;
 
-        private System.Drawing.Color _clearColor;
-        public System.Drawing.Color ClearColor
-        {
-            get => _clearColor;
-            set
-            {
-                _clearColor = value;
-                // Use 1.0 alpha so that clear color shows up when using GL.ReadPixels.
-                GL.ClearColor(value.R / 255f, value.G / 255f, value.B / 255f, 1f);
-            }
-        }
-
+        public System.Drawing.Color ClearColor { get; set; }
         public System.Drawing.Color MaskColor { get; set; }
-        public System.Drawing.Color DiffuseColor { get; set; }
+        //public System.Drawing.Color DiffuseColor { get; set; }
         public System.Drawing.Color AmbientColor { get; set; }
         public System.Drawing.Color SolidWireframeVerticesColor { get; set; }
 
@@ -218,11 +206,37 @@ namespace PSXPrev.Common.Renderer
 
         public bool ShowGizmos { get; set; }
         public bool ShowBounds { get; set; }
-        public bool ShowLightRotationRay { get; set; }
+        private bool _showLightRotationRay;
+        public bool ShowLightRotationRay
+        {
+            get => _showLightRotationRay;
+            set
+            {
+                if (_showLightRotationRay != value)
+                {
+                    _showLightRotationRay = value;
+                    LightRotationRayBatch.Visible = false; // Hide ray when changing settings
+                }
+            }
+        }
         public bool ShowDebugIntersections { get; set; }
         public bool ShowDebugPickingRay { get; set; }
         public bool ShowDebugVisuals { get; set; } // 3D debug information like picking ray lines
         public bool ShowVisuals { get; set; } = true; // Enables the use of ShowGizmos, ShowBounds, ShowDebugVisuals, etc.
+
+        private float _lightRotationRayDelayTime = 2.5f;
+        public float LightRotationRayDelayTime
+        {
+            get => _lightRotationRayDelayTime;
+            set
+            {
+                if (_lightRotationRayDelayTime != value)
+                {
+                    _lightRotationRayDelayTime = value;
+                    LightRotationRayBatch.Visible = false; // Hide ray when changing settings
+                }
+            }
+        }
 
         public bool AmbientEnabled { get; set; }
         public bool LightEnabled { get; set; }
@@ -236,8 +250,8 @@ namespace PSXPrev.Common.Renderer
 
         public double Time => _time;
 
-        public float ViewportWidth { get; private set; } = 1f;
-        public float ViewportHeight { get; private set; } = 1f;
+        public int ViewportWidth { get; private set; } = 1;
+        public int ViewportHeight { get; private set; } = 1;
 
         public float CameraDistanceIncrement => CameraDistanceToTarget * CameraDistanceIncrementFactor;
         public float CameraPanIncrement => CameraDistanceToTarget * CameraPanIncrementFactor;
@@ -335,6 +349,17 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
+        public Vector3 CameraTarget => _viewTarget;
+
+        // CameraTarget with CameraPosition accounted for
+        public Vector3 CameraPositionTarget
+        {
+            get
+            {
+                return (CameraRotation * new Vector4(-_cameraX, _cameraY, 0, 1f)).Xyz + _viewTarget;
+            }
+        }
+
         public float CameraNearClip { get; private set; } = CameraDefaultNearClip;
         public float CameraFarClip { get; private set; } = CameraDefaultFarClip;
 
@@ -399,7 +424,7 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        public void Initialize(float width, float height)
+        public void Initialize()
         {
             if (IsInitialized)
             {
@@ -407,19 +432,20 @@ namespace PSXPrev.Common.Renderer
             }
             SetupGL();
             SetupShaders();
-            Resize(width, height, true); // Force-resize if width/height equals initial values
+            //Resize(width, height, true); // Force-resize if width/height equals initial values
             SetupMatrices();
             SetupInternals();
             IsInitialized = true;
         }
 
-        public void Resize(float width, float height, bool force = false)
+        public void Resize(int width, int height, bool force = false)
         {
+            width  = Math.Max(1, width);
+            height = Math.Max(1, height);
             if (force || ViewportWidth != width || ViewportHeight != height)
             {
                 ViewportWidth  = width;
                 ViewportHeight = height;
-                GL.Viewport(0, 0, (int)width, (int)height);
                 SetupMatrices();
                 OnCameraChanged();
             }
@@ -483,7 +509,6 @@ namespace PSXPrev.Common.Renderer
 
         private void SetupGL()
         {
-            GL.ClearColor(0f, 0f, 0f, 1f);
             GL.Hint(HintTarget.PerspectiveCorrectionHint, HintMode.Nicest);
         }
 
@@ -502,7 +527,7 @@ namespace PSXPrev.Common.Renderer
             // 160 FOV will disappear too soon if we divide by scalar^2.
             CameraFarClip = CameraDefaultFarClip / _cameraDistanceScalar;
 
-            var aspect = ViewportWidth / ViewportHeight;
+            var aspect = (float)ViewportWidth / ViewportHeight;
             _projectionMatrix = Matrix4.CreatePerspectiveFieldOfView(CameraFOVRads, aspect, CameraNearClip, CameraFarClip);
         }
 
@@ -527,6 +552,8 @@ namespace PSXPrev.Common.Renderer
             // The camera cannot move forwards or back, it can only zoom in and out.
             var targetTranslation = Matrix4.CreateTranslation(-_viewTarget);
             var cameraTranslation = Matrix4.CreateTranslation(_cameraX, -_cameraY, 0f);
+            //var rotation = CameraRotation;
+            //var distance = _cameraDistance / _cameraDistanceScalar;
             var rotation = Matrix4.CreateRotationY(_cameraYaw) * Matrix4.CreateRotationX(_cameraPitch);
             var distance = -_cameraDistance / _cameraDistanceScalar;
             var eye = (rotation * new Vector4(0f, 0f, distance, 1f)).Xyz;
@@ -613,6 +640,10 @@ namespace PSXPrev.Common.Renderer
 
         public void Draw(out int triangleCount, out int meshCount, out int skinCount)
         {
+            // Use 1.0 alpha so that clear color shows up when using GL.ReadPixels.
+            Shader.ClearColor = ClearColor.ToVector4WithAlpha(1f);// 0f); // 0f allows copying transparency
+            Shader.Viewport = new Size(ViewportWidth, ViewportHeight);
+
             Shader.Use();
             Shader.UniformMaskColor = MaskColor.ToVector3();
 
@@ -1167,19 +1198,33 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        public void FocusOnBounds(BoundingBox bounds, bool resetRotation = true)
+        // Change focus to use CameraPositionTarget as the new view target
+        public void FocusOnCameraPosition(bool resetRotation = false, bool resetDistance = false)
+        {
+            var diffViewTarget = CameraPositionTarget - _viewTarget;
+            var newBounds = new BoundingBox();
+            newBounds.AddPoint(_viewTargetBounds.Min + diffViewTarget);
+            newBounds.AddPoint(_viewTargetBounds.Max + diffViewTarget);
+            FocusOnBounds(newBounds, resetRotation, resetDistance);
+        }
+
+        public void FocusOnBounds(BoundingBox bounds, bool resetRotation = true, bool resetDistance = true)
         {
             if (resetRotation)
             {
                 _cameraYaw = 0f;
                 _cameraPitch = 0f;
             }
+            if (resetDistance)
+            {
+                _cameraDistance = Math.Max(CameraMinDistance, DistanceToFitBounds(bounds));
+            }
             _cameraX = 0f;
             _cameraY = 0f;
+
             // Target the center of the bounding box, so that models that aren't close to the origin are easy to view.
             _viewTarget = bounds.Center;
             _viewTargetBounds = new BoundingBox(bounds);
-            CameraDistance = DistanceToFitBounds(bounds);
 
             // Settings to reproduce broken CameraRotationOld quaternion.
             // Broken:  {V: (1.331799E-08, -0.1654844, -2.234731E-09), W: 0.9862124}
