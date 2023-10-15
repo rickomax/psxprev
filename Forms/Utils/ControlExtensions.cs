@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Windows.Forms;
 using PSXPrev.Common;
 
@@ -169,6 +170,16 @@ namespace PSXPrev.Forms.Utils
                     }
                 }
             }
+        }
+
+        private static PropertyInfo _pi_DoubleBuffered;
+        public static void SetDoubleBuffered(this Control control, bool value)
+        {
+            if (_pi_DoubleBuffered == null)
+            {
+                _pi_DoubleBuffered = typeof(Control).GetProperty("DoubleBuffered", BindingFlags.NonPublic | BindingFlags.Instance);
+            }
+            _pi_DoubleBuffered.SetValue(control, value);
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Text.RegularExpressions;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
@@ -75,6 +76,48 @@ namespace PSXPrev.Common.Renderer
         {
             DepthMask = true; // Depth mask needs to be on when clearing depth buffer
             GL.Clear(ClearBufferMask.DepthBufferBit);
+        }
+
+        public void Reset()
+        {
+            IsUsing = false;
+            _blend = false;
+            _cullFace = false;
+            _depthTest = false;
+            _depthMask = false;
+            _polygonMode = (PolygonMode)0;
+            _pointSize = 0f;
+            _lineWidth = 0f;
+            _alpha = 0f;
+            _mixtureRate = MixtureRate.None;
+            _activeTextureUnit = 0;
+            _viewportSize = Size.Empty;
+            _clearColor = Vector4.Zero;
+            _jointMode = 0;
+            _lightMode = 0;
+            _colorMode = 0;
+            _textureMode = 0;
+            _semiTransparentPass = 0;
+            _lightIntensity = 0f;
+            _lightDirection = Vector3.Zero;
+            _maskColor = Vector3.Zero;
+            _ambientColor = Vector3.Zero;
+            _solidColor = Vector3.Zero;
+            _uvOffset = Vector2.Zero;
+            _normalMatrix = Matrix3.Zero;
+            _normalSpriteMatrix = Matrix3.Zero;
+            _modelMatrix = Matrix4.Zero;
+            _modelSpriteMatrix = Matrix4.Zero;
+            _viewMatrix = Matrix4.Zero;
+            _projectionMatrix = Matrix4.Zero;
+            _mainTextureId = 0;
+            _mainTextureUnit = 0;
+            _vertexArrayObject = null;
+            _skin = null;
+            _blendSourceFactor = (BlendingFactor)0;
+            _blendDestFactor = (BlendingFactor)0;
+            _blendColor = Vector4.Zero;
+            _blendEquation = (BlendEquationMode)0;
         }
 
         #region Shader Locations
@@ -532,6 +575,36 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
+        private Size _viewportSize;
+        public Size Viewport
+        {
+            get => _viewportSize;
+            set
+            {
+                value.Width  = Math.Max(1, value.Width);
+                value.Height = Math.Max(1, value.Height);
+                if (ForceState || _viewportSize != value) // Size has no Equals(Size) overload
+                {
+                    _viewportSize = value;
+                    GL.Viewport(value);
+                }
+            }
+        }
+
+        private Vector4 _clearColor;
+        public Vector4 ClearColor
+        {
+            get => _clearColor;
+            set
+            {
+                if (ForceState || !_clearColor.Equals(value))
+                {
+                    _clearColor = value;
+                    GL.ClearColor(value.X, value.Y, value.Z, value.W);
+                }
+            }
+        }
+
         #endregion
 
         #region Uniform States
@@ -860,7 +933,7 @@ namespace PSXPrev.Common.Renderer
         private void BlendColor(float red, float green, float blue, float alpha)
         {
             var value = new Vector4(red, green, blue, alpha);
-            if (ForceState || _blendColor != value)
+            if (ForceState || !_blendColor.Equals(value))
             {
                 _blendColor = value;
                 GL.BlendColor(red, green, blue, alpha);

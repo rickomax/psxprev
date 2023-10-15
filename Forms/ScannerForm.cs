@@ -477,7 +477,10 @@ namespace PSXPrev.Forms
             //WriteSettings(Settings.Instance, null); // For now, at least save UI settings (Show Advanced).
             var options = CreateOptions();
             WriteSettings(Settings.Instance, options, (DialogResult == DialogResult.OK));
-            Settings.Instance.Save();
+            if (Settings.ImplicitSave)
+            {
+                Settings.Instance.Save();
+            }
 
             Options = options;
         }

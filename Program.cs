@@ -655,6 +655,11 @@ namespace PSXPrev
                 _allEntities.Clear();
                 _allTextures.Clear();
                 _allAnimations.Clear();
+
+                if (Settings.Instance.ClearConsoleAfterClearResults)
+                {
+                    Console.Clear();
+                }
             }
         }
 
@@ -732,6 +737,9 @@ namespace PSXPrev
             _currentFileIndex = 0;
             _lastUpdateFileIndex = 0;
             _totalFiles = 0;
+            _scannedEntityCount = 0;
+            _scannedTextureCount = 0;
+            _scannedAnimationCount = 0;
 
             if (@async)
             {

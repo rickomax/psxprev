@@ -1,4 +1,5 @@
 ﻿using OpenTK;
+using OpenTK.Graphics;
 
 namespace PSXPrev.Common
 {
@@ -43,6 +44,11 @@ namespace PSXPrev.Common
         {
         }
 
+        public Color(Color4 color)
+            : this(color.R, color.G, color.B)
+        {
+        }
+
         public override string ToString()
         {
             return $"{R}|{G}|{B}";
@@ -68,6 +74,16 @@ namespace PSXPrev.Common
         public static explicit operator Vector4(Color color)
         {
             return new Vector4(color.R, color.G, color.B, 1f);
+        }
+
+        public static explicit operator Color4(Color color)
+        {
+            return new Color4(color.R, color.G, color.B, 1f);
+        }
+
+        public static explicit operator Color(Color4 color)
+        {
+            return new Color(color.R, color.G, color.B);
         }
 
         public static explicit operator System.Drawing.Color(Color color)

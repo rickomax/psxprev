@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
@@ -31,14 +32,15 @@ namespace PSXPrev.Common.Renderer
             _defaultBitmap = new Bitmap(width * 2, height);
             using (var graphics = Graphics.FromImage(_defaultBitmap))
             {
-                using (var colorBrush = new SolidBrush(VRAM.DefaultBackgroundColor))
-                {
-                    graphics.FillRectangle(colorBrush, 0, 0, width, height);
-                }
-                using (var stpBrush = new SolidBrush(Texture.NoSemiTransparentFlag))
-                {
-                    graphics.FillRectangle(stpBrush, SemiTransparencyX, 0, width, height);
-                }
+                // Use SourceCopy to overwrite image alpha with alpha stored in NoSemiTransparentFlag.
+                graphics.CompositingMode = CompositingMode.SourceCopy;
+                graphics.SmoothingMode = SmoothingMode.None;
+
+                // Clear texture data to background color.
+                graphics.Clear(VRAM.BackgroundColor);
+
+                // Clear semi-transparent information to its default.
+                graphics.FillRectangle(Texture.NoSemiTransparentBrush, SemiTransparencyX, 0, width, height);
             }
         }
 

@@ -2,6 +2,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using PSXPrev.Common.Utils;
 
 namespace PSXPrev.Common.Renderer
 {
@@ -13,7 +15,7 @@ namespace PSXPrev.Common.Renderer
         public const int PackBlocks = PageSize / PackAlign;
         public const int PageSemiTransparencyX = PageSize;
 
-        public static readonly System.Drawing.Color DefaultBackgroundColor = System.Drawing.Color.White;
+        public static readonly System.Drawing.Color BackgroundColor = System.Drawing.Color.White;
 
 
         private readonly Scene _scene;
@@ -25,8 +27,6 @@ namespace PSXPrev.Common.Renderer
 
         private readonly bool[,,] _packedPageBlocks = new bool[PageCount, PackBlocks, PackBlocks]; // [Page,X,Y]
         private readonly int[] _freePageBlocks = new int[PageCount];
-
-        public System.Drawing.Color BackgroundColor { get; set; } = DefaultBackgroundColor;
 
         public bool IsInitialized { get; private set; }
 
@@ -178,16 +178,15 @@ namespace PSXPrev.Common.Renderer
         {
             using (var graphics = Graphics.FromImage(_vramPages[index].Bitmap))
             {
-                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+                // Use SourceCopy to overwrite image alpha with alpha stored in NoSemiTransparentFlag.
+                graphics.CompositingMode = CompositingMode.SourceCopy;
+                graphics.SmoothingMode = SmoothingMode.None;
 
                 // Clear texture data to background color.
                 graphics.Clear(BackgroundColor);
 
                 // Clear semi-transparent information to its default.
-                using (var brush = new SolidBrush(Texture.NoSemiTransparentFlag))
-                {
-                    graphics.FillRectangle(brush, PageSemiTransparencyX, 0, PageSize, PageSize);
-                }
+                graphics.FillRectangle(Texture.NoSemiTransparentBrush, PageSemiTransparencyX, 0, PageSize, PageSize);
             }
 
             for (var px = 0; px < PackBlocks; px++)
@@ -323,35 +322,30 @@ namespace PSXPrev.Common.Renderer
 
         public static void DrawTexture(Texture vramTexture, Texture texture)
         {
-            var textureX = texture.X;
-            var textureY = texture.Y;
-            var textureWidth = texture.Width;
-            var textureHeight = texture.Height;
-            var textureBitmap = texture.Bitmap;
-            var textureSemiTransparentMap = texture.SemiTransparentMap;
+            var x = texture.X;
+            var y = texture.Y;
+            var width  = texture.Width;
+            var height = texture.Height;
             using (var graphics = Graphics.FromImage(vramTexture.Bitmap))
             {
                 // Use SourceCopy to overwrite image alpha with alpha stored in textures.
-                graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
-                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+                graphics.CompositingMode = CompositingMode.SourceCopy;
+                graphics.SmoothingMode = SmoothingMode.None;
 
                 // Draw the actual texture to VRAM.
                 // Clip drawing region so we don't draw over semi-transparent information.
                 graphics.SetClip(new Rectangle(0, 0, PageSize, PageSize));
-                graphics.DrawImage(textureBitmap, textureX, textureY, textureWidth, textureHeight);
+                graphics.DrawImage(texture.Bitmap, x, y);
 
                 // Draw semi-transparent information to VRAM in X coordinates [256,512).
                 graphics.SetClip(new Rectangle(PageSemiTransparencyX, 0, PageSize, PageSize));
-                if (textureSemiTransparentMap != null)
+                if (texture.SemiTransparentMap != null)
                 {
-                    graphics.DrawImage(textureSemiTransparentMap, PageSemiTransparencyX + textureX, textureY, textureWidth, textureHeight);
+                    graphics.DrawImage(texture.SemiTransparentMap, PageSemiTransparencyX + x, y);
                 }
                 else
                 {
-                    using (var brush = new SolidBrush(Texture.NoSemiTransparentFlag))
-                    {
-                        graphics.FillRectangle(brush, PageSemiTransparencyX + textureX, textureY, textureWidth, textureHeight);
-                    }
+                    graphics.FillRectangle(Texture.NoSemiTransparentBrush, PageSemiTransparencyX + x, y, width, height);
                 }
                 graphics.ResetClip();
             }
@@ -359,20 +353,21 @@ namespace PSXPrev.Common.Renderer
 
         // Returns a bitmap of the VRAM texture page without the semi-transparency section.
         // Must dispose of Bitmap after use.
-        public static Bitmap ConvertTexture(Texture texture, bool semiTransparency)
+        public static Bitmap ConvertTexture(Texture vramTexture, bool semiTransparency)
         {
             var stpX = semiTransparency ? PageSemiTransparencyX : 0;
             var srcRect = new Rectangle(stpX, 0, PageSize, PageSize);
 
+            //return vramTexture.Bitmap.CreateCroppedImage(srcRect);
             var bitmap = new Bitmap(PageSize, PageSize);
             try
             {
                 using (var graphics = Graphics.FromImage(bitmap))
                 {
-                    graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
-                    graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+                    // Use SourceCopy to overwrite image alpha with alpha stored in textures.
+                    graphics.CompositingMode = CompositingMode.SourceCopy;
 
-                    graphics.DrawImage(texture.Bitmap, 0, 0, srcRect, GraphicsUnit.Pixel);
+                    graphics.DrawImage(vramTexture.Bitmap, 0, 0, srcRect, GraphicsUnit.Pixel);
                 }
                 return bitmap;
             }
@@ -387,6 +382,7 @@ namespace PSXPrev.Common.Renderer
         {
             var stpX = semiTransparency ? PageSemiTransparencyX : 0;
             srcRect.X += stpX;
+            var textureBitmap = semiTransparency ? texture.SemiTransparentMap : texture.Bitmap;
 
             if (!fullWidth.HasValue)
             {
@@ -402,11 +398,19 @@ namespace PSXPrev.Common.Renderer
             {
                 using (var graphics = Graphics.FromImage(bitmap))
                 {
-                    graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
-                    graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+                    // Use SourceCopy to overwrite image alpha with alpha stored in textures.
+                    graphics.CompositingMode = CompositingMode.SourceCopy;
+                    graphics.SmoothingMode = SmoothingMode.None;
 
                     // Full size might be larger than tiled size.
-                    graphics.Clear(DefaultBackgroundColor);
+                    if (!semiTransparency)
+                    {
+                        graphics.Clear(BackgroundColor);
+                    }
+                    else
+                    {
+                        graphics.Clear(Texture.NoSemiTransparentFlag);
+                    }
 
                     for (var ry = 0; ry < repeatY; ry++)
                     {
@@ -414,7 +418,16 @@ namespace PSXPrev.Common.Renderer
                         {
                             var x = rx * srcRect.Width;
                             var y = ry * srcRect.Height;
-                            graphics.DrawImage(texture.Bitmap, x, y, srcRect, GraphicsUnit.Pixel);
+                            // Texture may not have semi-transparent map
+                            if (textureBitmap != null)
+                            {
+                                graphics.DrawImage(textureBitmap, x, y, srcRect, GraphicsUnit.Pixel);
+                            }
+                            else if (semiTransparency)
+                            {
+                                // Already assigned by Clear(Texture.NoSemiTransparentFlag)
+                                //graphics.FillRectangle(Texture.NoSemiTransparentBrush, x, y, srcRect.Width, srcRect.Height);
+                            }
                         }
                     }
                 }
@@ -447,13 +460,14 @@ namespace PSXPrev.Common.Renderer
             {
                 using (var graphics = Graphics.FromImage(bitmap))
                 {
-                    graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
-                    graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+                    // Use SourceCopy to overwrite image alpha with alpha stored in textures.
+                    graphics.CompositingMode = CompositingMode.SourceCopy;
+                    graphics.SmoothingMode = SmoothingMode.None;
 
                     // Clear the image, because there may be cells that we don't fill in.
                     if (!semiTransparency)
                     {
-                        graphics.Clear(DefaultBackgroundColor);
+                        graphics.Clear(BackgroundColor);
                     }
                     else
                     {
@@ -485,6 +499,11 @@ namespace PSXPrev.Common.Renderer
                                     graphics.DrawImage(textureBitmap, x + texture.X, y + texture.Y);
                                     // Packed boundary debugging:
                                     //graphics.DrawRectangle(Pens.Red, new Rectangle(x + texture.X, y + texture.Y, texture.Width, texture.Height));
+                                }
+                                else if (semiTransparency)
+                                {
+                                    // Already assigned by Clear(Texture.NoSemiTransparentFlag)
+                                    //graphics.FillRectangle(Texture.NoSemiTransparentBrush, x + texture.X, y + texture.Y, texture.Width, texture.Height);
                                 }
                             }
                         }
