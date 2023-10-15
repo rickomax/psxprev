@@ -376,7 +376,6 @@ namespace PSXPrev.Common.Exporters
                         var translations = new Vector3[count, totalFrames];
                         var rotations = new Quaternion[count, totalFrames];
                         var scales = new Vector3[count, totalFrames];
-                        var oldLoopMode = animationBatch.LoopMode;
                         animationBatch.SetupAnimationBatch(animation);
                         animationBatch.LoopMode = AnimationLoopMode.Once;
                         var isCoordinateBased = animation.AnimationType.IsCoordinateBased();
@@ -392,15 +391,25 @@ namespace PSXPrev.Common.Exporters
                                 if (animationBatch.SetupAnimationFrame(entity, force: true))
                                 {
                                     var transformIndex = transformStart;
+                                    if (isTransformBased)
+                                    {
+                                        // Note: This doesn't match how we do things in the animator of:
+                                        //  root.TempMatrix * (model.TempMatrix * (model.LocalMatrix * root.LocalMatrix))
+                                        // Model matrix has been changed to TempWorldMatrix during animation to account for this
+                                        var matrix = entity.TempMatrix;// * entity.WorldMatrix;
+                                        translations[transformIndex, frame] = matrix.ExtractTranslation();
+                                        rotations[transformIndex, frame] = matrix.ExtractRotationSafe();
+                                        scales[transformIndex, frame] = matrix.ExtractScale();
+                                        transformIndex++;
+                                    }
                                     if ((isTransformBased || isCoordinateBased) && entity.Coords != null)
                                     {
                                         for (var j = 0; j < entity.Coords.Length; j++)
                                         {
-                                            Matrix4 matrix;
                                             if (isCoordinateBased)
                                             {
                                                 var coord = entity.Coords[j];
-                                                matrix = coord.LocalMatrix;
+                                                var matrix = coord.LocalMatrix;
                                                 translations[transformIndex, frame] = matrix.ExtractTranslation();
                                                 rotations[transformIndex, frame] = matrix.ExtractRotationSafe();
                                                 scales[transformIndex, frame] = matrix.ExtractScale();
@@ -420,7 +429,7 @@ namespace PSXPrev.Common.Exporters
                                         for (var j = 0; j < entity.ChildEntities.Length; j++)
                                         {
                                             var model = (ModelEntity)entity.ChildEntities[j];
-                                            var matrix = model.TempMatrix * model.TempLocalMatrix;
+                                            var matrix = model.TempWorldMatrix;// model.TempMatrix * model.TempLocalMatrix;
                                             translations[transformIndex, frame] = matrix.ExtractTranslation();
                                             rotations[transformIndex, frame] = matrix.ExtractRotationSafe();
                                             scales[transformIndex, frame] = matrix.ExtractScale();
@@ -435,7 +444,6 @@ namespace PSXPrev.Common.Exporters
                             }
                             transformStart += GetAnimationEntityTransformCount(animation, entity);
                         }
-                        animationBatch.LoopMode = oldLoopMode;
 
                         // Write animation frames for each model and/or coord
                         for (var j = 0; j < count; j++)
@@ -824,6 +832,13 @@ namespace PSXPrev.Common.Exporters
                             for (var i = 0; i < entities.Length; i++)
                             {
                                 var entity = entities[i];
+                                if (isTransformBased)
+                                {
+                                    var node = rootNodes[entity];
+                                    WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.translation, node); // object translation
+                                    WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.rotation, node); // object rotation
+                                    WriteAnimationChannel(animationSamplerIndex++, animation_channel_target_path.scale, node); // object scale
+                                }
                                 if ((isTransformBased || isCoordinateBased) && entity.Coords != null)
                                 {
                                     for (var j = 0; j < entity.Coords.Length; j++)
@@ -904,7 +919,8 @@ namespace PSXPrev.Common.Exporters
             }
             else if (animation.AnimationType.IsTransformBased())
             {
-                return entity.ChildEntities.Length + (entity.Coords?.Length ?? 0);
+                // +1 for root entity transform
+                return 1 + entity.ChildEntities.Length + (entity.Coords?.Length ?? 0);
             }
             else
             {
