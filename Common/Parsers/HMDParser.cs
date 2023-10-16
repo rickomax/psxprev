@@ -1423,7 +1423,7 @@ namespace PSXPrev.Common.Parsers
                     uint tPage;
                     var renderFlags = RenderFlags.None;
                     var mixtureRate = MixtureRate.None;
-                    Color color;
+                    Color3 color;
                     Vector3 normal;
                     Vector2 uv0, uv1, uv2, uv3;
 
@@ -1431,15 +1431,15 @@ namespace PSXPrev.Common.Parsers
                     reader.BaseStream.Seek(gridPosition, SeekOrigin.Begin);
                     if (!texture)
                     {
-                        var r = reader.ReadByte() / 255f;
-                        var g = reader.ReadByte() / 255f;
-                        var b = reader.ReadByte() / 255f;
+                        var r = reader.ReadByte();
+                        var g = reader.ReadByte();
+                        var b = reader.ReadByte();
                         reader.ReadByte(); //pad
                         var normIndex = reader.ReadUInt16();
                         reader.ReadUInt16(); //pad
                         gridPosition = reader.BaseStream.Position;
 
-                        color = new Color(r, g, b);
+                        color = new Color3(r, g, b);
 
                         normal = ReadNormal(reader, normTop, normIndex);
 
@@ -1454,7 +1454,7 @@ namespace PSXPrev.Common.Parsers
                         var uvIndex = reader.ReadUInt16();
                         gridPosition = reader.BaseStream.Position;
 
-                        color = Color.Grey;
+                        color = Color3.Grey;
 
                         normal = ReadNormal(reader, normTop, normIndex);
 

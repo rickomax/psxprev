@@ -54,7 +54,7 @@ namespace PSXPrev.Common
         public static readonly Vector3[] EmptyNormals = { Vector3.Zero, Vector3.Zero, Vector3.Zero };
         public static readonly Vector2[] EmptyUv = { Vector2.Zero, Vector2.Zero, Vector2.Zero };
         public static readonly Vector2[] EmptyUvCorrected = { Vector2.Zero, Vector2.Zero, new Vector2(1f/256f) };
-        public static readonly Color[] EmptyColors = { Color.Grey, Color.Grey, Color.Grey };
+        public static readonly Color3[] EmptyColors = { Color3.Grey, Color3.Grey, Color3.Grey };
         public static readonly uint[] EmptyJoints = { NoJoint, NoJoint, NoJoint };
 
 
@@ -87,7 +87,7 @@ namespace PSXPrev.Common
         public bool NeedsTiled => TiledUv?.NeedsTiled ?? false;
 
         [ReadOnly(true)]
-        public Color[] Colors { get; set; } = EmptyColors;
+        public Color3[] Colors { get; set; } = EmptyColors;
 
         // Used if we're baking joint attachments
         [Browsable(false)]

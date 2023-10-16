@@ -270,7 +270,7 @@ namespace PSXPrev.Common.Exporters
                     var triangleIndices = new StringBuilder();
                     var positionIndices = new Dictionary<Vector3, int>();
                     var normalIndices = new Dictionary<Vector3, int>();
-                    var colorIndices = new Dictionary<Vector3, int>();
+                    var colorIndices = new Dictionary<Color3, int>();
                     var uvIndices = new Dictionary<Vector2, int>();
                     var positionValues = new List<double>();
                     var normalValues = new List<double>();
@@ -328,12 +328,12 @@ namespace PSXPrev.Common.Exporters
                             }
 
                             // Color
-                            if (!_options.VertexIndexReuse || !colorIndices.TryGetValue((Vector3)color, out var colorIndex))
+                            if (!_options.VertexIndexReuse || !colorIndices.TryGetValue(color, out var colorIndex))
                             {
                                 if (_options.VertexIndexReuse)
                                 {
                                     colorIndex = colorIndices.Count;
-                                    colorIndices.Add((Vector3)color, colorIndex);
+                                    colorIndices.Add(color, colorIndex);
                                 }
                                 else
                                 {

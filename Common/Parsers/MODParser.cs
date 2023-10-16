@@ -207,7 +207,7 @@ namespace PSXPrev.Common.Parsers
 
                 // We can't actually use UVs yet, since they're likely scaled for the material, and not the whole VRAM page.
                 Vector2 uv0, uv1, uv2, uv3;
-                Color color;
+                Color3 color;
                 if (textured)
                 {
                     //renderFlags |= RenderFlags.Textured; // Not supported yet
@@ -238,16 +238,16 @@ namespace PSXPrev.Common.Parsers
                         }
                     }
 
-                    color = Color.Grey;
+                    color = Color3.Grey;
                 }
                 else
                 {
                     uv0 = uv1 = uv2 = uv3 = Vector2.Zero;
 
-                    var r = ((faceInfo      ) & 0xff) / 255f;
-                    var g = ((faceInfo >>  8) & 0xff) / 255f;
-                    var b = ((faceInfo >> 16) & 0xff) / 255f;
-                    color = new Color(r, g, b);
+                    var r = (byte)(faceInfo      );
+                    var g = (byte)(faceInfo >>  8);
+                    var b = (byte)(faceInfo >> 16);
+                    color = new Color3(r, g, b);
                 }
 
                 var triangle1 = new Triangle

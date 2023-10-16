@@ -28,12 +28,12 @@ namespace PSXPrev.Common.Exporters
             }
         }
 
-        public void ExportEmpty(System.Drawing.Color color, int textureId, string selectedPath, int width = 1, int height = 1)
+        public void ExportEmpty(Color color, int textureId, string selectedPath, int width = 1, int height = 1)
         {
             ExportEmpty(color, textureId.ToString(), selectedPath, width, height);
         }
 
-        public void ExportEmpty(System.Drawing.Color color, string name, string selectedPath, int width = 1, int height = 1)
+        public void ExportEmpty(Color color, string name, string selectedPath, int width = 1, int height = 1)
         {
             using (var bitmap = new Bitmap(width, height))
             {

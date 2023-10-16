@@ -19,9 +19,9 @@ namespace PSXPrev.Common
             return (a << 24) | (r << 16) | (g << 8) | b;
         }
 
-        public static System.Drawing.Color ToColor(ushort color, bool noTransparent = false)
+        public static Color ToColor(ushort color, bool noTransparent = false)
         {
-            return System.Drawing.Color.FromArgb(ToArgb(color, noTransparent));
+            return Color.FromArgb(ToArgb(color, noTransparent));
         }
 
 

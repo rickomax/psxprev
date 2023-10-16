@@ -163,7 +163,7 @@ namespace PSXPrev.Common.Exporters
             _writer = null;
         }
 
-        private void WriteVertex(Vector3 localVertex, Vector3 localNormal, Vector2 uv, Color color, int materialIndex, ref Matrix4 worldMatrix, ref Matrix4 invWorldMatrix)
+        private void WriteVertex(Vector3 localVertex, Vector3 localNormal, Vector2 uv, Color3 color, int materialIndex, ref Matrix4 worldMatrix, ref Matrix4 invWorldMatrix)
         {
             Vector3.TransformPosition(ref localVertex, ref worldMatrix, out var vertex);
             GeomMath.TransformNormalInverseNormalized(ref localNormal, ref invWorldMatrix, out var normal);

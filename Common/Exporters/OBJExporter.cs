@@ -12,7 +12,7 @@ namespace PSXPrev.Common.Exporters
         private PNGExporter _pngExporter;
         private MTLExporter _mtlExporter;
         private MTLExporter.MaterialDictionary _mtlDictionary;
-        private Dictionary<Tuple<Vector3, Vector3>, int> _positionIndices; // position, color
+        private Dictionary<Tuple<Vector3, Color3>, int> _positionIndices; // position, color
         private Dictionary<Vector3, int> _normalIndices;
         private Dictionary<Vector2, int> _uvIndices;
         private ModelPreparerExporter _modelPreparer;
@@ -61,7 +61,7 @@ namespace PSXPrev.Common.Exporters
             _mtlExporter = new MTLExporter(_options, _baseName, _mtlDictionary);
             _writer = new StreamWriter(Path.Combine(_options.Path, $"{_baseName}.obj"));
 
-            _positionIndices = new Dictionary<Tuple<Vector3, Vector3>, int>();
+            _positionIndices = new Dictionary<Tuple<Vector3, Color3>, int>();
             _normalIndices = new Dictionary<Vector3, int>();
             _uvIndices = new Dictionary<Vector2, int>();
 
@@ -143,13 +143,13 @@ namespace PSXPrev.Common.Exporters
             }
         }
 
-        private void WriteVertexPosition(Vector3 localVertex, Color color, ref Matrix4 worldMatrix)
+        private void WriteVertexPosition(Vector3 localVertex, Color3 color, ref Matrix4 worldMatrix)
         {
             Vector3.TransformPosition(ref localVertex, ref worldMatrix, out var vertex);
             if (_options.VertexIndexReuse)
             {
-                var colorVec = _options.ExperimentalOBJVertexColor ? (Vector3)color : Vector3.Zero;
-                var tuple = new Tuple<Vector3, Vector3>(vertex, colorVec);
+                var colorVec = _options.ExperimentalOBJVertexColor ? color : Color3.Black;
+                var tuple = new Tuple<Vector3, Color3>(vertex, colorVec);
                 if (_positionIndices.ContainsKey(tuple))
                 {
                     return; // Vertex position/color already defined
@@ -241,11 +241,11 @@ namespace PSXPrev.Common.Exporters
             }
         }
 
-        private int GetVertexPosition(Vector3 localVertex, Color color, ref Matrix4 worldMatrix)
+        private int GetVertexPosition(Vector3 localVertex, Color3 color, ref Matrix4 worldMatrix)
         {
             Vector3.TransformPosition(ref localVertex, ref worldMatrix, out var vertex);
-            var colorVec = _options.ExperimentalOBJVertexColor ? (Vector3)color : Vector3.Zero;
-            return _positionIndices[new Tuple<Vector3, Vector3>(vertex, colorVec)];
+            var colorVec = _options.ExperimentalOBJVertexColor ? color : Color3.Black;
+            return _positionIndices[new Tuple<Vector3, Color3>(vertex, colorVec)];
         }
 
         private int GetNormal(Vector3 localNormal, ref Matrix4 invWorldMatrix)

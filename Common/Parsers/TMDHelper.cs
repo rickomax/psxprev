@@ -682,13 +682,13 @@ namespace PSXPrev.Common.Parsers
                     return GeomMath.ConvertUV(uValue, vValue);
                 }
 
-                var r0 = primitiveData.TryGetValue(m, PrimitiveDataType.R0, out var r0Value) ? r0Value / 255f : Color.DefaultColorTone;
+                var r0 = primitiveData.TryGetValue(m, PrimitiveDataType.R0, out var r0Value) ? r0Value / 255f : Color3.DefaultColorTone;
                 var r1 = primitiveData.TryGetValue(m, PrimitiveDataType.R1, out var r1Value) ? r1Value / 255f : r0;
                 var r2 = primitiveData.TryGetValue(m, PrimitiveDataType.R2, out var r2Value) ? r2Value / 255f : r0;
-                var g0 = primitiveData.TryGetValue(m, PrimitiveDataType.G0, out var g0Value) ? g0Value / 255f : Color.DefaultColorTone;
+                var g0 = primitiveData.TryGetValue(m, PrimitiveDataType.G0, out var g0Value) ? g0Value / 255f : Color3.DefaultColorTone;
                 var g1 = primitiveData.TryGetValue(m, PrimitiveDataType.G1, out var g1Value) ? g1Value / 255f : g0;
                 var g2 = primitiveData.TryGetValue(m, PrimitiveDataType.G2, out var g2Value) ? g2Value / 255f : g0;
-                var b0 = primitiveData.TryGetValue(m, PrimitiveDataType.B0, out var b0Value) ? b0Value / 255f : Color.DefaultColorTone;
+                var b0 = primitiveData.TryGetValue(m, PrimitiveDataType.B0, out var b0Value) ? b0Value / 255f : Color3.DefaultColorTone;
                 var b1 = primitiveData.TryGetValue(m, PrimitiveDataType.B1, out var b1Value) ? b1Value / 255f : b0;
                 var b2 = primitiveData.TryGetValue(m, PrimitiveDataType.B2, out var b2Value) ? b2Value / 255f : b0;
                 var u0 = primitiveData.TryGetValue(m, PrimitiveDataType.U0, out var u0Value) ? GeomMath.ConvertUV(u0Value) : 0f;
@@ -705,7 +705,7 @@ namespace PSXPrev.Common.Parsers
                     OriginalNormalIndices = new[] { normalIndex0, normalIndex1, normalIndex2 },
                     VertexJoints = Triangle.CreateJoints(vertexJoint0, vertexJoint1, vertexJoint2, modelJointID),
                     NormalJoints = Triangle.CreateJoints(normalJoint0, normalJoint1, normalJoint2, modelJointID),
-                    Colors = new[] { new Color(r0, g0, b0), new Color(r1, g1, b1), new Color(r2, g2, b2) },
+                    Colors = new[] { new Color3(r0, g0, b0), new Color3(r1, g1, b1), new Color3(r2, g2, b2) },
                     Uv = new[] { new Vector2(u0, v0), new Vector2(u1, v1), new Vector2(u2, v2) },
                 };
                 if (isTiled)
@@ -762,7 +762,7 @@ namespace PSXPrev.Common.Parsers
                         OriginalNormalIndices = new[] { normalIndex1, normalIndex3, normalIndex2 },
                         VertexJoints = Triangle.CreateJoints(vertexJoint1, vertexJoint3, vertexJoint2, modelJointID),
                         NormalJoints = Triangle.CreateJoints(normalJoint1, normalJoint3, normalJoint2, modelJointID),
-                        Colors = new[] { new Color(r1, g1, b1), new Color(r3, g3, b3), new Color(r2, g2, b2) },
+                        Colors = new[] { new Color3(r1, g1, b1), new Color3(r3, g3, b3), new Color3(r2, g2, b2) },
                         Uv = new[] { new Vector2(u1, v1), new Vector2(u3, v3), new Vector2(u2, v2) },
                     };
                     if (isTiled)

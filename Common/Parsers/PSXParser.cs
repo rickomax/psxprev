@@ -40,7 +40,7 @@ namespace PSXPrev.Common.Parsers
         private uint _vertexCount;    // Total vertex count of all meshes
         private uint _normalCount;    // Total normal count of all meshes
         private uint[] _tempSections; // Temporary top/count/etc. tuples used for tagged chunks
-        private readonly Color[] _gouraudPalette = new Color[256];
+        private readonly Color3[] _gouraudPalette = new Color3[256];
         private uint _gouraudCount; // Number of entries read into _gouraudPalette
         private uint[] _textureHashes;
         private uint _textureHashCount;
@@ -399,24 +399,24 @@ namespace PSXPrev.Common.Parsers
                 {
                     var breakHere = 0;
                 }
-                Color color;
+                Color3 color;
                 if (r == 0 && g == 0 && b == 0)
                 {
                     if (!specialStarted)
                     {
                         specialStarted = true;
-                        color = Color.Black;
+                        color = Color3.Black;
                     }
                     else
                     {
                         // This is NOT correct, however it's better than using black
-                        color = Color.Grey;
+                        color = Color3.Grey;
                     }
-                    //color = new Color(i / 255f, i / 255f, i / 255f);
+                    //color = new Color3(i / 255f, i / 255f, i / 255f);
                 }
                 else
                 {
-                    color = new Color(r / 255f, g / 255f, b / 255f);
+                    color = new Color3(r, g, b);
                 }
                 _gouraudPalette[i] = color;
             }
@@ -1469,10 +1469,10 @@ namespace PSXPrev.Common.Parsers
                 normal = -normal;
             }
 
-            Color color0, color1, color2, color3;
+            Color3 color0, color1, color2, color3;
             if (!gouraud)
             {
-                color0 = color1 = color2 = color3 = new Color(r / 255f, g / 255f, b / 255f);
+                color0 = color1 = color2 = color3 = new Color3(r, g, b);
             }
             else
             {
@@ -1480,7 +1480,7 @@ namespace PSXPrev.Common.Parsers
                 color0 = _gouraudPalette[r];
                 color1 = _gouraudPalette[g];
                 color2 = _gouraudPalette[b];
-                color3 = quad ? _gouraudPalette[mode] : Color.Grey;
+                color3 = quad ? _gouraudPalette[mode] : color0;
             }
 
             uint tPage = 0;

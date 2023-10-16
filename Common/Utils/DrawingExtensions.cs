@@ -9,6 +9,16 @@ namespace PSXPrev.Common.Utils
 {
     public static class DrawingExtensions
     {
+        public static bool EqualsRgb(this Color a, Color b)
+        {
+            return a.R == b.R && a.G == b.G && a.B == b.B;
+        }
+
+        public static bool EqualsArgb(this Color a, Color b)
+        {
+            return a.R == b.R && a.G == b.G && a.B == b.B && a.A == b.A;
+        }
+
         // Needed to clone a bitmap while preserving its pixel format.
         public static Bitmap DeepClone(this Bitmap bitmap)
         {
@@ -42,7 +52,7 @@ namespace PSXPrev.Common.Utils
             }
         }
 
-        public static Bitmap CreateOpaqueImage(this Image image, System.Drawing.Color background, PixelFormat pixelFormat = PixelFormat.Format32bppArgb)
+        public static Bitmap CreateOpaqueImage(this Image image, Color background, PixelFormat pixelFormat = PixelFormat.Format32bppArgb)
         {
             var newBitmap = new Bitmap(image.Width, image.Height, pixelFormat);
             try
@@ -65,7 +75,7 @@ namespace PSXPrev.Common.Utils
             }
         }
 
-        public static Bitmap CreateCroppedImage(this Image image, Rectangle srcRect, System.Drawing.Color? background = null, PixelFormat pixelFormat = PixelFormat.Format32bppArgb)
+        public static Bitmap CreateCroppedImage(this Image image, Rectangle srcRect, Color? background = null, PixelFormat pixelFormat = PixelFormat.Format32bppArgb)
         {
             var newBitmap = new Bitmap(srcRect.Width, srcRect.Height, pixelFormat);
             try

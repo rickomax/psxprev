@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 using System.Globalization;
 using Newtonsoft.Json;
 
@@ -8,7 +9,7 @@ namespace PSXPrev.Common.Utils
     {
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
-            if (value is System.Drawing.Color color)
+            if (value is Color color)
             {
                 var str = $"#{color.R:X02}{color.G:X02}{color.B:X02}";
                 if (color.A != 255)
@@ -41,7 +42,7 @@ namespace PSXPrev.Common.Utils
                             //throw new Exception("Invalid color string");
                         }
                     }
-                    return System.Drawing.Color.FromArgb(channels[3], channels[0], channels[1], channels[2]);
+                    return Color.FromArgb(channels[3], channels[0], channels[1], channels[2]);
                 }
             }
             return existingValue; // Return invalid color

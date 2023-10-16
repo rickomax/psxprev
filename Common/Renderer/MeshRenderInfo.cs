@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 using OpenTK;
 
 namespace PSXPrev.Common.Renderer
@@ -6,7 +7,7 @@ namespace PSXPrev.Common.Renderer
     public class MeshRenderInfo
     {
         public static readonly Vector3 DefaultLightDirection = -Vector3.UnitZ;
-        public static readonly Color DefaultAmbientColor = new Color(System.Drawing.Color.LightGray);
+        public static readonly Color3 DefaultAmbientColor = new Color3(Color.LightGray);
 
         public uint TexturePage { get; set; }
         public RenderFlags RenderFlags { get; set; }
@@ -25,8 +26,8 @@ namespace PSXPrev.Common.Renderer
         }
         public Vector3? LightDirection { get; set; } // Overrides Scene's or MeshBatch's light direction
         public float? LightIntensity { get; set; } // Overrides Scene's or MeshBatch's light intensity
-        public Color AmbientColor { get; set; } // Overrides Scene's or MeshBatch's ambient color
-        public Color SolidColor { get; set; } // Overrides Mesh's vertex colors
+        public Color3? AmbientColor { get; set; } // Overrides Scene's or MeshBatch's ambient color
+        public Color3? SolidColor { get; set; } // Overrides Mesh's vertex colors
         public Vector3 SpriteCenter { get; set; }
         public Vector2 TextureAnimation { get; set; } // Animation speed of texture in UV units per second
         public bool MissingTexture { get; set; }

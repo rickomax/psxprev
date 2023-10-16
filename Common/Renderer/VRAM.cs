@@ -15,7 +15,7 @@ namespace PSXPrev.Common.Renderer
         public const int PackBlocks = PageSize / PackAlign;
         public const int PageSemiTransparencyX = PageSize;
 
-        public static readonly System.Drawing.Color BackgroundColor = System.Drawing.Color.White;
+        public static readonly Color BackgroundColor = Color.White;
 
 
         private readonly Scene _scene;

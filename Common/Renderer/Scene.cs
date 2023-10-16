@@ -25,13 +25,13 @@ namespace PSXPrev.Common.Renderer
 
         private const float TriangleOutlineThickness = 2f;
 
-        private static readonly Color LightRotationRayColor = Color.Yellow;
+        private static readonly Color3 LightRotationRayColor = Color3.Yellow;
         private const float LightRotationRayFadeTime = 0.5f;
 
         private const float DebugPickingRayLineThickness = 3f;
         private const float DebugPickingRayOriginSize = 0.03f;
-        private static readonly Color DebugPickingRayColor = Color.Magenta;
-        private static readonly Color DebugIntersectionsColor = DebugPickingRayColor;
+        private static readonly Color3 DebugPickingRayColor = Color3.Magenta;
+        private static readonly Color3 DebugIntersectionsColor = DebugPickingRayColor;
 
         private const float DebugIntersectionLineThickness = 2f;
 
@@ -46,7 +46,7 @@ namespace PSXPrev.Common.Renderer
         private const float GizmoLengthBoxHeight = GizmoHeight - (GizmoUniformBoxSize + GizmoEndBoxSize) / 2f;
         private const float GizmoEndBoxCenter = GizmoUniformBoxSize + GizmoEndBoxSize + GizmoLengthBoxHeight * 2f;
 
-        private static readonly Color SelectedGizmoColor = Color.White;
+        private static readonly Color3 SelectedGizmoColor = Color3.White;
 
         private class GizmoInfo
         {
@@ -67,7 +67,7 @@ namespace PSXPrev.Common.Renderer
             public Vector3 ScaleEndCenter { get; set; }
             public Vector3 ScaleEndSize { get; set; }
             // Shared
-            public Color Color { get; set; }
+            public Color3 Color { get; set; }
             public int AxisIndex { get; set; }
             public Vector3 AxisVector { get; set; }
         }
@@ -88,7 +88,7 @@ namespace PSXPrev.Common.Renderer
                 ScaleEndCenter    = new Vector3(GizmoEndBoxCenter, 0f, 0f),
                 ScaleEndSize      = new Vector3(GizmoEndBoxSize),
 
-                Color = Color.Red,
+                Color = Color3.Red,
                 AxisIndex = 0,
                 AxisVector = Vector3.UnitX,
             } },
@@ -106,7 +106,7 @@ namespace PSXPrev.Common.Renderer
                 ScaleEndCenter    = new Vector3(0f, -GizmoEndBoxCenter, 0f),
                 ScaleEndSize      = new Vector3(GizmoEndBoxSize),
 
-                Color = Color.Green,
+                Color = Color3.Green,
                 AxisIndex = 1,
                 AxisVector = Vector3.UnitY, // todo: Should we negate this?
             } },
@@ -124,7 +124,7 @@ namespace PSXPrev.Common.Renderer
                 ScaleEndCenter    = new Vector3(0f, 0f, GizmoEndBoxCenter),
                 ScaleEndSize      = new Vector3(GizmoEndBoxSize),
 
-                Color = Color.Blue,
+                Color = Color3.Blue,
                 AxisIndex = 2,
                 AxisVector = Vector3.UnitZ,
             } },
@@ -133,7 +133,7 @@ namespace PSXPrev.Common.Renderer
                 ScaleEndCenter = Vector3.Zero,
                 ScaleEndSize   = new Vector3(GizmoUniformBoxSize),
 
-                Color = Color.Yellow,
+                Color = Color3.Yellow,
                 AxisIndex = 3,
                 AxisVector = Vector3.One,
             } },
@@ -185,11 +185,11 @@ namespace PSXPrev.Common.Renderer
         private GizmoType _currentGizmoType;
         private GizmoId _highlightGizmo;
 
-        public System.Drawing.Color ClearColor { get; set; }
-        public System.Drawing.Color MaskColor { get; set; }
-        //public System.Drawing.Color DiffuseColor { get; set; }
-        public System.Drawing.Color AmbientColor { get; set; }
-        public System.Drawing.Color SolidWireframeVerticesColor { get; set; }
+        public Color ClearColor { get; set; }
+        public Color MaskColor { get; set; }
+        //public Color DiffuseColor { get; set; }
+        public Color AmbientColor { get; set; }
+        public Color SolidWireframeVerticesColor { get; set; }
 
         public AttachJointsMode AttachJointsMode { get; set; }
 
@@ -608,11 +608,11 @@ namespace PSXPrev.Common.Renderer
             //meshBatch.CalculateNormals = CalculateNormals;
             meshBatch.LightDirection = null; //LightDirection;
             meshBatch.LightIntensity = null; //LightIntensity;
-            meshBatch.AmbientColor = null; //(Color)AmbientColor;
+            meshBatch.AmbientColor = null; //(Color3)AmbientColor;
             meshBatch.SolidColor = null;
             if (!VertexColorEnabled)
             {
-                meshBatch.SolidColor = Color.Grey;
+                meshBatch.SolidColor = Color3.Grey;
             }
 
             if (DrawFaces || (!DrawSolidWireframeVertices && (DrawWireframe || DrawVertices)))
@@ -632,7 +632,7 @@ namespace PSXPrev.Common.Renderer
                 meshBatch.LightEnabled = false;
                 meshBatch.TexturesEnabled = false;
                 meshBatch.SemiTransparencyEnabled = false;
-                meshBatch.SolidColor = (Color)SolidWireframeVerticesColor;
+                meshBatch.SolidColor = (Color3)SolidWireframeVerticesColor;
 
                 meshBatch.DrawPass(pass, _viewMatrix, _projectionMatrix, ref triangleCount, ref meshCount, ref skinCount);
             }
@@ -641,11 +641,11 @@ namespace PSXPrev.Common.Renderer
         public void Draw(out int triangleCount, out int meshCount, out int skinCount)
         {
             // Use 1.0 alpha so that clear color shows up when using GL.ReadPixels.
-            Shader.ClearColor = ClearColor.ToVector4WithAlpha(1f);// 0f); // 0f allows copying transparency
+            Shader.ClearColor = ClearColor.ToColor4WithAlpha(1f);// 0f); // 0f allows copying transparency
             Shader.Viewport = new Size(ViewportWidth, ViewportHeight);
 
             Shader.Use();
-            Shader.UniformMaskColor = MaskColor.ToVector3();
+            Shader.UniformMaskColor = (Color3)MaskColor;
 
             triangleCount = 0; // Only count triangles/meshes from the models mesh batch.
             meshCount = 0;
@@ -841,7 +841,7 @@ namespace PSXPrev.Common.Renderer
             BindRay(LightRotationRayBatch, origin, rotation, LightRotationRayColor, blend);
         }
 
-        private void BindRay(MeshBatch rayBatch, Vector3 rayOrigin, Quaternion rayRotation, Color color, float blend = 1f)
+        private void BindRay(MeshBatch rayBatch, Vector3 rayOrigin, Quaternion rayRotation, Color3 color, float blend = 1f)
         {
             // Force-prepare the batch the first time.
             var updateMeshData = !rayBatch.IsInitialized;

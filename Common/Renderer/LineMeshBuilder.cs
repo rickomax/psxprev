@@ -120,12 +120,12 @@ namespace PSXPrev.Common.Renderer
             Lines.Add(line);
         }
 
-        public void AddLine(Vector3 vertex0, Vector3 vertex1, Color color0 = null, Color color1 = null)
+        public void AddLine(Vector3 vertex0, Vector3 vertex1, Color3? color0 = null, Color3? color1 = null)
         {
-            Lines.Add(new Line(vertex0, vertex1, color0 ?? Color.White, color1));
+            Lines.Add(new Line(vertex0, vertex1, color0 ?? Color3.White, color1));
         }
 
-        public void AddLine(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Color color0, Color color1 = null)
+        public void AddLine(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Color3 color0, Color3? color1 = null)
         {
             if (matrix.HasValue)
             {
@@ -136,14 +136,14 @@ namespace PSXPrev.Common.Renderer
             Lines.Add(new Line(vertex0, vertex1, color0, color1));
         }
 
-        public void AddTriangleOutline(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Color color = null)
+        public void AddTriangleOutline(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Color3? color = null)
         {
             AddLine(vertex0, vertex1, color);
             AddLine(vertex1, vertex2, color);
             AddLine(vertex2, vertex0, color);
         }
 
-        public void AddTriangleOutline(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Color color = null)
+        public void AddTriangleOutline(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Color3? color = null)
         {
             if (matrix.HasValue)
             {
@@ -155,7 +155,7 @@ namespace PSXPrev.Common.Renderer
             AddTriangleOutline(vertex0, vertex1, vertex2, color);
         }
 
-        public void AddQuadOutline(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Color color = null)
+        public void AddQuadOutline(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Color3? color = null)
         {
             AddLine(vertex0, vertex1, color);
             AddLine(vertex1, vertex2, color);
@@ -163,7 +163,7 @@ namespace PSXPrev.Common.Renderer
             AddLine(vertex3, vertex0, color);
         }
 
-        public void AddQuadOutline(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Color color = null)
+        public void AddQuadOutline(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Color3? color = null)
         {
             if (matrix.HasValue)
             {
@@ -176,7 +176,7 @@ namespace PSXPrev.Common.Renderer
             AddQuadOutline(vertex0, vertex1, vertex2, vertex3, color);
         }
 
-        public void AddPolygonOutline(Vector3[] vertices, Color color = null)
+        public void AddPolygonOutline(Vector3[] vertices, Color3? color = null)
         {
             var vertexLast = vertices[vertices.Length - 1];
             for (var i = 0; i < vertices.Length; i++)
@@ -187,7 +187,7 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        public void AddPolygonOutline(Matrix4? matrix, Vector3[] vertices, Color color = null)
+        public void AddPolygonOutline(Matrix4? matrix, Vector3[] vertices, Color3? color = null)
         {
             if (matrix.HasValue)
             {
@@ -202,7 +202,7 @@ namespace PSXPrev.Common.Renderer
             AddPolygonOutline(vertices, color);
         }
 
-        private void AddCorners(Vector3[] corners, Color color = null)
+        private void AddCorners(Vector3[] corners, Color3? color = null)
         {
             AddLine(corners[0], corners[2], color);
             AddLine(corners[2], corners[4], color);
@@ -218,7 +218,7 @@ namespace PSXPrev.Common.Renderer
             AddLine(corners[3], corners[0], color);
         }
 
-        public void AddBoundsOutline(BoundingBox bounds, Color color = null)
+        public void AddBoundsOutline(BoundingBox bounds, Color3? color = null)
         {
             if (bounds == null)
             {
@@ -227,7 +227,7 @@ namespace PSXPrev.Common.Renderer
             AddCorners(bounds.Corners, color);
         }
 
-        public void AddBoundsOutline(Matrix4? matrix, BoundingBox bounds, Color color = null)
+        public void AddBoundsOutline(Matrix4? matrix, BoundingBox bounds, Color3? color = null)
         {
             if (bounds == null)
             {
@@ -249,7 +249,7 @@ namespace PSXPrev.Common.Renderer
         }
 
         // Size refers to the distance from the center to the corners.
-        public void AddCubeOutline(Vector3 center, Vector3 size, Color color = null)
+        public void AddCubeOutline(Vector3 center, Vector3 size, Color3? color = null)
         {
             var bounds = new BoundingBox();
             bounds.AddPoint(center - size);
@@ -257,7 +257,7 @@ namespace PSXPrev.Common.Renderer
             AddBoundsOutline(bounds, color);
         }
 
-        public void AddCubeOutline(Matrix4? matrix, Vector3 center, Vector3 size, Color color = null)
+        public void AddCubeOutline(Matrix4? matrix, Vector3 center, Vector3 size, Color3? color = null)
         {
             var bounds = new BoundingBox();
             bounds.AddPoint(center - size);
@@ -266,12 +266,12 @@ namespace PSXPrev.Common.Renderer
         }
 
         // Size refers to the distance from the center to the corners.
-        public void AddRectangleOutline(int axis, Vector3 center, Vector2 size, Color color = null)
+        public void AddRectangleOutline(int axis, Vector3 center, Vector2 size, Color3? color = null)
         {
             AddRectangleOutline(null, axis, center, size, color);
         }
 
-        public void AddRectangleOutline(Matrix4? matrix, int axis, Vector3 center, Vector2 size, Color color = null)
+        public void AddRectangleOutline(Matrix4? matrix, int axis, Vector3 center, Vector2 size, Color3? color = null)
         {
             var vertex0 = center + GeomMath.SwapAxes(axis, 0f,  size.X,  size.Y);
             var vertex1 = center + GeomMath.SwapAxes(axis, 0f, -size.X,  size.Y);
@@ -294,12 +294,12 @@ namespace PSXPrev.Common.Renderer
             AddLine(vertex3, vertex0, color);
         }
 
-        public void AddCircleOutline(int axis, Vector3 center, float radius, int sides, Color color = null)
+        public void AddCircleOutline(int axis, Vector3 center, float radius, int sides, Color3? color = null)
         {
             AddCircleOutline(null, axis, center, radius, sides, color);
         }
 
-        public void AddCircleOutline(Matrix4? matrix, int axis, Vector3 center, float radius, int sides, Color color = null)
+        public void AddCircleOutline(Matrix4? matrix, int axis, Vector3 center, float radius, int sides, Color3? color = null)
         {
             var direction = GeomMath.SwapAxes(axis, 0f, 1f, 0f); // 0f, (float)Math.Cos(0f), (float)Math.Sin(0f));
             var vertexLast = center + direction * radius;
@@ -333,7 +333,7 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        public void AddEntityBounds(EntityBase entity, Color color = null)
+        public void AddEntityBounds(EntityBase entity, Color3? color = null)
         {
             if (entity == null)
             {
@@ -342,7 +342,7 @@ namespace PSXPrev.Common.Renderer
             AddBoundsOutline(entity.Bounds3D, color);
         }
 
-        public void AddTriangleOutline(Triangle triangle, Color color = null)
+        public void AddTriangleOutline(Triangle triangle, Color3? color = null)
         {
             if (triangle == null)
             {
@@ -356,7 +356,7 @@ namespace PSXPrev.Common.Renderer
             AddLine(vertex2, vertex0, color);
         }
 
-        public void AddTriangleOutline(Matrix4? matrix, Triangle triangle, Color color = null)
+        public void AddTriangleOutline(Matrix4? matrix, Triangle triangle, Color3? color = null)
         {
             if (triangle == null)
             {

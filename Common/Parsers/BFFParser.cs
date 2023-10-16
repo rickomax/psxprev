@@ -575,7 +575,10 @@ namespace PSXPrev.Common.Parsers
             {
                 for (var i = 0; i < gt3Count; i++) //FMA_GT3
                 {
-                    ReadFMAPacket(reader, false, true, shortForm);
+                    if (!ReadFMAPacket(reader, false, true, shortForm))
+                    {
+                        return false;
+                    }
                 }
             }
             else
@@ -587,7 +590,10 @@ namespace PSXPrev.Common.Parsers
                     var vertexIndex2 = ReadIndex(reader, shortForm);
                     ReadIndexPad(reader, shortForm); //pad
 
-                    ReadPolyGT3(reader, vertexIndex0, vertexIndex1, vertexIndex2);
+                    if (!ReadPolyGT3(reader, vertexIndex0, vertexIndex1, vertexIndex2))
+                    {
+                        return false;
+                    }
                 }
             }
 
@@ -605,7 +611,10 @@ namespace PSXPrev.Common.Parsers
             {
                 for (var i = 0; i < gt4Count; i++) //FMA_GT4
                 {
-                    ReadFMAPacket(reader, true, true, shortForm);
+                    if (!ReadFMAPacket(reader, true, true, shortForm))
+                    {
+                        return false;
+                    }
                 }
             }
             else
@@ -618,8 +627,14 @@ namespace PSXPrev.Common.Parsers
                     var vertexIndex3 = ReadIndex(reader, shortForm);
 
                     //two POLY_GT3
-                    ReadPolyGT3(reader, vertexIndex0, vertexIndex1, vertexIndex2);
-                    ReadPolyGT3(reader, vertexIndex1, vertexIndex3, vertexIndex2);
+                    if (!ReadPolyGT3(reader, vertexIndex0, vertexIndex1, vertexIndex2))
+                    {
+                        return false;
+                    }
+                    if (!ReadPolyGT3(reader, vertexIndex1, vertexIndex3, vertexIndex2))
+                    {
+                        return false;
+                    }
                 }
             }
 
@@ -639,7 +654,10 @@ namespace PSXPrev.Common.Parsers
                     reader.BaseStream.Seek(_offset2 + sprsTop, SeekOrigin.Begin);
                     for (var i = 0; i < sprCount; i++) //FMA_SPR
                     {
-                        ReadFMASPR(reader);
+                        if (!ReadFMASPR(reader))
+                        {
+                            return false;
+                        }
                     }
                 }
 
@@ -664,7 +682,10 @@ namespace PSXPrev.Common.Parsers
                 reader.BaseStream.Seek(_offset2 + g3sTop, SeekOrigin.Begin);
                 for (var i = 0; i < g3Count; i++) //FMA_G3
                 {
-                    ReadFMAPacket(reader, false, false, shortForm);
+                    if (!ReadFMAPacket(reader, false, false, shortForm))
+                    {
+                        return false;
+                    }
                 }
 
 
@@ -679,7 +700,10 @@ namespace PSXPrev.Common.Parsers
                 reader.BaseStream.Seek(_offset2 + g4sTop, SeekOrigin.Begin);
                 for (var i = 0; i < g4Count; i++) //FMA_G4
                 {
-                    ReadFMAPacket(reader, true, false, shortForm);
+                    if (!ReadFMAPacket(reader, true, false, shortForm))
+                    {
+                        return false;
+                    }
                 }
             }
 
@@ -710,7 +734,7 @@ namespace PSXPrev.Common.Parsers
             return value;
         }
 
-        private void ReadFMAPacket(BinaryReader reader, bool quad, bool textured, bool shortForm)
+        private bool ReadFMAPacket(BinaryReader reader, bool quad, bool textured, bool shortForm)
         {
             var renderFlags = RenderFlags.None;
             if (textured)
@@ -783,25 +807,71 @@ namespace PSXPrev.Common.Parsers
             var vertexIndex2 = ReadIndex(reader, shortForm);
             var vertexIndex3 = quad ? ReadIndex(reader, shortForm) : ReadIndexPad(reader, shortForm);
 
-            var triangle1 = TriangleFromPrimitive(vertexIndex0, vertexIndex1, vertexIndex2,
-                                                  r0, g0, b0, r1, g1, b1, r2, g2, b2,
-                                                  u0, v0, u1, v1, u2, v2,
-                                                  textured);
+
+            if (vertexIndex0 >= _vertexCount || vertexIndex1 >= _vertexCount || vertexIndex2 >= _vertexCount || (quad && vertexIndex3 >= _vertexCount))
+            {
+                return false;
+            }
+            var vertex0 = _vertices[vertexIndex0];
+            var vertex1 = _vertices[vertexIndex1];
+            var vertex2 = _vertices[vertexIndex2];
+            var vertex3 = quad ? _vertices[vertexIndex3] : Vector3.Zero;
+
+            var color0 = new Color3(r0, g0, b0);
+            var color1 = new Color3(r1, g1, b1);
+            var color2 = new Color3(r2, g2, b2);
+            var color3 = quad ? new Color3(r3, g3, b3) : Color3.Black;
+
+            Vector2 uv0, uv1, uv2, uv3;
+            if (textured)
+            {
+                uv0 = GeomMath.ConvertUV(u0, v0) * UVConst;
+                uv1 = GeomMath.ConvertUV(u1, v1) * UVConst;
+                uv2 = GeomMath.ConvertUV(u2, v2) * UVConst;
+                uv3 = quad ? GeomMath.ConvertUV(u3, v3) * UVConst : Vector2.Zero;
+            }
+            else
+            {
+                uv0 = uv1 = uv2 = uv3 = Vector2.Zero;
+            }
+
+            // Note that vertex order is reversed for FMAPackets
+            var triangle1 = new Triangle
+            {
+                Vertices = new[] { vertex2, vertex1, vertex0 },
+                Normals = Triangle.EmptyNormals,
+                Colors = new[] { color2, color1, color0 },
+                Uv = new[] { uv2, uv1, uv0 },
+            };
+            if (textured)
+            {
+                triangle1.TiledUv = new TiledUV(triangle1.Uv, 0f, 0f, 1f, 1f);
+                triangle1.Uv = (Vector2[])triangle1.Uv.Clone();
+            }
 
             AddTriangle(triangle1, null, tPage, renderFlags);
 
             if (quad)
             {
-                var triangle2 = TriangleFromPrimitive(vertexIndex1, vertexIndex3, vertexIndex2,
-                                                      r1, g1, b1, r3, g3, b3, r2, g2, b2,
-                                                      u1, v1, u3, v3, u2, v2,
-                                                      textured);
+                var triangle2 = new Triangle
+                {
+                    Vertices = new[] { vertex2, vertex3, vertex1 },
+                    Normals = Triangle.EmptyNormals,
+                    Colors = new[] { color2, color3, color1 },
+                    Uv = new[] { uv2, uv3, uv1 },
+                };
+                if (textured)
+                {
+                    triangle2.TiledUv = new TiledUV(triangle2.Uv, 0f, 0f, 1f, 1f);
+                    triangle2.Uv = (Vector2[])triangle2.Uv.Clone();
+                }
 
                 AddTriangle(triangle2, null, tPage, renderFlags);
             }
+            return true;
         }
 
-        private void ReadFMASPR(BinaryReader reader)
+        private bool ReadFMASPR(BinaryReader reader)
         {
             var r = reader.ReadByte();
             var g = reader.ReadByte();
@@ -839,7 +909,7 @@ namespace PSXPrev.Common.Parsers
             var width  = reader.ReadByte() / _scaleDivisor * scale;
             var height = reader.ReadByte() / _scaleDivisor * scale;
 
-            var color = new Color(r / 255f, g / 255f, b / 255f);
+            var color = new Color3(r, g, b);
 
             var uv0 = GeomMath.ConvertUV(u0, v0) * UVConst;
             var uv1 = GeomMath.ConvertUV(u1, v1) * UVConst;
@@ -858,6 +928,7 @@ namespace PSXPrev.Common.Parsers
 
             var renderFlags = RenderFlags.Textured | RenderFlags.Sprite;
 
+            // Todo: Is vertex order different for FMASPR, just like it is for FMAPackets?
             var triangle1 = new Triangle
             {
                 Vertices = new[] { vertex0, vertex1, vertex2 },
@@ -881,9 +952,10 @@ namespace PSXPrev.Common.Parsers
             triangle2.Uv = (Vector2[])triangle2.Uv.Clone();
 
             AddTriangle(triangle2, center, tPage, renderFlags);
+            return true;
         }
 
-        private void ReadPolyGT3(BinaryReader reader, uint vertexIndex0, uint vertexIndex1, uint vertexIndex2)
+        private bool ReadPolyGT3(BinaryReader reader, uint vertexIndex0, uint vertexIndex1, uint vertexIndex2)
         {
             // Same structure as seen in PMD format, but not repeated twice
             var tag = reader.ReadInt32();
@@ -927,41 +999,24 @@ namespace PSXPrev.Common.Parsers
             var v2 = reader.ReadByte();
             var pad3 = reader.ReadUInt16(); //pad
 
-            var triangle = TriangleFromPrimitive(vertexIndex0, vertexIndex1, vertexIndex2,
-                                                 r0, g0, b0, r1, g1, b1, r2, g2, b2,
-                                                 u0, v0, u1, v1, u2, v2,
-                                                 true);
 
-            AddTriangle(triangle, null, tPage, RenderFlags.Textured);
-        }
-
-        private Triangle TriangleFromPrimitive(
-            uint vertexIndex0, uint vertexIndex1, uint vertexIndex2,
-            byte r0, byte g0, byte b0,
-            byte r1, byte g1, byte b1,
-            byte r2, byte g2, byte b2,
-            byte u0, byte v0,
-            byte u1, byte v1,
-            byte u2, byte v2,
-            bool textured)
-        {
             if (vertexIndex0 >= _vertexCount || vertexIndex1 >= _vertexCount || vertexIndex2 >= _vertexCount)
             {
-                throw new Exception("Out of indices");
+                return false;
             }
-
             var vertex0 = _vertices[vertexIndex0];
             var vertex1 = _vertices[vertexIndex1];
             var vertex2 = _vertices[vertexIndex2];
 
-            var color0 = new Color(r0 / 255f, g0 / 255f, b0 / 255f);
-            var color1 = new Color(r1 / 255f, g1 / 255f, b1 / 255f);
-            var color2 = new Color(r2 / 255f, g2 / 255f, b2 / 255f);
+            var color0 = new Color3(r0, g0, b0);
+            var color1 = new Color3(r1, g1, b1);
+            var color2 = new Color3(r2, g2, b2);
 
             var uv0 = GeomMath.ConvertUV(u0, v0) * UVConst;
             var uv1 = GeomMath.ConvertUV(u1, v1) * UVConst;
             var uv2 = GeomMath.ConvertUV(u2, v2) * UVConst;
 
+            // Todo: Is vertex order different for PolyGT3, just like it is for FMAPackets?
             var triangle = new Triangle
             {
                 Vertices = new[] { vertex2, vertex1, vertex0 },
@@ -969,13 +1024,11 @@ namespace PSXPrev.Common.Parsers
                 Colors = new[] { color2, color1, color0 },
                 Uv = new[] { uv2, uv1, uv0 },
             };
-            if (textured)
-            {
-                triangle.TiledUv = new TiledUV(triangle.Uv, 0f, 0f, 1f, 1f);
-                triangle.Uv = (Vector2[])triangle.Uv.Clone();
-            }
+            triangle.TiledUv = new TiledUV(triangle.Uv, 0f, 0f, 1f, 1f);
+            triangle.Uv = (Vector2[])triangle.Uv.Clone();
 
-            return triangle;
+            AddTriangle(triangle, null, tPage, RenderFlags.Textured);
+            return true;
         }
 
         #endregion

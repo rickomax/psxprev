@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Text.RegularExpressions;
 using OpenTK;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using PSXPrev.Common.Utils;
 
@@ -85,14 +86,14 @@ namespace PSXPrev.Common.Renderer
             _cullFace = false;
             _depthTest = false;
             _depthMask = false;
-            _polygonMode = (PolygonMode)0;
+            _polygonMode = default(PolygonMode);
             _pointSize = 0f;
             _lineWidth = 0f;
             _alpha = 0f;
             _mixtureRate = MixtureRate.None;
             _activeTextureUnit = 0;
             _viewportSize = Size.Empty;
-            _clearColor = Vector4.Zero;
+            _clearColor = default(Color4);
             _jointMode = 0;
             _lightMode = 0;
             _colorMode = 0;
@@ -100,9 +101,9 @@ namespace PSXPrev.Common.Renderer
             _semiTransparentPass = 0;
             _lightIntensity = 0f;
             _lightDirection = Vector3.Zero;
-            _maskColor = Vector3.Zero;
-            _ambientColor = Vector3.Zero;
-            _solidColor = Vector3.Zero;
+            _maskColor = Color3.Black;
+            _ambientColor = Color3.Black;
+            _solidColor = Color3.Black;
             _uvOffset = Vector2.Zero;
             _normalMatrix = Matrix3.Zero;
             _normalSpriteMatrix = Matrix3.Zero;
@@ -114,10 +115,10 @@ namespace PSXPrev.Common.Renderer
             _mainTextureUnit = 0;
             _vertexArrayObject = null;
             _skin = null;
-            _blendSourceFactor = (BlendingFactor)0;
-            _blendDestFactor = (BlendingFactor)0;
-            _blendColor = Vector4.Zero;
-            _blendEquation = (BlendEquationMode)0;
+            _blendSourceFactor = default(BlendingFactor);
+            _blendDestFactor = default(BlendingFactor);
+            _blendColor = default(Color4);
+            _blendEquation = default(BlendEquationMode);
         }
 
         #region Shader Locations
@@ -591,8 +592,8 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        private Vector4 _clearColor;
-        public Vector4 ClearColor
+        private Color4 _clearColor;
+        public Color4 ClearColor
         {
             get => _clearColor;
             set
@@ -600,7 +601,7 @@ namespace PSXPrev.Common.Renderer
                 if (ForceState || !_clearColor.Equals(value))
                 {
                     _clearColor = value;
-                    GL.ClearColor(value.X, value.Y, value.Z, value.W);
+                    GL.ClearColor(value);
                 }
             }
         }
@@ -707,8 +708,8 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        private Vector3 _maskColor;
-        public Vector3 UniformMaskColor
+        private Color3 _maskColor;
+        public Color3 UniformMaskColor
         {
             get => _maskColor;
             set
@@ -716,13 +717,13 @@ namespace PSXPrev.Common.Renderer
                 if (ForceState || !_maskColor.Equals(value))
                 {
                     _maskColor = value;
-                    GL.Uniform3(UniformIndex_MaskColor, ref value);
+                    GL.Uniform3(UniformIndex_MaskColor, value.R, value.G, value.B);
                 }
             }
         }
 
-        private Vector3 _ambientColor;
-        public Vector3 UniformAmbientColor
+        private Color3 _ambientColor;
+        public Color3 UniformAmbientColor
         {
             get => _ambientColor;
             set
@@ -730,13 +731,13 @@ namespace PSXPrev.Common.Renderer
                 if (ForceState || !_ambientColor.Equals(value))
                 {
                     _ambientColor = value;
-                    GL.Uniform3(UniformIndex_AmbientColor, ref value);
+                    GL.Uniform3(UniformIndex_AmbientColor, value.R, value.G, value.B);
                 }
             }
         }
 
-        private Vector3 _solidColor;
-        public Vector3 UniformSolidColor
+        private Color3 _solidColor;
+        public Color3 UniformSolidColor
         {
             get => _solidColor;
             set
@@ -744,7 +745,7 @@ namespace PSXPrev.Common.Renderer
                 if (ForceState || !_solidColor.Equals(value))
                 {
                     _solidColor = value;
-                    GL.Uniform3(UniformIndex_SolidColor, ref value);
+                    GL.Uniform3(UniformIndex_SolidColor, value.R, value.G, value.B);
                 }
             }
         }
@@ -929,10 +930,10 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
-        private Vector4 _blendColor;
+        private Color4 _blendColor;
         private void BlendColor(float red, float green, float blue, float alpha)
         {
-            var value = new Vector4(red, green, blue, alpha);
+            var value = new Color4(red, green, blue, alpha);
             if (ForceState || !_blendColor.Equals(value))
             {
                 _blendColor = value;

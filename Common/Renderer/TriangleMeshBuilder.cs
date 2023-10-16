@@ -155,15 +155,15 @@ namespace PSXPrev.Common.Renderer
         #region AddTriangle
 
         public void AddTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
-                                Color color0 = null, Color color1 = null, Color color2 = null)
+                                Color3? color0 = null, Color3? color1 = null, Color3? color2 = null)
         {
             if (!CalculateNormals)
             {
-                color0 = color0 ?? Color.White;
+                var color = color0 ?? Color3.White;
                 Triangles.Add(new Triangle
                 {
                     Vertices = new[] { vertex0, vertex1, vertex2 },
-                    Colors = new[] { color0, color1 ?? color0, color2 ?? color0 },
+                    Colors = new[] { color0 ?? color, color1 ?? color, color2 ?? color },
                     Normals = Triangle.EmptyNormals,
                     Uv = Triangle.EmptyUv,
                 });
@@ -176,13 +176,13 @@ namespace PSXPrev.Common.Renderer
         }
 
         public void AddTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 normal,
-                                Color color0 = null, Color color1 = null, Color color2 = null)
+                                Color3? color0 = null, Color3? color1 = null, Color3? color2 = null)
         {
-            color0 = color0 ?? Color.White;
+            var color = color0 ?? Color3.White;
             Triangles.Add(new Triangle
             {
                 Vertices = new[] { vertex0, vertex1, vertex2 },
-                Colors = new[] { color0, color1 ?? color0, color2 ?? color0 },
+                Colors = new[] { color0 ?? color, color1 ?? color, color2 ?? color },
                 Normals = new[] { normal, normal, normal },
                 Uv = Triangle.EmptyUv,
             });
@@ -190,13 +190,13 @@ namespace PSXPrev.Common.Renderer
 
         public void AddTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
                                 Vector3 normal0, Vector3 normal1, Vector3 normal2,
-                                Color color0 = null, Color color1 = null, Color color2 = null)
+                                Color3? color0 = null, Color3? color1 = null, Color3? color2 = null)
         {
-            color0 = color0 ?? Color.White;
+            var color = color0 ?? Color3.White;
             Triangles.Add(new Triangle
             {
                 Vertices = new[] { vertex0, vertex1, vertex2 },
-                Colors = new[] { color0, color1 ?? color0, color2 ?? color0 },
+                Colors = new[] { color0 ?? color, color1 ?? color, color2 ?? color },
                 Normals = new[] { normal0, normal1, normal2 },
                 Uv = Triangle.EmptyUv,
             });
@@ -204,15 +204,15 @@ namespace PSXPrev.Common.Renderer
 
         public void AddTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
                                 Vector2 uv0, Vector2 uv1, Vector2 uv2,
-                                Color color0 = null, Color color1 = null, Color color2 = null)
+                                Color3? color0 = null, Color3? color1 = null, Color3? color2 = null)
         {
             if (!CalculateNormals)
             {
-                color0 = color0 ?? Color.White;
+                var color = color0 ?? Color3.White;
                 Triangles.Add(new Triangle
                 {
                     Vertices = new[] { vertex0, vertex1, vertex2 },
-                    Colors = new[] { color0, color1 ?? color0, color2 ?? color0 },
+                    Colors = new[] { color0 ?? color, color1 ?? color, color2 ?? color },
                     Normals = Triangle.EmptyNormals,
                     Uv = new[] { uv0, uv1, uv2 },
                 }.CorrectUVTearing());
@@ -226,13 +226,13 @@ namespace PSXPrev.Common.Renderer
 
         public void AddTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 normal,
                                 Vector2 uv0, Vector2 uv1, Vector2 uv2,
-                                Color color0 = null, Color color1 = null, Color color2 = null)
+                                Color3? color0 = null, Color3? color1 = null, Color3? color2 = null)
         {
-            color0 = color0 ?? Color.White;
+            var color = color0 ?? Color3.White;
             Triangles.Add(new Triangle
             {
                 Vertices = new[] { vertex0, vertex1, vertex2 },
-                Colors = new[] { color0, color1 ?? color0, color2 ?? color0 },
+                Colors = new[] { color0 ?? color, color1 ?? color, color2 ?? color },
                 Normals = new[] { normal, normal, normal },
                 Uv = new[] { uv0, uv1, uv2 },
             }.CorrectUVTearing());
@@ -241,13 +241,13 @@ namespace PSXPrev.Common.Renderer
         public void AddTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
                                 Vector3 normal0, Vector3 normal1, Vector3 normal2,
                                 Vector2 uv0, Vector2 uv1, Vector2 uv2,
-                                Color color0 = null, Color color1 = null, Color color2 = null)
+                                Color3? color0 = null, Color3? color1 = null, Color3? color2 = null)
         {
-            color0 = color0 ?? Color.White;
+            var color = color0 ?? Color3.White;
             Triangles.Add(new Triangle
             {
                 Vertices = new[] { vertex0, vertex1, vertex2 },
-                Colors = new[] { color0, color1 ?? color0, color2 ?? color0 },
+                Colors = new[] { color0 ?? color, color1 ?? color, color2 ?? color },
                 Normals = new[] { normal0, normal1, normal2 },
                 Uv = new[] { uv0, uv1, uv2 },
             }.CorrectUVTearing());
@@ -258,7 +258,7 @@ namespace PSXPrev.Common.Renderer
         #region AddTriangle (matrix)
 
         public void AddTriangle(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
-                                Color color0 = null, Color color1 = null, Color color2 = null)
+                                Color3? color0 = null, Color3? color1 = null, Color3? color2 = null)
         {
             if (matrix.HasValue)
             {
@@ -272,7 +272,7 @@ namespace PSXPrev.Common.Renderer
         }
 
         public void AddTriangle(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 normal,
-                                Color color0 = null, Color color1 = null, Color color2 = null)
+                                Color3? color0 = null, Color3? color1 = null, Color3? color2 = null)
         {
             if (matrix.HasValue)
             {
@@ -289,7 +289,7 @@ namespace PSXPrev.Common.Renderer
 
         public void AddTriangle(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
                                 Vector3 normal0, Vector3 normal1, Vector3 normal2,
-                                Color color0 = null, Color color1 = null, Color color2 = null)
+                                Color3? color0 = null, Color3? color1 = null, Color3? color2 = null)
         {
             if (matrix.HasValue)
             {
@@ -308,7 +308,7 @@ namespace PSXPrev.Common.Renderer
 
         public void AddTriangle(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
                                 Vector2 uv0, Vector2 uv1, Vector2 uv2,
-                                Color color0 = null, Color color1 = null, Color color2 = null)
+                                Color3? color0 = null, Color3? color1 = null, Color3? color2 = null)
         {
             if (matrix.HasValue)
             {
@@ -323,7 +323,7 @@ namespace PSXPrev.Common.Renderer
 
         public void AddTriangle(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 normal,
                                 Vector2 uv0, Vector2 uv1, Vector2 uv2,
-                                Color color0 = null, Color color1 = null, Color color2 = null)
+                                Color3? color0 = null, Color3? color1 = null, Color3? color2 = null)
         {
             if (matrix.HasValue)
             {
@@ -341,7 +341,7 @@ namespace PSXPrev.Common.Renderer
         public void AddTriangle(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2,
                                 Vector3 normal0, Vector3 normal1, Vector3 normal2,
                                 Vector2 uv0, Vector2 uv1, Vector2 uv2,
-                                Color color0 = null, Color color1 = null, Color color2 = null)
+                                Color3? color0 = null, Color3? color1 = null, Color3? color2 = null)
         {
             if (matrix.HasValue)
             {
@@ -363,14 +363,14 @@ namespace PSXPrev.Common.Renderer
         #region AddQuad
 
         public void AddQuad(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
-                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+                            Color3? color0 = null, Color3? color1 = null, Color3? color2 = null, Color3? color3 = null)
         {
             AddTriangle(vertex0, vertex1, vertex2, color0, color1, color2);
             AddTriangle(vertex1, vertex3, vertex2, color1, color3, color2);
         }
 
         public void AddQuad(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Vector3 normal,
-                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+                            Color3? color0 = null, Color3? color1 = null, Color3? color2 = null, Color3? color3 = null)
         {
             AddTriangle(vertex0, vertex1, vertex2, normal, color0, color1, color2);
             AddTriangle(vertex1, vertex3, vertex2, normal, color1, color3, color2);
@@ -378,7 +378,7 @@ namespace PSXPrev.Common.Renderer
 
         public void AddQuad(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
                             Vector3 normal0, Vector3 normal1, Vector3 normal2, Vector3 normal3,
-                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+                            Color3? color0 = null, Color3? color1 = null, Color3? color2 = null, Color3? color3 = null)
         {
             AddTriangle(vertex0, vertex1, vertex2, normal0, normal1, normal2, color0, color1, color2);
             AddTriangle(vertex1, vertex3, vertex2, normal1, normal3, normal2, color1, color3, color2);
@@ -386,7 +386,7 @@ namespace PSXPrev.Common.Renderer
 
         public void AddQuad(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
                             Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
-                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+                            Color3? color0 = null, Color3? color1 = null, Color3? color2 = null, Color3? color3 = null)
         {
             AddTriangle(vertex0, vertex1, vertex2, uv0, uv1, uv2, color0, color1, color2);
             AddTriangle(vertex1, vertex3, vertex2, uv1, uv3, uv2, color1, color3, color2);
@@ -394,7 +394,7 @@ namespace PSXPrev.Common.Renderer
 
         public void AddQuad(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Vector3 normal,
                             Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
-                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+                            Color3? color0 = null, Color3? color1 = null, Color3? color2 = null, Color3? color3 = null)
         {
             AddTriangle(vertex0, vertex1, vertex2, normal, uv0, uv1, uv2, color0, color1, color2);
             AddTriangle(vertex1, vertex3, vertex2, normal, uv1, uv3, uv2, color1, color3, color2);
@@ -403,7 +403,7 @@ namespace PSXPrev.Common.Renderer
         public void AddQuad(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
                             Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
                             Vector3 normal0, Vector3 normal1, Vector3 normal2, Vector3 normal3,
-                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+                            Color3? color0 = null, Color3? color1 = null, Color3? color2 = null, Color3? color3 = null)
         {
             AddTriangle(vertex0, vertex1, vertex2, normal0, normal1, normal2, uv0, uv1, uv2, color0, color1, color2);
             AddTriangle(vertex1, vertex3, vertex2, normal1, normal3, normal2, uv1, uv3, uv2, color1, color3, color2);
@@ -414,7 +414,7 @@ namespace PSXPrev.Common.Renderer
         #region AddQuad (matrix)
 
         public void AddQuad(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
-                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+                            Color3? color0 = null, Color3? color1 = null, Color3? color2 = null, Color3? color3 = null)
         {
             if (matrix.HasValue)
             {
@@ -430,7 +430,7 @@ namespace PSXPrev.Common.Renderer
         }
 
         public void AddQuad(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Vector3 normal,
-                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+                            Color3? color0 = null, Color3? color1 = null, Color3? color2 = null, Color3? color3 = null)
         {
             if (matrix.HasValue)
             {
@@ -449,7 +449,7 @@ namespace PSXPrev.Common.Renderer
 
         public void AddQuad(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
                             Vector3 normal0, Vector3 normal1, Vector3 normal2, Vector3 normal3,
-                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+                            Color3? color0 = null, Color3? color1 = null, Color3? color2 = null, Color3? color3 = null)
         {
             if (matrix.HasValue)
             {
@@ -471,7 +471,7 @@ namespace PSXPrev.Common.Renderer
 
         public void AddQuad(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
                             Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
-                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+                            Color3? color0 = null, Color3? color1 = null, Color3? color2 = null, Color3? color3 = null)
         {
             if (matrix.HasValue)
             {
@@ -488,7 +488,7 @@ namespace PSXPrev.Common.Renderer
 
         public void AddQuad(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3, Vector3 normal,
                             Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
-                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+                            Color3? color0 = null, Color3? color1 = null, Color3? color2 = null, Color3? color3 = null)
         {
             if (matrix.HasValue)
             {
@@ -508,7 +508,7 @@ namespace PSXPrev.Common.Renderer
         public void AddQuad(Matrix4? matrix, Vector3 vertex0, Vector3 vertex1, Vector3 vertex2, Vector3 vertex3,
                             Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
                             Vector3 normal0, Vector3 normal1, Vector3 normal2, Vector3 normal3,
-                            Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+                            Color3? color0 = null, Color3? color1 = null, Color3? color2 = null, Color3? color3 = null)
         {
             if (matrix.HasValue)
             {
@@ -530,7 +530,7 @@ namespace PSXPrev.Common.Renderer
 
         #endregion
 
-        private void AddCorners(Vector3[] corners, Vector3[] normals, Color color = null)
+        private void AddCorners(Vector3[] corners, Vector3[] normals, Color3? color = null)
         {
             AddTriangle(corners[0], corners[3], corners[5], normals[0], color);
             AddTriangle(corners[0], corners[5], corners[1], normals[0], color);
@@ -546,7 +546,7 @@ namespace PSXPrev.Common.Renderer
             AddTriangle(corners[3], corners[2], corners[6], normals[5], color);
         }
 
-        public void AddBounds(BoundingBox bounds, Color color = null)
+        public void AddBounds(BoundingBox bounds, Color3? color = null)
         {
             if (bounds == null)
             {
@@ -556,7 +556,7 @@ namespace PSXPrev.Common.Renderer
             OutlineBuilder?.AddBoundsOutline(bounds);
         }
 
-        public void AddBounds(Matrix4? matrix, BoundingBox bounds, Color color = null)
+        public void AddBounds(Matrix4? matrix, BoundingBox bounds, Color3? color = null)
         {
             if (bounds == null)
             {
@@ -584,7 +584,7 @@ namespace PSXPrev.Common.Renderer
         }
 
         // Size refers to the distance from the center to the corners.
-        public void AddCube(Vector3 center, Vector3 size, Color color = null)
+        public void AddCube(Vector3 center, Vector3 size, Color3? color = null)
         {
             var bounds = new BoundingBox();
             bounds.AddPoint(center - size);
@@ -592,7 +592,7 @@ namespace PSXPrev.Common.Renderer
             AddBounds(bounds, color);
         }
 
-        public void AddCube(Matrix4? matrix, Vector3 center, Vector3 size, Color color = null)
+        public void AddCube(Matrix4? matrix, Vector3 center, Vector3 size, Color3? color = null)
         {
             var bounds = new BoundingBox();
             bounds.AddPoint(center - size);
@@ -601,12 +601,12 @@ namespace PSXPrev.Common.Renderer
         }
 
         // Height refers to the distance from the center to the top or bottom.
-        public void AddCylinder(int axis, Vector3 center, float height, float radius, int sides, bool gouraud = true, Color color = null)
+        public void AddCylinder(int axis, Vector3 center, float height, float radius, int sides, bool gouraud = true, Color3? color = null)
         {
             AddCylinder(null, axis, center, height, radius, sides, gouraud, color);
         }
 
-        public void AddCylinder(Matrix4? matrix, int axis, Vector3 center, float height, float radius, int sides, bool gouraud = true, Color color = null)
+        public void AddCylinder(Matrix4? matrix, int axis, Vector3 center, float height, float radius, int sides, bool gouraud = true, Color3? color = null)
         {
             if (sides < 3)
             {
@@ -703,12 +703,12 @@ namespace PSXPrev.Common.Renderer
         }
 
         // Height refers to the distance from the center to the top or bottom.
-        public void AddRing(int axis, Vector3 center, float height, float outerRadius, float innerRadius, int sides, bool gouraud = true, Color color = null)
+        public void AddRing(int axis, Vector3 center, float height, float outerRadius, float innerRadius, int sides, bool gouraud = true, Color3? color = null)
         {
             AddRing(null, axis, center, height, outerRadius, innerRadius, sides, gouraud, color);
         }
 
-        public void AddRing(Matrix4? matrix, int axis, Vector3 center, float height, float outerRadius, float innerRadius, int sides, bool gouraud = true, Color color = null)
+        public void AddRing(Matrix4? matrix, int axis, Vector3 center, float height, float outerRadius, float innerRadius, int sides, bool gouraud = true, Color3? color = null)
         {
             if (sides < 3)
             {
@@ -811,12 +811,12 @@ namespace PSXPrev.Common.Renderer
 
         // Build a sphere by subdividing faces of an octahedron into smaller triangles.
         // Triangles are least dense at the center of each face, and most dense near the corners (but not by much).
-        public void AddOctaSphere(Vector3 center, float radius, int subdivision, bool gouraud = true, Color color = null)
+        public void AddOctaSphere(Vector3 center, float radius, int subdivision, bool gouraud = true, Color3? color = null)
         {
             AddOctaSphere(null, center, radius, subdivision, gouraud, color);
         }
 
-        public void AddOctaSphere(Matrix4? matrix, Vector3 center, float radius, int subdivision, bool gouraud = true, Color color = null)
+        public void AddOctaSphere(Matrix4? matrix, Vector3 center, float radius, int subdivision, bool gouraud = true, Color3? color = null)
         {
             if (subdivision < 1)
             {
@@ -935,12 +935,12 @@ namespace PSXPrev.Common.Renderer
         // into sectors (number of horizontal sides from 0deg to 360deg)
         // and stacks (number of vertical sides from 90deg to -90deg).
         // Triangles are most dense near the top and bottom, and least dense near the equator.
-        public void AddSphere(Vector3 center, float radius, int sectors, int stacks, bool gouraud = true, Color color = null)
+        public void AddSphere(Vector3 center, float radius, int sectors, int stacks, bool gouraud = true, Color3? color = null)
         {
             AddSphere(null, center, radius, sectors, stacks, gouraud, color);
         }
 
-        public void AddSphere(Matrix4? matrix, Vector3 center, float radius, int sectors, int stacks, bool gouraud = true, Color color = null)
+        public void AddSphere(Matrix4? matrix, Vector3 center, float radius, int sectors, int stacks, bool gouraud = true, Color3? color = null)
         {
             if (sectors < 3)
             {
@@ -1074,12 +1074,12 @@ namespace PSXPrev.Common.Renderer
         // that gouraud shading cannot represent smooth normals on a cone, but the normals will not be entirely correct.
         // If flip is true, then the tip of the cone will point towards the negative direction of the axis.
         // If gouraud is false, then smoothTop is ignored.
-        public void AddCone(int axis, Vector3 center, float height, float radius, int sides, bool smoothTop, bool flip = false, bool gouraud = true, Color color = null)
+        public void AddCone(int axis, Vector3 center, float height, float radius, int sides, bool smoothTop, bool flip = false, bool gouraud = true, Color3? color = null)
         {
             AddCone(null, axis, center, height, radius, sides, smoothTop, flip, gouraud, color);
         }
 
-        public void AddCone(Matrix4? matrix, int axis, Vector3 bottom, float height, float radius, int sides, bool smoothTop, bool flip = false, bool gouraud = true, Color color = null)
+        public void AddCone(Matrix4? matrix, int axis, Vector3 bottom, float height, float radius, int sides, bool smoothTop, bool flip = false, bool gouraud = true, Color3? color = null)
         {
             // Compared to other drawing functions with an axis argument, cones
             // are a lot messier since the up/down direction of axis is important.
@@ -1173,12 +1173,12 @@ namespace PSXPrev.Common.Renderer
         }
 
         // Size refers to the distance from the center to the corners.
-        public void AddSprite(Vector3 center, Vector2 size, Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+        public void AddSprite(Vector3 center, Vector2 size, Color3? color0 = null, Color3? color1 = null, Color3? color2 = null, Color3? color3 = null)
         {
             AddSprite(null, center, size, color0, color1, color2, color3);
         }
 
-        public void AddSprite(Matrix4? matrix, Vector3 center, Vector2 size, Color color0 = null, Color color1 = null, Color color2 = null, Color color3 = null)
+        public void AddSprite(Matrix4? matrix, Vector3 center, Vector2 size, Color3? color0 = null, Color3? color1 = null, Color3? color2 = null, Color3? color3 = null)
         {
             if (matrix.HasValue)
             {
@@ -1194,24 +1194,24 @@ namespace PSXPrev.Common.Renderer
             AddTriangle(vertex1, vertex3, vertex2, SpriteNormal, color1, color3, color2);
         }
 
-        public void AddSprite(Vector3 center, Vector2 size, int u, int v, int uSize, int vSize, Color color = null)
+        public void AddSprite(Vector3 center, Vector2 size, int u, int v, int uSize, int vSize, Color3? color = null)
         {
             AddSprite(null, center, size, u, v, uSize, vSize, color);
         }
 
-        public void AddSprite(Matrix4? matrix, Vector3 center, Vector2 size, int u, int v, int uSize, int vSize, Color color = null)
+        public void AddSprite(Matrix4? matrix, Vector3 center, Vector2 size, int u, int v, int uSize, int vSize, Color3? color = null)
         {
             var uv = GeomMath.ConvertUV((uint)u, (uint)v);
             var uvSize = GeomMath.ConvertUV((uint)uSize, (uint)vSize);
             AddSprite(null, center, size, uv, uvSize, color);
         }
 
-        public void AddSprite(Vector3 center, Vector2 size, Vector2 uv, Vector2 uvSize, Color color = null)
+        public void AddSprite(Vector3 center, Vector2 size, Vector2 uv, Vector2 uvSize, Color3? color = null)
         {
             AddSprite(null, center, size, uv, uvSize, color);
         }
 
-        public void AddSprite(Matrix4? matrix, Vector3 center, Vector2 size, Vector2 uv, Vector2 uvSize, Color color = null)
+        public void AddSprite(Matrix4? matrix, Vector3 center, Vector2 size, Vector2 uv, Vector2 uvSize, Color3? color = null)
         {
             if (matrix.HasValue)
             {
