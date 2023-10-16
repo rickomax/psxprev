@@ -18,7 +18,6 @@ using PSXPrev.Common.Renderer;
 using PSXPrev.Forms;
 using PSXPrev.Forms.Dialogs;
 using PSXPrev.Forms.Utils;
-using Color = System.Drawing.Color;
 using Timer = System.Timers.Timer;
 
 namespace PSXPrev.Forms
@@ -591,7 +590,7 @@ namespace PSXPrev.Forms
             settings.ShowDebugVisuals = _scene.ShowDebugVisuals;
             settings.ShowDebugPickingRay = _scene.ShowDebugPickingRay;
             settings.ShowDebugIntersections = _scene.ShowDebugIntersections;
-            settings.BackgroundColor =  _scene.ClearColor;
+            settings.BackgroundColor = _scene.ClearColor;
             settings.AmbientColor = _scene.AmbientColor;
             settings.MaskColor = _scene.MaskColor;
             settings.SolidWireframeVerticesColor = _scene.SolidWireframeVerticesColor;
@@ -5037,14 +5036,14 @@ namespace PSXPrev.Forms
             var vertex2 = center + new Vector3(-size, -size, 0f);
             var vertex3 = center + new Vector3( size, -size, 0f);*/
             //triBuilder.AddQuad(vertex0, vertex1, vertex2, vertex3,
-            //    Common.Color.Red, Common.Color.Green, Common.Color.Blue, Common.Color.Yellow);
+            //    Color3.Red, Color3.Green, Color3.Blue, Color3.Yellow);
             triBuilder.AddSprite(center, new Vector2(size),
-                Common.Color.Red, Common.Color.Green, Common.Color.Blue, Common.Color.Yellow);
+                Color3.Red, Color3.Green, Color3.Blue, Color3.Yellow);
             var model0 = triBuilder.CreateModelEntity(Matrix4.CreateTranslation(center * -2));
             triBuilder.Clear();
             triBuilder.RenderFlags &= ~(RenderFlags.Sprite | RenderFlags.SpriteNoPitch);
-            triBuilder.AddOctaSphere(Vector3.Zero, size / 5, 4, true, Common.Color.Purple);
-            //triBuilder.AddSphere(Vector3.Zero, size / 5, 16, 8, true, Common.Color.Purple);
+            triBuilder.AddOctaSphere(Vector3.Zero, size / 5, 4, true, Color3.Purple);
+            //triBuilder.AddSphere(Vector3.Zero, size / 5, 16, 8, true, Color3.Purple);
             var model1 = triBuilder.CreateModelEntity();
             AddRootEntity(new RootEntity
             {

@@ -43,8 +43,8 @@ namespace PSXPrev.Common.Renderer
             RenderPass.Pass3SemiTransparent,
         };
 
-        private static readonly Color SkeletonJointColor = new Color(0.25f, 0.0f, 1.0f);
-        private static readonly Color SkeletonBoneColor  = new Color(0.0f, 0.5f, 1.0f);
+        private static readonly Color3 SkeletonJointColor = new Color3(0.25f, 0.0f, 1.0f);
+        private static readonly Color3 SkeletonBoneColor  = new Color3(0.0f, 0.5f, 1.0f);
         private const bool SkeletonBoneUseCylinder = false;
 
 
@@ -114,8 +114,8 @@ namespace PSXPrev.Common.Renderer
         //public bool CalculateNormals { get; set; } // Compute flat normals from triangles, even for unlit faces
         public Vector3? LightDirection { get; set; } // Overrides Scene's light direction
         public float? LightIntensity { get; set; } // Overrides Scene's light intensity
-        public Color AmbientColor { get; set; } // Overrides Scene's ambient color
-        public Color SolidColor { get; set; } // Overrides Mesh's vertex colors
+        public Color3? AmbientColor { get; set; } // Overrides Scene's ambient color
+        public Color3? SolidColor { get; set; } // Overrides Mesh's vertex colors
         public bool Visible { get; set; } = true;
 
         public MeshBatch(Scene scene, bool modelsMeshBatch = false, bool sortingEnabled = false, bool batchingEnabled = false)
@@ -400,7 +400,7 @@ namespace PSXPrev.Common.Renderer
         }
 
 
-        public void BindEntityBounds(EntityBase entity, Color color = null, float thickness = 1f, bool updateMeshData = true)
+        public void BindEntityBounds(EntityBase entity, Color3? color = null, float thickness = 1f, bool updateMeshData = true)
         {
             if (entity == null)
             {
@@ -409,7 +409,7 @@ namespace PSXPrev.Common.Renderer
             var lineBuilder = new LineMeshBuilder
             {
                 Thickness = thickness,
-                SolidColor = color ?? Color.White,
+                SolidColor = color ?? Color3.White,
             };
             if (updateMeshData)
             {
@@ -418,7 +418,7 @@ namespace PSXPrev.Common.Renderer
             BindLineMesh(lineBuilder, null, updateMeshData);
         }
 
-        public void BindTriangleOutline(ModelEntity model, Triangle triangle, Color color = null, float thickness = 2f, bool updateMeshData = true)
+        public void BindTriangleOutline(ModelEntity model, Triangle triangle, Color3? color = null, float thickness = 2f, bool updateMeshData = true)
         {
             if (model == null || triangle == null)
             {
@@ -427,7 +427,7 @@ namespace PSXPrev.Common.Renderer
             var lineBuilder = new LineMeshBuilder
             {
                 Thickness = thickness,
-                SolidColor = color ?? Color.White,
+                SolidColor = color ?? Color3.White,
             };
             var vertices = new Vector3[3];
             var normals  = new Vector3[3];
@@ -445,7 +445,7 @@ namespace PSXPrev.Common.Renderer
             // Draw normals for triangle
             lineBuilder.Clear();
             lineBuilder.Thickness = 6f;
-            lineBuilder.SolidColor = Color.Red;
+            lineBuilder.SolidColor = Color3.Red;
             if (updateMeshData)
             {
                 var maxLength = 0f;
@@ -900,7 +900,7 @@ namespace PSXPrev.Common.Renderer
             var elementCount = lines.Count * 2;
             var elementIndex = 0;
             var positionList  = ReuseArray(ref _positionList,  elementCount * 3); // Vector3
-            var colorList     = ReuseArray(ref _colorList,     elementCount * 3); // Vector3 (Colorf)
+            var colorList     = ReuseArray(ref _colorList,     elementCount * 3); // Vector3 (Color3)
             // Empty all-zero lists
             var normalList    = ReuseArray(ref _normalListEmpty,    elementCount * 3); // Vector3
             var uvList        = ReuseArray(ref _uvListEmpty,        elementCount * 2); // Vector2
@@ -924,7 +924,7 @@ namespace PSXPrev.Common.Renderer
                     colorList[index3d + 0] = color.R;
                     colorList[index3d + 1] = color.G;
                     colorList[index3d + 2] = color.B;
-                    //VertexArrayObject.AssignColor(colorList, elementIndex, color);
+                    //VertexArrayObject.AssignColor3(colorList, elementIndex, ref color);
 
                     // UVs are all 0f.
 
@@ -940,7 +940,7 @@ namespace PSXPrev.Common.Renderer
         {
             ReuseArray(ref _positionList,  elementCount * 3); // Vector3
             ReuseArray(ref _normalList,    elementCount * 3); // Vector3
-            ReuseArray(ref _colorList,     elementCount * 3); // Vector3 (Colorf)
+            ReuseArray(ref _colorList,     elementCount * 3); // Vector3 (Color3)
             ReuseArray(ref _uvList,        elementCount * 2); // Vector2
             ReuseArray(ref _tiledAreaList, elementCount * 4); // Vector4
             ReuseArray(ref _jointList,     elementCount * 2); // uint[2]
@@ -1040,7 +1040,7 @@ namespace PSXPrev.Common.Renderer
                     colorList[index3d + 0] = color.R;
                     colorList[index3d + 1] = color.G;
                     colorList[index3d + 2] = color.B;
-                    //VertexArrayObject.AssignColor(colorList, elementIndex, color);
+                    //VertexArrayObject.AssignColor3(colorList, elementIndex, ref color);
 
                     // If we're tiled, then the shader needs the base UV, not the converted UV.
                     var uv = triangle.TiledUv?.BaseUv[i] ?? triangle.Uv[i];
@@ -1350,7 +1350,7 @@ namespace PSXPrev.Common.Renderer
             if (SolidColor != null)
             {
                 _shader.UniformColorMode = 1; // Use solid color
-                _shader.UniformSolidColor = (Vector3)SolidColor;
+                _shader.UniformSolidColor = SolidColor.Value;
             }
 
             switch (renderPass)
@@ -1539,14 +1539,7 @@ namespace PSXPrev.Common.Renderer
 
             if (ambient)
             {
-                if (mesh.AmbientColor != null || AmbientColor != null)
-                {
-                    _shader.UniformAmbientColor = (Vector3)(mesh.AmbientColor ?? AmbientColor);
-                }
-                else
-                {
-                    _shader.UniformAmbientColor = _scene.AmbientColor.ToVector3();
-                }
+                _shader.UniformAmbientColor = mesh.AmbientColor ?? AmbientColor ?? (Color3)_scene.AmbientColor;
             }
             if (light)
             {
@@ -1564,7 +1557,7 @@ namespace PSXPrev.Common.Renderer
                 else
                 {
                     _shader.UniformColorMode = 1; // Use solid color
-                    _shader.UniformSolidColor = (Vector3)mesh.SolidColor;
+                    _shader.UniformSolidColor = mesh.SolidColor.Value;
                 }
             }
 

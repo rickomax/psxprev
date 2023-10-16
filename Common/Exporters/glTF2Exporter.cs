@@ -1093,7 +1093,7 @@ namespace PSXPrev.Common.Exporters
             {
                 for (var j = 2; j >= 0; j--)
                 {
-                    WriteBinaryColor(triangle.Colors[j]);
+                    WriteBinaryColor3(triangle.Colors[j]);
                 }
             }
             WriteEndBufferView(ref offset);
@@ -1187,7 +1187,7 @@ namespace PSXPrev.Common.Exporters
             return new float[] { quaternion.X, quaternion.Y, quaternion.Z, quaternion.W };
         }
 
-        private void WriteBinaryColor(Color color)
+        private void WriteBinaryColor3(Color3 color)
         {
             _binaryWriter.Write(color.R);
             _binaryWriter.Write(color.G);

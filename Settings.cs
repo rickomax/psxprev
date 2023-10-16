@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Windows.Forms;
@@ -180,23 +181,23 @@ namespace PSXPrev
 
         [JsonProperty("backgroundColor"), JsonConverter(typeof(JsonStringColorConverter))]
         [Browsable(false)]
-        public System.Drawing.Color BackgroundColor { get; set; } = System.Drawing.Color.LightSkyBlue;
+        public Color BackgroundColor { get; set; } = Color.LightSkyBlue;
 
         [JsonProperty("ambientColor"), JsonConverter(typeof(JsonStringColorConverter))]
         [Browsable(false)]
-        public System.Drawing.Color AmbientColor { get; set; } = System.Drawing.Color.LightGray;
+        public Color AmbientColor { get; set; } = Color.LightGray;
 
         [JsonProperty("maskColor"), JsonConverter(typeof(JsonStringColorConverter))]
         [Browsable(false)]
-        public System.Drawing.Color MaskColor { get; set; } = System.Drawing.Color.Black;
+        public Color MaskColor { get; set; } = Color.Black;
 
         [JsonProperty("solidWireframeAndVerticesColor"), JsonConverter(typeof(JsonStringColorConverter))]
         [Browsable(false)]
-        public System.Drawing.Color SolidWireframeVerticesColor { get; set; } = System.Drawing.Color.Gray;
+        public Color SolidWireframeVerticesColor { get; set; } = Color.Gray;
 
         [JsonProperty("colorDialogCustomColors", ItemConverterType = typeof(JsonStringColorConverter))]
         [Browsable(false)]
-        private System.Drawing.Color[] ColorDialogCustomColors { get; set; } = new System.Drawing.Color[0];
+        private Color[] ColorDialogCustomColors { get; set; } = new Color[0];
 
         [JsonProperty("currentCLUTIndex"), Browsable(false)]
         public int CurrentCLUTIndex { get; set; } = 0;
@@ -432,9 +433,9 @@ namespace PSXPrev
 
 
         // Assigns default color to the final index (15) if specified.
-        public int[] GetColorDialogCustomColors(System.Drawing.Color? defaultColor = null)
+        public int[] GetColorDialogCustomColors(Color? defaultColor = null)
         {
-            int ToBgr(System.Drawing.Color col)
+            int ToBgr(Color col)
             {
                 return (int)((uint)col.R | ((uint)col.G << 8) | ((uint)col.B << 16));
             }
@@ -442,7 +443,7 @@ namespace PSXPrev
             var customBgrColors = new int[16];
             for (var i = 0; i < customBgrColors.Length; i++)
             {
-                customBgrColors[i] = ToBgr(System.Drawing.Color.White);
+                customBgrColors[i] = ToBgr(Color.White);
             }
             if (ColorDialogCustomColors != null)
             {
@@ -462,32 +463,31 @@ namespace PSXPrev
         // Only includes up to 15 colors, index 15 is reserved for default colors, and is ignored.
         public void SetColorDialogCustomColors(int[] customBgrColors)
         {
-            System.Drawing.Color FromBgr(int bgr)
+            Color FromBgr(int bgr)
             {
-                return System.Drawing.Color.FromArgb(bgr & 0xff, (bgr >> 8) & 0xff, (bgr >> 16) & 0xff);
+                return Color.FromArgb(bgr & 0xff, (bgr >> 8) & 0xff, (bgr >> 16) & 0xff);
             }
 
             if (customBgrColors == null)
             {
-                ColorDialogCustomColors = new System.Drawing.Color[0];
+                ColorDialogCustomColors = new Color[0];
             }
             else
             {
                 // Don't fill the settings array with empty white colors.
                 // Use as many custom colors as there are until all remaining colors are white.
-                var white = System.Drawing.Color.White;
                 var customCount = Math.Min(15, customBgrColors.Length);
                 for (; customCount > 0; customCount--)
                 {
-                    // NEVER use System.Drawing.Color equality, because it also checks
+                    // NEVER use Color equality, because it also checks
                     // stupid things like name, and we also ignore the alpha value.
                     var color = FromBgr(customBgrColors[customCount - 1]);
-                    if (color.R != white.R || color.G != white.G || color.B != white.B)
+                    if (!color.EqualsRgb(Color.White))//.R != white.R || color.G != white.G || color.B != white.B)
                     {
                         break;
                     }
                 }
-                ColorDialogCustomColors = new System.Drawing.Color[customCount];
+                ColorDialogCustomColors = new Color[customCount];
                 for (var i = 0; i < customCount; i++)
                 {
                     ColorDialogCustomColors[i] = FromBgr(customBgrColors[i]);
@@ -570,7 +570,7 @@ namespace PSXPrev
 
             if (ColorDialogCustomColors == null)
             {
-                ColorDialogCustomColors = new System.Drawing.Color[0];
+                ColorDialogCustomColors = new Color[0];
             }
 
             if (ScanOptions == null)
@@ -632,7 +632,7 @@ namespace PSXPrev
         public Settings Clone()
         {
             var settings = (Settings)MemberwiseClone();
-            settings.ColorDialogCustomColors = (System.Drawing.Color[])settings.ColorDialogCustomColors?.Clone() ?? new System.Drawing.Color[0];
+            settings.ColorDialogCustomColors = (Color[])settings.ColorDialogCustomColors?.Clone() ?? new Color[0];
             settings.ScanOptions = settings.ScanOptions?.Clone() ?? new ScanOptions();
             settings.ExportModelOptions = settings.ExportModelOptions?.Clone() ?? new ExportModelOptions();
             // We don't need to clone these ScanOptions since we treat them as immutable
@@ -732,7 +732,7 @@ namespace PSXPrev
         {
             if (Instance?.ColorDialogCustomColors != null && customColors)
             {
-                newInstance.ColorDialogCustomColors = (System.Drawing.Color[])Instance.ColorDialogCustomColors.Clone();
+                newInstance.ColorDialogCustomColors = (Color[])Instance.ColorDialogCustomColors.Clone();
             }
 
             if (Instance?.ScanOptions != null)
@@ -804,7 +804,7 @@ namespace PSXPrev
             return float.IsNaN(value) || float.IsInfinity(value) ? @default : GeomMath.PositiveModulus(value, 360f);
         }
 
-        private static System.Drawing.Color ValidateColor(System.Drawing.Color value, System.Drawing.Color @default)
+        private static Color ValidateColor(Color value, Color @default)
         {
             return value.A != 255 ? @default : value;
         }

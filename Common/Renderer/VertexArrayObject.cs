@@ -98,7 +98,7 @@ namespace PSXPrev.Common.Renderer
         {
             BufferData(_positionBufferId,  positionList,  elementFirst, elementCount, 3); // Vector3
             BufferData(_normalBufferId,    normalList,    elementFirst, elementCount, 3); // Vector3
-            BufferData(_colorBufferId,     colorList,     elementFirst, elementCount, 3); // Vector3 (Color)
+            BufferData(_colorBufferId,     colorList,     elementFirst, elementCount, 3); // Vector3 (Color3)
             BufferData(_uvBufferId,        uvList,        elementFirst, elementCount, 2); // Vector2
             BufferData(_tiledAreaBufferId, tiledAreaList, elementFirst, elementCount, 4); // Vector4
             BufferData(_jointBufferId,     jointList,     elementFirst, elementCount, 2); // uint[2]
@@ -187,7 +187,7 @@ namespace PSXPrev.Common.Renderer
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static void AssignColor(float[] data, int elementIndex, Color color)
+        public static void AssignColor3(float[] data, int elementIndex, ref Color3 color)
         {
             var index = elementIndex * 3;
             data[index++] = color.R;

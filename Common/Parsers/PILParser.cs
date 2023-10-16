@@ -1123,13 +1123,13 @@ namespace PSXPrev.Common.Parsers
                 normalJoint0 = normalJoint1 = normalJoint2 = normalJoint3 = Triangle.NoJoint;
             }
 
-            Color color1, color2, color3;
-            var color0 = new Color(r0 / 255f, g0 / 255f, b0 / 255f);
+            Color3 color1, color2, color3;
+            var color0 = new Color3(r0, g0, b0);
             if (gouraud)
             {
-                color1 = new Color(r1 / 255f, g1 / 255f, b1 / 255f);
-                color2 = new Color(r2 / 255f, g2 / 255f, b2 / 255f);
-                color3 = quad ? new Color(r3 / 255f, g3 / 255f, b3 / 255f) : color0;
+                color1 = new Color3(r1, g1, b1);
+                color2 = new Color3(r2, g2, b2);
+                color3 = quad ? new Color3(r3, g3, b3) : color0;
             }
             else
             {
@@ -1304,7 +1304,7 @@ namespace PSXPrev.Common.Parsers
             var vertex2 = center + new Vector3(-width / 2f, -height / 2f, 0f);
             var vertex3 = center + new Vector3( width / 2f, -height / 2f, 0f);
 
-            var color = new Color(r / 255f, g / 255f, b / 255f);
+            var color = new Color3(r, g, b);
 
             var uv0 = GeomMath.ConvertUV(u0, v0) * UVConst;
             var uv1 = GeomMath.ConvertUV(u1, v1) * UVConst;

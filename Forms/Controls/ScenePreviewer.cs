@@ -9,7 +9,6 @@ using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using PSXPrev.Common;
 using PSXPrev.Common.Renderer;
-using Color = System.Drawing.Color;
 using PixelFormat = OpenTK.Graphics.OpenGL.PixelFormat;
 using GdiPixelFormat = System.Drawing.Imaging.PixelFormat;
 

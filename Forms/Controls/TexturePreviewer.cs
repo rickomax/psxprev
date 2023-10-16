@@ -5,11 +5,10 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Windows.Forms;
-using System.Windows.Forms.Layout;
 using OpenTK;
 using PSXPrev.Common;
 using PSXPrev.Common.Renderer;
-using Color = System.Drawing.Color;
+using PSXPrev.Common.Utils;
 
 namespace PSXPrev.Forms.Controls
 {
@@ -708,7 +707,8 @@ namespace PSXPrev.Forms.Controls
                         var solidColor = TexturePalette.ToColor(origPalette[index], noTransparent: true);
                         var xx = x * cellSize;
                         var yy = y * cellSize;
-                        if (brush == null || brush.Color != solidColor)
+                        // NEVER use Color equality, because it also checks stupid things like name.
+                        if (brush == null || !brush.Color.EqualsRgb(solidColor))//.ToArgb() != solidColor.ToArgb())
                         {
                             brush?.Dispose();
                             brush = null; // Avoid disposing of the same resource again when an exception occurs
@@ -922,7 +922,8 @@ namespace PSXPrev.Forms.Controls
             var penColor = Color.FromArgb((backColor.R + 128) % 256,
                                           (backColor.G + 128) % 256,
                                           (backColor.B + 128) % 256);
-            if (pen == null || pen.Color != penColor)
+            // NEVER use Color equality, because it also checks stupid things like name.
+            if (pen == null || !pen.Color.EqualsRgb(penColor))//.ToArgb() != penColor.ToArgb())
             {
                 pen?.Dispose();
                 pen = null; // Avoid disposing of the same resource again when an exception occurs

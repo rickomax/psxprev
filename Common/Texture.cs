@@ -10,8 +10,8 @@ namespace PSXPrev.Common
 {
     public class Texture : IDisposable
     {
-        public static readonly System.Drawing.Color NoSemiTransparentFlag = System.Drawing.Color.FromArgb(0, 0, 0, 0);
-        public static readonly System.Drawing.Color SemiTransparentFlag = System.Drawing.Color.FromArgb(255, 255, 255, 255);
+        public static readonly Color NoSemiTransparentFlag = Color.FromArgb(0, 0, 0, 0);
+        public static readonly Color SemiTransparentFlag = Color.FromArgb(255, 255, 255, 255);
 
         public static readonly SolidBrush NoSemiTransparentBrush = new SolidBrush(NoSemiTransparentFlag);
         public static readonly SolidBrush SemiTransparentBrush   = new SolidBrush(SemiTransparentFlag);
@@ -356,7 +356,7 @@ namespace PSXPrev.Common
             return IntPtr.Zero;
         }
 
-        public unsafe System.Drawing.Color GetPixel(int x, int y, out bool stp, out bool transparent, out int? paletteIndex)
+        public unsafe Color GetPixel(int x, int y, out bool stp, out bool transparent, out int? paletteIndex)
         {
             if (x < 0 || x >= Width)
             {
@@ -430,13 +430,13 @@ namespace PSXPrev.Common
                         }
                         transparent = a == 0 || (!stp && r == 0 && g == 0 && b == 0);
                         paletteIndex = null;
-                        return System.Drawing.Color.FromArgb(a, r, g, b);
+                        return Color.FromArgb(a, r, g, b);
 
                     default:
                         stp = false;
                         transparent = false;
                         paletteIndex = null;
-                        return default(System.Drawing.Color);// System.Drawing.Color.Black;
+                        return default(Color);// Color.Black;
                 }
             }
             finally
@@ -449,15 +449,15 @@ namespace PSXPrev.Common
         }
 
 
-        public static System.Drawing.Imaging.PixelFormat GetPixelFormat(int bpp)
+        public static PixelFormat GetPixelFormat(int bpp)
         {
             switch (bpp)
             {
-                case 4: return System.Drawing.Imaging.PixelFormat.Format4bppIndexed;
-                case 8: return System.Drawing.Imaging.PixelFormat.Format8bppIndexed;
+                case 4: return PixelFormat.Format4bppIndexed;
+                case 8: return PixelFormat.Format8bppIndexed;
                 case 16:
                 case 24:
-                case 32: return System.Drawing.Imaging.PixelFormat.Format32bppArgb;
+                case 32: return PixelFormat.Format32bppArgb;
                 default: return 0;
             }
         }

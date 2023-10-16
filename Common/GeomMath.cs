@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Drawing;
 using System.Text;
 using OpenTK;
 using OpenTK.Graphics;
@@ -35,27 +36,27 @@ namespace PSXPrev.Common
         //    return (float)Math.Sqrt((x * x) + (y * y) + (z * z));
         //}
 
-        public static Vector3 ToVector3(this System.Drawing.Color color)
+        public static Vector3 ToVector3(this Color color)
         {
             return new Vector3(color.R / 255f, color.G / 255f, color.B / 255f);
         }
 
-        public static Vector4 ToVector4(this System.Drawing.Color color)
+        public static Vector4 ToVector4(this Color color)
         {
             return new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
         }
 
-        public static Vector4 ToVector4WithAlpha(this System.Drawing.Color color, float alpha)
+        public static Vector4 ToVector4WithAlpha(this Color color, float alpha)
         {
             return new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, alpha);
         }
 
-        public static Color4 ToColor4(this System.Drawing.Color color)
+        public static Color4 ToColor4(this Color color)
         {
             return new Color4(color.R, color.G, color.B, color.A);
         }
 
-        public static Color4 ToColor4WithAlpha(this System.Drawing.Color color, float alpha)
+        public static Color4 ToColor4WithAlpha(this Color color, float alpha)
         {
             return new Color4(color.R, color.G, color.B, (byte)(alpha * 255));
         }
@@ -132,13 +133,14 @@ namespace PSXPrev.Common
 
         public static string WriteVector3(Vector3? v)
         {
-            var stringBuilder = new StringBuilder();
             if (v != null)
             {
-                var vr = (Vector3)v;
+                var vr = v.Value;
+                var stringBuilder = new StringBuilder();
                 stringBuilder.AppendFormat(CompleteFloatFormat, vr.X).Append(", ").AppendFormat(CompleteFloatFormat, vr.Y).Append(", ").AppendFormat(CompleteFloatFormat, vr.Z);
+                return stringBuilder.ToString();
             }
-            return stringBuilder.ToString();
+            return string.Empty;
         }
 
         public static object WriteIntArray(int[] intArray)

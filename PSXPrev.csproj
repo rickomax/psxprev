@@ -137,7 +137,7 @@
     <Compile Include="Common\Utils\StringUtils.cs" />
     <Compile Include="Common\Utils\WeakReferenceCollection.cs" />
     <Compile Include="Common\BoundingBox.cs" />
-    <Compile Include="Common\Color.cs" />
+    <Compile Include="Common\Color3.cs" />
     <Compile Include="Common\Coordinate.cs" />
     <Compile Include="Common\EntityBase.cs" />
     <Compile Include="Common\GeomMath.cs" />

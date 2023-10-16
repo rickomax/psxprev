@@ -11,7 +11,6 @@ namespace PSXPrev.Common.Animator
         // How close to be near the end of a looping animation while staying at the end (and not being modulused).
         private const double EPSILON = 0.0001d;
 
-        private readonly Scene _scene;
         private Animation _animation;
         private WeakReference<RootEntity> _lastRootEntity; // Optimize: Use weak reference because we only need to check reference equals.
         private double _time;
