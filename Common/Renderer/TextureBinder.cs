@@ -78,9 +78,9 @@ namespace PSXPrev.Common.Renderer
             return _textureIds[textureIndex];
         }
 
-        public void UpdateTexture(Bitmap bitmap, int index) => UpdateTexture(bitmap, (uint)index);
+        public void UpdateTexture(Texture vramTexture, int index) => UpdateTexture(vramTexture, (uint)index);
 
-        public void UpdateTexture(Bitmap bitmap, uint index)
+        public void UpdateTexture(Texture vramTexture, uint index)
         {
             var textureId = GetTextureID(index);
             if (textureId == 0)
@@ -103,9 +103,6 @@ namespace PSXPrev.Common.Renderer
                 var defData = _defaultBitmap.LockBits(defRect, ImageLockMode.ReadOnly, GdiPixelFormat.Format32bppArgb);
                 try
                 {
-                    // Make sure to restore PixelStore settings here, since we change them below
-                    GL.PixelStore(PixelStoreParameter.UnpackSkipPixels, 0);
-                    GL.PixelStore(PixelStoreParameter.UnpackRowLength, defData.Width);
                     GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, defData.Width, defData.Height, 0, PixelFormat.Bgra, PixelType.UnsignedByte, defData.Scan0);
                 }
                 finally
@@ -124,25 +121,26 @@ namespace PSXPrev.Common.Renderer
             var x = GetColumnX(index);
             var y = GetRowY(index);
             var stpX = SemiTransparencyX + x;
-            var rect = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
+            var bitmap = vramTexture.Bitmap;
+            var semiTransparentMap = vramTexture.SemiTransparentMap;
+            var rect = new Rectangle(0, 0, VRAM.PageSize, VRAM.PageSize);
             var bmpData = bitmap.LockBits(rect, ImageLockMode.ReadOnly, GdiPixelFormat.Format32bppArgb);
             try
             {
-                // Setting this is necessary so that we skip pixels from the semi-transparency/color
-                // sections when writing the opposite section.
-                GL.PixelStore(PixelStoreParameter.UnpackRowLength, bitmap.Width);
-
-                // Write color column page and skip semi-transparency column pixels
-                GL.PixelStore(PixelStoreParameter.UnpackSkipPixels, 0);
                 GL.TexSubImage2D(TextureTarget.Texture2D, 0, x, y, VRAM.PageSize, VRAM.PageSize, PixelFormat.Bgra, PixelType.UnsignedByte, bmpData.Scan0);
-
-                // Write semi-transparency column page and skip color column pixels
-                GL.PixelStore(PixelStoreParameter.UnpackSkipPixels, VRAM.PageSemiTransparencyX);
-                GL.TexSubImage2D(TextureTarget.Texture2D, 0, stpX, y, VRAM.PageSize, VRAM.PageSize, PixelFormat.Bgra, PixelType.UnsignedByte, bmpData.Scan0);
             }
             finally
             {
                 bitmap.UnlockBits(bmpData);
+            }
+            var stpData = semiTransparentMap.LockBits(rect, ImageLockMode.ReadOnly, GdiPixelFormat.Format32bppArgb);
+            try
+            {
+                GL.TexSubImage2D(TextureTarget.Texture2D, 0, stpX, y, VRAM.PageSize, VRAM.PageSize, PixelFormat.Bgra, PixelType.UnsignedByte, stpData.Scan0);
+            }
+            finally
+            {
+                semiTransparentMap.UnlockBits(stpData);
             }
         }
 

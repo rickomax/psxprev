@@ -14,18 +14,7 @@ namespace PSXPrev.Common.Exporters
 
         public void Export(Texture texture, string name, string selectedPath)
         {
-            if (texture.IsVRAMPage)
-            {
-                // Remove the semi-transparency section from the exported bitmap.
-                using (var bitmap = VRAM.ConvertTexture(texture, false))
-                {
-                    ExportBitmap(bitmap, name, selectedPath);
-                }
-            }
-            else
-            {
-                ExportBitmap(texture.Bitmap, name, selectedPath);
-            }
+            ExportBitmap(texture.Bitmap, name, selectedPath);
         }
 
         public void ExportEmpty(Color color, int textureId, string selectedPath, int width = 1, int height = 1)

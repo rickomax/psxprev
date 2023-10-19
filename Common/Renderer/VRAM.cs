@@ -13,13 +13,14 @@ namespace PSXPrev.Common.Renderer
         public const int PageSize = 256;
         public const int PackAlign = 8;
         public const int PackBlocks = PageSize / PackAlign;
-        public const int PageSemiTransparencyX = PageSize;
 
         public static readonly Color BackgroundColor = Color.White;
 
 
         private readonly Scene _scene;
         private readonly Texture[] _vramPages = new Texture[PageCount];
+        private readonly Graphics[] _pageGraphics = new Graphics[PageCount];
+        private readonly Graphics[] _stpPageGraphics = new Graphics[PageCount];
         // Pages that require a scene update.
         private readonly bool[] _modifiedPages = new bool[PageCount];
         // Pages that have textures drawn to them (not reset unless cleared).
@@ -58,6 +59,7 @@ namespace PSXPrev.Common.Renderer
             {
                 for (var i = 0; i < PageCount; i++)
                 {
+                    DisposePageGraphics(i);
                     _vramPages[i]?.Dispose();
                     _vramPages[i] = null;
                     _modifiedPages[i] = false;
@@ -70,22 +72,21 @@ namespace PSXPrev.Common.Renderer
 
         public void Initialize(bool suppressUpdate = false)
         {
-            if (IsInitialized)
+            if (!IsInitialized)
             {
-                return;
-            }
-            for (var i = 0; i < PageCount; i++)
-            {
-                if (_vramPages[i] == null)
+                for (var i = 0; i < PageCount; i++)
                 {
-                    // X coordinates [0,256) store texture data.
-                    // X coordinates [256,512) store semi-transparency information for textures.
-                    _vramPages[i] = new Texture(PageSize * 2, PageSize, 0, 0, 32, i, 0, null, null, true); // Is VRAM page
-                    _vramPages[i].Name = $"VRAM[{i}]";
-                    ClearPage(i, suppressUpdate);
+                    if (_vramPages[i] == null)
+                    {
+                        // Semi-transparency information stored just like regular textures.
+                        _vramPages[i] = new Texture(PageSize, PageSize, 0, 0, 32, i, 0, null, true, true); // Is VRAM page
+                        _vramPages[i].SetupSemiTransparentMap();
+                        _vramPages[i].Name = $"VRAM[{i}]";
+                        ClearPage(i, suppressUpdate);
+                    }
                 }
+                IsInitialized = true;
             }
-            IsInitialized = true;
         }
 
         public void AssignModelTextures(RootEntity rootEntity)
@@ -151,10 +152,11 @@ namespace PSXPrev.Common.Renderer
 
         public bool UpdatePage(int index, bool force = false)
         {
+            DisposePageGraphics(index);
             if (force || _modifiedPages[index])
             {
                 // Support using VRAM even if we have no Scene.
-                _scene?.TextureBinder.UpdateTexture(_vramPages[index].Bitmap, index);
+                _scene?.TextureBinder.UpdateTexture(_vramPages[index], index);
                 _modifiedPages[index] = false;
                 return true;
             }
@@ -172,22 +174,18 @@ namespace PSXPrev.Common.Renderer
         }
 
         // Clear page textures to background color.
+        // UpdatePage or UpdateAllPages MUST be called afterwards when using suppressUpdate.
         public void ClearPage(uint index, bool suppressUpdate = false) => ClearPage((int)index, suppressUpdate);
 
         public void ClearPage(int index, bool suppressUpdate = false)
         {
-            using (var graphics = Graphics.FromImage(_vramPages[index].Bitmap))
-            {
-                // Use SourceCopy to overwrite image alpha with alpha stored in NoSemiTransparentFlag.
-                graphics.CompositingMode = CompositingMode.SourceCopy;
-                graphics.SmoothingMode = SmoothingMode.None;
+            GetPageGraphics(index, out var graphics, out var stpGraphics);
 
-                // Clear texture data to background color.
-                graphics.Clear(BackgroundColor);
+            // Clear texture data to background color.
+            graphics.Clear(BackgroundColor);
 
-                // Clear semi-transparent information to its default.
-                graphics.FillRectangle(Texture.NoSemiTransparentBrush, PageSemiTransparencyX, 0, PageSize, PageSize);
-            }
+            // Clear semi-transparent information to its default.
+            stpGraphics.Clear(Texture.NoSemiTransparentFlag);
 
             for (var px = 0; px < PackBlocks; px++)
             {
@@ -209,6 +207,7 @@ namespace PSXPrev.Common.Renderer
             }
         }
 
+        // UpdateAllPages MUST be called afterwards when using suppressUpdate.
         public void ClearAllPages(bool suppressUpdate = false)
         {
             for (var i = 0; i < PageCount; i++)
@@ -218,10 +217,13 @@ namespace PSXPrev.Common.Renderer
         }
 
         // Draw texture onto page.
+        // UpdatePage or UpdateAllPages MUST be called afterwards when using suppressUpdate.
         public void DrawTexture(Texture texture, bool suppressUpdate = false)
         {
             var index = ClampTexturePage(texture.TexturePage);
-            DrawTexture(_vramPages[index], texture);
+            GetPageGraphics(index, out var graphics, out var stpGraphics);
+
+            DrawTexture(graphics, stpGraphics, texture);
 
             GetTexturePackBounds(texture, out var startX, out var startY, out var endX, out var endY);
             for (var px = startX; px <= endX; px++)
@@ -311,6 +313,44 @@ namespace PSXPrev.Common.Renderer
             return false;
         }
 
+        private void GetPageGraphics(int index, out Graphics graphics, out Graphics stpGraphics)
+        {
+            graphics = _pageGraphics[index];
+            if (graphics == null)
+            {
+                _pageGraphics[index] = graphics = Graphics.FromImage(_vramPages[index].Bitmap);
+
+                // Use SourceCopy to overwrite image alpha with alpha stored in textures.
+                graphics.CompositingMode = CompositingMode.SourceCopy;
+                graphics.SmoothingMode = SmoothingMode.None;
+            }
+            stpGraphics = _stpPageGraphics[index];
+            if (stpGraphics == null)
+            {
+                _stpPageGraphics[index] = stpGraphics = Graphics.FromImage(_vramPages[index].SemiTransparentMap);
+
+                // Use SourceCopy to overwrite image alpha with alpha stored in textures.
+                stpGraphics.CompositingMode = CompositingMode.SourceCopy;
+                stpGraphics.SmoothingMode = SmoothingMode.None;
+            }
+        }
+
+        private void DisposePageGraphics(int index)
+        {
+            var graphics = _pageGraphics[index];
+            if (graphics != null)
+            {
+                graphics.Dispose();
+                _pageGraphics[index] = null;
+            }
+            var stpGraphics = _stpPageGraphics[index];
+            if (stpGraphics != null)
+            {
+                stpGraphics.Dispose();
+                _stpPageGraphics[index] = null;
+            }
+        }
+
         private static void GetTexturePackBounds(Texture texture, out int startX, out int startY, out int endX, out int endY)
         {
             startX = Math.Max(0, texture.X / PackAlign);
@@ -322,67 +362,42 @@ namespace PSXPrev.Common.Renderer
 
         public static void DrawTexture(Texture vramTexture, Texture texture)
         {
-            var x = texture.X;
-            var y = texture.Y;
-            var width  = texture.Width;
-            var height = texture.Height;
             using (var graphics = Graphics.FromImage(vramTexture.Bitmap))
+            using (var stpGraphics = Graphics.FromImage(vramTexture.SemiTransparentMap))
             {
                 // Use SourceCopy to overwrite image alpha with alpha stored in textures.
                 graphics.CompositingMode = CompositingMode.SourceCopy;
                 graphics.SmoothingMode = SmoothingMode.None;
 
-                // Draw the actual texture to VRAM.
-                // Clip drawing region so we don't draw over semi-transparent information.
-                graphics.SetClip(new Rectangle(0, 0, PageSize, PageSize));
-                graphics.DrawImage(texture.Bitmap, x, y);
-
-                // Draw semi-transparent information to VRAM in X coordinates [256,512).
-                graphics.SetClip(new Rectangle(PageSemiTransparencyX, 0, PageSize, PageSize));
-                if (texture.SemiTransparentMap != null)
-                {
-                    graphics.DrawImage(texture.SemiTransparentMap, PageSemiTransparencyX + x, y);
-                }
-                else
-                {
-                    graphics.FillRectangle(Texture.NoSemiTransparentBrush, PageSemiTransparencyX + x, y, width, height);
-                }
-                graphics.ResetClip();
+                DrawTexture(graphics, stpGraphics, texture);
             }
         }
 
-        // Returns a bitmap of the VRAM texture page without the semi-transparency section.
-        // Must dispose of Bitmap after use.
-        public static Bitmap ConvertTexture(Texture vramTexture, bool semiTransparency)
+
+        public static void DrawTexture(Graphics graphics, Graphics stpGraphics, Texture texture)
         {
-            var stpX = semiTransparency ? PageSemiTransparencyX : 0;
-            var srcRect = new Rectangle(stpX, 0, PageSize, PageSize);
+            var x = texture.X;
+            var y = texture.Y;
+            var width  = texture.Width;
+            var height = texture.Height;
 
-            //return vramTexture.Bitmap.CreateCroppedImage(srcRect);
-            var bitmap = new Bitmap(PageSize, PageSize);
-            try
+            // Draw the actual texture to VRAM.
+            graphics.DrawImage(texture.Bitmap, x, y);
+
+            // Draw semi-transparent information to VRAM.
+            if (texture.SemiTransparentMap != null)
             {
-                using (var graphics = Graphics.FromImage(bitmap))
-                {
-                    // Use SourceCopy to overwrite image alpha with alpha stored in textures.
-                    graphics.CompositingMode = CompositingMode.SourceCopy;
-
-                    graphics.DrawImage(vramTexture.Bitmap, 0, 0, srcRect, GraphicsUnit.Pixel);
-                }
-                return bitmap;
+                stpGraphics.DrawImage(texture.SemiTransparentMap, x, y);
             }
-            catch
+            else
             {
-                bitmap?.Dispose();
-                throw;
+                stpGraphics.FillRectangle(Texture.NoSemiTransparentBrush, x, y, width, height);
             }
         }
 
-        public static Bitmap ConvertTiledTexture(Texture texture, Rectangle srcRect, int repeatX, int repeatY, int? fullWidth, int? fullHeight, bool semiTransparency)
+        public static Bitmap ConvertTiledTexture(Texture vramTexture, Rectangle srcRect, int repeatX, int repeatY, int? fullWidth, int? fullHeight, bool semiTransparency)
         {
-            var stpX = semiTransparency ? PageSemiTransparencyX : 0;
-            srcRect.X += stpX;
-            var textureBitmap = semiTransparency ? texture.SemiTransparentMap : texture.Bitmap;
+            var textureBitmap = semiTransparency ? vramTexture.SemiTransparentMap : vramTexture.Bitmap;
 
             if (!fullWidth.HasValue)
             {
@@ -484,27 +499,18 @@ namespace PSXPrev.Common.Renderer
                         foreach (var texture in cell)
                         {
                             graphics.SetClip(new Rectangle(x, y, PageSize, PageSize));
-                            if (texture.IsVRAMPage)
+                            var textureBitmap = semiTransparency ? texture.SemiTransparentMap : texture.Bitmap;
+                            // Texture may not have semi-transparent map
+                            if (textureBitmap != null)
                             {
-                                var stpX = semiTransparency ? PageSemiTransparencyX : 0;
-                                var srcRect = new Rectangle(stpX, 0, PageSize, PageSize);
-                                graphics.DrawImage(texture.Bitmap, x, y, srcRect, GraphicsUnit.Pixel);
+                                graphics.DrawImage(textureBitmap, x + texture.X, y + texture.Y);
+                                // Packed boundary debugging:
+                                //graphics.DrawRectangle(Pens.Red, new Rectangle(x + texture.X, y + texture.Y, texture.Width, texture.Height));
                             }
-                            else
+                            else if (semiTransparency)
                             {
-                                var textureBitmap = semiTransparency ? texture.SemiTransparentMap : texture.Bitmap;
-                                // Texture may not have semi-transparent map
-                                if (textureBitmap != null)
-                                {
-                                    graphics.DrawImage(textureBitmap, x + texture.X, y + texture.Y);
-                                    // Packed boundary debugging:
-                                    //graphics.DrawRectangle(Pens.Red, new Rectangle(x + texture.X, y + texture.Y, texture.Width, texture.Height));
-                                }
-                                else if (semiTransparency)
-                                {
-                                    // Already assigned by Clear(Texture.NoSemiTransparentFlag)
-                                    //graphics.FillRectangle(Texture.NoSemiTransparentBrush, x + texture.X, y + texture.Y, texture.Width, texture.Height);
-                                }
+                                // Already assigned by Clear(Texture.NoSemiTransparentFlag)
+                                //graphics.FillRectangle(Texture.NoSemiTransparentBrush, x + texture.X, y + texture.Y, texture.Width, texture.Height);
                             }
                         }
                     }

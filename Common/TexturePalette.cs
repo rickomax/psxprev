@@ -19,9 +19,22 @@ namespace PSXPrev.Common
             return (a << 24) | (r << 16) | (g << 8) | b;
         }
 
+        public static ushort FromArgb(int argb, bool stp = false)
+        {
+            var r = (byte)(argb >> 16);
+            var g = (byte)(argb >>  8);
+            var b = (byte)(argb      );
+            return FromComponents(r, g, b, stp);
+        }
+
         public static Color ToColor(ushort color, bool noTransparent = false)
         {
             return Color.FromArgb(ToArgb(color, noTransparent));
+        }
+
+        public static ushort FromColor(Color color, bool stp = false)
+        {
+            return FromComponents(color.R, color.G, color.B, stp);
         }
 
 

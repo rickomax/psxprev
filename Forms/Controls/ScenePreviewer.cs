@@ -170,10 +170,6 @@ namespace PSXPrev.Forms.Controls
                 var bmpData = bitmap.LockBits(rect, ImageLockMode.WriteOnly, bitmap.PixelFormat);
                 try
                 {
-                    // These values are modified by TextureBinder, so change them back to default.
-                    // (Maybe TextureBinder should restore these when done...)
-                    GL.PixelStore(PixelStoreParameter.UnpackRowLength, 0);
-                    GL.PixelStore(PixelStoreParameter.UnpackSkipPixels, 0);
                     GL.ReadPixels(0, 0, bmpData.Width, bmpData.Height, PixelFormat.Bgra, PixelType.UnsignedByte, bmpData.Scan0);
                 }
                 finally

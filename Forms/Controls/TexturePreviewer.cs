@@ -9,6 +9,7 @@ using OpenTK;
 using PSXPrev.Common;
 using PSXPrev.Common.Renderer;
 using PSXPrev.Common.Utils;
+using PSXPrev.Forms.Utils;
 
 namespace PSXPrev.Forms.Controls
 {
@@ -22,6 +23,9 @@ namespace PSXPrev.Forms.Controls
 
         private const int DefaultDropShadowThickness = 3;
 
+        // Extra pixels to extend picture box by to include far bottom-right UV outlines
+        private const int UVExtraEdge = 2;
+
 
         // Pens used for drawing UVs
         private readonly Pen _penBlack3Px = new Pen(Color.Black, 3f);
@@ -29,6 +33,8 @@ namespace PSXPrev.Forms.Controls
         private readonly Pen _penCyan1Px  = new Pen(Color.Cyan,  1f);
 
         private Pen[] _dropShadowPens = new Pen[DefaultDropShadowThickness];
+        private SolidBrush _reusableBrush;
+        private Pen _reusablePen;
 
         // States for preserving previously-drawn semi-transparency lines to reduce lag
         private readonly Bitmap[] _stpDoubleBufferBitmaps = new Bitmap[2];
@@ -37,6 +43,14 @@ namespace PSXPrev.Forms.Controls
         // Size represents how many pixels are currently-rendered in the bitmap (we can't use bitmap dimensions).
         private Rectangle _stpRectangle;
         private bool _stpInvalidated = true;
+
+        // States for preserving previously-drawing UV lines to reduce lag
+        private Bitmap _uvBitmap;
+        // Location represents what pixel the bitmap starts at (currently always 0,0).
+        // Size represents how many pixels are currently-rendered in the bitmap (we can't use bitmap dimensions).
+        private Rectangle _uvRectangle;
+        private bool _uvInvalidated = true;
+
 
         private int PaletteWidth => _texture?.Palettes == null ? 0 : (_texture.Bpp == 4 ? 4 : 16);
 
@@ -88,6 +102,7 @@ namespace PSXPrev.Forms.Controls
                 {
                     _texture = value;
                     _stpInvalidated = true;
+                    _uvInvalidated = true;
                     UpdatePreviewPictureBoxSize();
                     UpdateStatusBarLabels();
                     previewPictureBox.Invalidate();
@@ -112,6 +127,7 @@ namespace PSXPrev.Forms.Controls
                     if (_texture != null)
                     {
                         _stpInvalidated = true;
+                        _uvInvalidated = true;
                         UpdatePreviewPictureBoxSize();
                         UpdateStatusBarLabels();
                         previewPictureBox.Invalidate();
@@ -198,6 +214,7 @@ namespace PSXPrev.Forms.Controls
                 {
                     var oldIsShowingUVs = IsShowingUVs;
                     _getUVEntities = value;
+                    _uvInvalidated = true;
                     if (oldIsShowingUVs || IsShowingUVs) // Update if showing is changed, or if showing at all
                     {
                         previewPictureBox.Invalidate();
@@ -239,6 +256,7 @@ namespace PSXPrev.Forms.Controls
                     _showDropShadow = value;
                     if (oldIsShowingDropShadow != IsShowingDropShadow)
                     {
+                        UpdatePreviewPictureBoxSize(); // Size accounts for extra size of drop shadow
                         previewPictureBox.Invalidate();
                     }
                 }
@@ -331,25 +349,27 @@ namespace PSXPrev.Forms.Controls
         }
 
 
-        // Invalidate changes to the texture data or palette
+        // Invalidate changes to the texture data, palette, or UVs
         public void InvalidateTexture()
         {
             if (_texture != null)
             {
-                if (IsShowingSemiTransparency)
-                {
-                    _stpInvalidated = true;
-                }
+                _stpInvalidated = true;
+                _uvInvalidated = true;
                 previewPictureBox.Invalidate();
             }
         }
 
-        // Invalidate changes to the UV data or selected UV entities
+        // Invalidate changes to the just the UV data or selected UV entities
         public void InvalidateUVs()
         {
-            if (IsShowingUVs)
+            if (_texture != null)
             {
-                previewPictureBox.Invalidate();
+                _uvInvalidated = true;
+                if (IsShowingUVs)
+                {
+                    previewPictureBox.Invalidate();
+                }
             }
         }
 
@@ -383,8 +403,7 @@ namespace PSXPrev.Forms.Controls
                         if (IsShowingSemiTransparency)
                         {
                             // Bypass the normal semi-transparency line caching and draw directly to the image
-                            var clipRect = new Rectangle(0, 0, _texture.RenderWidth, _texture.RenderHeight);
-                            DrawSemiTransparencyLines(graphics, clipRect);
+                            DrawSemiTransparencyLines(graphics);
                         }
 
                         if (IsShowingUVs)
@@ -410,11 +429,17 @@ namespace PSXPrev.Forms.Controls
                 _stpDoubleBufferBitmaps[i]?.Dispose();
                 _stpDoubleBufferBitmaps[i] = null;
             }
+            _uvBitmap?.Dispose();
+            _uvBitmap = null;
             for (var i = 0; i < _dropShadowPens.Length; i++)
             {
                 _dropShadowPens[i]?.Dispose();
                 _dropShadowPens[i] = null;
             }
+            _reusableBrush?.Dispose();
+            _reusableBrush = null;
+            _reusablePen?.Dispose();
+            _reusablePen = null;
             _penBlack3Px.Dispose();
             _penWhite1Px.Dispose();
             _penCyan1Px.Dispose();
@@ -546,8 +571,8 @@ namespace PSXPrev.Forms.Controls
         private void UpdatePreviewPictureBoxSize()
         {
             GetPreviewSize(true, out var width, out var height);
-            // +2 pixels for the edge of UV outlines
-            var extraSize = Math.Max(2, (IsShowingDropShadow ? _dropShadowThickness : 0));
+            // +UVExtraEdge pixels for the bottom-right edge of UV outlines
+            var extraSize = Math.Max(UVExtraEdge, (IsShowingDropShadow ? _dropShadowThickness : 0));
 
             previewPictureBox.SuspendLayout();
             previewPictureBox.Width  = width  + (width  != 0 ? extraSize : 0);
@@ -677,65 +702,52 @@ namespace PSXPrev.Forms.Controls
 
             var paletteWidth  = PaletteWidth;
             var paletteHeight = PaletteHeight;
-            if (!GetClipRect(clipBounds, paletteWidth, paletteHeight, PixelSize, out var clipRect))
+            if (!GetClipRect(clipBounds, previewPanel, paletteWidth, paletteHeight, PixelSize, out var clipRect, out var viewRect))
             {
                 return; // Nothing to draw
             }
+            // We're not drawing to a cached region bitmap (unlike stp), so we don't need to offset the location
+            var location = Point.Empty;// viewRect.Location;
 
             var backColor = BackColor;
             var palette = _texture.Palettes[_texture.CLUTIndex];
             var origPalette = _texture.OriginalPalettes?[_texture.CLUTIndex] ?? palette;
             var cellSize = Math.Max(1, (int)PixelSize);
             var showingSemiTransparency = IsShowingSemiTransparency;
-            // Preserve the last-used brush/pen to avoid creating a new one when the color hasn't changed
-            SolidBrush brush = null;
-            Pen pen = null;
-            try
-            {
-                for (var y = clipRect.Top; y < clipRect.Bottom; y++)
-                {
-                    for (var x = clipRect.Left; x < clipRect.Right; x++)
-                    {
-                        var index = y * paletteWidth + x;
-                        if (index >= palette.Length)
-                        {
-                            // Break out of both loops, since any x/y higher than this will also be outside the palette bounds
-                            y = clipRect.Bottom;
-                            break;
-                        }
-                        var color = palette[index];
-                        var solidColor = TexturePalette.ToColor(origPalette[index], noTransparent: true);
-                        var xx = x * cellSize;
-                        var yy = y * cellSize;
-                        // NEVER use Color equality, because it also checks stupid things like name.
-                        if (brush == null || !brush.Color.EqualsRgb(solidColor))//.ToArgb() != solidColor.ToArgb())
-                        {
-                            brush?.Dispose();
-                            brush = null; // Avoid disposing of the same resource again when an exception occurs
-                            brush = new SolidBrush(solidColor);
-                        }
-                        graphics.FillRectangle(brush, new Rectangle(xx, yy, cellSize, cellSize));
 
-                        if (showingSemiTransparency)
+            for (var y = clipRect.Top; y < clipRect.Bottom; y++)
+            {
+                for (var x = clipRect.Left; x < clipRect.Right; x++)
+                {
+                    var index = y * paletteWidth + x;
+                    if (index >= palette.Length)
+                    {
+                        // Break out of both loops, since any x/y higher than this will also be outside the palette bounds
+                        y = clipRect.Bottom;
+                        break;
+                    }
+                    var color = palette[index];
+                    var solidColor = TexturePalette.ToColor(origPalette[index], noTransparent: true);
+                    var transparent = color == TexturePalette.Transparent;
+                    var xx = ((x - location.X) * cellSize);
+                    var yy = ((y - location.Y) * cellSize);
+
+                    if (!transparent || _texture.OriginalPalettes != null)
+                    {
+                        var brush = ReuseBrush(ref _reusableBrush, solidColor);
+                        graphics.FillRectangle(brush, new Rectangle(xx, yy, cellSize, cellSize));
+                    }
+
+                    if (showingSemiTransparency && (transparent || TexturePalette.GetStp(color)))
+                    {
+                        if (transparent && _texture.OriginalPalettes == null)
                         {
-                            var transparent = color == TexturePalette.Transparent;
-                            if (transparent || TexturePalette.GetStp(color))
-                            {
-                                if (transparent && _texture.OriginalPalettes == null)
-                                {
-                                    // We don't have the original unmasked color, default to showing behind the palette
-                                    solidColor = backColor;
-                                }
-                                DrawSemiTransparencyLine(graphics, ref pen, xx, yy, cellSize, cellSize, solidColor, transparent);
-                            }
+                            // We don't have the original unmasked color, default to showing behind the palette
+                            solidColor = backColor;
                         }
+                        DrawSemiTransparencyLine(graphics, xx, yy, cellSize, cellSize, solidColor, transparent);
                     }
                 }
-            }
-            finally
-            {
-                brush?.Dispose();
-                pen?.Dispose();
             }
         }
 
@@ -747,12 +759,12 @@ namespace PSXPrev.Forms.Controls
 
             if (IsShowingSemiTransparency)
             {
-                DrawTextureSemiTransparency(graphics, clipBounds);
+                DrawSemiTransparencyCached(graphics, clipBounds);
             }
 
             if (IsShowingUVs)
             {
-                DrawUVs(graphics);
+                DrawUVsCached(graphics, clipBounds);
             }
         }
 
@@ -767,9 +779,9 @@ namespace PSXPrev.Forms.Controls
             graphics.DrawImage(_texture.Bitmap, dstRect, srcRect, GraphicsUnit.Pixel);
         }
 
-        private void DrawTextureSemiTransparency(Graphics graphics, RectangleF? clipBounds = null)
+        private void DrawSemiTransparencyCached(Graphics graphics, RectangleF? clipBounds = null)
         {
-            var stpOverlayBitmap = UpdateSemiTransparencyBitmap(clipBounds);
+            var stpOverlayBitmap = UpdateSemiTransparencyCache(clipBounds);
 
             if (stpOverlayBitmap != null)
             {
@@ -786,23 +798,25 @@ namespace PSXPrev.Forms.Controls
             }
         }
 
-        private Bitmap UpdateSemiTransparencyBitmap(RectangleF? clipBounds = null)
+        private Bitmap UpdateSemiTransparencyCache(RectangleF? clipBounds = null)
         {
-            if (!GetClipRect(clipBounds, _texture.RenderWidth, _texture.RenderHeight, _scale, out var clipRect))
+            var imageWidth  = _texture.RenderWidth;
+            var imageHeight = _texture.RenderHeight;
+            if (!GetClipRect(clipBounds, previewPanel, imageWidth, imageHeight, _scale, out var clipRect, out var viewRect))
             {
                 return null; // Nothing to draw
             }
-            var width  = (int)(clipRect.Width  * _scale);
-            var height = (int)(clipRect.Height * _scale);
+            var width  = (int)(viewRect.Width  * _scale);
+            var height = (int)(viewRect.Height * _scale);
             var preserveRect = _stpRectangle;
-            preserveRect.Intersect(clipRect);
+            preserveRect.Intersect(viewRect);
 
             var needsUpdate = true;
             if (_stpInvalidated)
             {
                 _stpRectangle = preserveRect = Rectangle.Empty;
             }
-            else if (!_stpRectangle.Contains(clipRect))
+            else if (!_stpRectangle.Contains(viewRect))
             {
                 // Swap which bitmap is used to draw the lines, and use the old one to draw onto the new one
                 _stpBitmapIndex = 1 - _stpBitmapIndex;
@@ -837,8 +851,8 @@ namespace PSXPrev.Forms.Controls
                     if (!preserveRect.IsEmpty && back != null)
                     {
                         // Offset destination by the change in initial X,Y
-                        var dstX = (int)((_stpRectangle.X - clipRect.X) * _scale);
-                        var dstY = (int)((_stpRectangle.Y - clipRect.Y) * _scale);
+                        var dstX = (int)((_stpRectangle.X - viewRect.X) * _scale);
+                        var dstY = (int)((_stpRectangle.Y - viewRect.Y) * _scale);
                         var srcRect = new Rectangle(0,
                                                     0,
                                                     (int)(_stpRectangle.Width  * _scale),
@@ -849,16 +863,16 @@ namespace PSXPrev.Forms.Controls
                         graphics.DrawImage(back, dstX, dstY, srcRect, GraphicsUnit.Pixel);
                     }
 
-                    DrawSemiTransparencyLines(graphics, clipRect, preserveRect);
+                    DrawSemiTransparencyLines(graphics, clipRect, viewRect.Location, preserveRect);
                 }
-                _stpRectangle = clipRect;
+                _stpRectangle = viewRect;
                 _stpInvalidated = false;
             }
 
             return front;
         }
 
-        private void DrawSemiTransparencyLines(Graphics graphics, Rectangle? optionalClipRect = null, Rectangle preserveRect = default(Rectangle))
+        private void DrawSemiTransparencyLines(Graphics graphics, Rectangle? optionalClipRect = null, Point location = default(Point), Rectangle preserveRect = default(Rectangle))
         {
             graphics.PixelOffsetMode = PixelOffsetMode.None;
             graphics.SmoothingMode = SmoothingMode.None;
@@ -880,8 +894,8 @@ namespace PSXPrev.Forms.Controls
                             x = preserveRect.Right - 1; // Skip to end of preserve rect width
                             continue; // Already drawn
                         }
-                        var xx = ((x - clipRect.Left) * _scale);
-                        var yy = ((y - clipRect.Top)  * _scale);
+                        var xx = ((x - location.X) * _scale);
+                        var yy = ((y - location.Y) * _scale);
                         var solidColor = _texture.GetPixel(x, y, out var stp, out var transparent, out var paletteIndex);
                         if (transparent)
                         {
@@ -889,7 +903,7 @@ namespace PSXPrev.Forms.Controls
                         }
                         if (transparent || stp)
                         {
-                            DrawSemiTransparencyLine(graphics, ref pen, xx, yy, _scale, _scale, solidColor, transparent);
+                            DrawSemiTransparencyLine(graphics, xx, yy, _scale, _scale, solidColor, transparent);
                         }
                     }
                 }
@@ -903,32 +917,15 @@ namespace PSXPrev.Forms.Controls
 
         private void DrawSemiTransparencyLine(Graphics graphics, float x, float y, float width, float height, Color backColor, bool transparent)
         {
-            Pen pen = null;
-            try
-            {
-                DrawSemiTransparencyLine(graphics, ref pen, x, y, width, height, backColor, transparent);
-            }
-            finally
-            {
-                pen?.Dispose();
-            }
-        }
-
-        private void DrawSemiTransparencyLine(Graphics graphics, ref Pen pen, float x, float y, float width, float height, Color backColor, bool transparent)
-        {
             // Get a color that's easily visible against the pixel background by using delta values for each channel.
             // This is similar to inverting a color (255 - c), but doesn't have the drawback of being less visible
             // the closer you are to 128.
+            // If we want to optimize this, we can do: (channel ^ 0x80), which both adds 128 and wraps around 256.
             var penColor = Color.FromArgb((backColor.R + 128) % 256,
                                           (backColor.G + 128) % 256,
                                           (backColor.B + 128) % 256);
-            // NEVER use Color equality, because it also checks stupid things like name.
-            if (pen == null || !pen.Color.EqualsRgb(penColor))//.ToArgb() != penColor.ToArgb())
-            {
-                pen?.Dispose();
-                pen = null; // Avoid disposing of the same resource again when an exception occurs
-                pen = new Pen(penColor, 1f);
-            }
+
+            var pen = ReusePen(ref _reusablePen, penColor);
             // The -1's here are used for the higher of the two components to prevent the line from drawing one pixel off/too far.
             if (transparent)
             {
@@ -942,6 +939,85 @@ namespace PSXPrev.Forms.Controls
             }
         }
 
+
+        private void DrawUVsCached(Graphics graphics, RectangleF? clipBounds = null)
+        {
+            var uvOverlayBitmap = UpdateUVsCache(clipBounds);
+
+            if (uvOverlayBitmap != null)
+            {
+                // Currently we always cache and draw the entire set of UV lines, and dstX,dstY are always 0,0.
+                // They would be non-zero if we were only caching the viewable area of the texture.
+                var dstX = (int)(_uvRectangle.X * _scale);
+                var dstY = (int)(_uvRectangle.Y * _scale);
+                // +UVExtraEdge pixels for the bottom-right edge of UV outlines
+                var srcRect = new Rectangle(0,
+                                            0,
+                                            (int)(_uvRectangle.Width  * _scale) + UVExtraEdge,
+                                            (int)(_uvRectangle.Height * _scale) + UVExtraEdge);
+
+                // Despite what it sounds like, we want Half. Otherwise we end up drawing half a pixel back.
+                graphics.PixelOffsetMode = PixelOffsetMode.Half;
+                graphics.DrawImage(uvOverlayBitmap, dstX, dstY, srcRect, GraphicsUnit.Pixel);
+            }
+        }
+
+        private Bitmap UpdateUVsCache(RectangleF? clipBounds = null)
+        {
+            // To optimize drawing all UV lines in one go, we limit the size of the overlay bitmap to the size of a VRAM page.
+            // If the texture is larger than this, then we clip everything past that, since it holds no meaning.
+            // Additionally, if the texture position causes the texture size to end outside the VRAM page, we clip that too.
+            var endX = Math.Min(VRAM.PageSize, (_texture.X + _texture.RenderWidth));
+            var endY = Math.Min(VRAM.PageSize, (_texture.Y + _texture.RenderHeight));
+            var vramWidth  = (endX - _texture.X);
+            var vramHeight = (endY - _texture.Y);
+            // No need to check clip rect, since we always cache the entire set of UV lines at once.
+            /*if (!GetClipRect(clipBounds, previewPanel, vramWidth, vramHeight, _scale, out var clipRect, out var viewRect))
+            {
+                return null; // Nothing to draw
+            }*/
+
+            var width  = (int)(vramWidth  * _scale);
+            var height = (int)(vramHeight * _scale);
+            if (width <= 0 || height <= 0)
+            {
+                _uvRectangle = Rectangle.Empty;
+                return null; // Nothing to draw
+            }
+            // +UVExtraEdge pixels for the bottom-right edge of UV outlines
+            width  += UVExtraEdge;
+            height += UVExtraEdge;
+
+            if (_uvBitmap == null || _uvBitmap.Width < width || _uvBitmap.Height < height)
+            {
+                var newWidth  = Math.Max(1, Math.Max(width,  _uvBitmap?.Width  ?? 0));
+                var newHeight = Math.Max(1, Math.Max(height, _uvBitmap?.Height ?? 0));
+                _uvBitmap?.Dispose(); // Make sure to dispose of after we get the old dimensions
+
+                // Format32bppPArgb is MUCH MUCH faster to render to than Format32bppArgb
+                _uvBitmap = new Bitmap(newWidth, newHeight, PixelFormat.Format32bppPArgb);
+            }
+            else if (!_uvInvalidated)
+            {
+                return _uvBitmap; // Everything is already cached
+            }
+
+            using (var graphics = Graphics.FromImage(_uvBitmap))
+            {
+                graphics.Clear(Color.Transparent);
+
+                // Set the clip bounds to the area we're drawing to.
+                // We want to limit expensive draw operations to only what will be visible.
+                graphics.SetClip(new Rectangle(0, 0, width, height));
+
+                DrawUVs(graphics);
+
+                _uvRectangle = new Rectangle(0, 0, vramWidth, vramHeight);
+                _uvInvalidated = false;
+            }
+
+            return _uvBitmap;
+        }
 
         private void DrawUVs(Graphics graphics)
         {
@@ -1040,21 +1116,57 @@ namespace PSXPrev.Forms.Controls
         }
 
 
-        private static bool GetClipRect(RectangleF? clipBounds, int width, int height, float scale, out Rectangle rect)
+        private static SolidBrush ReuseBrush(ref SolidBrush brush, Color color)
+        {
+            // NEVER use Color equality, because it also checks stupid things like name.
+            if (brush == null)
+            {
+                brush = new SolidBrush(color);
+            }
+            else if (!brush.Color.EqualsRgb(color))//.ToArgb() != color.ToArgb())
+            {
+                brush.Color = color; // We can just change the brush color instead of creating a new brush
+            }
+            return brush;
+        }
+
+        private static Pen ReusePen(ref Pen pen, Color color)
+        {
+            // NEVER use Color equality, because it also checks stupid things like name.
+            if (pen == null)
+            {
+                pen = new Pen(color, 1f);
+            }
+            else if (!pen.Color.EqualsRgb(color))//.ToArgb() != color.ToArgb())
+            {
+                pen.Color = color; // We can just change the pen color instead of creating a new pen
+            }
+            return pen;
+        }
+
+        private static bool GetClipRect(RectangleF? clipBounds, Panel panel, int width, int height, float scale, out Rectangle clipRect, out Rectangle viewRect)
         {
             if (clipBounds.HasValue)
             {
-                var startX = (int)Math.Max(0, Math.Floor(clipBounds.Value.Left / scale));
-                var startY = (int)Math.Max(0, Math.Floor(clipBounds.Value.Top  / scale));
-                var endX = (int)Math.Min(width,  Math.Ceiling(clipBounds.Value.Right  / scale));
-                var endY = (int)Math.Min(height, Math.Ceiling(clipBounds.Value.Bottom / scale));
-                rect = new Rectangle(startX, startY, endX - startX, endY - startY);
+                var startX = Math.Max(0, (int)Math.Floor(clipBounds.Value.Left / scale));
+                var startY = Math.Max(0, (int)Math.Floor(clipBounds.Value.Top  / scale));
+                var endX = Math.Min(width,  (int)Math.Ceiling(clipBounds.Value.Right  / scale));
+                var endY = Math.Min(height, (int)Math.Ceiling(clipBounds.Value.Bottom / scale));
+                clipRect = new Rectangle(startX, startY, endX - startX, endY - startY);
+
+                var scrollRect = panel.GetAutoScrollRectangle();
+                startX = Math.Max(0, (int)Math.Floor(scrollRect.Left / scale));
+                startY = Math.Max(0, (int)Math.Floor(scrollRect.Top  / scale));
+                endX = Math.Min(width,  (int)Math.Ceiling(scrollRect.Right  / scale));
+                endY = Math.Min(height, (int)Math.Ceiling(scrollRect.Bottom / scale));
+                viewRect = new Rectangle(startX, startY, endX - startX, endY - startY);
             }
             else
             {
-                rect = new Rectangle(0, 0, width, height);
+                clipRect = viewRect = new Rectangle(0, 0, width, height);
             }
-            return rect.Width > 0 && rect.Height > 0;
+
+            return /*clipRect.Width > 0 && clipRect.Height > 0 &&*/ viewRect.Width > 0 && viewRect.Height > 0;
         }
     }
 }
