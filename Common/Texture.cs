@@ -145,10 +145,10 @@ namespace PSXPrev.Common
 
         // Usable area of the texture (only different from Width/Height when IsVRAMPage is true).
         [Browsable(false)]
-        public int RenderWidth => IsVRAMPage ? VRAM.PageSize : Width;
+        public int RenderWidth => Width;// IsVRAMPage ? VRAM.PageSize : Width;
 
         [Browsable(false)]
-        public int RenderHeight => IsVRAMPage ? VRAM.PageSize : Height;
+        public int RenderHeight => Height;// IsVRAMPage ? VRAM.PageSize : Height;
 
         [Browsable(false)]
         public ushort[][] Palettes { get; set; }
@@ -411,22 +411,14 @@ namespace PSXPrev.Common
                         var g = p[1];
                         var r = p[2];
                         var a = p[3];
-                        stp = false;
-                        if (!IsVRAMPage)
+                        if (s != null)
                         {
-                            if (s != null)
-                            {
-                                s += (x * 4); // Normal textures store stp bits in a separate image
-                                stp = *s != NoSemiTransparentFlag.B;
-                            }
+                            s += (x * 4); // Normal textures store stp bits in a separate image
+                            stp = *s != NoSemiTransparentFlag.B;
                         }
                         else
                         {
-                            if (VRAM.PageSemiTransparencyX + x < Width)
-                            {
-                                p += (VRAM.PageSemiTransparencyX * 4); // VRAM textures store stp bits directly in the same image
-                                stp = *p != NoSemiTransparentFlag.B;
-                            }
+                            stp = false;
                         }
                         transparent = a == 0 || (!stp && r == 0 && g == 0 && b == 0);
                         paletteIndex = null;

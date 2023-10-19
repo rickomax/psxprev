@@ -803,6 +803,7 @@ namespace PSXPrev.Forms
                 _packedTextures.Clear();
                 _animations.Clear();
                 _vram.ClearAllPages();
+                vramPreviewer.InvalidateTexture(); // Invalidate to make sure we redraw.
 
                 // Reset scene batches
                 _scene.MeshBatch.Reset(0);
@@ -4402,6 +4403,7 @@ namespace PSXPrev.Forms
                     if (!texture.IsPacked)
                     {
                         texture.X = VRAM.ClampTextureX(texture.X);
+                        texturePreviewer.InvalidateUVs(); // Offset of UV lines has changed
                     }
                     else
                     {
@@ -4413,6 +4415,7 @@ namespace PSXPrev.Forms
                     if (!texture.IsPacked)
                     {
                         texture.Y = VRAM.ClampTextureY(texture.Y);
+                        texturePreviewer.InvalidateUVs(); // Offset of UV lines has changed
                     }
                     else
                     {
@@ -4424,6 +4427,7 @@ namespace PSXPrev.Forms
                     if (!texture.IsPacked)
                     {
                         texture.TexturePage = VRAM.ClampTexturePage(texture.TexturePage);
+                        texturePreviewer.InvalidateUVs(); // Set of UV lines has changed
                     }
                     else
                     {

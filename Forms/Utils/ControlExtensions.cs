@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Reflection;
 using System.Windows.Forms;
 using PSXPrev.Common;
@@ -124,6 +125,15 @@ namespace PSXPrev.Forms.Utils
                 }
             }
             comboBox.DropDownWidth = width;
+        }
+
+
+        public static Rectangle GetAutoScrollRectangle(this ScrollableControl scrollableControl)
+        {
+            var scrollPos  = scrollableControl.AutoScrollPosition;
+            var scrollSize = scrollableControl.ClientSize;
+            // Negate scrollPos, since AutoScrollPosition is negative to signify positive offset
+            return new Rectangle(-scrollPos.X, -scrollPos.Y, scrollSize.Width, scrollSize.Height);
         }
 
 
