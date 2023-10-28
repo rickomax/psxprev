@@ -717,8 +717,8 @@ namespace PSXPrev.Common.Exporters
                             // Keep float casts in-case we replace uvScalar with VRAM.PageSize.
                             OffsetX = ((float)texture.X / uvScalar + column) / _countX,
                             OffsetY = ((float)texture.Y / uvScalar + row)    / _countY,
-                            ScalarX = ((float)texture.RenderWidth  / uvScalar) / _countX,
-                            ScalarY = ((float)texture.RenderHeight / uvScalar) / _countY,
+                            ScalarX = ((float)texture.Width  / uvScalar) / _countX,
+                            ScalarY = ((float)texture.Height / uvScalar) / _countY,
                         };
                         _packedTextureInfos.Add(texture, packedInfo);
                     }

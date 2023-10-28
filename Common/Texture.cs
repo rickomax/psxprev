@@ -26,6 +26,8 @@ namespace PSXPrev.Common
         public Texture(Bitmap bitmap, int x, int y, int bpp, int texturePage, int clutIndex, ushort[][] palettes, bool? hasSemiTransparency, bool isVRAMPage = false)
         {
             Bitmap = bitmap;
+            Width  = bitmap.Width;
+            Height = bitmap.Height;
             X = x;
             Y = y;
             Bpp = bpp;
@@ -51,6 +53,8 @@ namespace PSXPrev.Common
         {
             X = fromTexture.X;
             Y = fromTexture.Y;
+            Width = fromTexture.Width;
+            Height = fromTexture.Height;
             TexturePage = fromTexture.TexturePage;
             IsVRAMPage = fromTexture.IsVRAMPage;
             Name = fromTexture.Name;
@@ -134,21 +138,16 @@ namespace PSXPrev.Common
         [DisplayName("BPP"), ReadOnly(true)]
         public int Bpp { get; set; }
 
+        // Prefer not using Bitmap's properties for Width and Height because they call native methods.
+        // Storing dimensions locally will be faster, especially for packed texture UV conversion.
         [DisplayName("Width"), ReadOnly(true)]
-        public int Width => Bitmap.Width;
+        public int Width { get; set; }
 
         [DisplayName("Height"), ReadOnly(true)]
-        public int Height => Bitmap.Height;
+        public int Height { get; set; }
 
         [DisplayName("Texture ID")]
         public uint? LookupID { get; set; }
-
-        // Usable area of the texture (only different from Width/Height when IsVRAMPage is true).
-        [Browsable(false)]
-        public int RenderWidth => Width;// IsVRAMPage ? VRAM.PageSize : Width;
-
-        [Browsable(false)]
-        public int RenderHeight => Height;// IsVRAMPage ? VRAM.PageSize : Height;
 
         [Browsable(false)]
         public ushort[][] Palettes { get; set; }
