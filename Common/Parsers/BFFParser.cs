@@ -10,6 +10,8 @@ namespace PSXPrev.Common.Parsers
     // We extend PILParser so that we can share the ReadPSI function (without having to construct a separate instance).
     public class BFFParser : PILParser
     {
+        public const string FormatNameConst = "BFF";
+
         // UVs are in texture space, and are stored in units of 2, so that 128
         // can be used to reach the last row/column of the texture.
         private const float UVConst = 2f; // UV multiplier for FMM models
@@ -34,7 +36,7 @@ namespace PSXPrev.Common.Parsers
         {
         }
 
-        public override string FormatName => "BFF";
+        public override string FormatName => FormatNameConst;
 
         protected override void Parse(BinaryReader reader)
         {

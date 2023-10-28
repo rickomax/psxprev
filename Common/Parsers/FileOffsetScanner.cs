@@ -7,8 +7,8 @@ namespace PSXPrev.Common.Parsers
 {
     // Return false if the result is ignored, in which case it will be disposed of
     public delegate bool EntityAddedAction(FileOffsetScanner scanner, RootEntity rootEntity, long offset);
-    public delegate bool AnimationAddedAction(FileOffsetScanner scanner, Animation animation, long offset);
     public delegate bool TextureAddedAction(FileOffsetScanner scanner, Texture texture, long offset);
+    public delegate bool AnimationAddedAction(FileOffsetScanner scanner, Animation animation, long offset);
     public delegate void ScannerProgressAction(FileOffsetScanner scanner, long offset);
 
     public abstract class FileOffsetScanner : IDisposable

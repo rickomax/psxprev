@@ -66,11 +66,11 @@ namespace PSXPrev.Common
         }
 
 
-        private Vector2 UVTextureOffset => new Vector2((float)Texture.X / Renderer.VRAM.PageSize,
-                                                       (float)Texture.Y / Renderer.VRAM.PageSize);
+        private Vector2 UVTextureOffset => new Vector2((float)Texture.X / GeomMath.UVScalar,
+                                                       (float)Texture.Y / GeomMath.UVScalar);
 
-        private Vector2 UVTextureSize   => new Vector2((float)Texture.Width  / Renderer.VRAM.PageSize,
-                                                       (float)Texture.Height / Renderer.VRAM.PageSize);
+        private Vector2 UVTextureSize   => new Vector2((float)Texture.Width  / GeomMath.UVScalar,
+                                                       (float)Texture.Height / GeomMath.UVScalar);
 
         public Vector2 ConvertUV(Vector2 uv, bool tiled)
         {

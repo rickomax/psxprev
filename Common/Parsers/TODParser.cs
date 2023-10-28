@@ -8,12 +8,14 @@ namespace PSXPrev.Common.Parsers
 {
     public class TODParser : FileOffsetScanner
     {
+        public const string FormatNameConst = "TOD";
+
         public TODParser(AnimationAddedAction animationAdded)
             : base(animationAdded: animationAdded)
         {
         }
 
-        public override string FormatName => "TOD";
+        public override string FormatName => FormatNameConst;
 
         protected override void Parse(BinaryReader reader)
         {

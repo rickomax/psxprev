@@ -9,12 +9,14 @@ namespace PSXPrev.Common.Parsers
 {
     public class TIMParser : FileOffsetScanner
     {
+        public const string FormatNameConst = "TIM";
+
         public TIMParser(TextureAddedAction textureAdded)
             : base(textureAdded: textureAdded)
         {
         }
 
-        public override string FormatName => "TIM";
+        public override string FormatName => FormatNameConst;
 
         protected override void Parse(BinaryReader reader)
         {

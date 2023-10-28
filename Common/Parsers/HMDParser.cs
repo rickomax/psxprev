@@ -11,6 +11,8 @@ namespace PSXPrev.Common.Parsers
 {
     public class HMDParser : FileOffsetScanner
     {
+        public const string FormatNameConst = "HMD";
+
         private uint _blockCount;
         private bool _modelIsJoint;
         private readonly Dictionary<RenderInfo, List<Triangle>> _groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
@@ -23,7 +25,7 @@ namespace PSXPrev.Common.Parsers
         {
         }
 
-        public override string FormatName => "HMD";
+        public override string FormatName => FormatNameConst;
 
         protected override void Parse(BinaryReader reader)
         {

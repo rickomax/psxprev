@@ -17,14 +17,16 @@ namespace PSXPrev.Common.Exporters
         private BinaryWriter _binaryWriter;
         private PNGExporter _pngExporter;
         private Dictionary<Texture, int> _exportedTextures;
+        private AnimationBatch _animationBatch;
         private ModelPreparerExporter _modelPreparer;
         private ExportModelOptions _options;
         private string _baseName;
 
-        public void Export(ExportModelOptions options, RootEntity[] entities, Animation[] animations)
+        public int Export(ExportModelOptions options, RootEntity[] entities, Animation[] animations)
         {
             _options = options?.Clone() ?? new ExportModelOptions();
             // Force any required options for this format here, before calling Validate.
+            _options.VertexIndexReuse = false; // Vertices have too much information to bother with reuse
             _options.Validate("gltf");
 
             _pngExporter = new PNGExporter();
@@ -32,7 +34,7 @@ namespace PSXPrev.Common.Exporters
             _modelPreparer = new ModelPreparerExporter(_options, bakeConnections: false);
 
             var exportAnimations = _options.ExportAnimations && animations?.Length > 0;
-            var animationBatch = exportAnimations ? new AnimationBatch() : null;
+            _animationBatch = exportAnimations ? new AnimationBatch() : null;
 
             // Prepare the shared state for all models being exported (mainly setting up tiled textures).
             var groups = _modelPreparer.PrepareAll(entities);
@@ -43,18 +45,21 @@ namespace PSXPrev.Common.Exporters
                 // Prepare the state for the current model being exported.
                 var preparedEntities = _modelPreparer.PrepareCurrent(entities, group, out var preparedModels);
 
-                ExportEntities(i, group, preparedEntities, preparedModels, animations, animationBatch);
+                ExportEntities(i, group, preparedEntities, preparedModels, animations);
             }
 
             _pngExporter = null;
             _exportedTextures = null;
+            _animationBatch = null;
             _modelPreparer.Dispose();
             _modelPreparer = null;
+
+            return groups.Length;
         }
 
-        private void ExportEntities(int index, Tuple<int, long> group, RootEntity[] entities, List<ModelEntity> models, Animation[] animations, AnimationBatch animationBatch)
+        private void ExportEntities(int index, Tuple<int, long> group, RootEntity[] entities, List<ModelEntity> models, Animation[] animations)
         {
-            var exportAnimations = animationBatch != null;
+            var exportAnimations = _animationBatch != null;
 
             {
                 // Re-use the dictionary of textures so that we only export them once.
@@ -376,8 +381,8 @@ namespace PSXPrev.Common.Exporters
                         var translations = new Vector3[count, totalFrames];
                         var rotations = new Quaternion[count, totalFrames];
                         var scales = new Vector3[count, totalFrames];
-                        animationBatch.SetupAnimationBatch(animation);
-                        animationBatch.LoopMode = AnimationLoopMode.Once;
+                        _animationBatch.SetupAnimationBatch(animation);
+                        _animationBatch.LoopMode = AnimationLoopMode.Once;
                         var isCoordinateBased = animation.AnimationType.IsCoordinateBased();
                         var isTransformBased = animation.AnimationType.IsTransformBased();
                         var transformStart = 0;
@@ -387,8 +392,8 @@ namespace PSXPrev.Common.Exporters
                             var frame = 0;
                             for (var t = 0f; t < totalTime; t += timeStep, frame++)
                             {
-                                animationBatch.Time = t;
-                                if (animationBatch.SetupAnimationFrame(entity, force: true))
+                                _animationBatch.Time = t;
+                                if (_animationBatch.SetupAnimationFrame(entity, force: true))
                                 {
                                     var transformIndex = transformStart;
                                     if (isTransformBased)

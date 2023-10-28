@@ -5,12 +5,14 @@ namespace PSXPrev.Common.Parsers
     // Not supported yet, since we have no way to assign loose palettes to textures.
     public class PXLParser : FileOffsetScanner
     {
+        public const string FormatNameConst = "PXL";
+
         public PXLParser(TextureAddedAction textureAdded)
             : base(textureAdded: textureAdded)
         {
         }
 
-        public override string FormatName => "PXL";
+        public override string FormatName => FormatNameConst;
 
         protected override void Parse(BinaryReader reader)
         {

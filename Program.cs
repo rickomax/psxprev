@@ -75,8 +75,6 @@ namespace PSXPrev
             get { lock (_allAnimations) return _allAnimations.Count > 0; }
         }
 
-        public static bool FixUVAlignment => _options.FixUVAlignment;
-
         public static bool Debug => _options.DebugLogging;
         public static bool ShowErrors => _options.ErrorLogging;
 
@@ -100,34 +98,18 @@ namespace PSXPrev
             Initialize(args);
         }
 
-        public static void PrintUsage(bool noColor = false)
+        public static void PrintUsage()
         {
-            if (!noColor)
-            {
-                Console.ForegroundColor = ConsoleColor.White;
-            }
-            else
-            {
-                Console.ResetColor();
-            }
+            Console.ResetColor();
 
             Console.WriteLine($"usage: PSXPrev <PATH> [FILTER=\"{ScanOptions.DefaultFilter}\"] [-help] [...options]");
-
-            Console.ResetColor();
         }
 
-        public static void PrintHelp(bool noColor = false)
+        public static void PrintHelp()
         {
-            PrintUsage(noColor);
+            PrintUsage();
 
-            if (!noColor)
-            {
-                Console.ForegroundColor = ConsoleColor.White;
-            }
-            else
-            {
-                Console.ResetColor();
-            }
+            Console.ResetColor();
 
             Console.WriteLine();
             //Console.WriteLine("positional arguments:");
@@ -137,11 +119,13 @@ namespace PSXPrev
             Console.WriteLine();
             Console.WriteLine("scanner formats: (default: all formats except SPT)");
             Console.WriteLine("  -an        : scan for AN animations");
-            Console.WriteLine("  -bff       : scan for BFF models (Blitz Games)");
+            Console.WriteLine("  -bff       : scan for BFF models and animations (Blitz Games)");
             Console.WriteLine("  -hmd       : scan for HMD models, textures, and animations");
-            Console.WriteLine("  -mod/-croc : scan for MOD (Croc) models");
+            Console.WriteLine("  -mod/-croc : scan for MOD models (Croc)");
+            Console.WriteLine("  -pil       : scan for PIL models and animations (Blitz Games)");
+            //Console.WriteLine("  -pil/-psi  : scan for PIL models and animations (Blitz Games)");
             Console.WriteLine("  -pmd       : scan for PMD models");
-            Console.WriteLine("  -psx       : scan for PSX models and textures (Neversoft)");
+            Console.WriteLine("  -psx       : scan for PSX models, textures, and animations (Neversoft)");
             Console.WriteLine("  -spt       : scan for SPT textures (Blitz Games)");
             Console.WriteLine("  -tim       : scan for TIM textures");
             Console.WriteLine("  -tmd       : scan for TMD models");
@@ -150,6 +134,7 @@ namespace PSXPrev
             Console.WriteLine();
             Console.WriteLine("scanner options:");
             Console.WriteLine("  -ignorehmdversion     : less strict scanning of HMD models");
+            Console.WriteLine("  -ignorepmdversion     : less strict scanning of PMD models");
             Console.WriteLine("  -ignoretimversion     : less strict scanning of TIM textures");
             Console.WriteLine("  -ignoretmdversion     : less strict scanning of TMD models");
             Console.WriteLine("  -align <ALIGN>        : scan offsets at specified increments");
@@ -172,19 +157,15 @@ namespace PSXPrev
             Console.WriteLine("  -log       : write output to log file");
             Console.WriteLine("  -debug     : output file format details and other information");
             Console.WriteLine("  -error     : show error (exception) messages when reading files");
-            Console.WriteLine("  -nocolor   : disable colored console output");
             Console.WriteLine("  -noverbose/-quiet : don't write output to console");
             Console.WriteLine();
             Console.WriteLine("program options:");
             //Console.WriteLine("  -help        : show this help message"); // It's redundant to display this
             Console.WriteLine("  -drawvram  : draw all loaded textures to VRAM (not advised when scanning many files)");
-            Console.WriteLine("  -olduv     : use old UV alignment that less-accurately matches the PlayStation");
             Console.WriteLine();
             Console.WriteLine();
             Console.WriteLine("notes:");
             Console.WriteLine("Star Ocean 2 seems to use -binsector 40,2032. However most observed games use the defaut.");
-
-            Console.ResetColor();
         }
 
         private static void PressAnyKeyToContinue()
@@ -230,49 +211,56 @@ namespace PSXPrev
             {
                 // Scanner formats:
                 case "-an":
-                    options.CheckAN = true;
+                    options.AddFormat(ANParser.FormatNameConst);
                     break;
                 case "-bff":
-                    options.CheckBFF = true;
+                    options.AddFormat(BFFParser.FormatNameConst);
                     break;
                 case "-hmd":
-                    options.CheckHMD = true;
+                    options.AddFormat(HMDParser.FormatNameConst);
                     break;
                 case "-croc": // Alias for -mod
                 case "-mod":  // Previously called -croc
-                    options.CheckMOD = true;
+                    options.AddFormat(MODParser.FormatNameConst);
+                    break;
+                case "-pil":
+                //case "-psi": // Alias for -pil
+                    options.AddFormat(PILParser.FormatNameConst);
                     break;
                 case "-pmd":
-                    options.CheckPMD = true;
+                    options.AddFormat(PMDParser.FormatNameConst);
                     break;
                 case "-psx":
-                    options.CheckPSX = true;
+                    options.AddFormat(PSXParser.FormatNameConst);
                     break;
                 case "-spt":
-                    options.CheckSPT = true;
+                    options.AddFormat(SPTParser.FormatNameConst);
                     break;
                 case "-tim":
-                    options.CheckTIM = true;
+                    options.AddFormat(TIMParser.FormatNameConst);
                     break;
                 case "-tmd":
-                    options.CheckTMD = true;
+                    options.AddFormat(TMDParser.FormatNameConst);
                     break;
                 case "-tod":
-                    options.CheckTOD = true;
+                    options.AddFormat(TODParser.FormatNameConst);
                     break;
                 case "-vdf":
-                    options.CheckVDF = true;
+                    options.AddFormat(VDFParser.FormatNameConst);
                     break;
 
                 // Scanner options:
                 case "-ignorehmdversion":
-                    options.IgnoreHMDVersion = true;
+                    options.AddUnstrict(HMDParser.FormatNameConst);
+                    break;
+                case "-ignorepmdversion":
+                    options.AddUnstrict(PMDParser.FormatNameConst);
                     break;
                 case "-ignoretimversion":
-                    options.IgnoreTIMVersion = true;
+                    options.AddUnstrict(TIMParser.FormatNameConst);
                     break;
                 case "-ignoretmdversion":
-                    options.IgnoreTMDVersion = true;
+                    options.AddUnstrict(TMDParser.FormatNameConst);
                     break;
 
                 case "-align":
@@ -382,16 +370,10 @@ namespace PSXPrev
                 case "-error":
                     options.ErrorLogging = true;
                     break;
-                case "-nocolor":
-                    options.UseConsoleColor = false;
-                    break;
 
                 // Program options:
                 case "-drawvram":
                     options.DrawAllToVRAM = true;
-                    break;
-                case "-olduv":
-                    options.FixUVAlignment = false;
                     break;
 
                 default:
@@ -583,17 +565,19 @@ namespace PSXPrev
 
             if (!options.UseRegex)
             {
-                options.WildcardFilter = !string.IsNullOrWhiteSpace(filter) ? filter : ScanOptions.EmptyFilter;
+                options.WildcardFilter = filter;
             }
             else
             {
-                options.RegexPattern = !string.IsNullOrWhiteSpace(filter) ? filter : ScanOptions.DefaultRegexPattern;
+                options.RegexPattern = filter;
             }
+
+            options.Validate();
 
             // Show help and quit.
             if (help)
             {
-                PrintHelp(!options.UseConsoleColor);
+                PrintHelp();
                 if (options.DebugLogging)
                 {
                     PressAnyKeyToContinue(); // Make it easier to check console output before closing.
@@ -610,7 +594,6 @@ namespace PSXPrev
             Application.EnableVisualStyles();
 
             Settings.Load(true);
-            Logger.UseConsoleColor = Settings.Instance.ScanOptions.UseConsoleColor;
             Logger.ReadSettings(Settings.Instance);
             ConsoleLogger.ReadSettings(Settings.Instance);
 
@@ -690,18 +673,12 @@ namespace PSXPrev
                 options = new ScanOptions(); // Use default options if none given.
             }
 
-            var oldFixUVAlignment = Program.FixUVAlignment;
             options = options.Clone();
             options.Validate();
-            if (HasEntityResults)
-            {
-                // Force-preserve this option if entities have already been parsed using it.
-                options.FixUVAlignment = oldFixUVAlignment;
-            }
 
+            // Read settings and also update LogTo_ properties
             Logger.LogToFile = options.LogToFile;
             Logger.LogToConsole = options.LogToConsole;
-            Logger.UseConsoleColor = options.UseConsoleColor;
             Logger.ReadSettings(Settings.Instance);
 
             if (!Directory.Exists(options.Path) && !File.Exists(options.Path))
@@ -722,9 +699,10 @@ namespace PSXPrev
             }
 
             // Assign parser settings that are no longer stored in Program
-            Limits.IgnoreHMDVersion = options.IgnoreHMDVersion;
-            Limits.IgnoreTIMVersion = options.IgnoreTIMVersion;
-            Limits.IgnoreTMDVersion = options.IgnoreTMDVersion;
+            Limits.IgnoreHMDVersion = options.ContainsUnstrict(HMDParser.FormatNameConst);
+            Limits.IgnorePMDVersion = options.ContainsUnstrict(PMDParser.FormatNameConst);
+            Limits.IgnoreTIMVersion = options.ContainsUnstrict(TIMParser.FormatNameConst);
+            Limits.IgnoreTMDVersion = options.ContainsUnstrict(TMDParser.FormatNameConst);
 
             _options = options;
             _progressCallback = progressCallback;
@@ -812,6 +790,9 @@ namespace PSXPrev
             {
                 Program.Logger.WriteExceptionLine(exp, "Error during ScanThread");
             }
+
+            // Ensure text written to log file is flushed at the end of the scan
+            Program.Logger.Flush();
 
             _progressCallback = null; // Nullify to remove references to instanced method object
             _scanning = false;
@@ -1025,54 +1006,62 @@ namespace PSXPrev
             var parsers = new List<Func<FileOffsetScanner>>();
 
             // todo: AN produces too many false positives to be enabled by default
-            if (_options.CheckAll || _options.CheckAN)
+            if (_options.ContainsFormat(ANParser.FormatNameConst))
             {
                 parsers.Add(() => new ANParser(AddAnimation));
             }
-            if (_options.CheckAll || _options.CheckBFF)
+            if (_options.ContainsFormat(BFFParser.FormatNameConst))
             {
                 parsers.Add(() => new BFFParser(AddEntity, AddAnimation));
             }
-            if (_options.CheckAll || _options.CheckHMD)
+            // Not supported yet
+            /*if (_options.ContainsFormat(CLTParser.FormatNameConst))
+            {
+                parsers.Add(() => new CLTParser(AddTexture));
+            }*/
+            if (_options.ContainsFormat(HMDParser.FormatNameConst))
             {
                 parsers.Add(() => new HMDParser(AddEntity, AddTexture, AddAnimation));
             }
-            if (_options.CheckAll || _options.CheckMOD)
+            if (_options.ContainsFormat(MODParser.FormatNameConst))
             {
                 parsers.Add(() => new MODParser(AddEntity));
             }
-            if (_options.CheckAll || _options.CheckBFF)
+            if (_options.ContainsFormat(PILParser.FormatNameConst))
             {
-                // For now we're sharing the BFF option, since the same inner format can appear in both (and its the same devs)
                 parsers.Add(() => new PILParser(AddEntity, AddAnimation));
             }
-            if (_options.CheckAll || _options.CheckPMD)
+            if (_options.ContainsFormat(PMDParser.FormatNameConst))
             {
                 parsers.Add(() => new PMDParser(AddEntity));
             }
-            if (_options.CheckAll || _options.CheckPSX)
+            if (_options.ContainsFormat(PSXParser.FormatNameConst))
             {
                 parsers.Add(() => new PSXParser(AddEntity, AddTexture, AddAnimation));
             }
-            // SPT produces too many false positives to be enabled by default
-            if (/*_options.CheckAll ||*/ _options.CheckSPT)
+            // Not supported yet
+            /*if (_options.ContainsFormat(PXLParser.FormatNameConst))
+            {
+                parsers.Add(() => new PXLParser(AddTexture));
+            }*/
+            if (_options.ContainsFormat(SPTParser.FormatNameConst))
             {
                 parsers.Add(() => new SPTParser(AddTexture));
             }
-            if (_options.CheckAll || _options.CheckTIM)
+            if (_options.ContainsFormat(TIMParser.FormatNameConst))
             {
                 parsers.Add(() => new TIMParser(AddTexture));
             }
-            if (_options.CheckAll || _options.CheckTMD)
+            if (_options.ContainsFormat(TMDParser.FormatNameConst))
             {
                 parsers.Add(() => new TMDParser(AddEntity));
             }
-            if (_options.CheckAll || _options.CheckTOD)
+            if (_options.ContainsFormat(TODParser.FormatNameConst))
             {
                 parsers.Add(() => new TODParser(AddAnimation));
             }
             // todo: VDF produces too many false positives
-            if (_options.CheckAll || _options.CheckVDF)
+            if (_options.ContainsFormat(VDFParser.FormatNameConst))
             {
                 parsers.Add(() => new VDFParser(AddAnimation));
             }

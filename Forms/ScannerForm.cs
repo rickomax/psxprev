@@ -17,6 +17,9 @@ namespace PSXPrev.Forms
         private const int HistoryComboBoxDropDownPadding = 5;
         private const int HistoryComboBoxMaxDropDownWidth = 800;
 
+        private const string FormatTagPrefix = "format:";
+        private const string UnstrictTagPrefix = "unstrict:";
+
         private bool _loading;
         private bool _showAdvanved;
         private string _wildcardFilter = ScanOptions.DefaultFilter;
@@ -25,6 +28,9 @@ namespace PSXPrev.Forms
         private Color _originalFilterForeColor;
         private string _originalFilterToolTip;
 
+        private readonly Dictionary<string, CheckBox> _formatCheckBoxes = new Dictionary<string, CheckBox>();
+        private readonly Dictionary<string, CheckBox> _unstrictCheckBoxes = new Dictionary<string, CheckBox>();
+
         private readonly List<ScanHistoryItem> _historyItems = new List<ScanHistoryItem>();
         private int _selectedHistoryIndex;
 
@@ -32,6 +38,7 @@ namespace PSXPrev.Forms
 
         public ScannerForm()
         {
+            // Note: In order to change form width, MinimumSize must be changed as well in the designer.
             InitializeComponent();
 
             DoubleBuffered = true;
@@ -39,9 +46,35 @@ namespace PSXPrev.Forms
             _originalFilterForeColor = filterTextBox.ForeColor;
             _originalFilterToolTip = toolTip.GetToolTip(filterTextBox);
 
+            // Set default values for combo boxes (history combo box is setup elsewhere)
+            binScanComboBox.SelectedIndex = 0;
+            isoScanComboBox.SelectedIndex = 0;
+
             // Add events that are not browsable in the designer.
             binSectorStartUpDown.TextChanged += binSectorStartSizeUpDown_ValueChanged;
             binSectorSizeUpDown.TextChanged  += binSectorStartSizeUpDown_ValueChanged;
+
+            // Register check boxes that specify what formats to scan
+            foreach (var checkBox in this.EnumerateAllControlsOfType<CheckBox>())
+            {
+                if (checkBox.Tag is string tagStr)
+                {
+                    if (tagStr.StartsWith(FormatTagPrefix))
+                    {
+                        var format = tagStr.Substring(FormatTagPrefix.Length);
+                        _formatCheckBoxes.Add(format, checkBox);
+                        // We want CheckState.Indeterminate to change to Checked, so handle checking ourselves.
+                        checkBox.AutoCheck = false;
+                        // Note that Click DOES trigger with keyboard input
+                        checkBox.Click += OnFormatClick;
+                    }
+                    else if (tagStr.StartsWith(UnstrictTagPrefix))
+                    {
+                        var format = tagStr.Substring(UnstrictTagPrefix.Length);
+                        _unstrictCheckBoxes.Add(format, checkBox);
+                    }
+                }
+            }
 
             // Register all settings controls to update the current selected history
             foreach (var control in this.EnumerateAllControls())
@@ -53,7 +86,7 @@ namespace PSXPrev.Forms
 
                 if (control is CheckBox checkBox)
                 {
-                    checkBox.CheckedChanged += OnSettingsStateChanged;
+                    checkBox.CheckStateChanged += OnSettingsStateChanged;
                 }
                 else if (control is ComboBox comboBox)
                 {
@@ -72,14 +105,6 @@ namespace PSXPrev.Forms
 
         private void ScannerForm_Load(object sender, EventArgs e)
         {
-            if (Program.HasEntityResults)
-            {
-                // This setting needs to be preserved, since it changes how entities are loaded, and exported.
-                // This really should be changed in the future though, so that it only changes renderer behavior.
-                optionOldUVAlignmentCheckBox.Checked = !Program.FixUVAlignment;
-                optionOldUVAlignmentCheckBox.Enabled = false;
-            }
-
             ReadSettings(Settings.Instance, Settings.Instance.ScanOptions);
         }
 
@@ -194,6 +219,71 @@ namespace PSXPrev.Forms
             ResumeLayout();
 
             _showAdvanved = show;
+        }
+
+        private void OnFormatClick(object sender, EventArgs e)
+        {
+            // Prevent triggering setting state changes until we're done updating all format checkboxes
+            var loadingOld = _loading;
+            _loading = true;
+
+            // We can't just assigned Checked, since that has a property changed guard
+            // (and we treat Checked as false when Indeterminate)
+            var senderCheckBox = (CheckBox)sender;
+            if (senderCheckBox.CheckState == CheckState.Checked)
+            {
+                // May be changed to Indeterminate later in the function
+                senderCheckBox.CheckState = CheckState.Unchecked;
+            }
+            else
+            {
+                senderCheckBox.CheckState = CheckState.Checked;
+            }
+
+            // Check if we should be using implicit formats (when no formats are checked)
+            var isImplicit = true;
+            foreach (var formatCheckBox in _formatCheckBoxes.Values)
+            {
+                if (formatCheckBox.CheckState == CheckState.Checked)
+                {
+                    isImplicit = false;
+                    break;
+                }
+            }
+
+            // Set or unset implicit format check states
+            foreach (var kvp in _formatCheckBoxes)
+            {
+                var format = kvp.Key;
+                var formatCheckBox = kvp.Value;
+                if (isImplicit)
+                {
+                    // Check checkboxes based on their implicit behavior
+                    if (ScanFormats.IsImplicit(format))
+                    {
+                        formatCheckBox.CheckState = CheckState.Indeterminate;
+                    }
+                    else
+                    {
+                        formatCheckBox.CheckState = CheckState.Unchecked;
+                    }
+                }
+                else if (formatCheckBox.CheckState == CheckState.Indeterminate)
+                {
+                    // Uncheck previously-implicit checkboxes
+                    formatCheckBox.CheckState = CheckState.Unchecked;
+                }
+
+                // Update what unstrict check boxes are enabled
+                if (_unstrictCheckBoxes.TryGetValue(format, out var unstrictCheckBox))
+                {
+                    unstrictCheckBox.Enabled = formatCheckBox.CheckState != CheckState.Unchecked;
+                }
+            }
+
+            _loading = loadingOld;
+            // Trigger setting state change now
+            OnSettingsStateChanged(sender, EventArgs.Empty);
         }
 
         private void OnSettingsStateChanged(object sender, EventArgs e)
@@ -347,7 +437,10 @@ namespace PSXPrev.Forms
                 if (openFileDialog.ShowDialog(this) == DialogResult.OK)
                 {
                     filePathTextBox.Text = openFileDialog.FileName;
-                    binContentsCheckBox.Checked = true;
+                    if (binScanComboBox.SelectedIndex == 0)
+                    {
+                        binScanComboBox.SelectedIndex = 2; // Default to scanning Data, since it will support more games
+                    }
                 }
             }
         }
@@ -361,7 +454,10 @@ namespace PSXPrev.Forms
                 if (openFileDialog.ShowDialog(this) == DialogResult.OK)
                 {
                     filePathTextBox.Text = openFileDialog.FileName;
-                    isoContentsCheckBox.Checked = true;
+                    if (isoScanComboBox.SelectedIndex == 0)
+                    {
+                        isoScanComboBox.SelectedIndex = 1;
+                    }
                 }
             }
         }
@@ -410,17 +506,34 @@ namespace PSXPrev.Forms
             ValidateCanScan();
         }
 
-        private void binContentsCheckBox_CheckedChanged(object sender, EventArgs e)
+        private void optionLogToFileCheckBox_CheckedChanged(object sender, EventArgs e)
         {
-            binSectorCheckBox.Enabled = binContentsCheckBox.Checked;
+            UpdateLoggingChanged();
+        }
+
+        private void optionLogToConsoleCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            UpdateLoggingChanged();
+        }
+
+        private void UpdateLoggingChanged()
+        {
+            var loggingEnabled = (optionLogToFileCheckBox.Checked || optionLogToConsoleCheckBox.Checked);
+            optionErrorLoggingCheckBox.Enabled = loggingEnabled;
+            optionDebugLoggingCheckBox.Enabled = loggingEnabled;
+        }
+
+        private void binScanComboBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            binSectorCheckBox.Enabled = binScanComboBox.SelectedIndex != 0;
             // Update if up/downs are enabled
             binSectorCheckBox_CheckedChanged(null, null);
         }
 
         private void binSectorCheckBox_CheckedChanged(object sender, EventArgs e)
         {
-            binSectorStartUpDown.Enabled = binContentsCheckBox.Checked && binSectorCheckBox.Checked;
-            binSectorSizeUpDown.Enabled  = binContentsCheckBox.Checked && binSectorCheckBox.Checked;
+            binSectorStartUpDown.Enabled = binScanComboBox.SelectedIndex != 0 && binSectorCheckBox.Checked;
+            binSectorSizeUpDown.Enabled  = binScanComboBox.SelectedIndex != 0 && binSectorCheckBox.Checked;
             // Update if invalid message is visible
             binSectorStartSizeUpDown_ValueChanged(null, null);
         }
@@ -433,7 +546,7 @@ namespace PSXPrev.Forms
             if (int.TryParse(startText, out var userStart) && int.TryParse(sizeText, out var userSize))
             {
                 var invalid = (userStart + userSize > Common.Parsers.BinCDStream.SectorRawSize);
-                binSectorInvalidLabel.Visible = binContentsCheckBox.Checked && binSectorCheckBox.Checked && invalid;
+                binSectorInvalidLabel.Visible = binScanComboBox.SelectedIndex != 0 && binSectorCheckBox.Checked && invalid;
             }
         }
 
@@ -495,22 +608,6 @@ namespace PSXPrev.Forms
                 RegexPattern = _regexFilter,
                 UseRegex = filterUseRegexCheckBox.Checked,
 
-                CheckAN = checkANCheckBox.Checked,
-                CheckBFF = checkBFFCheckBox.Checked,
-                CheckMOD = checkMODCheckBox.Checked,
-                CheckHMD = checkHMDCheckBox.Checked,
-                CheckPMD = checkPMDCheckBox.Checked,
-                CheckPSX = checkPSXCheckBox.Checked,
-                CheckSPT = checkSPTCheckBox.Checked,
-                CheckTIM = checkTIMCheckBox.Checked,
-                CheckTMD = checkTMDCheckBox.Checked,
-                CheckTOD = checkTODCheckBox.Checked,
-                CheckVDF = checkVDFCheckBox.Checked,
-
-                IgnoreHMDVersion = optionIgnoreHMDVersionCheckBox.Checked,
-                IgnoreTIMVersion = optionIgnoreTIMVersionCheckBox.Checked,
-                IgnoreTMDVersion = optionIgnoreTMDVersionCheckBox.Checked,
-
                 Alignment = (long)offsetAlignUpDown.Value,
                 StartOffsetHasValue = offsetStartCheckBox.Checked,
                 StopOffsetHasValue  = offsetStopCheckBox.Checked,
@@ -521,22 +618,43 @@ namespace PSXPrev.Forms
 
                 AsyncFileScan = optionAsyncScanCheckBox.Checked,
                 //TopDownFileSearch = true, // Not that important, don't add to reduce UI clutter
-                ReadISOContents = isoContentsCheckBox.Checked,
-                ReadBINContents = false, //todo
-                ReadBINSectorData = binContentsCheckBox.Checked,
+                ReadISOContents = isoScanComboBox.SelectedIndex == 1,
+                ReadBINContents = binScanComboBox.SelectedIndex == 1,
+                ReadBINSectorData = binScanComboBox.SelectedIndex == 2,
                 BINSectorUserStartSizeHasValue = binSectorCheckBox.Checked,
                 BINSectorUserStartValue = (int)binSectorStartUpDown.Value,
                 BINSectorUserSizeValue  = (int)binSectorSizeUpDown.Value,
 
                 LogToFile = optionLogToFileCheckBox.Checked,
-                LogToConsole = optionNoVerboseCheckBox.Checked,
-                //UseConsoleColor = true, // Not that important, don't add to reduce UI clutter
-                DebugLogging = optionDebugCheckBox.Checked,
-                ErrorLogging = optionShowErrorsCheckBox.Checked,
+                LogToConsole = optionLogToConsoleCheckBox.Checked,
+                DebugLogging = optionDebugLoggingCheckBox.Checked,
+                ErrorLogging = optionErrorLoggingCheckBox.Checked,
 
                 DrawAllToVRAM = optionDrawAllToVRAMCheckBox.Checked,
-                FixUVAlignment = !optionOldUVAlignmentCheckBox.Checked,
             };
+
+            foreach (var kvp in _formatCheckBoxes)
+            {
+                var format = kvp.Key;
+                var formatCheckBox = kvp.Value;
+                if (formatCheckBox.CheckState == CheckState.Checked)
+                {
+                    // Add format explicitly (implicit is automatically handled otherwise)
+                    options.AddFormat(format);
+                }
+            }
+
+            foreach (var kvp in _unstrictCheckBoxes)
+            {
+                var format = kvp.Key;
+                var unstrictCheckBox = kvp.Value;
+                if (unstrictCheckBox.Checked)
+                {
+                    options.AddUnstrict(format);
+                }
+            }
+
+            options.Validate();
 
             return options;
         }
@@ -551,26 +669,37 @@ namespace PSXPrev.Forms
             _loading = true;
 
             filePathTextBox.Text = options.Path ?? string.Empty;
-            _wildcardFilter = options.WildcardFilter ?? ScanOptions.EmptyFilter;
-            _regexFilter    = options.RegexPattern   ?? ScanOptions.DefaultRegexPattern;
+            _wildcardFilter = options.ValidatedWildcardFilter;
+            _regexFilter    = options.ValidatedRegexPattern;
             filterTextBox.Text = !options.UseRegex ? _wildcardFilter : _regexFilter;
             filterUseRegexCheckBox.Checked = options.UseRegex;
 
-            checkANCheckBox.Checked = options.CheckAN;
-            checkBFFCheckBox.Checked = options.CheckBFF;
-            checkHMDCheckBox.Checked = options.CheckHMD;
-            checkMODCheckBox.Checked = options.CheckMOD;
-            checkPMDCheckBox.Checked = options.CheckPMD;
-            checkPSXCheckBox.Checked = options.CheckPSX;
-            checkSPTCheckBox.Checked = options.CheckSPT;
-            checkTIMCheckBox.Checked = options.CheckTIM;
-            checkTMDCheckBox.Checked = options.CheckTMD;
-            checkTODCheckBox.Checked = options.CheckTOD;
-            checkVDFCheckBox.Checked = options.CheckVDF;
+            foreach (var kvp in _formatCheckBoxes)
+            {
+                var format = kvp.Key;
+                var formatCheckBox = kvp.Value;
+                if (options.ContainsFormat(format, out var isImplicit))
+                {
+                    formatCheckBox.CheckState = isImplicit ? CheckState.Indeterminate : CheckState.Checked;
+                }
+                else
+                {
+                    formatCheckBox.CheckState = CheckState.Unchecked;
+                }
 
-            optionIgnoreHMDVersionCheckBox.Checked = options.IgnoreHMDVersion;
-            optionIgnoreTIMVersionCheckBox.Checked = options.IgnoreTIMVersion;
-            optionIgnoreTMDVersionCheckBox.Checked = options.IgnoreTMDVersion;
+                // Update what unstrict check boxes are enabled
+                if (_unstrictCheckBoxes.TryGetValue(format, out var unstrictCheckBox))
+                {
+                    unstrictCheckBox.Enabled = formatCheckBox.CheckState != CheckState.Unchecked;
+                }
+            }
+
+            foreach (var kvp in _unstrictCheckBoxes)
+            {
+                var format = kvp.Key;
+                var unstrictCheckBox = kvp.Value;
+                unstrictCheckBox.Checked = options.ContainsUnstrict(format);
+            }
 
             offsetAlignUpDown.SetValueSafe(options.Alignment);
             offsetStartCheckBox.Checked = options.StartOffsetHasValue;
@@ -581,20 +710,36 @@ namespace PSXPrev.Forms
             offsetNextCheckBox.Checked = options.NextOffset;
 
             optionAsyncScanCheckBox.Checked = options.AsyncFileScan;
-            isoContentsCheckBox.Checked = options.ReadISOContents;
-            // todo: ReadBINContents
-            binContentsCheckBox.Checked = options.ReadBINSectorData;
+            if (options.ReadISOContents)
+            {
+                isoScanComboBox.SelectedIndex = 1;
+            }
+            else
+            {
+                isoScanComboBox.SelectedIndex = 0;
+            }
+            if (options.ReadBINContents)
+            {
+                binScanComboBox.SelectedIndex = 1;
+            }
+            else if (options.ReadBINSectorData)
+            {
+                binScanComboBox.SelectedIndex = 2;
+            }
+            else
+            {
+                binScanComboBox.SelectedIndex = 0;
+            }
             binSectorCheckBox.Checked = options.BINSectorUserStartSizeHasValue;
             binSectorStartUpDown.SetValueSafe(options.BINSectorUserStartValue);
             binSectorSizeUpDown.SetValueSafe(options.BINSectorUserSizeValue);
 
             optionLogToFileCheckBox.Checked = options.LogToFile;
-            optionNoVerboseCheckBox.Checked = options.LogToConsole;
-            optionDebugCheckBox.Checked = options.DebugLogging;
-            optionShowErrorsCheckBox.Checked = options.ErrorLogging;
+            optionLogToConsoleCheckBox.Checked = options.LogToConsole;
+            optionDebugLoggingCheckBox.Checked = options.DebugLogging;
+            optionErrorLoggingCheckBox.Checked = options.ErrorLogging;
 
             optionDrawAllToVRAMCheckBox.Checked = options.DrawAllToVRAM;
-            optionOldUVAlignmentCheckBox.Checked = !options.FixUVAlignment;
 
             if (settings != null)
             {

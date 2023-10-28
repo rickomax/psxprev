@@ -658,16 +658,8 @@ namespace PSXPrev.Common.Parsers
                     if (tumValue != 0 || tvmValue != 0) // We're not tiled if there's no wrap size.
                     {
                         isTiled = true;
-                        if (Program.FixUVAlignment)
-                        {
-                            tuvm = GeomMath.ConvertUV(((((tumValue << 3) ^ 0xff) + 1) & 0xff),
-                                                      ((((tvmValue << 3) ^ 0xff) + 1) & 0xff));
-                        }
-                        else
-                        {
-                            tuvm = GeomMath.ConvertUV(((tumValue << 3) ^ 0xff),
-                                                      ((tvmValue << 3) ^ 0xff));
-                        }
+                        tuvm = GeomMath.ConvertUV(((((tumValue << 3) ^ 0xff) + 1) & 0xff),
+                                                  ((((tvmValue << 3) ^ 0xff) + 1) & 0xff));
                         tuva = GeomMath.ConvertUV((tuaValue << 3),
                                                   (tvaValue << 3));
                     }

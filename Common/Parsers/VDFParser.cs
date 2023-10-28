@@ -8,12 +8,14 @@ namespace PSXPrev.Common.Parsers
 {
     public class VDFParser : FileOffsetScanner
     {
+        public const string FormatNameConst = "VDF";
+
         public VDFParser(AnimationAddedAction animationAdded)
             : base(animationAdded: animationAdded)
         {
         }
 
-        public override string FormatName => "VDF";
+        public override string FormatName => FormatNameConst;
 
         protected override void Parse(BinaryReader reader)
         {

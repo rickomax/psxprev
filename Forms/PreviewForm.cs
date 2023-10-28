@@ -2821,12 +2821,20 @@ namespace PSXPrev.Forms
             // Get all models, checked models, or selected model if nothing is checked.
             var entities = all ? _rootEntities.ToArray() : GetCheckedEntities(true);
 
+#if DEBUG
+            // Allow testing of export models form without needing to scan
+            if (entities == null)
+            {
+                entities = new RootEntity[0];
+            }
+#else
             if (entities == null || entities.Length == 0)
             {
                 var message = all ? "No models to export" : "No models checked or selected to export";
                 ShowMessageBox(message, "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
+#endif
 
             var animations = GetCheckedAnimations(true);
 
@@ -2836,8 +2844,8 @@ namespace PSXPrev.Forms
                 var options = ExportModelsForm.Show(this, entities, animations);
                 if (options != null)
                 {
-                    ExportModelsForm.Export(options, entities, animations);
-                    ShowMessageBox($"{entities.Length} models exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    var exportedCount = ExportModelsForm.Export(options, entities, animations);
+                    ShowMessageBox($"{exportedCount} models exported", "PSXPrev", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             finally

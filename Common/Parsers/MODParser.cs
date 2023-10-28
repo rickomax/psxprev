@@ -8,6 +8,8 @@ namespace PSXPrev.Common.Parsers
     // Argonaut's Blazing Render engine: .MOD model format
     public class MODParser : FileOffsetScanner
     {
+        public const string FormatNameConst = "MOD";
+
         private float _scaleDivisor = 1f;
         //private readonly Vector3[] _boundingBox = new Vector3[9];
         private Vector3[] _vertices;
@@ -20,7 +22,7 @@ namespace PSXPrev.Common.Parsers
         {
         }
 
-        public override string FormatName => "MOD";
+        public override string FormatName => FormatNameConst;
 
         protected override void Parse(BinaryReader reader)
         {

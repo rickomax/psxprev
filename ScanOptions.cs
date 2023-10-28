@@ -1,19 +1,90 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using PSXPrev.Common.Parsers;
 using PSXPrev.Common.Utils;
 
 namespace PSXPrev
 {
+    public static class ScanFormats
+    {
+        public const string AN  = ANParser.FormatNameConst;
+        public const string BFF = BFFParser.FormatNameConst;
+        //public const string CLT = CLTParser.FormatNameConst;
+        public const string HMD = HMDParser.FormatNameConst;
+        public const string MOD = MODParser.FormatNameConst;
+        public const string PIL = PILParser.FormatNameConst;
+        public const string PMD = PMDParser.FormatNameConst;
+        public const string PSX = PSXParser.FormatNameConst;
+        //public const string PXL = PXLParser.FormatNameConst;
+        public const string SPT = SPTParser.FormatNameConst;
+        public const string TIM = TIMParser.FormatNameConst;
+        public const string TMD = TMDParser.FormatNameConst;
+        public const string TOD = TODParser.FormatNameConst;
+        public const string VDF = VDFParser.FormatNameConst;
+
+        // note: CLT and PXL are not supported yet
+        public static readonly string[] All =
+        {
+            AN, BFF, /*CLT,*/ HMD, MOD, PIL, PMD, PSX, /*PXL,*/ SPT, TIM, TMD, TOD, VDF,
+        };
+
+        // Formats that can only be used if explicitly selected
+        // todo: AN produces too many false positives to be enabled by default
+        public static readonly string[] Explicit =
+        {
+            SPT,
+        };
+
+        // Formats that are used when no format is selected
+        // Setup during static constructor
+        public static readonly string[] Implicit;
+
+        public static int Count => All.Length;
+
+        public static bool IsSupported(string format)
+        {
+            return Array.IndexOf(All, format) != -1;
+        }
+
+        public static bool IsExplicit(string format)
+        {
+            return Array.IndexOf(Explicit, format) != -1;
+        }
+
+        public static bool IsImplicit(string format)
+        {
+            return Array.IndexOf(Implicit, format) != -1;
+        }
+
+
+        static ScanFormats()
+        {
+            Array.Sort(All);
+            Array.Sort(Explicit);
+
+            var implicitFormats = new List<string>();
+            foreach (var format in All)
+            {
+                if (!IsExplicit(format))
+                {
+                    implicitFormats.Add(format);
+                }
+            }
+            Implicit = implicitFormats.ToArray();
+        }
+    }
+
     [JsonObject]
-    public class ScanOptions : IEquatable<ScanOptions>
+    public class ScanOptions : IEquatable<ScanOptions>, ICloneable
     {
         public static readonly ScanOptions Defaults = new ScanOptions();
 
-        public const string DefaultFilter = "*.*";
-        public const string EmptyFilter = "*";
-        public const string DefaultRegexPattern = ".*";
+        public const string DefaultFilter = "*"; //"*.*";
+        public const string DefaultRegexPattern = "^.*$";
 
         // Use a timeout to avoid user-specified runaway Regex patterns.
         private static readonly TimeSpan MatchTimeout = TimeSpan.FromMilliseconds(100);
@@ -62,13 +133,9 @@ namespace PSXPrev
         {
             get
             {
-                if (WildcardFilter == null)
+                if (string.IsNullOrWhiteSpace(WildcardFilter))
                 {
                     return DefaultFilter;
-                }
-                else if (string.IsNullOrWhiteSpace(WildcardFilter))
-                {
-                    return EmptyFilter;
                 }
                 return WildcardFilter;
             }
@@ -89,78 +156,97 @@ namespace PSXPrev
         public bool UseRegex { get; set; } = false;
 
         // Scanner formats:
-        [JsonIgnore]
-        public bool CheckAll
+        [JsonProperty("formats")]
+        public List<string> Formats { get; set; } = new List<string>();
+
+        // Formats with reduced strictness, such as ignoring versions/magic
+        [JsonProperty("unstrictFormats")]
+        public List<string> UnstrictFormats { get; set; } = new List<string>();
+
+        public bool ContainsFormat(string format)
         {
-            get
+            return ContainsFormat(format, out _);
+        }
+
+        public bool ContainsFormat(string format, out bool isImplicit)
+        {
+            if (Formats.Count > 0)
             {
-                return !CheckAN && !CheckBFF && !CheckHMD && !CheckMOD && !CheckPMD && !CheckPSX &&
-                       !CheckSPT && !CheckTIM && !CheckTMD && !CheckTOD && !CheckVDF;
+                isImplicit = false;
+                return Formats.Contains(format);
+            }
+            else
+            {
+                isImplicit = ScanFormats.IsImplicit(format);
+                return isImplicit;
             }
         }
 
-        public List<string> GetCheckedFormats(bool groupAll)
+        public bool AddFormat(string format)
         {
-            var formats = new List<string>();
-            if (groupAll && CheckAll)
+            if (!Formats.Contains(format) && ScanFormats.IsSupported(format))
             {
-                formats.Add("Any");
-                return formats;
+                Formats.Add(format);
+                Formats.Sort();
+                return true;
             }
-            if (CheckAN)  formats.Add("AN");
-            if (CheckBFF) formats.Add("BFF");
-            if (CheckHMD) formats.Add("HMD");
-            if (CheckMOD) formats.Add("MOD");
-            if (CheckPMD) formats.Add("PMD");
-            if (CheckPSX) formats.Add("PSX");
-            if (CheckSPT) formats.Add("SPT");
-            if (CheckTIM) formats.Add("TIM");
-            if (CheckTMD) formats.Add("TMD");
-            if (CheckTOD) formats.Add("TOD");
-            if (CheckVDF) formats.Add("VDF");
-            if (groupAll && formats.Count == 11)
-            {
-                formats.Clear();
-                formats.Add("All");
-            }
-            return formats;
+            return false;
         }
 
-        [JsonProperty("formatAN")]
-        public bool CheckAN { get; set; }
-        [JsonProperty("formatBFF")]
-        public bool CheckBFF { get; set; }
-        [JsonProperty("formatHMD")]
-        public bool CheckHMD { get; set; }
-        [JsonProperty("formatMOD")]
-        public bool CheckMOD { get; set; } // Previously called Croc
-        [JsonProperty("formatPMD")]
-        public bool CheckPMD { get; set; }
-        [JsonProperty("formatPSX")]
-        public bool CheckPSX { get; set; }
-        [JsonProperty("formatSPT")]
-        public bool CheckSPT { get; set; }
-        [JsonProperty("formatTIM")]
-        public bool CheckTIM { get; set; }
-        [JsonProperty("formatTMD")]
-        public bool CheckTMD { get; set; }
-        [JsonProperty("formatTOD")]
-        public bool CheckTOD { get; set; }
-        [JsonProperty("formatVDF")]
-        public bool CheckVDF { get; set; }
+        public bool RemoveFormat(string format)
+        {
+            return Formats.Remove(format);
+        }
+
+        public bool ContainsUnstrict(string format)
+        {
+            return UnstrictFormats.Contains(format);
+        }
+
+        public bool AddUnstrict(string format)
+        {
+            if (!UnstrictFormats.Contains(format) && ScanFormats.IsSupported(format))
+            {
+                UnstrictFormats.Add(format);
+                UnstrictFormats.Sort();
+                return true;
+            }
+            return false;
+        }
+
+        public bool RemoveUnstrict(string format)
+        {
+            return UnstrictFormats.Remove(format);
+        }
+
+        public string[] GetCheckedFormats(bool groupAll)
+        {
+            if (Formats.Count == ScanFormats.Count && groupAll)
+            {
+                return new string[] { "All" };
+            }
+            else if (Formats.Count == 0)
+            {
+                if (groupAll)
+                {
+                    return new string[] { "Defaults" };
+                }
+                else
+                {
+                    return (string[])ScanFormats.Implicit.Clone();
+                }
+            }
+            else
+            {
+                return Formats.ToArray();
+            }
+        }
 
         // Scanner options:
-        [JsonProperty("ignoreHMDVersion")]
-        public bool IgnoreHMDVersion { get; set; } = false;
-        [JsonProperty("ignoreTIMVersion")]
-        public bool IgnoreTIMVersion { get; set; } = false;
-        [JsonProperty("ignoreTMDVersion")]
-        public bool IgnoreTMDVersion { get; set; } = false;
-
         [JsonProperty("fileOffsetAlign")]
         public long Alignment { get; set; } = 1;
 
-        // We want nullables, but we also want to preserve the last-used values the UI when null.
+        // We want nullables, but we also want to preserve the last-used values in the UI when null.
         [JsonProperty("fileOffsetHasStart")]
         public bool StartOffsetHasValue { get; set; } = false;
         [JsonProperty("fileOffsetHasStop")]
@@ -188,27 +274,27 @@ namespace PSXPrev
         [JsonProperty("fileSearchBINContents")]
         public bool ReadBINContents { get; set; } = false; // Read indexed files instead of data of BIN file.
         [JsonProperty("fileSearchBINSectorData")]
-        public bool ReadBINSectorData { get; set; } = false;
+        public bool ReadBINSectorData { get; set; } = false; // Read BIN file as one large data file.
 
         // We want nullables, but we also want to preserve the last-used values in the UI when null.
+        // These may be removed in the future because it turns out sector sizes are always the same.
+        // The reason I thought it was different is because Star Ocean 2 uses an archive format that cuts out more of the user size.
         [JsonProperty("binSectorHasStartSize")]
         public bool BINSectorUserStartSizeHasValue { get; set; } = false;
         [JsonProperty("binSectorStart")]
-        public int BINSectorUserStartValue { get; set; } = Common.Parsers.BinCDStream.SectorUserStart;
+        public int BINSectorUserStartValue { get; set; } = BinCDStream.SectorUserStart;
         [JsonProperty("binSectorSize")]
-        public int BINSectorUserSizeValue { get; set; } = Common.Parsers.BinCDStream.SectorUserSize;
+        public int BINSectorUserSizeValue { get; set; } = BinCDStream.SectorUserSize;
         [JsonIgnore]
-        public int BINSectorUserStart => BINSectorUserStartSizeHasValue ? BINSectorUserStartValue : Common.Parsers.BinCDStream.SectorUserStart;
+        public int BINSectorUserStart => BINSectorUserStartSizeHasValue ? BINSectorUserStartValue : BinCDStream.SectorUserStart;
         [JsonIgnore]
-        public int BINSectorUserSize  => BINSectorUserStartSizeHasValue ? BINSectorUserSizeValue  : Common.Parsers.BinCDStream.SectorUserSize;
+        public int BINSectorUserSize  => BINSectorUserStartSizeHasValue ? BINSectorUserSizeValue  : BinCDStream.SectorUserSize;
 
         // Log options:
         [JsonProperty("logToFile")]
         public bool LogToFile { get; set; } = false;
         [JsonProperty("logToConsole")]
         public bool LogToConsole { get; set; } = true;
-        [JsonProperty("consoleColor")]
-        public bool UseConsoleColor { get; set; } = true;
         [JsonProperty("debugLogging")]
         public bool DebugLogging { get; set; } = false;
         [JsonProperty("errorLogging")]
@@ -217,8 +303,111 @@ namespace PSXPrev
         // Program options:
         [JsonProperty("drawAllToVRAM")]
         public bool DrawAllToVRAM { get; set; } = false;
-        [JsonProperty("fixUVAlignment")]
-        public bool FixUVAlignment { get; set; } = true;
+
+
+        // Used for version upgrades to read properties that are no longer present in the current class
+        [JsonExtensionData(ReadData = true, WriteData = false)]
+        private Dictionary<string, JToken> _unknownData;
+
+        //[OnDeserialized]
+        //private void OnDeserializedMethod(StreamingContext context)
+        //{
+        //}
+
+        public void ValidateDeserialization(uint version)
+        {
+            Formats         = ValidateFormats(Formats);
+            UnstrictFormats = ValidateFormats(UnstrictFormats);
+
+            if (version <= 2 && _unknownData != null)
+            {
+                UpgradeFormatsToVersion3(version);
+            }
+
+            // Handle normal validation that's used outside of just deserialization
+            Validate();
+
+            _unknownData = null; // We don't need this anymore
+        }
+
+        // Remove null, unsupported, and duplicate format names, then ensure formats are sorted
+        private static List<string> ValidateFormats(List<string> formats)
+        {
+            if (formats == null)
+            {
+                formats = new List<string>();
+            }
+            else
+            {
+                var duplicates = new HashSet<string>();
+                for (var i = 0; i < formats.Count; i++)
+                {
+                    var format = formats[i];
+                    if (format == null || !ScanFormats.IsSupported(format) || !duplicates.Add(format))
+                    {
+                        formats.RemoveAt(i);
+                        i--;
+                    }
+                }
+                formats.Sort();
+            }
+            return formats;
+        }
+
+        // Previously formats were stored in individual "format___": bool properties.
+        // Handle switching to list storage.
+        private void UpgradeFormatsToVersion3(uint version)
+        {
+            void UpgradeFormat(string propertyName, string format)
+            {
+                if (_unknownData.TryGetValue(propertyName, out var token))
+                {
+                    _unknownData.Remove(propertyName); // Not unknown data anymore
+                    if (token.Type == JTokenType.Boolean && token.ToObject<bool>())
+                    {
+                        AddFormat(format);
+                        // PIL format was introduced in the middle of version 2,
+                        // and was grouped together with BFF.
+                        if (version == 2 && format == BFFParser.FormatNameConst)
+                        {
+                            AddFormat(PILParser.FormatNameConst);
+                        }
+                    }
+                }
+            }
+
+            void UpgradeUnstrict(string propertyName, string format)
+            {
+                if (_unknownData.TryGetValue(propertyName, out var token))
+                {
+                    _unknownData.Remove(propertyName); // Not unknown data anymore
+                    if (token.Type == JTokenType.Boolean && token.ToObject<bool>())
+                    {
+                        AddUnstrict(format);
+                    }
+                }
+            }
+
+            UpgradeFormat("formatAN",  ANParser.FormatNameConst);
+            UpgradeFormat("formatBFF", BFFParser.FormatNameConst);
+            UpgradeFormat("formatHMD", HMDParser.FormatNameConst);
+            UpgradeFormat("formatMOD", MODParser.FormatNameConst);
+            UpgradeFormat("formatPMD", PMDParser.FormatNameConst);
+            UpgradeFormat("formatPSX", PSXParser.FormatNameConst);
+            if (version == 2)
+            {
+                // Format introduced in version 2
+                UpgradeFormat("formatSPT", SPTParser.FormatNameConst);
+            }
+            UpgradeFormat("formatTIM", TIMParser.FormatNameConst);
+            UpgradeFormat("formatTMD", TMDParser.FormatNameConst);
+            UpgradeFormat("formatTOD", TODParser.FormatNameConst);
+            UpgradeFormat("formatVDF", VDFParser.FormatNameConst);
+
+            UpgradeUnstrict("ignoreHMDVersion", HMDParser.FormatNameConst);
+            UpgradeUnstrict("ignoreTIMVersion", TIMParser.FormatNameConst);
+            UpgradeUnstrict("ignoreTMDVersion", TMDParser.FormatNameConst);
+        }
 
 
         public Regex GetRegexFilter(bool allowErrors)
@@ -249,6 +438,11 @@ namespace PSXPrev
             if (Path == null)
             {
                 Path = string.Empty;
+            }
+
+            if (string.IsNullOrEmpty(DisplayName))
+            {
+                DisplayName = null;
             }
 
             WildcardFilter = ValidatedWildcardFilter;
@@ -313,7 +507,7 @@ namespace PSXPrev
             string filterStr = null;
             if (!UseRegex)
             {
-                if (ValidatedWildcardFilter != EmptyFilter)
+                if (ValidatedWildcardFilter != DefaultFilter)
                 {
                     filterStr = ValidatedWildcardFilter;
                 }
@@ -328,7 +522,7 @@ namespace PSXPrev
 
             string formatsStr = null;
             var formats = GetCheckedFormats(true);
-            if (formats.Count > 0)
+            if (formats.Length > 0)
             {
                 formatsStr = string.Join(",", formats).ToLower();
             }
@@ -344,8 +538,14 @@ namespace PSXPrev
 
         public ScanOptions Clone()
         {
-            return (ScanOptions)MemberwiseClone();
+            var options = (ScanOptions)MemberwiseClone();
+            options._unknownData = null;
+            options.Formats = new List<string>(Formats);
+            options.UnstrictFormats = new List<string>(UnstrictFormats);
+            return options;
         }
+
+        object ICloneable.Clone() => Clone();
 
         // Normalize settings for equality checks
         private void Normalize()
@@ -388,13 +588,9 @@ namespace PSXPrev
                 BINSectorUserStartValue = Defaults.BINSectorUserStartValue;
                 BINSectorUserSizeValue  = Defaults.BINSectorUserSizeValue;
             }*/
-            /*if (!LogToConsole)
-            {
-                UseConsoleColor = Defaults.UseConsoleColor;
-            }*/
         }
 
-        // It's easier to manage equality by *not* having to update it every time settings are changed.
+        // It's easier to manage equality by *not* having to update the function every time settings are added.
         // This is a lazy solution, but requires near-zero maintenance.
         private string GetEqualityString(out int? hashCode)
         {
