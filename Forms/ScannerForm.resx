@@ -120,6 +120,21 @@
   <metadata name="toolTip.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>17, 17</value>
   </metadata>
+  <metadata name="toolTip.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+    <value>17, 17</value>
+  </metadata>
+  <data name="formatSPTCheckBox.ToolTip" xml:space="preserve">
+    <value>Blitz Games Textures Format
+Glover / Action Man / Frogger 2 / Chicken Run (Used by BFF/PIL models)
+Must be explicitly checked to scan
+Due to high rate of false positives, alignment is forced to a minimum of 2048</value>
+  </data>
+  <data name="binScanComboBox.ToolTip" xml:space="preserve">
+    <value>BIN files are raw PS1 CDs. These CDs may contain files (similar to ISO),
+in which case you can use Scan BIN Contents. But CDs not required to
+make those files visible, meaning you may need to use Scan BIN Data
+in order to scan the files on the CD.</value>
+  </data>
   <assembly alias="System.Drawing" name="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
   <data name="$this.Icon" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>

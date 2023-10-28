@@ -19,22 +19,8 @@ namespace PSXPrev.Common
 
         public const float Fixed12Scalar = 4096f;
         public const float Fixed16Scalar = 65536f;
+        public const float UVScalar = (float)Renderer.VRAM.PageSize;
 
-        public static float UVScalar => Program.FixUVAlignment ? 256f : 255f;
-
-        // Use Vector3.Unit(XYZ) fields instead.
-        //public static Vector3 XVector = new Vector3(1f, 0f, 0f);
-        //public static Vector3 YVector = new Vector3(0f, 1f, 0f);
-        //public static Vector3 ZVector = new Vector3(0f, 0f, 1f);
-
-        // Use Vector3.Distance instead.
-        //public static float VecDistance(Vector3 a, Vector3 b)
-        //{
-        //    var x = a.X - b.X;
-        //    var y = a.Y - b.Y;
-        //    var z = a.Z - b.Z;
-        //    return (float)Math.Sqrt((x * x) + (y * y) + (z * z));
-        //}
 
         public static Vector3 ToVector3(this Color color)
         {
@@ -873,12 +859,18 @@ namespace PSXPrev.Common
 
         public static float ConvertFixed16(int value) => value / Fixed16Scalar;
 
+        public static float ConvertNormal(int xyzComponent) => xyzComponent / Fixed12Scalar;
+
+        public static Vector3 ConvertNormal(int x, int y, int z)
+        {
+            return new Vector3(x / Fixed12Scalar, y / Fixed12Scalar, z / Fixed12Scalar);
+        }
+
         public static float ConvertUV(uint uvComponent) => uvComponent / UVScalar;
 
         public static Vector2 ConvertUV(uint u, uint v)
         {
-            var scalar = UVScalar;
-            return new Vector2(u / scalar, v / scalar);
+            return new Vector2(u / UVScalar, v / UVScalar);
         }
 
         public static float InterpolateValue(float src, float dst, float delta)

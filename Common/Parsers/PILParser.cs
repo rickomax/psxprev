@@ -12,6 +12,8 @@ namespace PSXPrev.Common.Parsers
     // Blitz Games: .PIL model library format
     public class PILParser : FileOffsetScanner
     {
+        public const string FormatNameConst = "PIL";
+
         private const float UVConst = 1f; // UV multiplier for PSI models
 
         private const uint SortIndex = 0; // 0-7
@@ -55,7 +57,7 @@ namespace PSXPrev.Common.Parsers
         {
         }
 
-        public override string FormatName => "PIL";
+        public override string FormatName => FormatNameConst;
 
         protected override void Parse(BinaryReader reader)
         {

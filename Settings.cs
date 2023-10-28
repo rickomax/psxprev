@@ -4,8 +4,10 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
+using System.Runtime.Serialization;
 using System.Windows.Forms;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using OpenTK;
 using PSXPrev.Common;
 using PSXPrev.Common.Animator;
@@ -16,7 +18,7 @@ using PSXPrev.Common.Utils;
 namespace PSXPrev
 {
     [JsonObject]
-    public class Settings
+    public class Settings : ICloneable
     {
         // Returns "<path>\\<exename>.settings.json"
         public static string FilePath => Path.ChangeExtension(Application.ExecutablePath, ".settings.json");
@@ -26,11 +28,15 @@ namespace PSXPrev
         public static Settings Instance { get; set; } = new Settings();
 
         // Version of settings file, to check if we need to make changes to loaded settings.
-        public const uint CurrentVersion = 2;
+        public const uint CurrentVersion = 3;
 
         // True if actions like leaving the scanner/export form, or accepting
         // the advanced settings form will save settings changes to file.
         public const bool ImplicitSave = true;
+
+        // True if the max amount of saved scan histories includes bookmarks in the count.
+        // One normal history will always be saved regardless (unless the max is 0).
+        public const bool CountBookmarksTowardsScanHistoryMax = false;
 
 
         // Any settings that need to be changed beteen versions can be handled with this.
@@ -278,6 +284,12 @@ namespace PSXPrev
         [DefaultValue(ConsoleColor.DarkGray)]
         public ConsoleColor LogExceptionPrefixColor { get; set; } = ConsoleColor.DarkGray;
 
+        [JsonProperty("logUseConsoleColor")]
+        [Category("Log"), DisplayName("Use Console Color")]
+        [Description("Enable use of colored text when logging to the console (requires new scan).")]
+        [DefaultValue(true)]
+        public bool LogUseConsoleColor { get; set; } = true;
+
 
         // 30f for Frogger 2 and Chicken Run, 60f for Action Man 2.
         [JsonProperty("advancedBFFFrameRate")]
@@ -346,6 +358,9 @@ namespace PSXPrev
         [JsonProperty("scanOptionsShowAdvanced"), Browsable(false)]
         public bool ShowAdvancedScanOptions { get; set; } = false;
 
+        //[JsonProperty("exportOptionsShowAdvanced"), Browsable(false)]
+        //public bool ShowAdvancedExportOptions { get; set; } = false;
+
         [JsonProperty("scanOptions"), Browsable(false)]
         public ScanOptions ScanOptions { get; set; } = new ScanOptions();
 
@@ -370,9 +385,20 @@ namespace PSXPrev
         public List<ScanOptions> ScanHistory { get; set; } = new List<ScanOptions>();
 
 
+        // Used for version upgrades to read properties that are no longer present in the current class
+        [JsonExtensionData(ReadData = true, WriteData = false), Browsable(false)]
+        private Dictionary<string, JToken> _unknownData;
+
+        //[OnDeserialized]
+        //private void OnDeserializedMethod(StreamingContext context)
+        //{
+        //}
+
+
         public void AddScanHistory(ScanOptions history)
         {
             history = history.Clone();
+            history.Validate();
             history.IsReadOnly = true; // Mark as ReadOnly so that equality checks can be cached
 
             // Check for duplicate scan histories
@@ -404,20 +430,26 @@ namespace PSXPrev
         {
             // Count how many histories are bookmarked, and use that to determine how many others to remove.
             var bookmarkedCount = 0;
-            foreach (var history in ScanHistory)
+            if (CountBookmarksTowardsScanHistoryMax)
             {
-                if (history.IsBookmarked)
+                foreach (var history in ScanHistory)
                 {
-                    bookmarkedCount++;
+                    if (history.IsBookmarked)
+                    {
+                        bookmarkedCount++;
+                    }
                 }
             }
 
             var removeStartIndex = Math.Max(0, ScanHistoryMax - bookmarkedCount);
+            if (ScanHistoryMax > 0 && removeStartIndex == 0)
+            {
+                removeStartIndex = 1; // Always preserve the most-recent scan history, even if we overflow.
+            }
 
             // Remove non-bookmarked overflow
             var nonBookmarkedIndex = 0;
-            // Always preserve the most-recent scan history, even if we overflow.
-            for (var i = 1; i < ScanHistory.Count; i++)
+            for (var i = 0; i < ScanHistory.Count; i++)
             {
                 var history = ScanHistory[i];
                 if (!history.IsBookmarked)
@@ -506,6 +538,18 @@ namespace PSXPrev
                     LightIntensity /= 100f; // Light intensity is no longer stored as a percent.
                 }
             }
+
+            // Perform validation and handle version upgrades for all nested objects
+            ScanOptions?.ValidateDeserialization(Version);
+            ExportModelOptions?.ValidateDeserialization(Version);
+            if (ScanHistory != null)
+            {
+                foreach (var scanHistory in ScanHistory)
+                {
+                    scanHistory?.ValidateDeserialization(Version);
+                }
+            }
+
             Version = CurrentVersion;
 
 
@@ -632,6 +676,7 @@ namespace PSXPrev
         public Settings Clone()
         {
             var settings = (Settings)MemberwiseClone();
+            settings._unknownData = null;
             settings.ColorDialogCustomColors = (Color[])settings.ColorDialogCustomColors?.Clone() ?? new Color[0];
             settings.ScanOptions = settings.ScanOptions?.Clone() ?? new ScanOptions();
             settings.ExportModelOptions = settings.ExportModelOptions?.Clone() ?? new ExportModelOptions();
@@ -639,6 +684,8 @@ namespace PSXPrev
             settings.ScanHistory = new List<ScanOptions>((IEnumerable<ScanOptions>)settings.ScanHistory ?? new ScanOptions[0]);
             return settings;
         }
+
+        object ICloneable.Clone() => Clone();
 
         public bool Save()
         {
@@ -809,7 +856,7 @@ namespace PSXPrev
             return value.A != 255 ? @default : value;
         }
 
-        private static TEnum ValidateEnum<TEnum>(TEnum value, TEnum @default)
+        internal static TEnum ValidateEnum<TEnum>(TEnum value, TEnum @default)
         {
             return !Enum.IsDefined(typeof(TEnum), value) ? @default : value;
         }

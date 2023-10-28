@@ -5,12 +5,14 @@ namespace PSXPrev.Common.Parsers
     // Not supported yet, since we have no way to store loose palettes.
     public class CLTParser : FileOffsetScanner
     {
+        public const string FormatNameConst = "CLT";
+
         public CLTParser(TextureAddedAction textureAdded)
             : base(textureAdded: textureAdded)
         {
         }
 
-        public override string FormatName => "CLT";
+        public override string FormatName => FormatNameConst;
 
         protected override void Parse(BinaryReader reader)
         {

@@ -32,11 +32,38 @@ namespace PSXPrev.Common.Utils
         public ConsoleColor ErrorColor { get; set; }
         public ConsoleColor ExceptionPrefixColor { get; set; }
 
-        public Logger(bool logToFile = false, bool logToConsole = true, bool useConsoleColor = true)
+        public Logger(bool logToFile = false, bool logToConsole = true)
         {
             LogToFile = logToFile;
             LogToConsole = logToConsole;
-            UseConsoleColor = useConsoleColor;
+            ReadSettings(Settings.Defaults);
+        }
+
+        ~Logger()
+        {
+            Dispose(false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+            }
+            Close();
+        }
+
+        public void Flush()
+        {
+            if (_logToFile && _writer != null)
+            {
+                _writer.Flush();
+            }
         }
 
         public void ReadSettings(Settings settings)
@@ -46,6 +73,7 @@ namespace PSXPrev.Common.Utils
             WarningColor = settings.LogWarningColor;
             ErrorColor = settings.LogErrorColor;
             ExceptionPrefixColor = settings.LogExceptionPrefixColor;
+            UseConsoleColor = settings.LogUseConsoleColor;
         }
 
         public void WriteSettings(Settings settings)
@@ -55,6 +83,7 @@ namespace PSXPrev.Common.Utils
             settings.LogWarningColor = WarningColor;
             settings.LogErrorColor = ErrorColor;
             settings.LogExceptionPrefixColor = ExceptionPrefixColor;
+            settings.LogUseConsoleColor = UseConsoleColor;
         }
 
         private void Open()
@@ -70,15 +99,17 @@ namespace PSXPrev.Common.Utils
         {
             if (_writer != null)
             {
-                _writer.Dispose();
-                _writer = null;
-                _logToFile = false;
+                try
+                {
+                    _writer.Flush();
+                }
+                finally
+                {
+                    _writer.Dispose();
+                    _writer = null;
+                    _logToFile = false;
+                }
             }
-        }
-
-        public void Dispose()
-        {
-            Close();
         }
 
 

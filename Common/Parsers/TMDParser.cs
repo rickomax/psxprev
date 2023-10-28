@@ -7,6 +7,8 @@ namespace PSXPrev.Common.Parsers
 {
     public class TMDParser : FileOffsetScanner
     {
+        public const string FormatNameConst = "TMD";
+
         private ObjBlock[] _objBlocks;
         private Vector3[] _vertices;
         private Vector3[] _normals;
@@ -16,7 +18,7 @@ namespace PSXPrev.Common.Parsers
         {
         }
 
-        public override string FormatName => "TMD";
+        public override string FormatName => FormatNameConst;
 
         protected override void Parse(BinaryReader reader)
         {

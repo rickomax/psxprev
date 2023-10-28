@@ -8,12 +8,14 @@ namespace PSXPrev.Common.Parsers
 {
     public class ANParser : FileOffsetScanner
     {
+        public const string FormatNameConst = "AN";
+
         public ANParser(AnimationAddedAction animationAdded)
             : base(animationAdded: animationAdded)
         {
         }
 
-        public override string FormatName => "AN";
+        public override string FormatName => FormatNameConst;
 
         protected override void Parse(BinaryReader reader)
         {

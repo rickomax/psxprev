@@ -7,6 +7,7 @@ using Microsoft.WindowsAPICodePack.Dialogs;
 using PSXPrev.Common;
 using PSXPrev.Common.Animator;
 using PSXPrev.Common.Exporters;
+using PSXPrev.Forms.Utils;
 
 namespace PSXPrev.Forms
 {
@@ -21,8 +22,9 @@ namespace PSXPrev.Forms
             set
             {
                 _entities = value;
-                var plural = _entities.Length != 1 ? "s" : string.Empty;
-                exportingModelsLabel.Text = $"Exporting {_entities.Length} Model{plural}";
+                var count = _entities?.Length ?? 0;
+                var plural = count != 1 ? "s" : string.Empty;
+                exportingModelsLabel.Text = $"Exporting {count} Model{plural}";
             }
         }
 
@@ -53,17 +55,14 @@ namespace PSXPrev.Forms
         public ExportModelsForm()
         {
             InitializeComponent();
+
+            // Set default values for combo boxes
+            optionModelGroupingComboBox.SelectedIndex = 0;
         }
 
 
         private void ExportModelsForm_Load(object sender, EventArgs e)
         {
-            toolTip.SetToolTip(texturesIndividualRadioButton, "Required texture pages (and optionally tiled textures)\nwill be exported as individual files");
-            toolTip.SetToolTip(texturesSingleRadioButton, "Required textures pages (and optionally tiled textures)\nwill be combined into a single file");
-            toolTip.SetToolTip(optionRedrawTexturesCheckBox, "Models with associated textures will draw these\ntextures to the VRAM pages before exporting");
-            toolTip.SetToolTip(optionShareTexturesCheckBox, "All exported models will reference the same\nexported texture files");
-            toolTip.SetToolTip(optionMergeModelsCheckBox, "The geometry for all models will be merged\nand exported as a single file");
-
             // Use the last export options
             ReadSettings(Settings.Instance, Settings.Instance.ExportModelOptions);
         }
@@ -104,11 +103,15 @@ namespace PSXPrev.Forms
                 {
                     texturesIndividualRadioButton.Checked = true;
                 }*/
-                texturesIndividualRadioButton.Enabled = _format != ExportModelOptions.PLY && _format != ExportModelOptions.DAE;
+                texturesIndividualRadioButton.Enabled = _format != ExportModelFormats.PLY && _format != ExportModelFormats.DAE;
 
-                optionExperimentalVertexColorCheckBox.Enabled = _format == ExportModelOptions.OBJ;
+                optionExperimentalVertexColorCheckBox.Enabled = _format == ExportModelFormats.OBJ;
 
-                animationsGroupBox.Enabled = _format == ExportModelOptions.GLTF2;
+                optionVertexIndexReuseCheckBox.Enabled = _format == ExportModelFormats.OBJ || _format == ExportModelFormats.DAE;
+
+                optionHumanReadableCheckBox.Enabled = _format == ExportModelFormats.GLTF2 || _format == ExportModelFormats.DAE;
+
+                animationsGroupBox.Enabled = _format == ExportModelFormats.GLTF2;
 
                 animationsOffRadioButton.Checked = true; // Always turn off animations when switching formats?
             }
@@ -162,12 +165,27 @@ namespace PSXPrev.Forms
                 RedrawTextures = optionRedrawTexturesCheckBox.Checked,
                 SingleTexture = texturesSingleRadioButton.Checked,
 
-                ModelGrouping = optionMergeModelsCheckBox.Checked ? ExportModelGrouping.GroupAllModels : ExportModelGrouping.Default,
                 AttachLimbs = optionAttachLimbsCheckBox.Checked,
                 ExperimentalOBJVertexColor = optionExperimentalVertexColorCheckBox.Checked,
+                VertexIndexReuse = optionVertexIndexReuseCheckBox.Checked,
+                ReadableFormat = optionHumanReadableCheckBox.Checked,
+                StrictFloatFormat = optionStrictFloatsCheckBox.Checked,
 
                 ExportAnimations = !animationsOffRadioButton.Checked,
             };
+            switch (optionModelGroupingComboBox.SelectedIndex)
+            {
+                case 0:
+                default:
+                    options.ModelGrouping = ExportModelGrouping.Default;
+                    break;
+                case 1:
+                    options.ModelGrouping = ExportModelGrouping.SplitSubModelsByTMDID;
+                    break;
+                case 2:
+                    options.ModelGrouping = ExportModelGrouping.GroupAllModels;
+                    break;
+            }
 
             return options;
         }
@@ -183,18 +201,15 @@ namespace PSXPrev.Forms
             _format = options.Format ?? ExportModelOptions.DefaultFormat;
 
             // Update Format radio buttons
-            foreach (var control in formatGroupBox.Controls)
+            foreach (var radioButton in formatGroupBox.EnumerateAllControlsOfType<RadioButton>())
             {
-                if (control is RadioButton radioButton)
+                var tag = (string)radioButton.Tag;
+                if (tag == _format)
                 {
-                    var tag = (string)radioButton.Tag;
-                    if (string.Equals(tag, _format, StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        radioButton.Checked = true;
-                        // Force checked changed event in-case this is already the checked radio button.
-                        formatRadioButtons_CheckedChanged(radioButton, EventArgs.Empty);
-                        break;
-                    }
+                    radioButton.Checked = true;
+                    // Force checked changed event in-case this is already the checked radio button.
+                    formatRadioButtons_CheckedChanged(radioButton, EventArgs.Empty);
+                    break;
                 }
             }
 
@@ -212,9 +227,9 @@ namespace PSXPrev.Forms
                 texturesSingleRadioButton.Checked = true;
             }
             // Force checked changed event in-case this is already the checked radio button.
-            foreach (var control in texturesGroupBox.Controls)
+            foreach (var radioButton in texturesGroupBox.EnumerateAllControlsOfType<RadioButton>())
             {
-                if (control is RadioButton radioButton && radioButton.Checked)
+                if (radioButton.Checked)
                 {
                     texturesRadioButtons_CheckedChanged(radioButton, EventArgs.Empty);
                     break;
@@ -226,9 +241,24 @@ namespace PSXPrev.Forms
             optionRedrawTexturesCheckBox.Checked = options.RedrawTextures;
 
             // Update Options check boxes
-            optionMergeModelsCheckBox.Checked = (options.ModelGrouping == ExportModelGrouping.GroupAllModels);
+            switch (options.ModelGrouping)
+            {
+                case ExportModelGrouping.Default:
+                default:
+                    optionModelGroupingComboBox.SelectedIndex = 0;
+                    break;
+                case ExportModelGrouping.SplitSubModelsByTMDID:
+                    optionModelGroupingComboBox.SelectedIndex = 1;
+                    break;
+                case ExportModelGrouping.GroupAllModels:
+                    optionModelGroupingComboBox.SelectedIndex = 2;
+                    break;
+            }
             optionAttachLimbsCheckBox.Checked = options.AttachLimbs;
             optionExperimentalVertexColorCheckBox.Checked = options.ExperimentalOBJVertexColor;
+            optionVertexIndexReuseCheckBox.Checked = options.VertexIndexReuse;
+            optionHumanReadableCheckBox.Checked = options.ReadableFormat;
+            optionStrictFloatsCheckBox.Checked = options.StrictFloatFormat;
 
             // Update Animations radio buttons
             if (!options.ExportAnimations)
@@ -240,9 +270,9 @@ namespace PSXPrev.Forms
                 animationsOnRadioButton.Checked = true;
             }
             // Force checked changed event in-case this is already the checked radio button.
-            foreach (var control in animationsGroupBox.Controls)
+            foreach (var radioButton in animationsGroupBox.EnumerateAllControlsOfType<RadioButton>())
             {
-                if (control is RadioButton radioButton && radioButton.Checked)
+                if (radioButton.Checked)
                 {
                     animationsRadioButtons_CheckedChanged(radioButton, EventArgs.Empty);
                     break;
@@ -259,27 +289,29 @@ namespace PSXPrev.Forms
         }
 
 
-        public static void Export(ExportModelOptions options, RootEntity[] entities, Animation[] animations = null)
+        public static int Export(ExportModelOptions options, RootEntity[] entities, Animation[] animations = null)
         {
+            var count = 0;
             switch (options.Format)
             {
-                case ExportModelOptions.OBJ:
+                case ExportModelFormats.OBJ:
                     var objExporter = new OBJExporter();
-                    objExporter.Export(options, entities);
+                    count = objExporter.Export(options, entities);
                     break;
-                case ExportModelOptions.PLY:
+                case ExportModelFormats.PLY:
                     var plyExporter = new PLYExporter();
-                    plyExporter.Export(options, entities);
+                    count = plyExporter.Export(options, entities);
                     break;
-                case ExportModelOptions.GLTF2:
+                case ExportModelFormats.GLTF2:
                     var glTF2Exporter = new glTF2Exporter();
-                    glTF2Exporter.Export(options, entities, animations);
+                    count = glTF2Exporter.Export(options, entities, animations);
                     break;
-                case ExportModelOptions.DAE:
+                case ExportModelFormats.DAE:
                     var daeExporter = new DAEExporter();
-                    daeExporter.Export(options, entities);
+                    count = daeExporter.Export(options, entities);
                     break;
             }
+            return count;
         }
 
         public static ExportModelOptions Show(IWin32Window owner, RootEntity[] entities, Animation[] animations = null)

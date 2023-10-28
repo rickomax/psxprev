@@ -7,6 +7,8 @@ namespace PSXPrev.Common.Parsers
 {
     public class PMDParser : FileOffsetScanner
     {
+        public const string FormatNameConst = "PMD";
+
         private readonly Dictionary<RenderInfo, List<Triangle>> _groupedTriangles = new Dictionary<RenderInfo, List<Triangle>>();
         private readonly List<ModelEntity> _models = new List<ModelEntity>();
 
@@ -15,12 +17,12 @@ namespace PSXPrev.Common.Parsers
         {
         }
 
-        public override string FormatName => "PMD";
+        public override string FormatName => FormatNameConst;
 
         protected override void Parse(BinaryReader reader)
         {
             var version = reader.ReadUInt32();
-            if (version == 0x00000042)
+            if (Limits.IgnorePMDVersion || version == 0x00000042)
             {
                 ParsePMD(reader);
             }

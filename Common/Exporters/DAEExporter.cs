@@ -18,7 +18,7 @@ namespace PSXPrev.Common.Exporters
         private ExportModelOptions _options;
         private string _baseName;
 
-        public void Export(ExportModelOptions options, RootEntity[] entities)
+        public int Export(ExportModelOptions options, RootEntity[] entities)
         {
             _options = options?.Clone() ?? new ExportModelOptions();
             // Force any required options for this format here, before calling Validate.
@@ -48,6 +48,8 @@ namespace PSXPrev.Common.Exporters
             _exportedTextures = null;
             _modelPreparer.Dispose();
             _modelPreparer = null;
+
+            return groups.Length;
         }
 
         private void ExportEntities(int index, Tuple<int, long> group, RootEntity[] entities, List<ModelEntity> models)

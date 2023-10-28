@@ -4,6 +4,7 @@
     {
         // Strictness settings
         public static bool IgnoreHMDVersion;
+        public static bool IgnorePMDVersion;
         public static bool IgnoreTIMVersion;
         public static bool IgnoreTMDVersion;
 

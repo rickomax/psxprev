@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using PSXPrev.Common.Utils;
 
 namespace PSXPrev.Common.Exporters
@@ -12,15 +15,32 @@ namespace PSXPrev.Common.Exporters
         GroupAllModels,
     }
 
-    [JsonObject]
-    public class ExportModelOptions : IEquatable<ExportModelOptions>
+    public static class ExportModelFormats
     {
-        public const string DefaultFormat = OBJ;
-
         public const string OBJ = "OBJ";
         public const string PLY = "PLY";
-        public const string DAE = "DAE";
         public const string GLTF2 = "glTF2";
+        public const string DAE = "DAE";
+
+        public static readonly string[] All =
+        {
+            OBJ, PLY, GLTF2, DAE,
+        };
+
+        public static int Count => All.Length;
+
+        public static bool IsSupported(string format)
+        {
+            return Array.IndexOf(All, format) != -1;
+        }
+    }
+
+    [JsonObject]
+    public class ExportModelOptions : IEquatable<ExportModelOptions>, ICloneable
+    {
+        public static readonly ExportModelOptions Defaults = new ExportModelOptions { IsReadOnly = true };
+
+        public const string DefaultFormat = ExportModelFormats.OBJ;
 
 
         // Equality checking and optimization.
@@ -83,7 +103,7 @@ namespace PSXPrev.Common.Exporters
         public bool AttachLimbs { get; set; } = true;
         [JsonProperty("vertexIndexReuse")]
         public bool VertexIndexReuse { get; set; } = true;
-        [JsonProperty("readableFormat")]
+        [JsonProperty("humanReadable")]
         public bool ReadableFormat { get; set; } = true;
         [JsonProperty("strictFloatFormat")]
         public bool StrictFloatFormat { get; set; } = true;
@@ -95,6 +115,34 @@ namespace PSXPrev.Common.Exporters
         //public bool ExportTickedAnimations { get; set; }
         [JsonProperty("exportAnimations")]
         public bool ExportAnimations { get; set; }
+
+
+
+        // Used for version upgrades to read properties that are no longer present in the current class
+        [JsonExtensionData(ReadData = true, WriteData = false)]
+        private Dictionary<string, JToken> _unknownData;
+
+        //[OnDeserialized]
+        //private void OnDeserializedMethod(StreamingContext context)
+        //{
+        //}
+
+        public void ValidateDeserialization(uint version)
+        {
+            if (Format == null || !ExportModelFormats.IsSupported(Format))
+            {
+                Format = DefaultFormat;
+            }
+
+            if (Path == null)
+            {
+                Path = string.Empty;
+            }
+
+            ModelGrouping = Settings.ValidateEnum(ModelGrouping, Defaults.ModelGrouping);
+
+            _unknownData = null; // We don't need this anymore
+        }
 
 
         // Helpers
@@ -131,8 +179,12 @@ namespace PSXPrev.Common.Exporters
 
         public ExportModelOptions Clone()
         {
-            return (ExportModelOptions)MemberwiseClone();
+            var options = (ExportModelOptions)MemberwiseClone();
+            options._unknownData = null;
+            return options;
         }
+
+        object ICloneable.Clone() => Clone();
 
         // Normalize settings for equality checks
         private void Normalize()
@@ -140,8 +192,8 @@ namespace PSXPrev.Common.Exporters
             DisplayName = null;
             IsBookmarked = false;
 
-            Path = Path?.ToLower();
-            Name = Name?.Trim()?.ToLower();
+            Path = Path?.ToLower() ?? string.Empty;
+            Name = !string.IsNullOrWhiteSpace(Name) ? Name.Trim().ToLower() : string.Empty;
         }
 
         // It's easier to manage equality by *not* having to update it every time settings are changed.

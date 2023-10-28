@@ -710,21 +710,15 @@ namespace PSXPrev.Common.Exporters
                     var row    = cellIndex / _countX;
                     foreach (var texture in cellTextures)
                     {
-                        // We can't just use this, since we still need to support disabling the UV alignment fix.
-                        //var uvScalar = (float)VRAM.PageSize;
-                        //var width  = texture.RenderWidth;
-                        //var height = texture.RenderHeight;
                         var uvScalar = GeomMath.UVScalar;
-                        var width  = !texture.IsVRAMPage ? texture.Width  : (int)uvScalar; //VRAM.PageSize;
-                        var height = !texture.IsVRAMPage ? texture.Height : (int)uvScalar; //VRAM.PageSize;
                         var packedInfo = new PackedTextureInfo
                         {
                             //Texture = texture,
                             // Keep float casts in-case we replace uvScalar with VRAM.PageSize.
                             OffsetX = ((float)texture.X / uvScalar + column) / _countX,
                             OffsetY = ((float)texture.Y / uvScalar + row)    / _countY,
-                            ScalarX = (width  > 0 ? ((float)width  / (uvScalar * _countX)) : (1f / _countX)),
-                            ScalarY = (height > 0 ? ((float)height / (uvScalar * _countY)) : (1f / _countY)),
+                            ScalarX = ((float)texture.RenderWidth  / uvScalar) / _countX,
+                            ScalarY = ((float)texture.RenderHeight / uvScalar) / _countY,
                         };
                         _packedTextureInfos.Add(texture, packedInfo);
                     }
@@ -852,7 +846,7 @@ namespace PSXPrev.Common.Exporters
 
             public int TexturePage => OriginalTexture.TexturePage;
 
-            public bool IsTiled => Width != 0f && Height != 0f;
+            public bool IsTiled => Width != 0f || Height != 0f;
 
             public TiledTextureInfo(Texture originalTexture, Vector4 tiledArea)
             {
