@@ -557,8 +557,8 @@ namespace PSXPrev.Forms.Controls
             }
             else
             {
-                width  = _texture?.RenderWidth  ?? 0;
-                height = _texture?.RenderHeight ?? 0;
+                width  = _texture?.Width  ?? 0;
+                height = _texture?.Height ?? 0;
             }
             if (scaled)
             {
@@ -633,7 +633,7 @@ namespace PSXPrev.Forms.Controls
                 }
                 else
                 {
-                    if (x >= 0 && y >= 0 && x < _texture.RenderWidth && y < _texture.RenderHeight)
+                    if (x >= 0 && y >= 0 && x < _texture.Width && y < _texture.Height)
                     {
                         position = new Point(x, y);
                         color = _texture.GetPixel(x, y, out stp, out transparent, out paletteIndex);
@@ -772,7 +772,7 @@ namespace PSXPrev.Forms.Controls
         {
             GetPreviewSize(true, out var width, out var height);
             var dstRect = new Rectangle(0, 0, width, height);
-            var srcRect = new Rectangle(0, 0, _texture.RenderWidth, _texture.RenderHeight);
+            var srcRect = new Rectangle(0, 0, _texture.Width, _texture.Height);
 
             // Despite what it sounds like, we want Half. Otherwise we end up drawing half a pixel back.
             graphics.PixelOffsetMode = PixelOffsetMode.Half;
@@ -800,8 +800,8 @@ namespace PSXPrev.Forms.Controls
 
         private Bitmap UpdateSemiTransparencyCache(RectangleF? clipBounds = null)
         {
-            var imageWidth  = _texture.RenderWidth;
-            var imageHeight = _texture.RenderHeight;
+            var imageWidth  = _texture.Width;
+            var imageHeight = _texture.Height;
             if (!GetClipRect(clipBounds, previewPanel, imageWidth, imageHeight, _scale, out var clipRect, out var viewRect))
             {
                 return null; // Nothing to draw
@@ -883,7 +883,7 @@ namespace PSXPrev.Forms.Controls
             Pen pen = null;
             try
             {
-                var clipRect = optionalClipRect ?? new Rectangle(0, 0, _texture.RenderWidth, _texture.RenderHeight);
+                var clipRect = optionalClipRect ?? new Rectangle(0, 0, _texture.Width, _texture.Height);
 
                 for (var y = clipRect.Top; y < clipRect.Bottom; y++)
                 {
@@ -967,8 +967,8 @@ namespace PSXPrev.Forms.Controls
             // To optimize drawing all UV lines in one go, we limit the size of the overlay bitmap to the size of a VRAM page.
             // If the texture is larger than this, then we clip everything past that, since it holds no meaning.
             // Additionally, if the texture position causes the texture size to end outside the VRAM page, we clip that too.
-            var endX = Math.Min(VRAM.PageSize, (_texture.X + _texture.RenderWidth));
-            var endY = Math.Min(VRAM.PageSize, (_texture.Y + _texture.RenderHeight));
+            var endX = Math.Min(VRAM.PageSize, (_texture.X + _texture.Width));
+            var endY = Math.Min(VRAM.PageSize, (_texture.Y + _texture.Height));
             var vramWidth  = (endX - _texture.X);
             var vramHeight = (endY - _texture.Y);
             // No need to check clip rect, since we always cache the entire set of UV lines at once.
