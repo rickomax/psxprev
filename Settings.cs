@@ -311,6 +311,12 @@ namespace PSXPrev
         [DefaultValue(1.0f)]
         public float AdvancedBFFScaleDivisor { get; set; } = 1.0f;
 
+        [JsonProperty("advancedHMDExtraAnimations")]
+        [Category("Parsers"), DisplayName("HMD Extra Animations")]
+        [Description("Some HMD models will define a single animation with multiple possibilities. This will attempt to include all of those possibilities as separate animations. Note that this will break models where more than one animation is defined. (Experimental)")]
+        [DefaultValue(false)]
+        public bool AdvancedHMDExtraAnimations { get; set; } = false;
+
         // The real divisor is supposedly 4096f, but that creates VERY SMALL models.
         [JsonProperty("advancedMODScaleDivisor")]
         [Category("Parsers"), DisplayName("MOD Scale Divisor")]

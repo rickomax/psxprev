@@ -797,6 +797,65 @@ namespace PSXPrev.Common.Parsers
             var descriptors = new Dictionary<uint, uint>();
             var interpTypes = new Dictionary<uint, uint>();
 
+            var extraAnimations = Settings.Instance.AdvancedHMDExtraAnimations;
+            var knownSIDs = new List<uint>();
+            // This is an assumption that relies on the param section always being placed after the control section
+            var instructionCount = (paramTop - ctrlTop) / 4;
+            if (extraAnimations && instructionCount <= Limits.MaxHMDAnimInstructions)
+            {
+                reader.BaseStream.Seek(_offset + ctrlTop, SeekOrigin.Begin);
+
+                // Find all Stream IDs used by the animation
+                var knownSIDsSet = new HashSet<uint>();
+                for (uint idx = 0; idx < instructionCount; idx++)
+                {
+                    var descriptor = reader.ReadUInt32();
+                    // We're reading all descriptors so we may as well cache them now
+                    descriptors.Add(idx, descriptor);
+
+                    var descriptorType = (descriptor >> 30) & 0x3;
+                    var code = (descriptor >> 23) & 0x7f;
+                    if (descriptorType == 0x2 || (descriptorType == 0x3 && code == 1)) // Jump or End
+                    {
+                        // Cnd parameter is the same for both Jump and End instructions
+                        var cnd = (descriptor >> 16) & 0x7f;
+                        if (cnd != 0)
+                        {
+                            var cnd_sid = (cnd == 127 ? 0 : cnd);
+                            knownSIDsSet.Add(cnd_sid);
+                        }
+
+                        // Include the Dst parameter if we're a Jump instruction, and the Dst Stream ID would be assigned
+                        var dst = code;
+                        if (descriptorType == 0x2 && (cnd != 0 || dst != 0))
+                        {
+                            knownSIDsSet.Add(dst);
+                        }
+                    }
+                }
+                knownSIDs.AddRange(knownSIDsSet);
+                knownSIDs.Sort();
+                // Some animations use SIDs that don't appear anywhere in the instructions,
+                // so add one SID that hasn't been seen before.
+                // It doesn't matter which SID it is, but zero should be avoided if possible
+                // We don't need to add one if no SIDs have been observed, because the existing animations will cover all possibilities
+                if (knownSIDs.Count > 0)
+                {
+                    //var sidStart = (knownSIDs.Count > 0 && knownSIDs[0] != 0) ? 1u : 0u;
+                    for (uint i = 0; i <= (uint)knownSIDs.Count; i++)
+                    {
+                        var sid = i;// + sidStart;
+                        if (i == knownSIDs.Count || knownSIDs[(int)i] != sid)
+                        {
+                            knownSIDs.Insert((int)i, sid);
+                            break;
+                        }
+                    }
+                }
+
+                reader.BaseStream.Seek(primitivePosition, SeekOrigin.Begin);
+            }
+
             // TGT = 0:
             // Coordinate update driver
             for (uint i = 0; i < dataCount; i++)
@@ -858,6 +917,26 @@ namespace PSXPrev.Common.Parsers
                     startSID[j] = reader.ReadByte();
                     traveling[j] = reader.ReadByte();
                     //Program.Logger.WriteLine($"[{i}][{j}] idx={startIdx[j]} sid={startSID[j]}");
+                }
+                // todo: This doesn't account for animations with multiple sequences for other objects.
+                // So this setting may break normal animations.
+                // The solution would be to count the max number of sequences beforehand and only add sequences after that.
+                if (extraAnimations && sequenceCount == 1)
+                {
+                    // Preserve first Stream ID, and add alternative versions of the animation where each knownSID is used instead
+                    // Always include all knownSIDs, even if one of them is the same as startSID[0]
+                    // This is because we can't guarantee that this animation uses the same startSID[0] for all animation objects,
+                    // (the animation may be different if we ignored duplicates)
+                    sequenceCount += (uint)knownSIDs.Count;
+                    Array.Resize(ref startIdx, (int)sequenceCount);
+                    Array.Resize(ref startSID, (int)sequenceCount);
+                    Array.Resize(ref traveling, (int)sequenceCount);
+                    for (var j = 0; j < knownSIDs.Count; j++)
+                    {
+                        startIdx[j + 1] = startIdx[0];
+                        startSID[j + 1] = (byte)knownSIDs[j];
+                        traveling[j + 1] = traveling[0];
+                    }
                 }
 
                 for (var j = 0; j < sequenceCount; j++)

@@ -7,6 +7,39 @@ using PSXPrev.Common.Animator;
 
 namespace PSXPrev.Common.Parsers
 {
+    /*public struct HMDInstruction
+    {
+        public uint Value;
+
+        public HMDInstruction(uint value)
+        {
+            Value = value;
+        }
+
+        public bool IsNormal  => ((Value >> 30) & 0x2) == 0;
+        public bool IsJump    => ((Value >> 30) & 0x3) == 0x2;
+        public bool IsControl => ((Value >> 30) & 0x3) == 0x3;
+
+        // Normal instruction:
+        public ushort ParamIndex => (ushort)((Value >> 0) & 0xffff); // Index to parameter data for key frame referred to by sequence descriptor.
+        public byte NextTFrame   => (byte)((Value >> 16) & 0xff); // Frame number of next sequence descriptor (int).
+        public byte InterpIndex  => (byte)((Value >> 24) & 0x7f); // Index into interpolation table. Specifies function to be used.
+
+        // Jump instruction:
+        public ushort SeqIndex   => (ushort)((Value >> 0) & 0xffff); // Next control descriptor to jump to.
+        public byte Condition    => (byte)((Value >> 16) & 0x7f); // Stream ID conditional jump.
+        public byte Destination  => (byte)((Value >> 23) & 0x7f); // Stream ID destination of jump.
+
+        // Control instruction:
+        public byte Code         => (byte)((Value >> 23) & 0x7f);
+        public byte P1           => (byte)((Value >> 16) & 0x7f);
+        public ushort P2         => (ushort)((Value >> 0) & 0xffff);
+        public bool IsEnd        => Code == 1;
+        public bool IsWork       => Code == 2;
+
+        public bool IsConditional => Condition != 0;
+    }*/
+
     public static class HMDHelper
     {
         public static bool TryGetAnimInterpolationType(uint interpAlgo, bool scale, out InterpolationType interpType, bool allowUnsupported = false)
@@ -420,6 +453,7 @@ namespace PSXPrev.Common.Parsers
                     var color = used ? ConsoleColor.Red : unusedColor;
                     Write(color, $"0x{animationType:x08}");
                 }
+                Program.Logger.WriteLine();
             }
 
             reader.BaseStream.Seek(position, SeekOrigin.Begin);
