@@ -10,14 +10,16 @@ PSXPREV - PlayStation (PSX) Files Previewer/Extractor
 [![Discord](https://img.shields.io/discord/1126965151011184660.svg?style=flat&logo=discord&label=Discord&colorB=7389DC&link=https://discord.gg/Haan9wVdKB)](https://discord.gg/Haan9wVdKB)
 
 ---
+![Program Preview][Preview Action Man Skeleton]
 
-![Program Preview][Preview Planet DOB DOB]
-
-(Models from Planet DOB)
+(Models from Action Man 2: Destruction X)
 
 <details><summary>Old preview images</summary>
 
 ---
+##### Beta 0.9.9: Models from Planet DOB
+![Program Preview][Preview Planet DOB DOB]
+
 ##### Alpha 0.9.8.4: Models from Planet DOB
 ![Program Preview][Preview Planet DOB cast]
 
@@ -31,6 +33,7 @@ PSXPREV - PlayStation (PSX) Files Previewer/Extractor
 [Preview Space Shuttle]: <https://github.com/rickomax/psxprev/assets/9752430/20a11609-d75f-49ce-ad6c-84d458802082>
 [Preview Planet DOB cast]: <https://github.com/rickomax/psxprev/assets/12863984/3070bf42-33f1-42b1-b09f-48386390f397>
 [Preview Planet DOB DOB]: <https://github.com/rickomax/psxprev/assets/9752430/ba2da3bd-cfca-441b-9bcd-dc695a645530>
+[Preview Action Man Skeleton]: <https://github.com/rickomax/psxprev/assets/9752430/d87d0160-b6c1-4ff7-9e18-ce403d71e91b>
 
 ---
 
