@@ -50,16 +50,14 @@ Treat this as an experimental release and use this tool at your own risk. Warnin
 
 **Runtime Requirements:**
 - An OpenGL 3.0 compatible video card
-- .NET Framework 4.5
+- .NET Framework 4.5.1
 
 ---
 
 **Supported formats:**
-- Models: TMD, PMD, HMD, BFF\* (Blitz Games), MOD (Croc), PSX (Neversoft)
-- Textures: TIM, HMD
-- Animations: AN, TOD, VDF, HMD
-
-\* Format support is work-in-progress
+- Models: TMD, PMD, HMD, BFF (Blitz Games), PIL (Blitz Games), MOD (Croc), PSX (Neversoft)
+- Textures: TIM, HMD, SPT (Blitz Games), PSX (Neversoft)
+- Animations: AN, TOD, VDF, HMD, PIL (Blitz Games), PSX (Neversoft)
 
 **Usage:**
 A scanner window will be displayed when running the application without passing any command line arguments.
@@ -77,19 +75,21 @@ PSXPrev only finds files conformant to the file formats it's scanning for. PSXPr
 
 **Command line usage:**
 ```
-usage: PSXPrev <PATH> [FILTER="*.*"] [-help] [...options]
+usage: PSXPrev <PATH> [FILTER="*"] [-help] [...options]
 
 arguments:
   PATH   : folder or file path to scan
-  FILTER : wildcard filter for files to include (default: "*.*")
+  FILTER : wildcard filter for files to include (default: "*")
 
-scanner formats: (default: all formats)
+scanner formats: (default: all formats except SPT)
   -an        : scan for AN animations
-  -bff       : scan for BFF models
+  -bff       : scan for BFF models and animations (Blitz Games)
   -hmd       : scan for HMD models, textures, and animations
-  -mod/-croc : scan for MOD (Croc) models
+  -mod/-croc : scan for MOD models (Croc)
+  -pil       : scan for PIL models and animations (Blitz Games)
   -pmd       : scan for PMD models
-  -psx       : scan for PSX models (just another format)
+  -psx       : scan for PSX models, textures, and animations (Neversoft)
+  -spt       : scan for SPT textures (Blitz Games)
   -tim       : scan for TIM textures
   -tmd       : scan for TMD models
   -tod       : scan for TOD animations
@@ -97,6 +97,7 @@ scanner formats: (default: all formats)
 
 scanner options:
   -ignorehmdversion     : less strict scanning of HMD models
+  -ignorepmdversion     : less strict scanning of PMD models
   -ignoretimversion     : less strict scanning of TIM textures
   -ignoretmdversion     : less strict scanning of TMD models
   -align <ALIGN>        : scan offsets at specified increments
@@ -105,11 +106,13 @@ scanner options:
   -range [START],[STOP] : shorthand for [-start <START>] [-stop <STOP>]
   -startonly  : shorthand for -stop <START+1>
   -nextoffset : continue scan at end of previous match
+  -regex      : treat FILTER as Regular Expression
   -depthlast  : scan files at lower folder depths first
   -syncscan   : disable multi-threaded scanning per format
-  -scaniso    : scan contents of .iso files
-  -scanbin    : scan contents of raw PS1 .bin files (experimental)
-  -binalign   : scan .bin file offsets at sector size increments
+  -scaniso    : scan individual files inside .iso files
+  -scanbin    : scan individual files inside raw PS1 .bin files
+                not all files may be listed in a .bin file, use -databin as a fallback
+  -databin    : scan data contents of raw PS1 .bin files
   -binsector <START>,<SIZE> : change sector reading of .bin files (default: 24,2048)
                               combined values must not exceed 2352
 
@@ -117,10 +120,8 @@ log options:
   -log       : write output to log file
   -debug     : output file format details and other information
   -error     : show error (exception) messages when reading files
-  -nocolor   : disable colored console output
   -noverbose/-quiet : don't write output to console
 
 program options:
   -drawvram  : draw all loaded textures to VRAM (not advised when scanning many files)
-  -olduv     : use old UV alignment that less-accurately matches the PlayStation
 ```
