@@ -2645,6 +2645,9 @@ namespace PSXPrev.Forms
                 EnterDialog();
                 try
                 {
+                    // Write unsaved changes to the settings so that we don't lose them when writing scanner options to file.
+                    WriteSettings(Settings.Instance);
+
                     var options = ScannerForm.Show(this);
                     if (options != null)
                     {
@@ -2841,6 +2844,9 @@ namespace PSXPrev.Forms
             EnterDialog();
             try
             {
+                // Write unsaved changes to the settings so that we don't lose them when writing export options to file.
+                WriteSettings(Settings.Instance);
+
                 var options = ExportModelsForm.Show(this, entities, animations);
                 if (options != null)
                 {
