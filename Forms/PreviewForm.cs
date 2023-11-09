@@ -5014,7 +5014,13 @@ namespace PSXPrev.Forms
             var message = "PSXPrev - PlayStation (PSX) Files Previewer/Extractor\n" +
                           "\u00a9 PSXPrev Contributors - 2020-2023\n" +
                           $"Program Version {GetVersionString()}\n" +
-                          $"GLSL Version {Shader.GLSLVersion} ({jointsSupportStr})";
+                          $"GLSL Version {Shader.GLSLVersion} ({jointsSupportStr})\n" +
+#if ENABLE_CLIPBOARD
+                          "Clipboard Support Enabled"
+#else
+                          "Clipboard Support Disabled"
+#endif
+                          ;
             ShowMessageBox(message, "About", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
